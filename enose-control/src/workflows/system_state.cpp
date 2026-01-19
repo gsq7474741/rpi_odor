@@ -2,6 +2,8 @@
 #include "hal/actuator_driver.hpp"
 #include <spdlog/spdlog.h>
 #include <format>
+#include <thread>
+#include <chrono>
 
 namespace workflows {
 
@@ -46,7 +48,7 @@ const PeripheralState SystemState::STATE_DEFINITIONS[] = {
         // 阀门
         .valve_waste = 0,       // 关闭
         .valve_pinch = 1,       // 液路 (1=液路, 0=气路)
-        .valve_air = 0,         // 排气 (指向大气)
+        .valve_air = 0,         // 排气 (0=大气)
         .valve_outlet = 0,      // 开启 (反向逻辑, 0=开)
         // 泵
         .air_pump_pwm = 0.0f,   // 停止
@@ -57,6 +59,23 @@ const PeripheralState SystemState::STATE_DEFINITIONS[] = {
         .pump_5 = PumpState::STOPPED,
         // 加热器
         .heater_chamber = 0.0f, // 关闭
+    },
+    // SAMPLE (采样状态): 排废关, 夹管阀气路, 出气阀开, 三通阀指向气室, 气泵开
+    {
+        // 阀门
+        .valve_waste = 0,       // 关闭
+        .valve_pinch = 0,       // 气路 (0=气路)
+        .valve_air = 1,         // 气室 (1=气室)
+        .valve_outlet = 0,      // 开启 (反向逻辑, 0=开)
+        // 泵
+        .air_pump_pwm = 1.0f,   // 100%
+        .cleaning_pump = 0.0f,  // 停止
+        .pump_2 = PumpState::STOPPED,
+        .pump_3 = PumpState::STOPPED,
+        .pump_4 = PumpState::STOPPED,
+        .pump_5 = PumpState::STOPPED,
+        // 加热器
+        .heater_chamber = 0.0f, // 保持
     },
 };
 
@@ -130,7 +149,24 @@ void SystemState::apply_peripheral_state(const PeripheralState& state) {
     }
     
     if (state.cleaning_pump != current_peripheral_state_.cleaning_pump) {
-        actuator_->send_gcode(std::format("SET_PIN PIN=cleaning_pump VALUE={}", state.cleaning_pump));
+        // 清洗泵软启动：1秒内从当前值渐变到目标值，避免启动震动
+        float start_val = current_peripheral_state_.cleaning_pump;
+        float end_val = state.cleaning_pump;
+        if (end_val > start_val) {
+            // 启动：渐进增加 (10步，每步100ms，共1秒)
+            constexpr int steps = 10;
+            constexpr int step_delay_ms = 100;
+            float step_val = (end_val - start_val) / steps;
+            for (int i = 1; i <= steps; ++i) {
+                float val = start_val + step_val * i;
+                actuator_->send_gcode(std::format("SET_PIN PIN=cleaning_pump VALUE={:.2f}", val));
+                std::this_thread::sleep_for(std::chrono::milliseconds(step_delay_ms));
+            }
+            spdlog::info("SystemState: Cleaning pump soft-started to {:.0f}%", end_val * 100);
+        } else {
+            // 停止：直接关闭
+            actuator_->send_gcode(std::format("SET_PIN PIN=cleaning_pump VALUE={}", state.cleaning_pump));
+        }
     }
     
     // 步进泵控制 (只处理停止命令，运行需要单独调用)
@@ -165,6 +201,7 @@ const char* SystemState::state_to_string(State state) {
         case State::INITIAL: return "INITIAL";
         case State::DRAIN:   return "DRAIN";
         case State::CLEAN:   return "CLEAN";
+        case State::SAMPLE:  return "SAMPLE";
         default:             return "UNKNOWN";
     }
 }

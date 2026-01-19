@@ -54,6 +54,8 @@ export function ControlPanel() {
   const [grpcConnected, setGrpcConnected] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdateTime, setLastUpdateTime] = useState<number | null>(null);
+  const [timeSinceUpdate, setTimeSinceUpdate] = useState<number>(0);
 
   // 获取状态
   const refreshStatus = useCallback(async () => {
@@ -63,6 +65,7 @@ export function ControlPanel() {
       const data = await fetchStatus();
       setStatus(data);
       setGrpcConnected(true);
+      setLastUpdateTime(Date.now());
     } catch (err: any) {
       setError(err.message);
       setGrpcConnected(false);
@@ -71,12 +74,22 @@ export function ControlPanel() {
     }
   }, []);
 
-  // 初始化和轮询
+  // 初始化和轮询 (500ms 实时更新)
   useEffect(() => {
     refreshStatus();
-    const interval = setInterval(refreshStatus, 2000);
+    const interval = setInterval(refreshStatus, 500);
     return () => clearInterval(interval);
   }, [refreshStatus]);
+
+  // 计时器：每100ms更新距离上次收到报文的时间
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (lastUpdateTime) {
+        setTimeSinceUpdate(Date.now() - lastUpdateTime);
+      }
+    }, 100);
+    return () => clearInterval(timer);
+  }, [lastUpdateTime]);
 
   const handleValveToggle = async (name: string, value: boolean) => {
     try {
@@ -108,13 +121,11 @@ export function ControlPanel() {
     }
   };
 
-  const handleStateChange = async (targetState: "INITIAL" | "DRAIN" | "CLEAN") => {
+  const handleStateChange = async (targetState: "INITIAL" | "DRAIN" | "CLEAN" | "SAMPLE") => {
     try {
-      await apiSetSystemState(targetState);
-      setStatus((prev) => ({
-        ...prev,
-        current_state: targetState,
-      }));
+      const result = await apiSetSystemState(targetState);
+      // 立即刷新状态而不是依赖本地更新
+      await refreshStatus();
     } catch (err: any) {
       setError(err.message);
     }
@@ -145,6 +156,10 @@ export function ControlPanel() {
           <Badge variant={grpcConnected ? "default" : "destructive"}>
             <Activity className="w-4 h-4 mr-1" />
             gRPC: {grpcConnected ? "已连接" : "未连接"}
+          </Badge>
+          <Badge variant={timeSinceUpdate < 1000 ? "default" : timeSinceUpdate < 3000 ? "secondary" : "destructive"}>
+            <RefreshCw className="w-4 h-4 mr-1" />
+            {timeSinceUpdate < 1000 ? `${timeSinceUpdate}ms` : `${(timeSinceUpdate / 1000).toFixed(1)}s`}
           </Badge>
           <Badge
             variant={status.moonraker_connected ? "default" : "secondary"}
@@ -196,6 +211,62 @@ export function ControlPanel() {
             >
               清洗状态
             </Button>
+            <Button
+              variant={status.current_state === "SAMPLE" ? "default" : "outline"}
+              onClick={() => handleStateChange("SAMPLE")}
+            >
+              采样状态
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 实时设备状态面板 */}
+      <Card className="bg-slate-50 dark:bg-slate-900">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Activity className="w-4 h-4" />
+            实时设备状态
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 text-sm">
+            <div className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded border">
+              <span>废液阀</span>
+              <Badge variant={status.peripheral_status.valve_waste === 1 ? "default" : "secondary"} className="w-10 justify-center">
+                {status.peripheral_status.valve_waste === 1 ? "开" : "关"}
+              </Badge>
+            </div>
+            <div className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded border">
+              <span>夹管阀</span>
+              <Badge variant={status.peripheral_status.valve_pinch === 1 ? "default" : "secondary"} className="w-10 justify-center">
+                {status.peripheral_status.valve_pinch === 1 ? "液" : "气"}
+              </Badge>
+            </div>
+            <div className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded border">
+              <span>三通阀</span>
+              <Badge variant={status.peripheral_status.valve_air === 1 ? "default" : "secondary"} className="w-10 justify-center">
+                {status.peripheral_status.valve_air === 1 ? "室" : "排"}
+              </Badge>
+            </div>
+            <div className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded border">
+              <span>出气阀</span>
+              <Badge variant={status.peripheral_status.valve_outlet === 0 ? "default" : "secondary"} className="w-10 justify-center">
+                {status.peripheral_status.valve_outlet === 0 ? "开" : "关"}
+              </Badge>
+            </div>
+            <div className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded border">
+              <span>气泵</span>
+              <Badge variant={status.peripheral_status.air_pump_pwm > 0 ? "default" : "secondary"} className="w-14 justify-center">
+                {Math.round(status.peripheral_status.air_pump_pwm * 100)}%
+              </Badge>
+            </div>
+            <div className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded border">
+              <span>清洗泵</span>
+              <Badge variant={status.peripheral_status.cleaning_pump > 0 ? "default" : "secondary"} className="w-14 justify-center">
+                {Math.round(status.peripheral_status.cleaning_pump * 100)}%
+              </Badge>
+            </div>
           </div>
         </CardContent>
       </Card>

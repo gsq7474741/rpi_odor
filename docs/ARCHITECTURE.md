@@ -306,16 +306,23 @@ sensor_board:
 | **IO Driver** | 串口驱动 MCU，控制泵/阀，带重试/超时/错误上报 |
 | **Data Pump** | 采集/转发 SensorFrame，汇总 AnalysisResult |
 
-**技术栈**: C++17, gRPC, Protobuf, spdlog
+**技术栈**: C++17, gRPC, Protobuf, Boost.Asio, spdlog
 
-**对外接口**:
-- `ControlService.UploadPlan` - 上传实验计划
-- `ControlService.StartRun` - 启动运行
-- `ControlService.AbortRun` - 中止运行
-- `ControlService.GetStatus` - 查询状态
-- `ControlService.ManualControl` - 手动控制
-- `ControlService.StreamEvents` - 事件流
-- `DataService.StreamSensor` - 传感器数据流
+**gRPC 服务接口** (定义于 `proto/enose_service.proto`):
+
+| 服务 | 方法 | 描述 |
+|------|------|------|
+| **ControlService** | `GetStatus` | 获取系统状态和所有外设状态 |
+| | `SetSystemState` | 切换系统状态 (INITIAL/DRAIN) |
+| | `ManualControl` | 手动控制单个外设 |
+| | `RunPump` | 启动泵 (步进泵需指定速度/距离) |
+| | `StopAllPumps` | 停止所有泵 |
+| | `SubscribeEvents` | 订阅系统事件流 (Server Streaming) |
+| | `SubscribePeripheralStatus` | 订阅外设状态更新流 |
+| **DataService** | `SubscribeSensorData` | 订阅传感器数据流 |
+| | `SubscribeAnalysisResults` | 订阅分析结果流 |
+
+**默认端口**: `50051`
 
 ### 4.2 enose-analytics (Python)
 

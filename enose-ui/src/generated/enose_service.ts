@@ -75,7 +75,7 @@ export interface PeripheralStatus {
     valveWaste: number; // 0: 关闭, 1: 开启    /**
      * @generated from protobuf field: float valve_pinch = 2
      */
-    valvePinch: number; // 0: 液路, 1: 气路    /**
+    valvePinch: number; // 0: 气路, 1: 液路    /**
      * @generated from protobuf field: float valve_air = 3
      */
     valveAir: number; // 0: 排气, 1: 气室    /**
@@ -278,7 +278,13 @@ export enum SystemStateEnum {
      *
      * @generated from protobuf enum value: CLEAN = 3;
      */
-    CLEAN = 3
+    CLEAN = 3,
+    /**
+     * 采样状态: 排废关, 夹管阀气路, 出气阀开, 三通阀指向气室, 气泵开
+     *
+     * @generated from protobuf enum value: SAMPLE = 4;
+     */
+    SAMPLE = 4
 }
 // @generated message type with reflection information, may provide speed optimized methods
 class SystemStatus$Type extends MessageType<SystemStatus> {

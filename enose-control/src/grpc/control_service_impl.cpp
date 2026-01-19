@@ -30,6 +30,9 @@ ControlServiceImpl::ControlServiceImpl(
         case workflows::SystemState::State::CLEAN:
             response->set_current_state(::enose::service::CLEAN);
             break;
+        case workflows::SystemState::State::SAMPLE:
+            response->set_current_state(::enose::service::SAMPLE);
+            break;
         default:
             response->set_current_state(::enose::service::SYSTEM_STATE_UNSPECIFIED);
     }
@@ -70,6 +73,12 @@ ControlServiceImpl::ControlServiceImpl(
                 response->set_success(true);
                 response->set_message("Switched to CLEAN state");
                 response->set_new_state(::enose::service::CLEAN);
+                break;
+            case ::enose::service::SAMPLE:
+                system_state_->transition_to(workflows::SystemState::State::SAMPLE);
+                response->set_success(true);
+                response->set_message("Switched to SAMPLE state");
+                response->set_new_state(::enose::service::SAMPLE);
                 break;
             default:
                 response->set_success(false);

@@ -1,0 +1,21 @@
+[Unit]
+Description=E-Nose Control Service
+After=network.target klipper.service
+Wants=klipper.service
+
+[Service]
+Type=simple
+User=user
+Group=user
+WorkingDirectory=/home/user/rpi_odor/enose-control/build
+ExecStart=/home/user/rpi_odor/enose-control/build/bin/enose-control
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# 环境变量
+Environment=GRPC_PORT=50051
+
+[Install]
+WantedBy=multi-user.target

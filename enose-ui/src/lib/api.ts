@@ -17,7 +17,7 @@ export interface PeripheralStatus {
 }
 
 export interface SystemStatus {
-  current_state: "INITIAL" | "DRAIN" | "CLEAN" | "UNSPECIFIED";
+  current_state: "INITIAL" | "DRAIN" | "CLEAN" | "SAMPLE" | "UNSPECIFIED";
   peripheral_status: PeripheralStatus;
   moonraker_connected: boolean;
   sensor_connected: boolean;
@@ -30,32 +30,34 @@ export async function fetchStatus(): Promise<SystemStatus> {
   }
   const data = await res.json();
   
-  // 转换 gRPC 响应格式
+  // 转换 gRPC 响应格式 (protobuf-ts 使用 camelCase)
+  const ps = data.peripheralStatus;
   return {
-    current_state: data.current_state === 1 ? "INITIAL" : 
-                   data.current_state === 2 ? "DRAIN" : 
-                   data.current_state === 3 ? "CLEAN" : "UNSPECIFIED",
+    current_state: data.currentState === 1 ? "INITIAL" : 
+                   data.currentState === 2 ? "DRAIN" : 
+                   data.currentState === 3 ? "CLEAN" : 
+                   data.currentState === 4 ? "SAMPLE" : "UNSPECIFIED",
     peripheral_status: {
-      valve_waste: data.peripheral_status?.valve_waste || 0,
-      valve_pinch: data.peripheral_status?.valve_pinch || 0,
-      valve_air: data.peripheral_status?.valve_air || 0,
-      valve_outlet: data.peripheral_status?.valve_outlet || 0,
-      air_pump_pwm: data.peripheral_status?.air_pump_pwm || 0,
-      cleaning_pump: data.peripheral_status?.cleaning_pump || 0,
-      pump_2: data.peripheral_status?.pump_2 === 1 ? "RUNNING" : "STOPPED",
-      pump_3: data.peripheral_status?.pump_3 === 1 ? "RUNNING" : "STOPPED",
-      pump_4: data.peripheral_status?.pump_4 === 1 ? "RUNNING" : "STOPPED",
-      pump_5: data.peripheral_status?.pump_5 === 1 ? "RUNNING" : "STOPPED",
-      heater_chamber: data.peripheral_status?.heater_chamber || 0,
-      sensor_chamber_temp: data.peripheral_status?.sensor_chamber_temp,
-      scale_weight: data.peripheral_status?.scale_weight,
+      valve_waste: ps?.valveWaste || 0,
+      valve_pinch: ps?.valvePinch || 0,
+      valve_air: ps?.valveAir || 0,
+      valve_outlet: ps?.valveOutlet || 0,
+      air_pump_pwm: ps?.airPumpPwm || 0,
+      cleaning_pump: ps?.cleaningPump || 0,
+      pump_2: ps?.pump2 === 2 ? "RUNNING" : "STOPPED",
+      pump_3: ps?.pump3 === 2 ? "RUNNING" : "STOPPED",
+      pump_4: ps?.pump4 === 2 ? "RUNNING" : "STOPPED",
+      pump_5: ps?.pump5 === 2 ? "RUNNING" : "STOPPED",
+      heater_chamber: ps?.heaterChamber || 0,
+      sensor_chamber_temp: ps?.sensorChamberTemp,
+      scale_weight: ps?.scaleWeight,
     },
-    moonraker_connected: data.moonraker_connected || false,
-    sensor_connected: data.sensor_connected || false,
+    moonraker_connected: data.moonrakerConnected || false,
+    sensor_connected: data.sensorConnected || false,
   };
 }
 
-export async function setSystemState(targetState: "INITIAL" | "DRAIN" | "CLEAN"): Promise<any> {
+export async function setSystemState(targetState: "INITIAL" | "DRAIN" | "CLEAN" | "SAMPLE"): Promise<any> {
   const res = await fetch("/api/state", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

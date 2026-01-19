@@ -57,6 +57,7 @@ export async function setSystemState(targetState: string): Promise<SetSystemStat
     INITIAL: SystemStateEnum.INITIAL,
     DRAIN: SystemStateEnum.DRAIN,
     CLEAN: SystemStateEnum.CLEAN,
+    SAMPLE: SystemStateEnum.SAMPLE,
   };
   return promisify(
     getClient().setSystemState.bind(getClient()),

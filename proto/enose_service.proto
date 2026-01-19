@@ -61,6 +61,7 @@ enum SystemStateEnum {
   INITIAL = 1;        // 开机初始状态
   DRAIN = 2;          // 排废状态
   CLEAN = 3;          // 清洗状态: 出气阀开, 气体三通阀指向大气, 清洗泵开, 夹管阀液路, 排废阀关
+  SAMPLE = 4;         // 采样状态: 排废关, 夹管阀气路, 出气阀开, 三通阀指向气室, 气泵开
 }
 
 // 系统状态响应
@@ -86,7 +87,7 @@ message SystemStatus {
 message PeripheralStatus {
   // 阀门状态
   float valve_waste = 1;      // 0: 关闭, 1: 开启
-  float valve_pinch = 2;      // 0: 液路, 1: 气路
+  float valve_pinch = 2;      // 0: 气路, 1: 液路
   float valve_air = 3;        // 0: 排气, 1: 气室
   float valve_outlet = 4;     // 0: 开启, 1: 关闭 (反向逻辑)
   

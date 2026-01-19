@@ -69,9 +69,10 @@ struct PeripheralState {
 class SystemState {
 public:
     enum class State {
-        INITIAL,    // 开机初始状态
-        DRAIN,      // 排废状态
-        CLEAN,      // 清洗状态
+        INITIAL,    ///< 开机初始状态
+        DRAIN,      ///< 排废状态
+        CLEAN,      ///< 清洗状态
+        SAMPLE,     ///< 采样状态
     };
 
     using StateCallback = std::function<void(State, State)>;  // (old_state, new_state)
