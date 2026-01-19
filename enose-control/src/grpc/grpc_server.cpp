@@ -2,7 +2,7 @@
 #include "grpc/control_service_impl.hpp"
 #include <spdlog/spdlog.h>
 
-namespace grpc_server {
+namespace enose_grpc {
 
 GrpcServer::GrpcServer(
     std::shared_ptr<hal::ActuatorDriver> actuator,
@@ -56,4 +56,4 @@ void GrpcServer::stop() {
     running_ = false;
 }
 
-} // namespace grpc_server
+} // namespace enose_grpc

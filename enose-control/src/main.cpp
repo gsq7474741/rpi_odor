@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
         auto system_state = std::make_shared<workflows::SystemState>(actuator_driver);
 
         // gRPC Server
-        grpc_server::GrpcServer grpc_srv(actuator_driver, system_state);
+        enose_grpc::GrpcServer grpc_srv(actuator_driver, system_state);
         grpc_srv.start(grpc_address);
 
         // Sensor Signals

@@ -9,7 +9,7 @@ namespace hal {
 class ActuatorDriver;
 }
 
-namespace grpc_server {
+namespace enose_grpc {
 
 /**
  * @brief gRPC ControlService 实现
@@ -84,4 +84,4 @@ private:
     void fill_peripheral_status(::enose::service::PeripheralStatus* status);
 };
 
-} // namespace grpc_server
+} // namespace enose_grpc

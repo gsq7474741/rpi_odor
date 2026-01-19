@@ -13,7 +13,7 @@ namespace workflows {
 class SystemState;
 }
 
-namespace grpc_server {
+namespace enose_grpc {
 
 /**
  * @brief gRPC 服务器管理类
@@ -52,4 +52,4 @@ private:
     bool running_{false};
 };
 
-} // namespace grpc_server
+} // namespace enose_grpc

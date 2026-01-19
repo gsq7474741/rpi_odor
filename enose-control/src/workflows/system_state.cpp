@@ -11,7 +11,7 @@ const PeripheralState SystemState::STATE_DEFINITIONS[] = {
     {
         // 阀门
         .valve_waste = 0,       // 关闭
-        .valve_pinch = 0,       // 液路
+        .valve_pinch = 0,       // 气路
         .valve_air = 0,         // 排气
         .valve_outlet = 0,      // 开启 (反向逻辑)
         // 泵
@@ -41,6 +41,23 @@ const PeripheralState SystemState::STATE_DEFINITIONS[] = {
         // 加热器
         .heater_chamber = 0.0f, // 保持 (排废时不改变加热状态)
     },
+    // CLEAN (清洗状态): 出气阀开, 气体三通阀指向大气, 清洗泵开, 夹管阀液路, 排废阀门关
+    {
+        // 阀门
+        .valve_waste = 0,       // 关闭
+        .valve_pinch = 1,       // 液路 (1=液路, 0=气路)
+        .valve_air = 0,         // 排气 (指向大气)
+        .valve_outlet = 0,      // 开启 (反向逻辑, 0=开)
+        // 泵
+        .air_pump_pwm = 0.0f,   // 停止
+        .cleaning_pump = 1.0f,  // 100%
+        .pump_2 = PumpState::STOPPED,
+        .pump_3 = PumpState::STOPPED,
+        .pump_4 = PumpState::STOPPED,
+        .pump_5 = PumpState::STOPPED,
+        // 加热器
+        .heater_chamber = 0.0f, // 关闭
+    },
 };
 
 SystemState::SystemState(std::shared_ptr<hal::ActuatorDriver> actuator)
@@ -52,6 +69,14 @@ void SystemState::start_drain() {
 }
 
 void SystemState::stop_drain() {
+    transition_to(State::INITIAL);
+}
+
+void SystemState::start_clean() {
+    transition_to(State::CLEAN);
+}
+
+void SystemState::stop_clean() {
     transition_to(State::INITIAL);
 }
 
@@ -139,6 +164,7 @@ const char* SystemState::state_to_string(State state) {
     switch (state) {
         case State::INITIAL: return "INITIAL";
         case State::DRAIN:   return "DRAIN";
+        case State::CLEAN:   return "CLEAN";
         default:             return "UNKNOWN";
     }
 }

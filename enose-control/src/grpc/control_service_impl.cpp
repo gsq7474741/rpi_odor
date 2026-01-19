@@ -3,7 +3,7 @@
 #include <spdlog/spdlog.h>
 #include <format>
 
-namespace grpc_server {
+namespace enose_grpc {
 
 ControlServiceImpl::ControlServiceImpl(
     std::shared_ptr<hal::ActuatorDriver> actuator,
@@ -26,6 +26,9 @@ ControlServiceImpl::ControlServiceImpl(
             break;
         case workflows::SystemState::State::DRAIN:
             response->set_current_state(::enose::service::DRAIN);
+            break;
+        case workflows::SystemState::State::CLEAN:
+            response->set_current_state(::enose::service::CLEAN);
             break;
         default:
             response->set_current_state(::enose::service::SYSTEM_STATE_UNSPECIFIED);
@@ -61,6 +64,12 @@ ControlServiceImpl::ControlServiceImpl(
                 response->set_success(true);
                 response->set_message("Switched to DRAIN state");
                 response->set_new_state(::enose::service::DRAIN);
+                break;
+            case ::enose::service::CLEAN:
+                system_state_->start_clean();
+                response->set_success(true);
+                response->set_message("Switched to CLEAN state");
+                response->set_new_state(::enose::service::CLEAN);
                 break;
             default:
                 response->set_success(false);
@@ -220,4 +229,4 @@ void ControlServiceImpl::fill_peripheral_status(::enose::service::PeripheralStat
         : ::enose::service::PeripheralStatus::STOPPED);
 }
 
-} // namespace grpc_server
+} // namespace enose_grpc

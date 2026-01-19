@@ -60,7 +60,7 @@ enum SystemStateEnum {
   SYSTEM_STATE_UNSPECIFIED = 0;
   INITIAL = 1;        // 开机初始状态
   DRAIN = 2;          // 排废状态
-  // 未来可扩展更多状态
+  CLEAN = 3;          // 清洗状态: 出气阀开, 气体三通阀指向大气, 清洗泵开, 夹管阀液路, 排废阀关
 }
 
 // 系统状态响应

@@ -53,7 +53,7 @@ void ActuatorDriver::on_connect(beast::error_code ec, tcp::resolver::results_typ
                 " websocket-client-coro");
         }));
 
-    ws_.async_handshake(host_, "/",
+    ws_.async_handshake(host_, "/websocket",
         beast::bind_front_handler(&ActuatorDriver::on_handshake, shared_from_this()));
 }
 

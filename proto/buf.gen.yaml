@@ -23,10 +23,11 @@ plugins:
   - plugin: buf.build/grpc/python
     out: ../gen/python
   
-  # TypeScript 代码生成 (使用 protobuf-ts, 支持 gRPC-Web)
+  # TypeScript 代码生成 (使用 protobuf-ts, 支持 gRPC)
   - plugin: buf.build/community/timostamm-protobuf-ts
     out: ../gen/typescript
     opt:
       - long_type_string
       - generate_dependencies
-      - service_grpc1
+      - client_grpc1
+      - server_grpc1

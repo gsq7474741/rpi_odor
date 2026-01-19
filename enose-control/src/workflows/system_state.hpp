@@ -71,7 +71,7 @@ public:
     enum class State {
         INITIAL,    // 开机初始状态
         DRAIN,      // 排废状态
-        // 未来可扩展更多状态...
+        CLEAN,      // 清洗状态
     };
 
     using StateCallback = std::function<void(State, State)>;  // (old_state, new_state)
@@ -88,6 +88,16 @@ public:
      * @brief 停止排废，返回初始状态
      */
     void stop_drain();
+
+    /**
+     * @brief 切换到清洗状态
+     */
+    void start_clean();
+
+    /**
+     * @brief 停止清洗，返回初始状态
+     */
+    void stop_clean();
 
     /**
      * @brief 强制切换到指定状态

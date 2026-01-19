@@ -16,13 +16,14 @@ function Run-SSH {
 Write-Host ">>> syncing files to $RemoteHost..." -ForegroundColor Cyan
 
 # Create remote directory structure
-Run-SSH "mkdir -p $RemoteDir/enose-control $RemoteDir/proto $RemoteDir/scripts"
+Run-SSH "mkdir -p $RemoteDir/enose-control $RemoteDir/proto $RemoteDir/scripts $RemoteDir/gen"
 
 # Sync Files
 # Using scp for simplicity. Windows 10+ has built-in OpenSSH client.
 # Excluding build artifacts and venv
 scp -r "$LocalRoot\proto\*" "$RemoteUser@$RemoteHost`:$RemoteDir/proto/"
 scp -r "$LocalRoot\scripts\*" "$RemoteUser@$RemoteHost`:$RemoteDir/scripts/"
+scp -r "$LocalRoot\gen\*" "$RemoteUser@$RemoteHost`:$RemoteDir/gen/"
 scp -r "$LocalRoot\enose-control\src" "$RemoteUser@$RemoteHost`:$RemoteDir/enose-control/"
 scp "$LocalRoot\enose-control\CMakeLists.txt" "$RemoteUser@$RemoteHost`:$RemoteDir/enose-control/"
 scp "$LocalRoot\enose-control\conanfile.txt" "$RemoteUser@$RemoteHost`:$RemoteDir/enose-control/"
