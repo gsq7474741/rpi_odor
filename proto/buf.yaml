@@ -1,0 +1,16 @@
+# Buf 配置文件 - 用于 Protobuf 代码生成
+# https://buf.build/docs/configuration/v1/buf-yaml
+
+version: v1
+name: buf.build/enose/config
+
+# 添加 buf validate 依赖
+deps:
+  - buf.build/bufbuild/protovalidate
+
+breaking:
+  use:
+    - FILE
+lint:
+  use:
+    - DEFAULT

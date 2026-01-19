@@ -1,0 +1,163 @@
+// 电子鼻 gRPC 服务定义
+// 提供控制接口和数据流服务
+
+syntax = "proto3";
+
+package enose.service;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "enose_data.proto";
+import "enose_config.proto";
+
+option go_package = "enose/service";
+
+// ============================================================
+// 控制服务 (ControlService)
+// 用于接收外部控制命令
+// ============================================================
+service ControlService {
+  // 获取系统状态
+  rpc GetStatus(google.protobuf.Empty) returns (SystemStatus);
+  
+  // 切换系统状态
+  rpc SetSystemState(SetSystemStateRequest) returns (SetSystemStateResponse);
+  
+  // 手动控制单个外设
+  rpc ManualControl(ManualControlRequest) returns (ManualControlResponse);
+  
+  // 启动泵 (步进泵需要指定参数)
+  rpc RunPump(RunPumpRequest) returns (RunPumpResponse);
+  
+  // 停止所有泵
+  rpc StopAllPumps(google.protobuf.Empty) returns (StopAllPumpsResponse);
+  
+  // 订阅系统事件流
+  rpc SubscribeEvents(google.protobuf.Empty) returns (stream enose.data.Event);
+  
+  // 订阅外设状态更新
+  rpc SubscribePeripheralStatus(google.protobuf.Empty) returns (stream PeripheralStatus);
+}
+
+// ============================================================
+// 数据服务 (DataService)
+// 用于传感器数据流
+// ============================================================
+service DataService {
+  // 订阅传感器数据流
+  rpc SubscribeSensorData(google.protobuf.Empty) returns (stream enose.data.SensorFrame);
+  
+  // 订阅分析结果流
+  rpc SubscribeAnalysisResults(google.protobuf.Empty) returns (stream enose.data.AnalysisResult);
+}
+
+// ============================================================
+// 请求/响应消息定义
+// ============================================================
+
+// 系统状态枚举
+enum SystemStateEnum {
+  SYSTEM_STATE_UNSPECIFIED = 0;
+  INITIAL = 1;        // 开机初始状态
+  DRAIN = 2;          // 排废状态
+  // 未来可扩展更多状态
+}
+
+// 系统状态响应
+message SystemStatus {
+  // 当前系统状态
+  SystemStateEnum current_state = 1;
+  
+  // 所有外设的当前状态
+  PeripheralStatus peripheral_status = 2;
+  
+  // 系统运行时间 (秒)
+  uint64 uptime_seconds = 3;
+  
+  // 连接状态
+  bool moonraker_connected = 4;
+  bool sensor_connected = 5;
+  
+  // 最后更新时间
+  google.protobuf.Timestamp last_updated = 6;
+}
+
+// 外设状态
+message PeripheralStatus {
+  // 阀门状态
+  float valve_waste = 1;      // 0: 关闭, 1: 开启
+  float valve_pinch = 2;      // 0: 液路, 1: 气路
+  float valve_air = 3;        // 0: 排气, 1: 气室
+  float valve_outlet = 4;     // 0: 开启, 1: 关闭 (反向逻辑)
+  
+  // 泵状态
+  float air_pump_pwm = 5;     // 0.0 - 1.0
+  float cleaning_pump = 6;    // 0.0 - 1.0
+  PumpRunState pump_2 = 7;    // 样品泵 0
+  PumpRunState pump_3 = 8;    // 样品泵 1
+  PumpRunState pump_4 = 9;    // 样品泵 2
+  PumpRunState pump_5 = 10;   // 样品泵 3
+  
+  // 加热器状态
+  float heater_chamber = 11;  // 0.0 - 1.0
+  
+  // 传感器读数 (只读)
+  optional float sensor_chamber_temp = 20;  // 气室温度 (°C)
+  optional float scale_weight = 21;         // 称重值 (g)
+  
+  enum PumpRunState {
+    PUMP_RUN_STATE_UNSPECIFIED = 0;
+    STOPPED = 1;
+    RUNNING = 2;
+  }
+}
+
+// 设置系统状态请求
+message SetSystemStateRequest {
+  SystemStateEnum target_state = 1;
+}
+
+message SetSystemStateResponse {
+  bool success = 1;
+  string message = 2;
+  SystemStateEnum new_state = 3;
+}
+
+// 手动控制请求
+message ManualControlRequest {
+  // 外设名称 (valve_waste, valve_pinch, air_pump_pwm, etc.)
+  string peripheral_name = 1;
+  
+  // 目标值 (对于开关类型: 0/1, 对于PWM: 0.0-1.0)
+  float value = 2;
+}
+
+message ManualControlResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// 运行泵请求
+message RunPumpRequest {
+  // 泵名称 (pump_2, pump_3, pump_4, pump_5, cleaning_pump)
+  string pump_name = 1;
+  
+  // 速度 (步进泵: mm/s, DC泵: 0.0-1.0 PWM)
+  float speed = 2;
+  
+  // 距离 (仅步进泵需要, 单位: mm)
+  optional float distance = 3;
+  
+  // 加速度 (仅步进泵需要, 单位: mm/s²)
+  optional float accel = 4;
+}
+
+message RunPumpResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message StopAllPumpsResponse {
+  bool success = 1;
+  string message = 2;
+}

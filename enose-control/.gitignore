@@ -1,0 +1,11 @@
+build/
+bin/
+gen/
+conan_toolchain.cmake
+conan_paths.cmake
+CMakeUserPresets.json
+conan.lock
+*.pyc
+__pycache__/
+.DS_Store
+.cache

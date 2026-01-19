@@ -1,0 +1,32 @@
+# Buf 代码生成配置
+# 运行: buf generate
+
+version: v1
+managed:
+  enabled: true
+  go_package_prefix:
+    default: github.com/your-org/enose/gen/go
+plugins:
+  # C++ Protobuf 代码生成
+  - plugin: buf.build/protocolbuffers/cpp
+    out: ../gen/cpp
+  
+  # C++ gRPC 代码生成
+  - plugin: buf.build/grpc/cpp
+    out: ../gen/cpp
+  
+  # Python Protobuf 代码生成
+  - plugin: buf.build/protocolbuffers/python
+    out: ../gen/python
+  
+  # Python gRPC 代码生成
+  - plugin: buf.build/grpc/python
+    out: ../gen/python
+  
+  # TypeScript 代码生成 (使用 protobuf-ts, 支持 gRPC-Web)
+  - plugin: buf.build/community/timostamm-protobuf-ts
+    out: ../gen/typescript
+    opt:
+      - long_type_string
+      - generate_dependencies
+      - service_grpc1

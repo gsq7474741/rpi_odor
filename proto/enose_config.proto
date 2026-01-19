@@ -1,0 +1,633 @@
+// 电子鼻配置数据结构定义
+// 使用 Protobuf 定义，支持 C++/Python/TypeScript 代码生成
+// 配置文件使用 JSON 格式存储，人类可读
+// 使用 buf validate 进行字段约束验证
+
+syntax = "proto3";
+
+package enose.config;
+
+import "buf/validate/validate.proto";
+
+option go_package = "enose/config";
+
+// ============================================================
+// 加热器配置 (HeaterProfile)
+// BME688 使用多步加热器温度曲线
+// ============================================================
+message HeaterProfile {
+  string id = 1 [(buf.validate.field).string = {
+    pattern: "^[a-z][a-z0-9_]*$",
+    min_len: 1,
+    max_len: 64
+  }];
+  
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1,
+    max_len: 128
+  }];
+  
+  string description = 3;
+  
+  // 时基: 每步持续时间 = time_base_ms × duration_multiplier
+  int32 time_base_ms = 4 [(buf.validate.field).int32 = {
+    gte: 1,
+    lte: 1000
+  }];
+  
+  // 加热器步骤: 1-10 步
+  repeated HeaterStep steps = 5 [(buf.validate.field).repeated = {
+    min_items: 1,
+    max_items: 10
+  }];
+  
+  message HeaterStep {
+    // 目标温度: 100-400°C
+    int32 temp_c = 1 [(buf.validate.field).int32 = {
+      gte: 100,
+      lte: 400
+    }];
+    // 持续时间乘数: 实际时间 = time_base_ms × duration_mult
+    int32 duration_mult = 2 [(buf.validate.field).int32 = {
+      gte: 1,
+      lte: 1000
+    }];
+  }
+}
+
+message HeaterProfileList {
+  repeated HeaterProfile heaters = 1;
+}
+
+// ============================================================
+// 传感器板定义 (SensorBoard)
+// 抽象不同类型的传感器硬件
+// ============================================================
+message SensorBoard {
+  string id = 1 [(buf.validate.field).string = {
+    pattern: "^[a-z][a-z0-9_-]*$",
+    min_len: 1,
+    max_len: 64
+  }];
+  
+  string name = 2 [(buf.validate.field).string.min_len = 1];
+  string vendor = 3;
+  string firmware_version = 4;
+  string description = 5;
+  
+  // 板子类型 (建议仅作为参考，实际配置以 sensors 列表为准)
+  BoardType board_type = 6;
+  
+  enum BoardType {
+    BOARD_TYPE_UNSPECIFIED = 0;
+    BME688_DEVKIT = 1;            // Bosch BME688 开发套件
+    SGP40_ARRAY = 2;              // Sensirion SGP40 阵列
+    CUSTOM_MOX = 3;               // 自定义 MOX 阵列
+  }
+  
+  // 通信配置
+  CommunicationConfig communication = 7;
+  
+  // 传感器阵列配置
+  // 替代旧的 ChannelConfig，支持异构传感器定义
+  repeated SensorDefinition sensors = 8;
+
+  // 采样配置
+  SamplingConfig sampling = 9;
+  
+  // 时间戳配置
+  TimestampConfig timestamp = 10;
+  
+  message CommunicationConfig {
+    string protocol = 1;          // serial, i2c, spi
+    int32 baudrate = 2;           // 串口波特率
+    string data_format = 3;       // json, binary
+    int32 timeout_ms = 4;
+  }
+  
+  // 单个物理传感器的定义
+  message SensorDefinition {
+    // 传感器唯一标识 (在板内唯一)
+    string id = 1 [(buf.validate.field).string = {
+      pattern: "^[a-z0-9_]+$",
+      min_len: 1,
+      max_len: 32
+    }];
+    
+    // 传感器型号
+    string model = 2;             // e.g. "BME688", "TGS2602", "SGP40"
+    
+    // 传感器类型
+    string type = 3;              // e.g. "mox", "pid", "ec"
+    
+    // 该传感器支持的测量维度
+    repeated MeasurementType capabilities = 4;
+    
+    // 元数据 (如位置信息)
+    map<string, string> metadata = 5;
+  }
+
+  enum MeasurementType {
+    MEASUREMENT_TYPE_UNSPECIFIED = 0;
+    GAS_RESISTANCE = 1;           // 气体电阻 (Ohm)
+    VOLTAGE = 2;                  // 电压 (V) - 用于 PID 等
+    CURRENT = 3;                  // 电流 (A) - 用于 EC 等
+    TEMPERATURE = 4;              // 温度 (Celsius)
+    HUMIDITY = 5;                 // 相对湿度 (%RH)
+    PRESSURE = 6;                 // 气压 (hPa)
+    GAS_INDEX = 7;                // 气体指数 (无量纲)
+    CONCENTRATION = 8;            // 浓度 (ppb/ppm)
+  }
+
+  message SamplingConfig {
+    SamplingMode mode = 1;
+    // 基础采样率 (Hz)
+    double base_rate_hz = 2 [(buf.validate.field).double.gt = 0];
+    // 加热器步数 (仅 heater_cycle 模式)
+    int32 heater_steps = 3;
+    // 单次循环时长 (ms)
+    int32 cycle_duration_ms = 4;
+
+    enum SamplingMode {
+      SAMPLING_MODE_UNSPECIFIED = 0;
+      CONTINUOUS = 1;      // 连续采样
+      HEATER_CYCLE = 2;    // 加热器循环
+      ON_DEMAND = 3;       // 按需/单次
+    }
+  }
+
+  message TimestampConfig {
+    SyncMethod sync_method = 1;
+    // 时间戳分辨率 (微秒)
+    int32 resolution_us = 2 [(buf.validate.field).int32.gt = 0];
+    // 最大允许漂移 (毫秒)
+    int32 max_drift_ms = 3;
+
+    enum SyncMethod {
+      SYNC_METHOD_UNSPECIFIED = 0;
+      DEVICE_TICK = 1;        // 使用设备 tick
+      HOST_INTERPOLATE = 2;   // 主机插值
+      NTP_SYNC = 3;           // NTP 同步
+    }
+  }
+}
+
+message SensorBoardList {
+  repeated SensorBoard boards = 1;
+}
+
+// ============================================================
+// 板子通道配置实例 (BoardChannelConfig)
+// 指定每个通道使用的加热器和占空比配置
+// ============================================================
+message BoardChannelConfig {
+  string id = 1 [(buf.validate.field).string = {
+    pattern: "^[a-z][a-z0-9_]*$",
+    min_len: 1,
+    max_len: 64
+  }];
+  
+  string name = 2;
+  string description = 3;
+  
+  // 引用传感器板
+  string board_id = 4 [(buf.validate.field).string.min_len = 1];
+  
+  // 通道分配: 指定哪些通道使用哪个加热器/占空比
+  repeated ChannelAssignment assignments = 5;
+  
+  message ChannelAssignment {
+    // 传感器ID列表 (对应 SensorBoard.sensors.id)
+    repeated string sensor_ids = 1 [(buf.validate.field).repeated = {
+      min_items: 1,
+      max_items: 64
+    }];
+    // 引用加热器配置 (可选，对于无需加热的传感器可为空)
+    string heater_profile_id = 2;
+  }
+}
+
+message BoardChannelConfigList {
+  repeated BoardChannelConfig configs = 1;
+}
+
+// ============================================================
+// 终止条件 (TerminationCondition)
+// 用于采集和基线恢复等阶段
+// ============================================================
+message TerminationCondition {
+  TerminationType type = 1;
+  
+  enum TerminationType {
+    TERMINATION_TYPE_UNSPECIFIED = 0;
+    FIXED_DURATION = 1;           // 固定时间
+    HEATER_CYCLES = 2;            // 加热器循环次数
+    BASELINE_TRACKING = 3;        // 基线跟踪 (等待回到基线)
+    STEADY_STATE = 4;             // 稳态跟踪 (等待信号稳定)
+    SLOPE_THRESHOLD = 5;          // 斜率阈值 (变化率低于阈值)
+  }
+  
+  // 固定时间参数
+  int32 duration_s = 2 [(buf.validate.field).int32 = {
+    gte: 1,
+    lte: 3600
+  }];
+  
+  // 加热器循环次数参数
+  int32 heater_cycles = 3 [(buf.validate.field).int32 = {
+    gte: 1,
+    lte: 100
+  }];
+  
+  // 基线/稳态跟踪参数
+  TrackingParams tracking = 4;
+  
+  // 最大等待时间 (防止无限等待)
+  int32 max_duration_s = 5 [(buf.validate.field).int32 = {
+    gte: 10,
+    lte: 3600
+  }];
+  
+  // 最小等待时间
+  int32 min_duration_s = 6 [(buf.validate.field).int32.gte = 0];
+  
+  message TrackingParams {
+    // 稳定性窗口 (秒)
+    int32 window_s = 1 [(buf.validate.field).int32 = {
+      gte: 5,
+      lte: 300
+    }];
+    // 稳定性阈值: 窗口内变化率 (%)
+    double threshold_percent = 2 [(buf.validate.field).double = {
+      gt: 0,
+      lte: 10
+    }];
+    // 基线偏差容差 (%)
+    double baseline_tolerance_percent = 3 [(buf.validate.field).double = {
+      gt: 0,
+      lte: 20
+    }];
+  }
+}
+
+// ============================================================
+// 液体定义 (Liquid)
+// ============================================================
+message Liquid {
+  // 液体唯一标识: 小写字母开头，只能包含小写字母、数字、下划线
+  string id = 1 [(buf.validate.field).string = {
+    pattern: "^[a-z][a-z0-9_]*$",
+    min_len: 1,
+    max_len: 64
+  }];
+  
+  // 液体名称: 1-128 字符
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1,
+    max_len: 128
+  }];
+  
+  string description = 3;           // 液体描述 (可选)
+  
+  // 泵编号: 0=清洗泵, 1-7=样品泵
+  int32 pump_index = 4 [(buf.validate.field).int32 = {
+    gte: 0,
+    lte: 7
+  }];
+  
+  // 液体类型: 必须指定
+  LiquidType type = 5 [(buf.validate.field).enum = {
+    defined_only: true,
+    not_in: [0]  // 不能是 UNSPECIFIED
+  }];
+  
+  // 密度: 0.5 - 2.0 g/ml
+  double density_g_ml = 6 [(buf.validate.field).double = {
+    gte: 0.5,
+    lte: 2.0
+  }];
+  
+  Viscosity viscosity = 7;          // 粘度等级
+  
+  enum LiquidType {
+    LIQUID_TYPE_UNSPECIFIED = 0;
+    RINSE = 1;                      // 清洗液
+    SAMPLE = 2;                     // 样品液
+    CALIBRATION = 3;                // 标定液
+  }
+  
+  enum Viscosity {
+    VISCOSITY_UNSPECIFIED = 0;
+    LOW = 1;
+    MEDIUM = 2;
+    HIGH = 3;
+  }
+}
+
+message LiquidList {
+  repeated Liquid liquids = 1;
+}
+
+// ============================================================
+// 待测物定义 (Substance)
+// 待测物 = 不同配比的液体组合
+// ============================================================
+message Substance {
+  // 待测物唯一标识
+  string id = 1 [(buf.validate.field).string = {
+    pattern: "^[a-z][a-z0-9_]*$",
+    min_len: 1,
+    max_len: 64
+  }];
+  
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1,
+    max_len: 128
+  }];
+  
+  string description = 3;
+  string category = 4;              // 分类标签
+  
+  // 配方组成: 至少包含一种液体
+  repeated Component components = 5 [(buf.validate.field).repeated = {
+    min_items: 1,
+    max_items: 8
+  }];
+  
+  oneof default_amount {
+    // 默认总体积: 1-100 ml
+    double total_volume_ml = 6 [(buf.validate.field).double = {
+      gt: 0,
+      lte: 100
+    }];
+    // 默认总重量: 1-100 g
+    double total_weight_g = 7 [(buf.validate.field).double = {
+      gt: 0,
+      lte: 100
+    }];
+  }
+  
+  repeated string tags = 8 [(buf.validate.field).repeated.max_items = 20];
+  
+  message Component {
+    // 引用液体ID
+    string liquid_id = 1 [(buf.validate.field).string.min_len = 1];
+    // 体积比例: 0-1 之间
+    double ratio = 2 [(buf.validate.field).double = {
+      gt: 0,
+      lte: 1
+    }];
+  }
+}
+
+message SubstanceList {
+  repeated Substance substances = 1;
+}
+
+// ============================================================
+// 工作流定义 (Workflow)
+// Workflow = 不同时序配置的自动化流程
+// ============================================================
+message Workflow {
+  string id = 1 [(buf.validate.field).string = {
+    pattern: "^[a-z][a-z0-9_]*$",
+    min_len: 1,
+    max_len: 64
+  }];
+  
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1,
+    max_len: 128
+  }];
+  
+  string description = 3;
+  
+  // 版本号: 语义化版本格式
+  string version = 4 [(buf.validate.field).string = {
+    pattern: "^\\d+\\.\\d+\\.\\d+$"
+  }];
+  
+  // 阶段配置: 必须指定
+  PhaseConfig phases = 5 [(buf.validate.field).required = true];
+  GlobalParams global = 6;          // 全局参数
+  
+  // 阶段配置
+  message PhaseConfig {
+    DoseConfig dose = 1;
+    EquilibrateConfig equilibrate = 2;
+    AcquireConfig acquire = 3;
+    CleanupConfig cleanup = 4;
+    BaselineRecoveryConfig baseline_recovery = 5;
+  }
+  
+  // 进样阶段配置
+  message DoseConfig {
+    // 最大进样时间: 10-300 秒
+    int32 max_duration_s = 1 [(buf.validate.field).int32 = {
+      gte: 10,
+      lte: 300
+    }];
+    // 流速: 0.5-20 ml/min
+    double flow_rate_ml_min = 2 [(buf.validate.field).double = {
+      gte: 0.5,
+      lte: 20
+    }];
+    // 称重容差: 0.1-5 g
+    double weight_tolerance_g = 3 [(buf.validate.field).double = {
+      gte: 0.1,
+      lte: 5
+    }];
+    ControlMode control_mode = 4;   // 控制模式
+    
+    enum ControlMode {
+      CONTROL_MODE_UNSPECIFIED = 0;
+      WEIGHT_FEEDBACK = 1;          // 称重闭环
+      TIME_BASED = 2;               // 时间控制
+      VOLUME_BASED = 3;             // 体积控制
+    }
+  }
+  
+  // 平衡/混合阶段配置
+  // 通过进气鼓泡让液体均匀混合，此时三通阀连通环境而非传感器
+  message EquilibrateConfig {
+    // 混合时间: 5-300 秒
+    int32 duration_s = 1 [(buf.validate.field).int32 = {
+      gte: 5,
+      lte: 300
+    }];
+    // 气泵 PWM: 0-100% (用于鼓泡混合)
+    int32 gas_pump_pwm_percent = 2 [(buf.validate.field).int32 = {
+      gte: 0,
+      lte: 100
+    }];
+    // 三通阀设置: true=连通环境, false=连通传感器
+    bool vent_to_ambient = 3;
+  }
+  
+  // 采集阶段配置
+  // 支持多种终止条件: 固定时间/加热器循环/基线跟踪/稳态跟踪
+  message AcquireConfig {
+    // 终止条件
+    TerminationCondition termination = 1;
+    
+    // 气泵 PWM: 0-100%
+    int32 gas_pump_pwm_percent = 2 [(buf.validate.field).int32 = {
+      gte: 0,
+      lte: 100
+    }];
+  }
+  
+  // 清洗阶段配置
+  message CleanupConfig {
+    // 清洗循环次数: 1-10
+    int32 cycles = 1 [(buf.validate.field).int32 = {
+      gte: 1,
+      lte: 10
+    }];
+    // 每次清洗液体积: 5-50 ml
+    double rinse_volume_ml = 2 [(buf.validate.field).double = {
+      gte: 5,
+      lte: 50
+    }];
+    // 每次排废时间: 5-60 秒
+    int32 drain_duration_s = 3 [(buf.validate.field).int32 = {
+      gte: 5,
+      lte: 60
+    }];
+  }
+  
+  // 基线恢复配置
+  // 空瓶进气恢复基线，支持多种终止条件
+  message BaselineRecoveryConfig {
+    // 终止条件
+    TerminationCondition termination = 1;
+    
+    // 气泵 PWM: 0-100%
+    int32 gas_pump_pwm_percent = 2 [(buf.validate.field).int32 = {
+      gte: 0,
+      lte: 100
+    }];
+  }
+  
+  // 全局参数
+  message GlobalParams {
+    // 引用板子通道配置 (包含加热器设置)
+    string board_channel_config_id = 1 [(buf.validate.field).string.min_len = 1];
+    
+    // 预热温度: 30-80°C
+    double heater_preheat_temp_c = 2 [(buf.validate.field).double = {
+      gte: 30,
+      lte: 80
+    }];
+    
+    // 默认气流: 20-200 ml/min
+    double gas_flow_default_ml_min = 3 [(buf.validate.field).double = {
+      gte: 20,
+      lte: 200
+    }];
+  }
+}
+
+message WorkflowList {
+  repeated Workflow workflows = 1;
+}
+
+// ============================================================
+// 实验定义 (Experiment)
+// Experiment = Workflow + Substance 的组合
+// ============================================================
+message Experiment {
+  string id = 1 [(buf.validate.field).string = {
+    pattern: "^[a-z][a-z0-9_]*$",
+    min_len: 1,
+    max_len: 64
+  }];
+  
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1,
+    max_len: 128
+  }];
+  
+  string description = 3;
+  
+  // 引用工作流ID: 必须指定
+  string workflow_id = 4 [(buf.validate.field).string.min_len = 1];
+  // 引用待测物ID: 必须指定
+  string substance_id = 5 [(buf.validate.field).string.min_len = 1];
+  
+  Overrides overrides = 6;          // 参数覆盖
+  Metadata metadata = 7;            // 元数据
+  
+  // 参数覆盖
+  message Overrides {
+    optional double total_volume_ml = 1;
+    optional double total_weight_g = 2;
+    // 覆盖板子通道配置
+    optional string board_channel_config_id = 3;
+  }
+  
+  // 元数据
+  message Metadata {
+    string author = 1;
+    string created_at = 2;          // ISO 8601 格式
+    repeated string tags = 3;
+  }
+}
+
+message ExperimentList {
+  repeated Experiment experiments = 1;
+}
+
+// ============================================================
+// 样本定义 (Sample)
+// Sample = 实验的一次执行记录
+// ============================================================
+message Sample {
+  // UUID 格式
+  string id = 1 [(buf.validate.field).string.uuid = true];
+  
+  // 引用实验ID: 必须指定
+  string experiment_id = 2 [(buf.validate.field).string.min_len = 1];
+  
+  // 重复次数: >= 1
+  int32 run_index = 3 [(buf.validate.field).int32.gte = 1];
+  
+  Runtime runtime = 4;              // 运行时数据
+  DataFiles data_files = 5;         // 数据文件引用
+  Quality quality = 6;              // 质检结果
+  
+  // 运行时数据
+  message Runtime {
+    string started_at = 1;          // ISO 8601
+    string finished_at = 2;         // ISO 8601
+    SampleStatus status = 3;
+    double actual_weight_g = 4;
+    double actual_volume_ml = 5;
+  }
+  
+  enum SampleStatus {
+    SAMPLE_STATUS_UNSPECIFIED = 0;
+    PENDING = 1;
+    RUNNING = 2;
+    COMPLETED = 3;
+    FAILED = 4;
+    ABORTED = 5;
+  }
+  
+  // 数据文件引用
+  message DataFiles {
+    string sensor_data = 1;         // 传感器数据文件路径
+    string log_file = 2;            // 日志文件路径
+  }
+  
+  // 质检结果
+  message Quality {
+    bool passed = 1;
+    repeated string flags = 2;
+    string notes = 3;
+  }
+}
+
+message SampleList {
+  repeated Sample samples = 1;
+}

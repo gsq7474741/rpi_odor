@@ -1,0 +1,160 @@
+syntax = "proto3";
+
+package enose.data;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "enose/data";
+
+// ============================================================
+// 传感器数据帧 (SensorFrame)
+// 实时传输的传感器原始数据
+// ============================================================
+message SensorFrame {
+  // 采集时间戳 (主机时间)
+  google.protobuf.Timestamp ts = 1;
+  
+  // 帧序号
+  uint64 seq = 2;
+  
+  // 传感器读数列表
+  // 对应配置中 SensorBoard.sensors 的顺序
+  repeated SensorReading readings = 3;
+  
+  // 运行上下文
+  string run_id = 10;     // 当前运行 ID (Sample ID)
+  string phase_name = 11; // 当前阶段名称 (DOSE, ACQUIRE, etc.)
+  
+  // 气体流路状态 (用于标记数据有效性)
+  GasMode gas_mode = 12;
+
+  enum GasMode {
+    GAS_MODE_UNSPECIFIED = 0;
+    CHAMBER = 1;          // 气室连通 (正常采集)
+    BYPASS = 2;           // 旁路 (排气)
+  }
+  
+  // 加热器状态 (全局或主状态)
+  // 如果每个传感器加热状态不同，应放在 SensorReading 中
+  uint32 heater_step = 13; 
+  
+  // 设备标识 (对应 SensorBoard.id)
+  // 用于在多板系统中区分数据源
+  string device_id = 14;
+
+  // 设备原始 Tick (毫秒)
+  // 用于调试时间同步和抖动
+  uint64 device_tick = 15;
+}
+
+// ============================================================
+// 单个物理传感器的读数 (SensorReading)
+// ============================================================
+message SensorReading {
+  // 传感器唯一标识 (对应 SensorBoard.sensors.id)
+  string sensor_id = 1;
+
+  // 基础测量值
+  // 根据传感器类型，只有相关字段会有值
+  
+  double gas_resistance = 2;    // 气体电阻 (Ohm)
+  double voltage = 3;           // 电压值 (V)
+  double current = 4;           // 电流值 (A)
+  double concentration = 5;     // 浓度 (ppb/ppm)
+  
+  // 传感器板载环境数据 (如果传感器支持)
+  // 例如 BME688 自带 T/H/P
+  optional double temperature = 6;
+  optional double humidity = 7;
+  optional double pressure = 8;
+  
+  // 计算指标 (如 BSEC 输出的 IAQ)
+  optional double gas_index = 9;
+  
+  // 状态标志
+  uint32 status_flags = 10;      // 0=OK, others=Error code
+  
+  // 传感器特定的加热器步进索引 (如果是加热循环模式)
+  optional uint32 heater_step = 11;
+  
+  // 扩展数据
+  map<string, double> extra = 15;
+}
+
+// ============================================================
+// 分析结果 (AnalysisResult)
+// 实时分析服务的输出结果
+// ============================================================
+message AnalysisResult {
+  // 分析时间戳
+  google.protobuf.Timestamp ts = 1;
+  
+  // 关联的传感器帧序号
+  uint64 sensor_seq = 2;
+  
+  // 计算指标
+  repeated Metric metrics = 3;
+  
+  // 质量标志
+  repeated QualityFlag flags = 4;
+  
+  // 建议操作
+  repeated string recommendations = 10;
+  
+  // 设备标识 (对应产生原始数据的 SensorFrame.device_id)
+  string device_id = 11;
+
+  message Metric {
+    string name = 1;
+    double value = 2;
+    string unit = 3;
+  }
+  
+  enum QualityFlag {
+    QUALITY_FLAG_UNSPECIFIED = 0;
+    QF_OK = 1;
+    QF_BASELINE_UNSTABLE = 2;      // 基线不稳
+    QF_SENSOR_SATURATION = 3;      // 传感器饱和
+    QF_EXCESS_NOISE = 4;           // 噪声过大
+    QF_HUMIDITY_OUT_OF_RANGE = 5;  // 湿度异常
+    QF_TEMP_OUT_OF_RANGE = 6;      // 温度异常
+    QF_FLOW_SUSPECTED = 7;         // 流量异常
+  }
+}
+
+// ============================================================
+// 系统事件 (Event)
+// 运行过程中的日志和状态变更
+// ============================================================
+message Event {
+  google.protobuf.Timestamp ts = 1;
+  uint64 seq = 2;
+  
+  EventType type = 3;
+  Severity severity = 4;
+  
+  string text = 5;
+  repeated KeyValue fields = 6;
+
+  message KeyValue {
+    string key = 1;
+    string value = 2;
+  }
+
+  enum EventType {
+    EVENT_TYPE_UNSPECIFIED = 0;
+    SYSTEM_STARTUP = 1;
+    PHASE_CHANGED = 2;
+    ERROR_OCCURRED = 3;
+    USER_INTERACTION = 4;
+    DEVICE_STATUS = 5;
+  }
+  
+  enum Severity {
+    SEVERITY_UNSPECIFIED = 0;
+    INFO = 1;
+    WARNING = 2;
+    ERROR = 3;
+    CRITICAL = 4;
+  }
+}

@@ -1,0 +1,12 @@
+[requires]
+boost/1.83.0
+fmt/10.2.1
+spdlog/1.13.0
+nlohmann_json/3.11.3
+grpc/1.54.3
+protobuf/3.21.12
+yaml-cpp/0.8.0
+
+[generators]
+CMakeDeps
+CMakeToolchain
