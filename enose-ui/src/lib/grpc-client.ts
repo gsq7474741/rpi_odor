@@ -1,5 +1,5 @@
 import * as grpc from "@grpc/grpc-js";
-import { ControlServiceClient } from "../generated/enose_service.grpc-client";
+import { ControlServiceClient, SensorServiceClient } from "../generated/enose_service.grpc-client";
 import { Empty } from "../generated/google/protobuf/empty";
 import { SystemStateEnum } from "../generated/enose_service";
 import type { 
@@ -7,7 +7,10 @@ import type {
   SetSystemStateResponse,
   ManualControlResponse,
   RunPumpResponse,
-  StopAllPumpsResponse 
+  StopAllPumpsResponse,
+  SensorCommandResponse,
+  SensorBoardStatus,
+  HeaterConfigResponse
 } from "../generated/enose_service";
 
 // gRPC 服务器地址 (从环境变量读取)
@@ -15,16 +18,27 @@ const GRPC_HOST = process.env.GRPC_HOST || "rpi5.local";
 const GRPC_PORT = process.env.GRPC_PORT || "50051";
 
 // 创建客户端实例
-let client: ControlServiceClient | null = null;
+let controlClient: ControlServiceClient | null = null;
+let sensorClient: SensorServiceClient | null = null;
 
 function getClient(): ControlServiceClient {
-  if (!client) {
-    client = new ControlServiceClient(
+  if (!controlClient) {
+    controlClient = new ControlServiceClient(
       `${GRPC_HOST}:${GRPC_PORT}`,
       grpc.credentials.createInsecure()
     );
   }
-  return client;
+  return controlClient;
+}
+
+function getSensorClient(): SensorServiceClient {
+  if (!sensorClient) {
+    sensorClient = new SensorServiceClient(
+      `${GRPC_HOST}:${GRPC_PORT}`,
+      grpc.credentials.createInsecure()
+    );
+  }
+  return sensorClient;
 }
 
 // 辅助函数：将 callback 转为 Promise
@@ -100,3 +114,46 @@ export async function checkConnection(): Promise<boolean> {
     return false;
   }
 }
+
+// ============================================================
+// 传感器服务 API
+// ============================================================
+
+function sensorPromisify<TReq, TRes>(
+  method: (input: TReq, callback: (err: grpc.ServiceError | null, value?: TRes) => void) => grpc.ClientUnaryCall,
+  request: TReq
+): Promise<TRes> {
+  return new Promise((resolve, reject) => {
+    method.call(getSensorClient(), request, (error: grpc.ServiceError | null, response?: TRes) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(response!);
+      }
+    });
+  });
+}
+
+export async function sendSensorCommand(command: string, paramsJson?: string): Promise<SensorCommandResponse> {
+  return sensorPromisify(
+    getSensorClient().sendCommand.bind(getSensorClient()),
+    { command, paramsJson }
+  );
+}
+
+export async function getSensorStatus(): Promise<SensorBoardStatus> {
+  return sensorPromisify(
+    getSensorClient().getSensorStatus.bind(getSensorClient()),
+    Empty.create()
+  );
+}
+
+export async function configureHeater(temps: number[], durs: number[], sensors?: number[]): Promise<HeaterConfigResponse> {
+  return sensorPromisify(
+    getSensorClient().configureHeater.bind(getSensorClient()),
+    { temps, durs, sensors: sensors || [] }
+  );
+}
+
+// 导出 SensorServiceClient 用于流式订阅
+export { getSensorClient };

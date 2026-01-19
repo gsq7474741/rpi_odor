@@ -5,6 +5,12 @@
 // 电子鼻 gRPC 服务定义
 // 提供控制接口和数据流服务
 //
+import { HeaterConfigResponse } from "./enose_service";
+import { HeaterConfigRequest } from "./enose_service";
+import { SensorBoardStatus } from "./enose_service";
+import { SensorReading } from "./enose_service";
+import { SensorCommandResponse } from "./enose_service";
+import { SensorCommandRequest } from "./enose_service";
 import { AnalysisResult } from "./enose_data";
 import { SensorFrame } from "./enose_data";
 import { PeripheralStatus } from "./enose_service";
@@ -207,5 +213,92 @@ export const dataServiceDefinition: grpc.ServiceDefinition<IDataService> = {
         requestDeserialize: bytes => Empty.fromBinary(bytes),
         responseSerialize: value => Buffer.from(AnalysisResult.toBinary(value)),
         requestSerialize: value => Buffer.from(Empty.toBinary(value))
+    }
+};
+/**
+ * ============================================================
+ * 传感器控制服务 (SensorService)
+ * 用于控制 BME688 传感器板
+ * ============================================================
+ *
+ * @generated from protobuf service enose.service.SensorService
+ */
+export interface ISensorService extends grpc.UntypedServiceImplementation {
+    /**
+     * 发送传感器命令 (sync, init, start, stop, status, reset, config)
+     *
+     * @generated from protobuf rpc: SendCommand
+     */
+    sendCommand: grpc.handleUnaryCall<SensorCommandRequest, SensorCommandResponse>;
+    /**
+     * 订阅传感器数据流 (实时推送)
+     *
+     * @generated from protobuf rpc: SubscribeSensorReadings
+     */
+    subscribeSensorReadings: grpc.handleServerStreamingCall<Empty, SensorReading>;
+    /**
+     * 获取传感器板状态
+     *
+     * @generated from protobuf rpc: GetSensorStatus
+     */
+    getSensorStatus: grpc.handleUnaryCall<Empty, SensorBoardStatus>;
+    /**
+     * 配置加热器
+     *
+     * @generated from protobuf rpc: ConfigureHeater
+     */
+    configureHeater: grpc.handleUnaryCall<HeaterConfigRequest, HeaterConfigResponse>;
+}
+/**
+ * @grpc/grpc-js definition for the protobuf service enose.service.SensorService.
+ *
+ * Usage: Implement the interface ISensorService and add to a grpc server.
+ *
+ * ```typescript
+ * const server = new grpc.Server();
+ * const service: ISensorService = ...
+ * server.addService(sensorServiceDefinition, service);
+ * ```
+ */
+export const sensorServiceDefinition: grpc.ServiceDefinition<ISensorService> = {
+    sendCommand: {
+        path: "/enose.service.SensorService/SendCommand",
+        originalName: "SendCommand",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => SensorCommandResponse.fromBinary(bytes),
+        requestDeserialize: bytes => SensorCommandRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(SensorCommandResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(SensorCommandRequest.toBinary(value))
+    },
+    subscribeSensorReadings: {
+        path: "/enose.service.SensorService/SubscribeSensorReadings",
+        originalName: "SubscribeSensorReadings",
+        requestStream: false,
+        responseStream: true,
+        responseDeserialize: bytes => SensorReading.fromBinary(bytes),
+        requestDeserialize: bytes => Empty.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(SensorReading.toBinary(value)),
+        requestSerialize: value => Buffer.from(Empty.toBinary(value))
+    },
+    getSensorStatus: {
+        path: "/enose.service.SensorService/GetSensorStatus",
+        originalName: "GetSensorStatus",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => SensorBoardStatus.fromBinary(bytes),
+        requestDeserialize: bytes => Empty.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(SensorBoardStatus.toBinary(value)),
+        requestSerialize: value => Buffer.from(Empty.toBinary(value))
+    },
+    configureHeater: {
+        path: "/enose.service.SensorService/ConfigureHeater",
+        originalName: "ConfigureHeater",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => HeaterConfigResponse.fromBinary(bytes),
+        requestDeserialize: bytes => HeaterConfigRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(HeaterConfigResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(HeaterConfigRequest.toBinary(value))
     }
 };

@@ -5,6 +5,13 @@
 // 电子鼻 gRPC 服务定义
 // 提供控制接口和数据流服务
 //
+import { SensorService } from "./enose_service";
+import type { HeaterConfigResponse } from "./enose_service";
+import type { HeaterConfigRequest } from "./enose_service";
+import type { SensorBoardStatus } from "./enose_service";
+import type { SensorReading } from "./enose_service";
+import type { SensorCommandResponse } from "./enose_service";
+import type { SensorCommandRequest } from "./enose_service";
 import { DataService } from "./enose_service";
 import type { AnalysisResult } from "./enose_data";
 import type { SensorFrame } from "./enose_data";
@@ -225,5 +232,100 @@ export class DataServiceClient extends grpc.Client implements IDataServiceClient
     subscribeAnalysisResults(input: Empty, metadata?: grpc.Metadata | grpc.CallOptions, options?: grpc.CallOptions): grpc.ClientReadableStream<AnalysisResult> {
         const method = DataService.methods[1];
         return this.makeServerStreamRequest<Empty, AnalysisResult>(`/${DataService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): AnalysisResult => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), options);
+    }
+}
+/**
+ * ============================================================
+ * 传感器控制服务 (SensorService)
+ * 用于控制 BME688 传感器板
+ * ============================================================
+ *
+ * @generated from protobuf service enose.service.SensorService
+ */
+export interface ISensorServiceClient {
+    /**
+     * 发送传感器命令 (sync, init, start, stop, status, reset, config)
+     *
+     * @generated from protobuf rpc: SendCommand
+     */
+    sendCommand(input: SensorCommandRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: SensorCommandResponse) => void): grpc.ClientUnaryCall;
+    sendCommand(input: SensorCommandRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: SensorCommandResponse) => void): grpc.ClientUnaryCall;
+    sendCommand(input: SensorCommandRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: SensorCommandResponse) => void): grpc.ClientUnaryCall;
+    sendCommand(input: SensorCommandRequest, callback: (err: grpc.ServiceError | null, value?: SensorCommandResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 订阅传感器数据流 (实时推送)
+     *
+     * @generated from protobuf rpc: SubscribeSensorReadings
+     */
+    subscribeSensorReadings(input: Empty, metadata?: grpc.Metadata, options?: grpc.CallOptions): grpc.ClientReadableStream<SensorReading>;
+    subscribeSensorReadings(input: Empty, options?: grpc.CallOptions): grpc.ClientReadableStream<SensorReading>;
+    /**
+     * 获取传感器板状态
+     *
+     * @generated from protobuf rpc: GetSensorStatus
+     */
+    getSensorStatus(input: Empty, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: SensorBoardStatus) => void): grpc.ClientUnaryCall;
+    getSensorStatus(input: Empty, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: SensorBoardStatus) => void): grpc.ClientUnaryCall;
+    getSensorStatus(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: SensorBoardStatus) => void): grpc.ClientUnaryCall;
+    getSensorStatus(input: Empty, callback: (err: grpc.ServiceError | null, value?: SensorBoardStatus) => void): grpc.ClientUnaryCall;
+    /**
+     * 配置加热器
+     *
+     * @generated from protobuf rpc: ConfigureHeater
+     */
+    configureHeater(input: HeaterConfigRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: HeaterConfigResponse) => void): grpc.ClientUnaryCall;
+    configureHeater(input: HeaterConfigRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: HeaterConfigResponse) => void): grpc.ClientUnaryCall;
+    configureHeater(input: HeaterConfigRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: HeaterConfigResponse) => void): grpc.ClientUnaryCall;
+    configureHeater(input: HeaterConfigRequest, callback: (err: grpc.ServiceError | null, value?: HeaterConfigResponse) => void): grpc.ClientUnaryCall;
+}
+/**
+ * ============================================================
+ * 传感器控制服务 (SensorService)
+ * 用于控制 BME688 传感器板
+ * ============================================================
+ *
+ * @generated from protobuf service enose.service.SensorService
+ */
+export class SensorServiceClient extends grpc.Client implements ISensorServiceClient {
+    private readonly _binaryOptions: Partial<BinaryReadOptions & BinaryWriteOptions>;
+    constructor(address: string, credentials: grpc.ChannelCredentials, options: grpc.ClientOptions = {}, binaryOptions: Partial<BinaryReadOptions & BinaryWriteOptions> = {}) {
+        super(address, credentials, options);
+        this._binaryOptions = binaryOptions;
+    }
+    /**
+     * 发送传感器命令 (sync, init, start, stop, status, reset, config)
+     *
+     * @generated from protobuf rpc: SendCommand
+     */
+    sendCommand(input: SensorCommandRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: SensorCommandResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: SensorCommandResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: SensorCommandResponse) => void)): grpc.ClientUnaryCall {
+        const method = SensorService.methods[0];
+        return this.makeUnaryRequest<SensorCommandRequest, SensorCommandResponse>(`/${SensorService.typeName}/${method.name}`, (value: SensorCommandRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): SensorCommandResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 订阅传感器数据流 (实时推送)
+     *
+     * @generated from protobuf rpc: SubscribeSensorReadings
+     */
+    subscribeSensorReadings(input: Empty, metadata?: grpc.Metadata | grpc.CallOptions, options?: grpc.CallOptions): grpc.ClientReadableStream<SensorReading> {
+        const method = SensorService.methods[1];
+        return this.makeServerStreamRequest<Empty, SensorReading>(`/${SensorService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): SensorReading => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), options);
+    }
+    /**
+     * 获取传感器板状态
+     *
+     * @generated from protobuf rpc: GetSensorStatus
+     */
+    getSensorStatus(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: SensorBoardStatus) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: SensorBoardStatus) => void), callback?: ((err: grpc.ServiceError | null, value?: SensorBoardStatus) => void)): grpc.ClientUnaryCall {
+        const method = SensorService.methods[2];
+        return this.makeUnaryRequest<Empty, SensorBoardStatus>(`/${SensorService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): SensorBoardStatus => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 配置加热器
+     *
+     * @generated from protobuf rpc: ConfigureHeater
+     */
+    configureHeater(input: HeaterConfigRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: HeaterConfigResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: HeaterConfigResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: HeaterConfigResponse) => void)): grpc.ClientUnaryCall {
+        const method = SensorService.methods[3];
+        return this.makeUnaryRequest<HeaterConfigRequest, HeaterConfigResponse>(`/${SensorService.typeName}/${method.name}`, (value: HeaterConfigRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): HeaterConfigResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
 }

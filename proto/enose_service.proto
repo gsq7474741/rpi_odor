@@ -52,6 +52,24 @@ service DataService {
 }
 
 // ============================================================
+// 传感器控制服务 (SensorService)
+// 用于控制 BME688 传感器板
+// ============================================================
+service SensorService {
+  // 发送传感器命令 (sync, init, start, stop, status, reset, config)
+  rpc SendCommand(SensorCommandRequest) returns (SensorCommandResponse);
+  
+  // 订阅传感器数据流 (实时推送)
+  rpc SubscribeSensorReadings(google.protobuf.Empty) returns (stream SensorReading);
+  
+  // 获取传感器板状态
+  rpc GetSensorStatus(google.protobuf.Empty) returns (SensorBoardStatus);
+  
+  // 配置加热器
+  rpc ConfigureHeater(HeaterConfigRequest) returns (HeaterConfigResponse);
+}
+
+// ============================================================
 // 请求/响应消息定义
 // ============================================================
 
@@ -161,4 +179,72 @@ message RunPumpResponse {
 message StopAllPumpsResponse {
   bool success = 1;
   string message = 2;
+}
+
+// ============================================================
+// 传感器服务消息定义
+// ============================================================
+
+// 传感器命令请求
+message SensorCommandRequest {
+  // 命令类型: sync, init, start, stop, status, reset
+  string command = 1;
+  
+  // 可选参数 (JSON 格式字符串)
+  optional string params_json = 2;
+}
+
+message SensorCommandResponse {
+  bool success = 1;
+  string message = 2;
+  
+  // 响应数据 (JSON 格式字符串)
+  optional string data_json = 3;
+}
+
+// 传感器板状态
+message SensorBoardStatus {
+  bool connected = 1;
+  bool running = 2;           // 是否正在采集
+  uint32 sensor_count = 3;    // 传感器数量
+  string firmware_version = 4;
+  string port = 5;
+}
+
+// 单个传感器读数 (实时数据流)
+message SensorReading {
+  uint64 tick_ms = 1;         // 设备时间戳 (毫秒)
+  uint32 sensor_idx = 2;      // 传感器索引 (0-7)
+  uint32 sensor_id = 3;       // 传感器 ID
+  double value = 4;           // 主读数 (电阻/电压)
+  string sensor_type = 5;     // mox_d, mox_a, pid
+  
+  optional double temperature = 6;
+  optional double humidity = 7;
+  optional double pressure = 8;
+  
+  uint32 heater_step = 9;     // 加热器步进索引
+  uint32 adc_channel = 10;
+}
+
+// 加热器配置请求
+message HeaterConfigRequest {
+  repeated uint32 temps = 1;  // 温度列表 (°C)
+  repeated uint32 durs = 2;   // 持续时间列表 (×140ms)
+  
+  // 目标传感器 (空=所有)
+  repeated uint32 sensors = 3;
+}
+
+message HeaterConfigResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// 加热器预设
+message HeaterPreset {
+  string name = 1;
+  string description = 2;
+  repeated uint32 temps = 3;
+  repeated uint32 durs = 4;
 }

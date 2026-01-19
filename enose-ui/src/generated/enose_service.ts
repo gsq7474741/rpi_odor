@@ -249,6 +249,167 @@ export interface StopAllPumpsResponse {
      */
     message: string;
 }
+// ============================================================// 传感器服务消息定义// ============================================================
+
+/**
+ * 传感器命令请求
+ *
+ * @generated from protobuf message enose.service.SensorCommandRequest
+ */
+export interface SensorCommandRequest {
+    /**
+     * 命令类型: sync, init, start, stop, status, reset
+     *
+     * @generated from protobuf field: string command = 1
+     */
+    command: string;
+    /**
+     * 可选参数 (JSON 格式字符串)
+     *
+     * @generated from protobuf field: optional string params_json = 2
+     */
+    paramsJson?: string;
+}
+/**
+ * @generated from protobuf message enose.service.SensorCommandResponse
+ */
+export interface SensorCommandResponse {
+    /**
+     * @generated from protobuf field: bool success = 1
+     */
+    success: boolean;
+    /**
+     * @generated from protobuf field: string message = 2
+     */
+    message: string;
+    /**
+     * 响应数据 (JSON 格式字符串)
+     *
+     * @generated from protobuf field: optional string data_json = 3
+     */
+    dataJson?: string;
+}
+/**
+ * 传感器板状态
+ *
+ * @generated from protobuf message enose.service.SensorBoardStatus
+ */
+export interface SensorBoardStatus {
+    /**
+     * @generated from protobuf field: bool connected = 1
+     */
+    connected: boolean;
+    /**
+     * @generated from protobuf field: bool running = 2
+     */
+    running: boolean; // 是否正在采集    /**
+     * @generated from protobuf field: uint32 sensor_count = 3
+     */
+    sensorCount: number; // 传感器数量    /**
+     * @generated from protobuf field: string firmware_version = 4
+     */
+    firmwareVersion: string;
+    /**
+     * @generated from protobuf field: string port = 5
+     */
+    port: string;
+}
+/**
+ * 单个传感器读数 (实时数据流)
+ *
+ * @generated from protobuf message enose.service.SensorReading
+ */
+export interface SensorReading {
+    /**
+     * @generated from protobuf field: uint64 tick_ms = 1
+     */
+    tickMs: string; // 设备时间戳 (毫秒)    /**
+     * @generated from protobuf field: uint32 sensor_idx = 2
+     */
+    sensorIdx: number; // 传感器索引 (0-7)    /**
+     * @generated from protobuf field: uint32 sensor_id = 3
+     */
+    sensorId: number; // 传感器 ID    /**
+     * @generated from protobuf field: double value = 4
+     */
+    value: number; // 主读数 (电阻/电压)    /**
+     * @generated from protobuf field: string sensor_type = 5
+     */
+    sensorType: string; // mox_d, mox_a, pid    /**
+     * @generated from protobuf field: optional double temperature = 6
+     */
+    temperature?: number;
+    /**
+     * @generated from protobuf field: optional double humidity = 7
+     */
+    humidity?: number;
+    /**
+     * @generated from protobuf field: optional double pressure = 8
+     */
+    pressure?: number;
+    /**
+     * @generated from protobuf field: uint32 heater_step = 9
+     */
+    heaterStep: number; // 加热器步进索引    /**
+     * @generated from protobuf field: uint32 adc_channel = 10
+     */
+    adcChannel: number;
+}
+/**
+ * 加热器配置请求
+ *
+ * @generated from protobuf message enose.service.HeaterConfigRequest
+ */
+export interface HeaterConfigRequest {
+    /**
+     * @generated from protobuf field: repeated uint32 temps = 1
+     */
+    temps: number[]; // 温度列表 (°C)    /**
+     * @generated from protobuf field: repeated uint32 durs = 2
+     */
+    durs: number[]; // 持续时间列表 (×140ms)    /**
+     * 目标传感器 (空=所有)
+     *
+     * @generated from protobuf field: repeated uint32 sensors = 3
+     */
+    sensors: number[];
+}
+/**
+ * @generated from protobuf message enose.service.HeaterConfigResponse
+ */
+export interface HeaterConfigResponse {
+    /**
+     * @generated from protobuf field: bool success = 1
+     */
+    success: boolean;
+    /**
+     * @generated from protobuf field: string message = 2
+     */
+    message: string;
+}
+/**
+ * 加热器预设
+ *
+ * @generated from protobuf message enose.service.HeaterPreset
+ */
+export interface HeaterPreset {
+    /**
+     * @generated from protobuf field: string name = 1
+     */
+    name: string;
+    /**
+     * @generated from protobuf field: string description = 2
+     */
+    description: string;
+    /**
+     * @generated from protobuf field: repeated uint32 temps = 3
+     */
+    temps: number[];
+    /**
+     * @generated from protobuf field: repeated uint32 durs = 4
+     */
+    durs: number[];
+}
 // ============================================================// 请求/响应消息定义// ============================================================
 
 /**
@@ -911,6 +1072,546 @@ class StopAllPumpsResponse$Type extends MessageType<StopAllPumpsResponse> {
  * @generated MessageType for protobuf message enose.service.StopAllPumpsResponse
  */
 export const StopAllPumpsResponse = new StopAllPumpsResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class SensorCommandRequest$Type extends MessageType<SensorCommandRequest> {
+    constructor() {
+        super("enose.service.SensorCommandRequest", [
+            { no: 1, name: "command", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "params_json", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<SensorCommandRequest>): SensorCommandRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.command = "";
+        if (value !== undefined)
+            reflectionMergePartial<SensorCommandRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: SensorCommandRequest): SensorCommandRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string command */ 1:
+                    message.command = reader.string();
+                    break;
+                case /* optional string params_json */ 2:
+                    message.paramsJson = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: SensorCommandRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string command = 1; */
+        if (message.command !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.command);
+        /* optional string params_json = 2; */
+        if (message.paramsJson !== undefined)
+            writer.tag(2, WireType.LengthDelimited).string(message.paramsJson);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.SensorCommandRequest
+ */
+export const SensorCommandRequest = new SensorCommandRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class SensorCommandResponse$Type extends MessageType<SensorCommandResponse> {
+    constructor() {
+        super("enose.service.SensorCommandResponse", [
+            { no: 1, name: "success", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 2, name: "message", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "data_json", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<SensorCommandResponse>): SensorCommandResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.success = false;
+        message.message = "";
+        if (value !== undefined)
+            reflectionMergePartial<SensorCommandResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: SensorCommandResponse): SensorCommandResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* bool success */ 1:
+                    message.success = reader.bool();
+                    break;
+                case /* string message */ 2:
+                    message.message = reader.string();
+                    break;
+                case /* optional string data_json */ 3:
+                    message.dataJson = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: SensorCommandResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* bool success = 1; */
+        if (message.success !== false)
+            writer.tag(1, WireType.Varint).bool(message.success);
+        /* string message = 2; */
+        if (message.message !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.message);
+        /* optional string data_json = 3; */
+        if (message.dataJson !== undefined)
+            writer.tag(3, WireType.LengthDelimited).string(message.dataJson);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.SensorCommandResponse
+ */
+export const SensorCommandResponse = new SensorCommandResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class SensorBoardStatus$Type extends MessageType<SensorBoardStatus> {
+    constructor() {
+        super("enose.service.SensorBoardStatus", [
+            { no: 1, name: "connected", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 2, name: "running", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 3, name: "sensor_count", kind: "scalar", T: 13 /*ScalarType.UINT32*/ },
+            { no: 4, name: "firmware_version", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 5, name: "port", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<SensorBoardStatus>): SensorBoardStatus {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.connected = false;
+        message.running = false;
+        message.sensorCount = 0;
+        message.firmwareVersion = "";
+        message.port = "";
+        if (value !== undefined)
+            reflectionMergePartial<SensorBoardStatus>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: SensorBoardStatus): SensorBoardStatus {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* bool connected */ 1:
+                    message.connected = reader.bool();
+                    break;
+                case /* bool running */ 2:
+                    message.running = reader.bool();
+                    break;
+                case /* uint32 sensor_count */ 3:
+                    message.sensorCount = reader.uint32();
+                    break;
+                case /* string firmware_version */ 4:
+                    message.firmwareVersion = reader.string();
+                    break;
+                case /* string port */ 5:
+                    message.port = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: SensorBoardStatus, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* bool connected = 1; */
+        if (message.connected !== false)
+            writer.tag(1, WireType.Varint).bool(message.connected);
+        /* bool running = 2; */
+        if (message.running !== false)
+            writer.tag(2, WireType.Varint).bool(message.running);
+        /* uint32 sensor_count = 3; */
+        if (message.sensorCount !== 0)
+            writer.tag(3, WireType.Varint).uint32(message.sensorCount);
+        /* string firmware_version = 4; */
+        if (message.firmwareVersion !== "")
+            writer.tag(4, WireType.LengthDelimited).string(message.firmwareVersion);
+        /* string port = 5; */
+        if (message.port !== "")
+            writer.tag(5, WireType.LengthDelimited).string(message.port);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.SensorBoardStatus
+ */
+export const SensorBoardStatus = new SensorBoardStatus$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class SensorReading$Type extends MessageType<SensorReading> {
+    constructor() {
+        super("enose.service.SensorReading", [
+            { no: 1, name: "tick_ms", kind: "scalar", T: 4 /*ScalarType.UINT64*/ },
+            { no: 2, name: "sensor_idx", kind: "scalar", T: 13 /*ScalarType.UINT32*/ },
+            { no: 3, name: "sensor_id", kind: "scalar", T: 13 /*ScalarType.UINT32*/ },
+            { no: 4, name: "value", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 5, name: "sensor_type", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 6, name: "temperature", kind: "scalar", opt: true, T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 7, name: "humidity", kind: "scalar", opt: true, T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 8, name: "pressure", kind: "scalar", opt: true, T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 9, name: "heater_step", kind: "scalar", T: 13 /*ScalarType.UINT32*/ },
+            { no: 10, name: "adc_channel", kind: "scalar", T: 13 /*ScalarType.UINT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<SensorReading>): SensorReading {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.tickMs = "0";
+        message.sensorIdx = 0;
+        message.sensorId = 0;
+        message.value = 0;
+        message.sensorType = "";
+        message.heaterStep = 0;
+        message.adcChannel = 0;
+        if (value !== undefined)
+            reflectionMergePartial<SensorReading>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: SensorReading): SensorReading {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* uint64 tick_ms */ 1:
+                    message.tickMs = reader.uint64().toString();
+                    break;
+                case /* uint32 sensor_idx */ 2:
+                    message.sensorIdx = reader.uint32();
+                    break;
+                case /* uint32 sensor_id */ 3:
+                    message.sensorId = reader.uint32();
+                    break;
+                case /* double value */ 4:
+                    message.value = reader.double();
+                    break;
+                case /* string sensor_type */ 5:
+                    message.sensorType = reader.string();
+                    break;
+                case /* optional double temperature */ 6:
+                    message.temperature = reader.double();
+                    break;
+                case /* optional double humidity */ 7:
+                    message.humidity = reader.double();
+                    break;
+                case /* optional double pressure */ 8:
+                    message.pressure = reader.double();
+                    break;
+                case /* uint32 heater_step */ 9:
+                    message.heaterStep = reader.uint32();
+                    break;
+                case /* uint32 adc_channel */ 10:
+                    message.adcChannel = reader.uint32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: SensorReading, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* uint64 tick_ms = 1; */
+        if (message.tickMs !== "0")
+            writer.tag(1, WireType.Varint).uint64(message.tickMs);
+        /* uint32 sensor_idx = 2; */
+        if (message.sensorIdx !== 0)
+            writer.tag(2, WireType.Varint).uint32(message.sensorIdx);
+        /* uint32 sensor_id = 3; */
+        if (message.sensorId !== 0)
+            writer.tag(3, WireType.Varint).uint32(message.sensorId);
+        /* double value = 4; */
+        if (message.value !== 0)
+            writer.tag(4, WireType.Bit64).double(message.value);
+        /* string sensor_type = 5; */
+        if (message.sensorType !== "")
+            writer.tag(5, WireType.LengthDelimited).string(message.sensorType);
+        /* optional double temperature = 6; */
+        if (message.temperature !== undefined)
+            writer.tag(6, WireType.Bit64).double(message.temperature);
+        /* optional double humidity = 7; */
+        if (message.humidity !== undefined)
+            writer.tag(7, WireType.Bit64).double(message.humidity);
+        /* optional double pressure = 8; */
+        if (message.pressure !== undefined)
+            writer.tag(8, WireType.Bit64).double(message.pressure);
+        /* uint32 heater_step = 9; */
+        if (message.heaterStep !== 0)
+            writer.tag(9, WireType.Varint).uint32(message.heaterStep);
+        /* uint32 adc_channel = 10; */
+        if (message.adcChannel !== 0)
+            writer.tag(10, WireType.Varint).uint32(message.adcChannel);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.SensorReading
+ */
+export const SensorReading = new SensorReading$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class HeaterConfigRequest$Type extends MessageType<HeaterConfigRequest> {
+    constructor() {
+        super("enose.service.HeaterConfigRequest", [
+            { no: 1, name: "temps", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 13 /*ScalarType.UINT32*/ },
+            { no: 2, name: "durs", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 13 /*ScalarType.UINT32*/ },
+            { no: 3, name: "sensors", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 13 /*ScalarType.UINT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<HeaterConfigRequest>): HeaterConfigRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.temps = [];
+        message.durs = [];
+        message.sensors = [];
+        if (value !== undefined)
+            reflectionMergePartial<HeaterConfigRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: HeaterConfigRequest): HeaterConfigRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated uint32 temps */ 1:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.temps.push(reader.uint32());
+                    else
+                        message.temps.push(reader.uint32());
+                    break;
+                case /* repeated uint32 durs */ 2:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.durs.push(reader.uint32());
+                    else
+                        message.durs.push(reader.uint32());
+                    break;
+                case /* repeated uint32 sensors */ 3:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.sensors.push(reader.uint32());
+                    else
+                        message.sensors.push(reader.uint32());
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: HeaterConfigRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated uint32 temps = 1; */
+        if (message.temps.length) {
+            writer.tag(1, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.temps.length; i++)
+                writer.uint32(message.temps[i]);
+            writer.join();
+        }
+        /* repeated uint32 durs = 2; */
+        if (message.durs.length) {
+            writer.tag(2, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.durs.length; i++)
+                writer.uint32(message.durs[i]);
+            writer.join();
+        }
+        /* repeated uint32 sensors = 3; */
+        if (message.sensors.length) {
+            writer.tag(3, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.sensors.length; i++)
+                writer.uint32(message.sensors[i]);
+            writer.join();
+        }
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.HeaterConfigRequest
+ */
+export const HeaterConfigRequest = new HeaterConfigRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class HeaterConfigResponse$Type extends MessageType<HeaterConfigResponse> {
+    constructor() {
+        super("enose.service.HeaterConfigResponse", [
+            { no: 1, name: "success", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 2, name: "message", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<HeaterConfigResponse>): HeaterConfigResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.success = false;
+        message.message = "";
+        if (value !== undefined)
+            reflectionMergePartial<HeaterConfigResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: HeaterConfigResponse): HeaterConfigResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* bool success */ 1:
+                    message.success = reader.bool();
+                    break;
+                case /* string message */ 2:
+                    message.message = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: HeaterConfigResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* bool success = 1; */
+        if (message.success !== false)
+            writer.tag(1, WireType.Varint).bool(message.success);
+        /* string message = 2; */
+        if (message.message !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.message);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.HeaterConfigResponse
+ */
+export const HeaterConfigResponse = new HeaterConfigResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class HeaterPreset$Type extends MessageType<HeaterPreset> {
+    constructor() {
+        super("enose.service.HeaterPreset", [
+            { no: 1, name: "name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "description", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "temps", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 13 /*ScalarType.UINT32*/ },
+            { no: 4, name: "durs", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 13 /*ScalarType.UINT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<HeaterPreset>): HeaterPreset {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.name = "";
+        message.description = "";
+        message.temps = [];
+        message.durs = [];
+        if (value !== undefined)
+            reflectionMergePartial<HeaterPreset>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: HeaterPreset): HeaterPreset {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string name */ 1:
+                    message.name = reader.string();
+                    break;
+                case /* string description */ 2:
+                    message.description = reader.string();
+                    break;
+                case /* repeated uint32 temps */ 3:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.temps.push(reader.uint32());
+                    else
+                        message.temps.push(reader.uint32());
+                    break;
+                case /* repeated uint32 durs */ 4:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.durs.push(reader.uint32());
+                    else
+                        message.durs.push(reader.uint32());
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: HeaterPreset, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string name = 1; */
+        if (message.name !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.name);
+        /* string description = 2; */
+        if (message.description !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.description);
+        /* repeated uint32 temps = 3; */
+        if (message.temps.length) {
+            writer.tag(3, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.temps.length; i++)
+                writer.uint32(message.temps[i]);
+            writer.join();
+        }
+        /* repeated uint32 durs = 4; */
+        if (message.durs.length) {
+            writer.tag(4, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.durs.length; i++)
+                writer.uint32(message.durs[i]);
+            writer.join();
+        }
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.HeaterPreset
+ */
+export const HeaterPreset = new HeaterPreset$Type();
 /**
  * @generated ServiceType for protobuf service enose.service.ControlService
  */
@@ -929,4 +1630,13 @@ export const ControlService = new ServiceType("enose.service.ControlService", [
 export const DataService = new ServiceType("enose.service.DataService", [
     { name: "SubscribeSensorData", serverStreaming: true, options: {}, I: Empty, O: SensorFrame },
     { name: "SubscribeAnalysisResults", serverStreaming: true, options: {}, I: Empty, O: AnalysisResult }
+]);
+/**
+ * @generated ServiceType for protobuf service enose.service.SensorService
+ */
+export const SensorService = new ServiceType("enose.service.SensorService", [
+    { name: "SendCommand", options: {}, I: SensorCommandRequest, O: SensorCommandResponse },
+    { name: "SubscribeSensorReadings", serverStreaming: true, options: {}, I: Empty, O: SensorReading },
+    { name: "GetSensorStatus", options: {}, I: Empty, O: SensorBoardStatus },
+    { name: "ConfigureHeater", options: {}, I: HeaterConfigRequest, O: HeaterConfigResponse }
 ]);

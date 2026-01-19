@@ -33,19 +33,19 @@ int main(int argc, char* argv[]) {
         if (argc > 3) grpc_address = argv[3];
 
         // Drivers
-        hal::SensorDriver sensor_driver(io_context);
+        auto sensor_driver = std::make_shared<hal::SensorDriver>(io_context);
         auto actuator_driver = std::make_shared<hal::ActuatorDriver>(io_context);
 
         // System State Machine
         auto system_state = std::make_shared<workflows::SystemState>(actuator_driver);
 
-        // gRPC Server
-        enose_grpc::GrpcServer grpc_srv(actuator_driver, system_state);
+        // gRPC Server (包含传感器服务)
+        enose_grpc::GrpcServer grpc_srv(actuator_driver, system_state, sensor_driver);
         grpc_srv.start(grpc_address);
 
-        // Sensor Signals
-        sensor_driver.on_packet.connect([](const nlohmann::json& j) {
-            spdlog::info("Sensor Data: {}", j.dump());
+        // Sensor Signals (调试用)
+        sensor_driver->on_packet.connect([](const nlohmann::json& j) {
+            spdlog::debug("Sensor Data: {}", j.dump());
         });
 
         // Actuator Signals
@@ -55,7 +55,7 @@ int main(int argc, char* argv[]) {
 
         // Start Drivers
         try {
-            sensor_driver.start(sensor_port, sensor_baud);
+            sensor_driver->start(sensor_port, sensor_baud);
         } catch (const std::exception& e) {
             spdlog::warn("Could not start sensor driver on {}: {}", sensor_port, e.what());
         }
@@ -67,7 +67,7 @@ int main(int argc, char* argv[]) {
         signals.async_wait([&](const boost::system::error_code&, int) {
             spdlog::info("Shutting down...");
             grpc_srv.stop();
-            sensor_driver.stop();
+            sensor_driver->stop();
             io_context.stop();
         });
 

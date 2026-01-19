@@ -1,14 +1,17 @@
 #include "grpc/grpc_server.hpp"
 #include "grpc/control_service_impl.hpp"
+#include "grpc/sensor_service_impl.hpp"
 #include <spdlog/spdlog.h>
 
 namespace enose_grpc {
 
 GrpcServer::GrpcServer(
     std::shared_ptr<hal::ActuatorDriver> actuator,
-    std::shared_ptr<workflows::SystemState> system_state
+    std::shared_ptr<workflows::SystemState> system_state,
+    std::shared_ptr<hal::SensorDriver> sensor
 ) : actuator_(std::move(actuator))
-  , system_state_(std::move(system_state)) {}
+  , system_state_(std::move(system_state))
+  , sensor_(std::move(sensor)) {}
 
 GrpcServer::~GrpcServer() {
     stop();
@@ -23,11 +26,18 @@ void GrpcServer::start(const std::string& address) {
     server_thread_ = std::thread([this, address]() {
         // 创建服务实现
         ControlServiceImpl control_service(actuator_, system_state_);
+        std::unique_ptr<SensorServiceImpl> sensor_service;
+        if (sensor_) {
+            sensor_service = std::make_unique<SensorServiceImpl>(sensor_);
+        }
         
         // 构建服务器
         ::grpc::ServerBuilder builder;
         builder.AddListeningPort(address, ::grpc::InsecureServerCredentials());
         builder.RegisterService(&control_service);
+        if (sensor_service) {
+            builder.RegisterService(sensor_service.get());
+        }
         
         server_ = builder.BuildAndStart();
         
