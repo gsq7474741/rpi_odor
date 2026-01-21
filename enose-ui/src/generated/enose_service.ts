@@ -55,6 +55,9 @@ export interface SystemStatus {
      */
     sensorConnected: boolean;
     /**
+     * @generated from protobuf field: bool firmware_ready = 7
+     */
+    firmwareReady: boolean; // Klipper 固件是否就绪 (急停后为 false)    /**
      * 最后更新时间
      *
      * @generated from protobuf field: google.protobuf.Timestamp last_updated = 6
@@ -183,6 +186,91 @@ export interface ManualControlRequest {
  * @generated from protobuf message enose.service.ManualControlResponse
  */
 export interface ManualControlResponse {
+    /**
+     * @generated from protobuf field: bool success = 1
+     */
+    success: boolean;
+    /**
+     * @generated from protobuf field: string message = 2
+     */
+    message: string;
+}
+/**
+ * 进样请求
+ *
+ * @generated from protobuf message enose.service.StartInjectionRequest
+ */
+export interface StartInjectionRequest {
+    /**
+     * 每个蠕动泵的进样量 (单位待标定，目前为步进电机移动距离 mm)
+     *
+     * @generated from protobuf field: float pump_2_volume = 1
+     */
+    pump2Volume: number; // 蠕动泵0    /**
+     * @generated from protobuf field: float pump_3_volume = 2
+     */
+    pump3Volume: number; // 蠕动泵1    /**
+     * @generated from protobuf field: float pump_4_volume = 3
+     */
+    pump4Volume: number; // 蠕动泵2    /**
+     * @generated from protobuf field: float pump_5_volume = 4
+     */
+    pump5Volume: number; // 蠕动泵3    /**
+     * 可选参数
+     *
+     * @generated from protobuf field: optional float speed = 5
+     */
+    speed?: number; // 进样速度 (mm/s), 默认 10    /**
+     * @generated from protobuf field: optional float accel = 6
+     */
+    accel?: number; // 加速度 (mm/s²), 默认 100}
+/**
+ * @generated from protobuf message enose.service.StartInjectionResponse
+ */
+export interface StartInjectionResponse {
+    /**
+     * @generated from protobuf field: bool success = 1
+     */
+    success: boolean;
+    /**
+     * @generated from protobuf field: string message = 2
+     */
+    message: string;
+}
+/**
+ * @generated from protobuf message enose.service.StopInjectionResponse
+ */
+export interface StopInjectionResponse {
+    /**
+     * @generated from protobuf field: bool success = 1
+     */
+    success: boolean;
+    /**
+     * @generated from protobuf field: string message = 2
+     */
+    message: string;
+}
+/**
+ * 紧急停止响应
+ *
+ * @generated from protobuf message enose.service.EmergencyStopResponse
+ */
+export interface EmergencyStopResponse {
+    /**
+     * @generated from protobuf field: bool success = 1
+     */
+    success: boolean;
+    /**
+     * @generated from protobuf field: string message = 2
+     */
+    message: string;
+}
+/**
+ * 固件重启响应
+ *
+ * @generated from protobuf message enose.service.FirmwareRestartResponse
+ */
+export interface FirmwareRestartResponse {
     /**
      * @generated from protobuf field: bool success = 1
      */
@@ -445,7 +533,13 @@ export enum SystemStateEnum {
      *
      * @generated from protobuf enum value: SAMPLE = 4;
      */
-    SAMPLE = 4
+    SAMPLE = 4,
+    /**
+     * 进样状态: 阀门同CLEAN, 使用蠕动泵进样
+     *
+     * @generated from protobuf enum value: INJECT = 5;
+     */
+    INJECT = 5
 }
 // @generated message type with reflection information, may provide speed optimized methods
 class SystemStatus$Type extends MessageType<SystemStatus> {
@@ -456,6 +550,7 @@ class SystemStatus$Type extends MessageType<SystemStatus> {
             { no: 3, name: "uptime_seconds", kind: "scalar", T: 4 /*ScalarType.UINT64*/ },
             { no: 4, name: "moonraker_connected", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
             { no: 5, name: "sensor_connected", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 7, name: "firmware_ready", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
             { no: 6, name: "last_updated", kind: "message", T: () => Timestamp }
         ]);
     }
@@ -465,6 +560,7 @@ class SystemStatus$Type extends MessageType<SystemStatus> {
         message.uptimeSeconds = "0";
         message.moonrakerConnected = false;
         message.sensorConnected = false;
+        message.firmwareReady = false;
         if (value !== undefined)
             reflectionMergePartial<SystemStatus>(this, message, value);
         return message;
@@ -488,6 +584,9 @@ class SystemStatus$Type extends MessageType<SystemStatus> {
                     break;
                 case /* bool sensor_connected */ 5:
                     message.sensorConnected = reader.bool();
+                    break;
+                case /* bool firmware_ready */ 7:
+                    message.firmwareReady = reader.bool();
                     break;
                 case /* google.protobuf.Timestamp last_updated */ 6:
                     message.lastUpdated = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.lastUpdated);
@@ -522,6 +621,9 @@ class SystemStatus$Type extends MessageType<SystemStatus> {
         /* google.protobuf.Timestamp last_updated = 6; */
         if (message.lastUpdated)
             Timestamp.internalBinaryWrite(message.lastUpdated, writer.tag(6, WireType.LengthDelimited).fork(), options).join();
+        /* bool firmware_ready = 7; */
+        if (message.firmwareReady !== false)
+            writer.tag(7, WireType.Varint).bool(message.firmwareReady);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -893,6 +995,311 @@ class ManualControlResponse$Type extends MessageType<ManualControlResponse> {
  * @generated MessageType for protobuf message enose.service.ManualControlResponse
  */
 export const ManualControlResponse = new ManualControlResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class StartInjectionRequest$Type extends MessageType<StartInjectionRequest> {
+    constructor() {
+        super("enose.service.StartInjectionRequest", [
+            { no: 1, name: "pump_2_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 2, name: "pump_3_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 3, name: "pump_4_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 4, name: "pump_5_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 5, name: "speed", kind: "scalar", opt: true, T: 2 /*ScalarType.FLOAT*/ },
+            { no: 6, name: "accel", kind: "scalar", opt: true, T: 2 /*ScalarType.FLOAT*/ }
+        ]);
+    }
+    create(value?: PartialMessage<StartInjectionRequest>): StartInjectionRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.pump2Volume = 0;
+        message.pump3Volume = 0;
+        message.pump4Volume = 0;
+        message.pump5Volume = 0;
+        if (value !== undefined)
+            reflectionMergePartial<StartInjectionRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: StartInjectionRequest): StartInjectionRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* float pump_2_volume */ 1:
+                    message.pump2Volume = reader.float();
+                    break;
+                case /* float pump_3_volume */ 2:
+                    message.pump3Volume = reader.float();
+                    break;
+                case /* float pump_4_volume */ 3:
+                    message.pump4Volume = reader.float();
+                    break;
+                case /* float pump_5_volume */ 4:
+                    message.pump5Volume = reader.float();
+                    break;
+                case /* optional float speed */ 5:
+                    message.speed = reader.float();
+                    break;
+                case /* optional float accel */ 6:
+                    message.accel = reader.float();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: StartInjectionRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* float pump_2_volume = 1; */
+        if (message.pump2Volume !== 0)
+            writer.tag(1, WireType.Bit32).float(message.pump2Volume);
+        /* float pump_3_volume = 2; */
+        if (message.pump3Volume !== 0)
+            writer.tag(2, WireType.Bit32).float(message.pump3Volume);
+        /* float pump_4_volume = 3; */
+        if (message.pump4Volume !== 0)
+            writer.tag(3, WireType.Bit32).float(message.pump4Volume);
+        /* float pump_5_volume = 4; */
+        if (message.pump5Volume !== 0)
+            writer.tag(4, WireType.Bit32).float(message.pump5Volume);
+        /* optional float speed = 5; */
+        if (message.speed !== undefined)
+            writer.tag(5, WireType.Bit32).float(message.speed);
+        /* optional float accel = 6; */
+        if (message.accel !== undefined)
+            writer.tag(6, WireType.Bit32).float(message.accel);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.StartInjectionRequest
+ */
+export const StartInjectionRequest = new StartInjectionRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class StartInjectionResponse$Type extends MessageType<StartInjectionResponse> {
+    constructor() {
+        super("enose.service.StartInjectionResponse", [
+            { no: 1, name: "success", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 2, name: "message", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<StartInjectionResponse>): StartInjectionResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.success = false;
+        message.message = "";
+        if (value !== undefined)
+            reflectionMergePartial<StartInjectionResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: StartInjectionResponse): StartInjectionResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* bool success */ 1:
+                    message.success = reader.bool();
+                    break;
+                case /* string message */ 2:
+                    message.message = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: StartInjectionResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* bool success = 1; */
+        if (message.success !== false)
+            writer.tag(1, WireType.Varint).bool(message.success);
+        /* string message = 2; */
+        if (message.message !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.message);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.StartInjectionResponse
+ */
+export const StartInjectionResponse = new StartInjectionResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class StopInjectionResponse$Type extends MessageType<StopInjectionResponse> {
+    constructor() {
+        super("enose.service.StopInjectionResponse", [
+            { no: 1, name: "success", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 2, name: "message", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<StopInjectionResponse>): StopInjectionResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.success = false;
+        message.message = "";
+        if (value !== undefined)
+            reflectionMergePartial<StopInjectionResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: StopInjectionResponse): StopInjectionResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* bool success */ 1:
+                    message.success = reader.bool();
+                    break;
+                case /* string message */ 2:
+                    message.message = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: StopInjectionResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* bool success = 1; */
+        if (message.success !== false)
+            writer.tag(1, WireType.Varint).bool(message.success);
+        /* string message = 2; */
+        if (message.message !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.message);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.StopInjectionResponse
+ */
+export const StopInjectionResponse = new StopInjectionResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class EmergencyStopResponse$Type extends MessageType<EmergencyStopResponse> {
+    constructor() {
+        super("enose.service.EmergencyStopResponse", [
+            { no: 1, name: "success", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 2, name: "message", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<EmergencyStopResponse>): EmergencyStopResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.success = false;
+        message.message = "";
+        if (value !== undefined)
+            reflectionMergePartial<EmergencyStopResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: EmergencyStopResponse): EmergencyStopResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* bool success */ 1:
+                    message.success = reader.bool();
+                    break;
+                case /* string message */ 2:
+                    message.message = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: EmergencyStopResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* bool success = 1; */
+        if (message.success !== false)
+            writer.tag(1, WireType.Varint).bool(message.success);
+        /* string message = 2; */
+        if (message.message !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.message);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.EmergencyStopResponse
+ */
+export const EmergencyStopResponse = new EmergencyStopResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class FirmwareRestartResponse$Type extends MessageType<FirmwareRestartResponse> {
+    constructor() {
+        super("enose.service.FirmwareRestartResponse", [
+            { no: 1, name: "success", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 2, name: "message", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<FirmwareRestartResponse>): FirmwareRestartResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.success = false;
+        message.message = "";
+        if (value !== undefined)
+            reflectionMergePartial<FirmwareRestartResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: FirmwareRestartResponse): FirmwareRestartResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* bool success */ 1:
+                    message.success = reader.bool();
+                    break;
+                case /* string message */ 2:
+                    message.message = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: FirmwareRestartResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* bool success = 1; */
+        if (message.success !== false)
+            writer.tag(1, WireType.Varint).bool(message.success);
+        /* string message = 2; */
+        if (message.message !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.message);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.FirmwareRestartResponse
+ */
+export const FirmwareRestartResponse = new FirmwareRestartResponse$Type();
 // @generated message type with reflection information, may provide speed optimized methods
 class RunPumpRequest$Type extends MessageType<RunPumpRequest> {
     constructor() {
@@ -1621,6 +2028,10 @@ export const ControlService = new ServiceType("enose.service.ControlService", [
     { name: "ManualControl", options: {}, I: ManualControlRequest, O: ManualControlResponse },
     { name: "RunPump", options: {}, I: RunPumpRequest, O: RunPumpResponse },
     { name: "StopAllPumps", options: {}, I: Empty, O: StopAllPumpsResponse },
+    { name: "StartInjection", options: {}, I: StartInjectionRequest, O: StartInjectionResponse },
+    { name: "StopInjection", options: {}, I: Empty, O: StopInjectionResponse },
+    { name: "EmergencyStop", options: {}, I: Empty, O: EmergencyStopResponse },
+    { name: "FirmwareRestart", options: {}, I: Empty, O: FirmwareRestartResponse },
     { name: "SubscribeEvents", serverStreaming: true, options: {}, I: Empty, O: Event },
     { name: "SubscribePeripheralStatus", serverStreaming: true, options: {}, I: Empty, O: PeripheralStatus }
 ]);

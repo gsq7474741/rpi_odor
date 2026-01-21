@@ -15,6 +15,11 @@ import { AnalysisResult } from "./enose_data";
 import { SensorFrame } from "./enose_data";
 import { PeripheralStatus } from "./enose_service";
 import { Event } from "./enose_data";
+import { FirmwareRestartResponse } from "./enose_service";
+import { EmergencyStopResponse } from "./enose_service";
+import { StopInjectionResponse } from "./enose_service";
+import { StartInjectionResponse } from "./enose_service";
+import { StartInjectionRequest } from "./enose_service";
 import { StopAllPumpsResponse } from "./enose_service";
 import { RunPumpResponse } from "./enose_service";
 import { RunPumpRequest } from "./enose_service";
@@ -64,6 +69,30 @@ export interface IControlService extends grpc.UntypedServiceImplementation {
      * @generated from protobuf rpc: StopAllPumps
      */
     stopAllPumps: grpc.handleUnaryCall<Empty, StopAllPumpsResponse>;
+    /**
+     * 开始进样 (设置阀门 + 启动指定蠕动泵)
+     *
+     * @generated from protobuf rpc: StartInjection
+     */
+    startInjection: grpc.handleUnaryCall<StartInjectionRequest, StartInjectionResponse>;
+    /**
+     * 停止进样
+     *
+     * @generated from protobuf rpc: StopInjection
+     */
+    stopInjection: grpc.handleUnaryCall<Empty, StopInjectionResponse>;
+    /**
+     * 紧急停止 (发送 M112 急停命令，会触发 Klipper shutdown，需要 FIRMWARE_RESTART 恢复)
+     *
+     * @generated from protobuf rpc: EmergencyStop
+     */
+    emergencyStop: grpc.handleUnaryCall<Empty, EmergencyStopResponse>;
+    /**
+     * 重启固件 (急停后恢复)
+     *
+     * @generated from protobuf rpc: FirmwareRestart
+     */
+    firmwareRestart: grpc.handleUnaryCall<Empty, FirmwareRestartResponse>;
     /**
      * 订阅系统事件流
      *
@@ -137,6 +166,46 @@ export const controlServiceDefinition: grpc.ServiceDefinition<IControlService> =
         responseDeserialize: bytes => StopAllPumpsResponse.fromBinary(bytes),
         requestDeserialize: bytes => Empty.fromBinary(bytes),
         responseSerialize: value => Buffer.from(StopAllPumpsResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(Empty.toBinary(value))
+    },
+    startInjection: {
+        path: "/enose.service.ControlService/StartInjection",
+        originalName: "StartInjection",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => StartInjectionResponse.fromBinary(bytes),
+        requestDeserialize: bytes => StartInjectionRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(StartInjectionResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(StartInjectionRequest.toBinary(value))
+    },
+    stopInjection: {
+        path: "/enose.service.ControlService/StopInjection",
+        originalName: "StopInjection",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => StopInjectionResponse.fromBinary(bytes),
+        requestDeserialize: bytes => Empty.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(StopInjectionResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(Empty.toBinary(value))
+    },
+    emergencyStop: {
+        path: "/enose.service.ControlService/EmergencyStop",
+        originalName: "EmergencyStop",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => EmergencyStopResponse.fromBinary(bytes),
+        requestDeserialize: bytes => Empty.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(EmergencyStopResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(Empty.toBinary(value))
+    },
+    firmwareRestart: {
+        path: "/enose.service.ControlService/FirmwareRestart",
+        originalName: "FirmwareRestart",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => FirmwareRestartResponse.fromBinary(bytes),
+        requestDeserialize: bytes => Empty.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(FirmwareRestartResponse.toBinary(value)),
         requestSerialize: value => Buffer.from(Empty.toBinary(value))
     },
     subscribeEvents: {

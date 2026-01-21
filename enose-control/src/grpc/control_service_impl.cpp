@@ -33,6 +33,9 @@ ControlServiceImpl::ControlServiceImpl(
         case workflows::SystemState::State::SAMPLE:
             response->set_current_state(::enose::service::SAMPLE);
             break;
+        case workflows::SystemState::State::INJECT:
+            response->set_current_state(::enose::service::INJECT);
+            break;
         default:
             response->set_current_state(::enose::service::SYSTEM_STATE_UNSPECIFIED);
     }
@@ -40,9 +43,10 @@ ControlServiceImpl::ControlServiceImpl(
     // 填充外设状态
     fill_peripheral_status(response->mutable_peripheral_status());
     
-    // 设置连接状态 (简化实现)
+    // 设置连接状态
     response->set_moonraker_connected(true);
     response->set_sensor_connected(true);
+    response->set_firmware_ready(actuator_->is_firmware_ready());
     
     return ::grpc::Status::OK;
 }
@@ -79,6 +83,12 @@ ControlServiceImpl::ControlServiceImpl(
                 response->set_success(true);
                 response->set_message("Switched to SAMPLE state");
                 response->set_new_state(::enose::service::SAMPLE);
+                break;
+            case ::enose::service::INJECT:
+                system_state_->transition_to(workflows::SystemState::State::INJECT);
+                response->set_success(true);
+                response->set_message("Switched to INJECT state");
+                response->set_new_state(::enose::service::INJECT);
                 break;
             default:
                 response->set_success(false);
@@ -212,6 +222,55 @@ ControlServiceImpl::ControlServiceImpl(
     return ::grpc::Status::OK;
 }
 
+::grpc::Status ControlServiceImpl::StartInjection(
+    ::grpc::ServerContext* context,
+    const ::enose::service::StartInjectionRequest* request,
+    ::enose::service::StartInjectionResponse* response
+) {
+    (void)context;
+    
+    spdlog::info("gRPC: StartInjection - pump2={:.3f}, pump3={:.3f}, pump4={:.3f}, pump5={:.3f}",
+                 request->pump_2_volume(), request->pump_3_volume(),
+                 request->pump_4_volume(), request->pump_5_volume());
+    
+    workflows::SystemState::InjectionParams params;
+    params.pump_2_volume = request->pump_2_volume();
+    params.pump_3_volume = request->pump_3_volume();
+    params.pump_4_volume = request->pump_4_volume();
+    params.pump_5_volume = request->pump_5_volume();
+    
+    // 使用可选参数的默认值
+    if (request->has_speed()) {
+        params.speed = request->speed();
+    }
+    if (request->has_accel()) {
+        params.accel = request->accel();
+    }
+    
+    system_state_->start_inject(params);
+    
+    response->set_success(true);
+    response->set_message("Injection started");
+    return ::grpc::Status::OK;
+}
+
+::grpc::Status ControlServiceImpl::StopInjection(
+    ::grpc::ServerContext* context,
+    const ::google::protobuf::Empty* request,
+    ::enose::service::StopInjectionResponse* response
+) {
+    (void)context;
+    (void)request;
+    
+    spdlog::info("gRPC: StopInjection");
+    
+    system_state_->stop_inject();
+    
+    response->set_success(true);
+    response->set_message("Injection stopped");
+    return ::grpc::Status::OK;
+}
+
 void ControlServiceImpl::fill_peripheral_status(::enose::service::PeripheralStatus* status) {
     const auto& state = system_state_->get_peripheral_state();
     
@@ -236,6 +295,41 @@ void ControlServiceImpl::fill_peripheral_status(::enose::service::PeripheralStat
     status->set_pump_5(state.pump_5 == workflows::PumpState::RUNNING 
         ? ::enose::service::PeripheralStatus::RUNNING 
         : ::enose::service::PeripheralStatus::STOPPED);
+}
+
+::grpc::Status ControlServiceImpl::EmergencyStop(
+    ::grpc::ServerContext* context,
+    const ::google::protobuf::Empty* request,
+    ::enose::service::EmergencyStopResponse* response) {
+    
+    spdlog::warn("ControlServiceImpl: EMERGENCY STOP triggered!");
+    
+    // 发送 M112 急停命令
+    actuator_->send_gcode("M112");
+    
+    // 切换到 INITIAL 状态
+    system_state_->transition_to(workflows::SystemState::State::INITIAL);
+    
+    response->set_success(true);
+    response->set_message("Emergency stop triggered. Use FIRMWARE_RESTART to recover.");
+    
+    return ::grpc::Status::OK;
+}
+
+::grpc::Status ControlServiceImpl::FirmwareRestart(
+    ::grpc::ServerContext* context,
+    const ::google::protobuf::Empty* request,
+    ::enose::service::FirmwareRestartResponse* response) {
+    
+    spdlog::info("ControlServiceImpl: Firmware restart requested");
+    
+    // 发送 FIRMWARE_RESTART 命令
+    actuator_->send_gcode("FIRMWARE_RESTART");
+    
+    response->set_success(true);
+    response->set_message("Firmware restart command sent.");
+    
+    return ::grpc::Status::OK;
 }
 
 } // namespace enose_grpc

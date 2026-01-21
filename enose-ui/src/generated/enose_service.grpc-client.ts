@@ -20,6 +20,11 @@ import type { BinaryWriteOptions } from "@protobuf-ts/runtime";
 import type { BinaryReadOptions } from "@protobuf-ts/runtime";
 import type { PeripheralStatus } from "./enose_service";
 import type { Event } from "./enose_data";
+import type { FirmwareRestartResponse } from "./enose_service";
+import type { EmergencyStopResponse } from "./enose_service";
+import type { StopInjectionResponse } from "./enose_service";
+import type { StartInjectionResponse } from "./enose_service";
+import type { StartInjectionRequest } from "./enose_service";
 import type { StopAllPumpsResponse } from "./enose_service";
 import type { RunPumpResponse } from "./enose_service";
 import type { RunPumpRequest } from "./enose_service";
@@ -84,6 +89,42 @@ export interface IControlServiceClient {
     stopAllPumps(input: Empty, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: StopAllPumpsResponse) => void): grpc.ClientUnaryCall;
     stopAllPumps(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: StopAllPumpsResponse) => void): grpc.ClientUnaryCall;
     stopAllPumps(input: Empty, callback: (err: grpc.ServiceError | null, value?: StopAllPumpsResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 开始进样 (设置阀门 + 启动指定蠕动泵)
+     *
+     * @generated from protobuf rpc: StartInjection
+     */
+    startInjection(input: StartInjectionRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: StartInjectionResponse) => void): grpc.ClientUnaryCall;
+    startInjection(input: StartInjectionRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: StartInjectionResponse) => void): grpc.ClientUnaryCall;
+    startInjection(input: StartInjectionRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: StartInjectionResponse) => void): grpc.ClientUnaryCall;
+    startInjection(input: StartInjectionRequest, callback: (err: grpc.ServiceError | null, value?: StartInjectionResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 停止进样
+     *
+     * @generated from protobuf rpc: StopInjection
+     */
+    stopInjection(input: Empty, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: StopInjectionResponse) => void): grpc.ClientUnaryCall;
+    stopInjection(input: Empty, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: StopInjectionResponse) => void): grpc.ClientUnaryCall;
+    stopInjection(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: StopInjectionResponse) => void): grpc.ClientUnaryCall;
+    stopInjection(input: Empty, callback: (err: grpc.ServiceError | null, value?: StopInjectionResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 紧急停止 (发送 M112 急停命令，会触发 Klipper shutdown，需要 FIRMWARE_RESTART 恢复)
+     *
+     * @generated from protobuf rpc: EmergencyStop
+     */
+    emergencyStop(input: Empty, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: EmergencyStopResponse) => void): grpc.ClientUnaryCall;
+    emergencyStop(input: Empty, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: EmergencyStopResponse) => void): grpc.ClientUnaryCall;
+    emergencyStop(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: EmergencyStopResponse) => void): grpc.ClientUnaryCall;
+    emergencyStop(input: Empty, callback: (err: grpc.ServiceError | null, value?: EmergencyStopResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 重启固件 (急停后恢复)
+     *
+     * @generated from protobuf rpc: FirmwareRestart
+     */
+    firmwareRestart(input: Empty, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: FirmwareRestartResponse) => void): grpc.ClientUnaryCall;
+    firmwareRestart(input: Empty, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: FirmwareRestartResponse) => void): grpc.ClientUnaryCall;
+    firmwareRestart(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: FirmwareRestartResponse) => void): grpc.ClientUnaryCall;
+    firmwareRestart(input: Empty, callback: (err: grpc.ServiceError | null, value?: FirmwareRestartResponse) => void): grpc.ClientUnaryCall;
     /**
      * 订阅系统事件流
      *
@@ -159,12 +200,48 @@ export class ControlServiceClient extends grpc.Client implements IControlService
         return this.makeUnaryRequest<Empty, StopAllPumpsResponse>(`/${ControlService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): StopAllPumpsResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
+     * 开始进样 (设置阀门 + 启动指定蠕动泵)
+     *
+     * @generated from protobuf rpc: StartInjection
+     */
+    startInjection(input: StartInjectionRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: StartInjectionResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: StartInjectionResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: StartInjectionResponse) => void)): grpc.ClientUnaryCall {
+        const method = ControlService.methods[5];
+        return this.makeUnaryRequest<StartInjectionRequest, StartInjectionResponse>(`/${ControlService.typeName}/${method.name}`, (value: StartInjectionRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): StartInjectionResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 停止进样
+     *
+     * @generated from protobuf rpc: StopInjection
+     */
+    stopInjection(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: StopInjectionResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: StopInjectionResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: StopInjectionResponse) => void)): grpc.ClientUnaryCall {
+        const method = ControlService.methods[6];
+        return this.makeUnaryRequest<Empty, StopInjectionResponse>(`/${ControlService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): StopInjectionResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 紧急停止 (发送 M112 急停命令，会触发 Klipper shutdown，需要 FIRMWARE_RESTART 恢复)
+     *
+     * @generated from protobuf rpc: EmergencyStop
+     */
+    emergencyStop(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: EmergencyStopResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: EmergencyStopResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: EmergencyStopResponse) => void)): grpc.ClientUnaryCall {
+        const method = ControlService.methods[7];
+        return this.makeUnaryRequest<Empty, EmergencyStopResponse>(`/${ControlService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): EmergencyStopResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 重启固件 (急停后恢复)
+     *
+     * @generated from protobuf rpc: FirmwareRestart
+     */
+    firmwareRestart(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: FirmwareRestartResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: FirmwareRestartResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: FirmwareRestartResponse) => void)): grpc.ClientUnaryCall {
+        const method = ControlService.methods[8];
+        return this.makeUnaryRequest<Empty, FirmwareRestartResponse>(`/${ControlService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): FirmwareRestartResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
      * 订阅系统事件流
      *
      * @generated from protobuf rpc: SubscribeEvents
      */
     subscribeEvents(input: Empty, metadata?: grpc.Metadata | grpc.CallOptions, options?: grpc.CallOptions): grpc.ClientReadableStream<Event> {
-        const method = ControlService.methods[5];
+        const method = ControlService.methods[9];
         return this.makeServerStreamRequest<Empty, Event>(`/${ControlService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): Event => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), options);
     }
     /**
@@ -173,7 +250,7 @@ export class ControlServiceClient extends grpc.Client implements IControlService
      * @generated from protobuf rpc: SubscribePeripheralStatus
      */
     subscribePeripheralStatus(input: Empty, metadata?: grpc.Metadata | grpc.CallOptions, options?: grpc.CallOptions): grpc.ClientReadableStream<PeripheralStatus> {
-        const method = ControlService.methods[6];
+        const method = ControlService.methods[10];
         return this.makeServerStreamRequest<Empty, PeripheralStatus>(`/${ControlService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): PeripheralStatus => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), options);
     }
 }

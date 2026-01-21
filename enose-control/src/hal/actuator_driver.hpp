@@ -3,6 +3,7 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/signals2.hpp>
 #include <nlohmann/json.hpp>
 #include <memory>
@@ -41,6 +42,11 @@ public:
     void subscribe_objects();
 
     /**
+     * @brief Check if Klipper firmware is ready (not in shutdown state)
+     */
+    bool is_firmware_ready() const { return firmware_ready_; }
+
+    /**
      * @brief Signal for status updates (weight, temperature, etc.)
      */
     boost::signals2::signal<void(const nlohmann::json&)> on_status_update;
@@ -53,6 +59,8 @@ private:
     void on_read(beast::error_code ec, std::size_t bytes_transferred);
     void send_next();
     void do_write();
+    void query_printer_info();
+    void schedule_printer_info_query();
 
     net::io_context& io_;
     websocket::stream<beast::tcp_stream> ws_;
@@ -61,8 +69,11 @@ private:
     beast::flat_buffer buffer_;
     
     std::queue<std::string> send_queue_;
+    net::steady_timer printer_info_timer_;
     int rpc_id_{1};
+    int printer_info_rpc_id_{-1};  // 用于识别 printer.info 响应
     bool connected_{false};
+    bool firmware_ready_{true};  // Klipper 固件状态 (shutdown 后为 false)
 };
 
 } // namespace hal

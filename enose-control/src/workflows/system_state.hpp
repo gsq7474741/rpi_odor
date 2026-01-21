@@ -73,6 +73,21 @@ public:
         DRAIN,      ///< 排废状态
         CLEAN,      ///< 清洗状态
         SAMPLE,     ///< 采样状态
+        INJECT,     ///< 进样状态 (阀门同CLEAN，使用蠕动泵进样)
+    };
+
+    /**
+     * @brief 进样参数结构体
+     * 
+     * 指定每个蠕动泵的进样量 (单位待标定，目前为步进电机步数)
+     */
+    struct InjectionParams {
+        float pump_2_volume = 0;  // 蠕动泵0 进样量
+        float pump_3_volume = 0;  // 蠕动泵1 进样量
+        float pump_4_volume = 0;  // 蠕动泵2 进样量
+        float pump_5_volume = 0;  // 蠕动泵3 进样量
+        float speed = 10.0f;      // 进样速度 (mm/s)
+        float accel = 100.0f;     // 加速度 (mm/s²)
     };
 
     using StateCallback = std::function<void(State, State)>;  // (old_state, new_state)
@@ -99,6 +114,17 @@ public:
      * @brief 停止清洗，返回初始状态
      */
     void stop_clean();
+
+    /**
+     * @brief 开始进样
+     * @param params 进样参数 (每个泵的进样量)
+     */
+    void start_inject(const InjectionParams& params);
+
+    /**
+     * @brief 停止进样，返回初始状态
+     */
+    void stop_inject();
 
     /**
      * @brief 强制切换到指定状态

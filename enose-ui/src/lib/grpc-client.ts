@@ -72,6 +72,7 @@ export async function setSystemState(targetState: string): Promise<SetSystemStat
     DRAIN: SystemStateEnum.DRAIN,
     CLEAN: SystemStateEnum.CLEAN,
     SAMPLE: SystemStateEnum.SAMPLE,
+    INJECT: 5 as SystemStateEnum,  // 待重新生成 protobuf 后改为 SystemStateEnum.INJECT
   };
   return promisify(
     getClient().setSystemState.bind(getClient()),
@@ -101,6 +102,53 @@ export async function runPump(
 export async function stopAllPumps(): Promise<StopAllPumpsResponse> {
   return promisify(
     getClient().stopAllPumps.bind(getClient()),
+    Empty.create()
+  );
+}
+
+// 进样控制
+export interface InjectionParams {
+  pump2Volume: number;
+  pump3Volume: number;
+  pump4Volume: number;
+  pump5Volume: number;
+  speed?: number;
+  accel?: number;
+}
+
+export async function startInjection(params: InjectionParams): Promise<{ success: boolean; message: string }> {
+  return promisify(
+    getClient().startInjection.bind(getClient()),
+    {
+      pump2Volume: params.pump2Volume,
+      pump3Volume: params.pump3Volume,
+      pump4Volume: params.pump4Volume,
+      pump5Volume: params.pump5Volume,
+      speed: params.speed,
+      accel: params.accel,
+    }
+  );
+}
+
+export async function stopInjection(): Promise<{ success: boolean; message: string }> {
+  return promisify(
+    getClient().stopInjection.bind(getClient()),
+    Empty.create()
+  );
+}
+
+// 紧急停止 (发送 M112)
+export async function emergencyStop(): Promise<{ success: boolean; message: string }> {
+  return promisify(
+    getClient().emergencyStop.bind(getClient()),
+    Empty.create()
+  );
+}
+
+// 固件重启 (急停后恢复)
+export async function firmwareRestart(): Promise<{ success: boolean; message: string }> {
+  return promisify(
+    getClient().firmwareRestart.bind(getClient()),
     Empty.create()
   );
 }

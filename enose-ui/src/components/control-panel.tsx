@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -17,6 +19,7 @@ import {
   Scale,
   Activity,
   RefreshCw,
+  Loader2,
 } from "lucide-react";
 import {
   fetchStatus,
@@ -47,6 +50,7 @@ const initialStatus: SystemStatus = {
   },
   moonraker_connected: false,
   sensor_connected: false,
+  firmware_ready: true,
 };
 
 export function ControlPanel() {
@@ -56,6 +60,8 @@ export function ControlPanel() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdateTime, setLastUpdateTime] = useState<number | null>(null);
   const [timeSinceUpdate, setTimeSinceUpdate] = useState<number>(0);
+  const [emergencyStopLoading, setEmergencyStopLoading] = useState(false);
+  const [firmwareRestartLoading, setFirmwareRestartLoading] = useState(false);
 
   // 获取状态
   const refreshStatus = useCallback(async () => {
@@ -121,7 +127,12 @@ export function ControlPanel() {
     }
   };
 
-  const handleStateChange = async (targetState: "INITIAL" | "DRAIN" | "CLEAN" | "SAMPLE") => {
+  const [injectionParams, setInjectionParams] = useState({
+    pump2: 0, pump3: 0, pump4: 0, pump5: 0, speed: 10, accel: 100
+  });
+  const [injecting, setInjecting] = useState(false);
+
+  const handleStateChange = async (targetState: "INITIAL" | "DRAIN" | "CLEAN" | "SAMPLE" | "INJECT") => {
     try {
       const result = await apiSetSystemState(targetState);
       // 立即刷新状态而不是依赖本地更新
@@ -217,6 +228,138 @@ export function ControlPanel() {
             >
               采样状态
             </Button>
+            <Button
+              variant={status.current_state === "INJECT" ? "default" : "outline"}
+              onClick={() => handleStateChange("INJECT")}
+            >
+              进样状态
+            </Button>
+            <Separator orientation="vertical" className="h-8" />
+            <Button
+              variant="destructive"
+              className="bg-red-600 hover:bg-red-700 font-bold"
+              disabled={emergencyStopLoading}
+              onClick={async () => {
+                setEmergencyStopLoading(true);
+                try {
+                  const res = await fetch('/api/emergency-stop', { method: 'POST' });
+                  const data = await res.json();
+                  if (!data.success) {
+                    setError(data.message);
+                  }
+                  await refreshStatus();
+                } catch (err: any) { setError(err.message); }
+                finally { setEmergencyStopLoading(false); }
+              }}
+            >
+              {emergencyStopLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "🚨"} 急停
+            </Button>
+            {!status.firmware_ready && (
+              <Button
+                variant="outline"
+                className="border-orange-500 text-orange-600 hover:bg-orange-50 font-bold shrink-0"
+                disabled={firmwareRestartLoading}
+                onClick={async () => {
+                  setFirmwareRestartLoading(true);
+                  try {
+                    const res = await fetch('/api/firmware-restart', { method: 'POST' });
+                    const data = await res.json();
+                    if (!data.success) {
+                      setError(data.message);
+                    }
+                    await refreshStatus();
+                  } catch (err: any) { setError(err.message); }
+                  finally { setFirmwareRestartLoading(false); }
+                }}
+              >
+                {firmwareRestartLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "🔄"} 重启固件
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 进样控制 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Droplets className="w-5 h-5" />
+            进样控制
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="pump2">蠕动泵0 (mm)</Label>
+              <Input id="pump2" type="number" value={injectionParams.pump2} onChange={e => setInjectionParams(p => ({...p, pump2: Number(e.target.value)}))} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="pump3">蠕动泵1 (mm)</Label>
+              <Input id="pump3" type="number" value={injectionParams.pump3} onChange={e => setInjectionParams(p => ({...p, pump3: Number(e.target.value)}))} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="pump4">蠕动泵2 (mm)</Label>
+              <Input id="pump4" type="number" value={injectionParams.pump4} onChange={e => setInjectionParams(p => ({...p, pump4: Number(e.target.value)}))} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="pump5">蠕动泵3 (mm)</Label>
+              <Input id="pump5" type="number" value={injectionParams.pump5} onChange={e => setInjectionParams(p => ({...p, pump5: Number(e.target.value)}))} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="speed">速度 (mm/s)</Label>
+              <Input id="speed" type="number" value={injectionParams.speed} onChange={e => setInjectionParams(p => ({...p, speed: Number(e.target.value)}))} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="accel">加速度 (mm/s²)</Label>
+              <Input id="accel" type="number" value={injectionParams.accel} onChange={e => setInjectionParams(p => ({...p, accel: Number(e.target.value)}))} />
+            </div>
+          </div>
+          <div className="flex gap-2 items-center">
+            <Button
+              onClick={async () => {
+                if (status.current_state !== "INJECT") {
+                  setError("请先切换到进样状态");
+                  return;
+                }
+                setInjecting(true);
+                try {
+                  await fetch('/api/injection/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      pump2Volume: injectionParams.pump2,
+                      pump3Volume: injectionParams.pump3,
+                      pump4Volume: injectionParams.pump4,
+                      pump5Volume: injectionParams.pump5,
+                      speed: injectionParams.speed,
+                      accel: injectionParams.accel,
+                    })
+                  });
+                  await refreshStatus();
+                } catch (err: any) { setError(err.message); }
+                setInjecting(false);
+              }}
+              disabled={injecting || status.current_state !== "INJECT"}
+            >
+              开始进样
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                try {
+                  await fetch('/api/injection/stop', { method: 'POST' });
+                  await refreshStatus();
+                } catch (err: any) { setError(err.message); }
+              }}
+              disabled={status.current_state !== "INJECT"}
+            >
+              停止进样
+            </Button>
+            {status.current_state !== "INJECT" && (
+              <span className="text-sm text-muted-foreground">← 请先点击"进样状态"按钮</span>
+            )}
           </div>
         </CardContent>
       </Card>

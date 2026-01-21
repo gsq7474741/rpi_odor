@@ -62,6 +62,34 @@ public:
         ::enose::service::StopAllPumpsResponse* response
     ) override;
 
+    // 开始进样
+    ::grpc::Status StartInjection(
+        ::grpc::ServerContext* context,
+        const ::enose::service::StartInjectionRequest* request,
+        ::enose::service::StartInjectionResponse* response
+    ) override;
+
+    // 停止进样
+    ::grpc::Status StopInjection(
+        ::grpc::ServerContext* context,
+        const ::google::protobuf::Empty* request,
+        ::enose::service::StopInjectionResponse* response
+    ) override;
+
+    // 紧急停止
+    ::grpc::Status EmergencyStop(
+        ::grpc::ServerContext* context,
+        const ::google::protobuf::Empty* request,
+        ::enose::service::EmergencyStopResponse* response
+    ) override;
+
+    // 固件重启
+    ::grpc::Status FirmwareRestart(
+        ::grpc::ServerContext* context,
+        const ::google::protobuf::Empty* request,
+        ::enose::service::FirmwareRestartResponse* response
+    ) override;
+
     // 订阅事件流
     ::grpc::Status SubscribeEvents(
         ::grpc::ServerContext* context,

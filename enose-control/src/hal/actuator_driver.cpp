@@ -6,7 +6,7 @@
 namespace hal {
 
 ActuatorDriver::ActuatorDriver(net::io_context& io)
-    : io_(io), ws_(io), resolver_(io) {}
+    : io_(io), ws_(io), resolver_(io), printer_info_timer_(io) {}
 
 ActuatorDriver::~ActuatorDriver() {
     if (connected_) {
@@ -71,6 +71,9 @@ void ActuatorDriver::on_handshake(beast::error_code ec) {
 
     // Subscribe to objects
     subscribe_objects();
+    
+    // 开始定时查询 printer.info
+    query_printer_info();
 }
 
 void ActuatorDriver::do_read() {
@@ -98,9 +101,38 @@ void ActuatorDriver::on_read(beast::error_code ec, std::size_t bytes_transferred
                 on_status_update(j["params"][0]);
             }
         }
-        // Could also be a response to a command
-        else if (j.contains("result")) {
-            // spdlog::debug("ActuatorDriver: Got response: {}", j.dump());
+        // 检测 Klipper shutdown 状态
+        else if (j.contains("method") && j["method"] == "notify_klippy_shutdown") {
+            spdlog::warn("ActuatorDriver: Klipper shutdown detected!");
+            firmware_ready_ = false;
+        }
+        else if (j.contains("method") && j["method"] == "notify_klippy_ready") {
+            spdlog::info("ActuatorDriver: Klipper ready!");
+            firmware_ready_ = true;
+        }
+        // 处理 printer.info 响应
+        else if (j.contains("id") && j["id"].get<int>() == printer_info_rpc_id_ && j.contains("result")) {
+            auto& result = j["result"];
+            if (result.contains("state")) {
+                std::string state = result["state"].get<std::string>();
+                bool was_ready = firmware_ready_;
+                firmware_ready_ = (state == "ready");
+                if (was_ready != firmware_ready_) {
+                    spdlog::info("ActuatorDriver: Klipper state changed to '{}', firmware_ready={}", state, firmware_ready_);
+                }
+            }
+            // 安排下一次查询
+            schedule_printer_info_query();
+        }
+        // G-code 命令响应
+        else if (j.contains("id") && j.contains("result")) {
+            int id = j["id"].get<int>();
+            spdlog::debug("ActuatorDriver: RPC[{}] response: {}", id, j["result"].dump());
+        }
+        // G-code 命令错误
+        else if (j.contains("id") && j.contains("error")) {
+            int id = j["id"].get<int>();
+            spdlog::error("ActuatorDriver: RPC[{}] error: {}", id, j["error"].dump());
         }
 
     } catch (const std::exception& e) {
@@ -113,18 +145,24 @@ void ActuatorDriver::on_read(beast::error_code ec, std::size_t bytes_transferred
 void ActuatorDriver::send_gcode(const std::string& gcode) {
     if (!connected_) return;
 
-    nlohmann::json req;
-    req["jsonrpc"] = "2.0";
-    req["method"] = "printer.gcode.script";
-    req["params"] = {{"script", gcode}};
-    req["id"] = rpc_id_++;
+    // 使用 post 确保在 io_context 线程中执行，实现线程安全和非阻塞
+    net::post(io_, [this, self = shared_from_this(), gcode]() {
+        nlohmann::json req;
+        req["jsonrpc"] = "2.0";
+        req["method"] = "printer.gcode.script";
+        req["params"] = {{"script", gcode}};
+        int id = rpc_id_++;
+        req["id"] = id;
+        
+        spdlog::info("ActuatorDriver: RPC[{}] send: {}", id, gcode);
 
-    std::string msg = req.dump();
-    
-    send_queue_.push(msg);
-    if (send_queue_.size() == 1) {
-        do_write();
-    }
+        std::string msg = req.dump();
+        
+        send_queue_.push(msg);
+        if (send_queue_.size() == 1) {
+            do_write();
+        }
+    });
 }
 
 void ActuatorDriver::subscribe_objects() {
@@ -166,6 +204,31 @@ void ActuatorDriver::do_write() {
                 do_write();
             }
         });
+}
+
+void ActuatorDriver::query_printer_info() {
+    if (!connected_) return;
+    
+    nlohmann::json req;
+    req["jsonrpc"] = "2.0";
+    req["method"] = "printer.info";
+    printer_info_rpc_id_ = rpc_id_++;
+    req["id"] = printer_info_rpc_id_;
+    
+    std::string msg = req.dump();
+    send_queue_.push(msg);
+    if (send_queue_.size() == 1) {
+        do_write();
+    }
+}
+
+void ActuatorDriver::schedule_printer_info_query() {
+    printer_info_timer_.expires_after(std::chrono::seconds(2));
+    printer_info_timer_.async_wait([this, self = shared_from_this()](beast::error_code ec) {
+        if (!ec && connected_) {
+            query_printer_info();
+        }
+    });
 }
 
 } // namespace hal

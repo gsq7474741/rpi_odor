@@ -17,10 +17,11 @@ export interface PeripheralStatus {
 }
 
 export interface SystemStatus {
-  current_state: "INITIAL" | "DRAIN" | "CLEAN" | "SAMPLE" | "UNSPECIFIED";
+  current_state: "INITIAL" | "DRAIN" | "CLEAN" | "SAMPLE" | "INJECT" | "UNSPECIFIED";
   peripheral_status: PeripheralStatus;
   moonraker_connected: boolean;
   sensor_connected: boolean;
+  firmware_ready: boolean;
 }
 
 export async function fetchStatus(): Promise<SystemStatus> {
@@ -36,7 +37,8 @@ export async function fetchStatus(): Promise<SystemStatus> {
     current_state: data.currentState === 1 ? "INITIAL" : 
                    data.currentState === 2 ? "DRAIN" : 
                    data.currentState === 3 ? "CLEAN" : 
-                   data.currentState === 4 ? "SAMPLE" : "UNSPECIFIED",
+                   data.currentState === 4 ? "SAMPLE" : 
+                   data.currentState === 5 ? "INJECT" : "UNSPECIFIED",
     peripheral_status: {
       valve_waste: ps?.valveWaste || 0,
       valve_pinch: ps?.valvePinch || 0,
@@ -54,10 +56,11 @@ export async function fetchStatus(): Promise<SystemStatus> {
     },
     moonraker_connected: data.moonrakerConnected || false,
     sensor_connected: data.sensorConnected || false,
+    firmware_ready: data.firmwareReady !== false,  // default true
   };
 }
 
-export async function setSystemState(targetState: "INITIAL" | "DRAIN" | "CLEAN" | "SAMPLE"): Promise<any> {
+export async function setSystemState(targetState: "INITIAL" | "DRAIN" | "CLEAN" | "SAMPLE" | "INJECT"): Promise<any> {
   const res = await fetch("/api/state", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

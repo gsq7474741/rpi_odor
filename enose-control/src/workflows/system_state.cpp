@@ -77,6 +77,23 @@ const PeripheralState SystemState::STATE_DEFINITIONS[] = {
         // 加热器
         .heater_chamber = 0.0f, // 保持
     },
+    // INJECT (进样状态): 阀门同CLEAN, 但使用蠕动泵而不是清洗泵
+    {
+        // 阀门 (同 CLEAN)
+        .valve_waste = 0,       // 关闭
+        .valve_pinch = 1,       // 液路 (1=液路)
+        .valve_air = 0,         // 排气 (0=大气)
+        .valve_outlet = 0,      // 开启 (反向逻辑, 0=开)
+        // 泵: 不使用清洗泵, 使用蠕动泵 (由 start_inject 单独控制)
+        .air_pump_pwm = 0.0f,   // 停止
+        .cleaning_pump = 0.0f,  // 停止
+        .pump_2 = PumpState::STOPPED,  // 由 start_inject 控制
+        .pump_3 = PumpState::STOPPED,
+        .pump_4 = PumpState::STOPPED,
+        .pump_5 = PumpState::STOPPED,
+        // 加热器
+        .heater_chamber = 0.0f, // 关闭
+    },
 };
 
 SystemState::SystemState(std::shared_ptr<hal::ActuatorDriver> actuator)
@@ -96,6 +113,64 @@ void SystemState::start_clean() {
 }
 
 void SystemState::stop_clean() {
+    transition_to(State::INITIAL);
+}
+
+void SystemState::start_inject(const InjectionParams& params) {
+    // 先切换到 INJECT 状态 (设置阀门)
+    transition_to(State::INJECT);
+    
+    // 使用 GCODE_AXIS 实现真正的并行运动
+    // 1. 注册泵到 A/B/C/D 轴 (宏内部会归零位置)
+    actuator_->send_gcode("REGISTER_PUMPS_TO_AXIS");
+    
+    // 2. 使用单条 G1 命令同时驱动所有泵
+    // 速度转换: params.speed (mm/s) -> F (mm/min) = speed * 60
+    float feedrate = params.speed * 60.0f;
+    
+    std::string g1_cmd = std::format("G1 A{:.3f} B{:.3f} C{:.3f} D{:.3f} F{:.1f}",
+        params.pump_2_volume,  // A = pump_2
+        params.pump_3_volume,  // B = pump_3
+        params.pump_4_volume,  // C = pump_4
+        params.pump_5_volume,  // D = pump_5
+        feedrate);
+    
+    actuator_->send_gcode(g1_cmd);
+    
+    // 更新泵状态
+    if (params.pump_2_volume > 0) {
+        current_peripheral_state_.pump_2 = PumpState::RUNNING;
+    }
+    if (params.pump_3_volume > 0) {
+        current_peripheral_state_.pump_3 = PumpState::RUNNING;
+    }
+    if (params.pump_4_volume > 0) {
+        current_peripheral_state_.pump_4 = PumpState::RUNNING;
+    }
+    if (params.pump_5_volume > 0) {
+        current_peripheral_state_.pump_5 = PumpState::RUNNING;
+    }
+    
+    spdlog::info("SystemState: Parallel inject G1 A{:.3f} B{:.3f} C{:.3f} D{:.3f} F{:.1f}",
+        params.pump_2_volume, params.pump_3_volume, 
+        params.pump_4_volume, params.pump_5_volume, feedrate);
+}
+
+void SystemState::stop_inject() {
+    // 1. 取消 GCODE_AXIS 注册，恢复 MANUAL_STEPPER 控制
+    actuator_->send_gcode("UNREGISTER_PUMPS");
+    
+    // 2. 停止所有蠕动泵
+    const char* pumps[] = {"pump_2", "pump_3", "pump_4", "pump_5"};
+    for (const char* pump : pumps) {
+        actuator_->send_gcode(std::format("MANUAL_STEPPER STEPPER={} ENABLE=0", pump));
+    }
+    
+    current_peripheral_state_.pump_2 = PumpState::STOPPED;
+    current_peripheral_state_.pump_3 = PumpState::STOPPED;
+    current_peripheral_state_.pump_4 = PumpState::STOPPED;
+    current_peripheral_state_.pump_5 = PumpState::STOPPED;
+    
     transition_to(State::INITIAL);
 }
 
@@ -202,6 +277,7 @@ const char* SystemState::state_to_string(State state) {
         case State::DRAIN:   return "DRAIN";
         case State::CLEAN:   return "CLEAN";
         case State::SAMPLE:  return "SAMPLE";
+        case State::INJECT:  return "INJECT";
         default:             return "UNKNOWN";
     }
 }

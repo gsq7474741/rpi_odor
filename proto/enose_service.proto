@@ -32,6 +32,18 @@ service ControlService {
   // 停止所有泵
   rpc StopAllPumps(google.protobuf.Empty) returns (StopAllPumpsResponse);
   
+  // 开始进样 (设置阀门 + 启动指定蠕动泵)
+  rpc StartInjection(StartInjectionRequest) returns (StartInjectionResponse);
+  
+  // 停止进样
+  rpc StopInjection(google.protobuf.Empty) returns (StopInjectionResponse);
+  
+  // 紧急停止 (发送 M112 急停命令，会触发 Klipper shutdown，需要 FIRMWARE_RESTART 恢复)
+  rpc EmergencyStop(google.protobuf.Empty) returns (EmergencyStopResponse);
+  
+  // 重启固件 (急停后恢复)
+  rpc FirmwareRestart(google.protobuf.Empty) returns (FirmwareRestartResponse);
+  
   // 订阅系统事件流
   rpc SubscribeEvents(google.protobuf.Empty) returns (stream enose.data.Event);
   
@@ -80,6 +92,7 @@ enum SystemStateEnum {
   DRAIN = 2;          // 排废状态
   CLEAN = 3;          // 清洗状态: 出气阀开, 气体三通阀指向大气, 清洗泵开, 夹管阀液路, 排废阀关
   SAMPLE = 4;         // 采样状态: 排废关, 夹管阀气路, 出气阀开, 三通阀指向气室, 气泵开
+  INJECT = 5;         // 进样状态: 阀门同CLEAN, 使用蠕动泵进样
 }
 
 // 系统状态响应
@@ -96,6 +109,7 @@ message SystemStatus {
   // 连接状态
   bool moonraker_connected = 4;
   bool sensor_connected = 5;
+  bool firmware_ready = 7;  // Klipper 固件是否就绪 (急停后为 false)
   
   // 最后更新时间
   google.protobuf.Timestamp last_updated = 6;
@@ -152,6 +166,41 @@ message ManualControlRequest {
 }
 
 message ManualControlResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// 进样请求
+message StartInjectionRequest {
+  // 每个蠕动泵的进样量 (单位待标定，目前为步进电机移动距离 mm)
+  float pump_2_volume = 1;  // 蠕动泵0
+  float pump_3_volume = 2;  // 蠕动泵1
+  float pump_4_volume = 3;  // 蠕动泵2
+  float pump_5_volume = 4;  // 蠕动泵3
+  
+  // 可选参数
+  optional float speed = 5;  // 进样速度 (mm/s), 默认 10
+  optional float accel = 6;  // 加速度 (mm/s²), 默认 100
+}
+
+message StartInjectionResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message StopInjectionResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// 紧急停止响应
+message EmergencyStopResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// 固件重启响应
+message FirmwareRestartResponse {
   bool success = 1;
   string message = 2;
 }
