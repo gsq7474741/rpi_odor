@@ -498,6 +498,179 @@ export interface HeaterPreset {
      */
     durs: number[];
 }
+// ============================================================// 称重服务消息定义// ============================================================
+
+/**
+ * 称重读数
+ *
+ * @generated from protobuf message enose.service.LoadCellReading
+ */
+export interface LoadCellReading {
+    /**
+     * @generated from protobuf field: float weight_grams = 1
+     */
+    weightGrams: number; // 标定后的克数    /**
+     * @generated from protobuf field: float raw_percent = 2
+     */
+    rawPercent: number; // 原始百分比 (-100% ~ 100%)    /**
+     * @generated from protobuf field: bool is_calibrated = 3
+     */
+    isCalibrated: boolean; // 是否已完成硬件标定    /**
+     * @generated from protobuf field: bool is_stable = 4
+     */
+    isStable: boolean; // 是否稳定    /**
+     * @generated from protobuf field: enose.service.LoadCellReading.WeightTrend trend = 5
+     */
+    trend: LoadCellReading_WeightTrend; // 重量趋势    /**
+     * @generated from protobuf field: google.protobuf.Timestamp timestamp = 6
+     */
+    timestamp?: Timestamp;
+}
+/**
+ * @generated from protobuf enum enose.service.LoadCellReading.WeightTrend
+ */
+export enum LoadCellReading_WeightTrend {
+    /**
+     * @generated from protobuf enum value: WEIGHT_TREND_UNSPECIFIED = 0;
+     */
+    WEIGHT_TREND_UNSPECIFIED = 0,
+    /**
+     * @generated from protobuf enum value: STABLE = 1;
+     */
+    STABLE = 1,
+    /**
+     * @generated from protobuf enum value: INCREASING = 2;
+     */
+    INCREASING = 2,
+    /**
+     * @generated from protobuf enum value: DECREASING = 3;
+     */
+    DECREASING = 3
+}
+/**
+ * 标定状态
+ *
+ * @generated from protobuf message enose.service.CalibrationStatus
+ */
+export interface CalibrationStatus {
+    /**
+     * @generated from protobuf field: enose.service.CalibrationStatus.CalibrationStep step = 1
+     */
+    step: CalibrationStatus_CalibrationStep; // 当前步骤    /**
+     * @generated from protobuf field: float current_reading = 2
+     */
+    currentReading: number; // 当前读数 (原始百分比或克数)    /**
+     * @generated from protobuf field: string message = 3
+     */
+    message: string; // 提示信息    /**
+     * @generated from protobuf field: bool success = 4
+     */
+    success: boolean; // 操作是否成功}
+/**
+ * @generated from protobuf enum enose.service.CalibrationStatus.CalibrationStep
+ */
+export enum CalibrationStatus_CalibrationStep {
+    /**
+     * @generated from protobuf enum value: CALIBRATION_STEP_UNSPECIFIED = 0;
+     */
+    CALIBRATION_STEP_UNSPECIFIED = 0,
+    /**
+     * 未在标定
+     *
+     * @generated from protobuf enum value: IDLE = 1;
+     */
+    IDLE = 1,
+    /**
+     * 等待设置零点
+     *
+     * @generated from protobuf enum value: ZERO_POINT = 2;
+     */
+    ZERO_POINT = 2,
+    /**
+     * 等待设置参考重量
+     *
+     * @generated from protobuf enum value: REFERENCE_WEIGHT = 3;
+     */
+    REFERENCE_WEIGHT = 3,
+    /**
+     * 验证阶段
+     *
+     * @generated from protobuf enum value: VERIFY = 4;
+     */
+    VERIFY = 4,
+    /**
+     * 标定完成
+     *
+     * @generated from protobuf enum value: COMPLETE = 5;
+     */
+    COMPLETE = 5
+}
+/**
+ * 参考重量请求
+ *
+ * @generated from protobuf message enose.service.ReferenceWeightRequest
+ */
+export interface ReferenceWeightRequest {
+    /**
+     * @generated from protobuf field: float weight_grams = 1
+     */
+    weightGrams: number; // 用户输入的参考物体重量 (克)}
+/**
+ * 标定结果
+ *
+ * @generated from protobuf message enose.service.CalibrationResult
+ */
+export interface CalibrationResult {
+    /**
+     * @generated from protobuf field: bool success = 1
+     */
+    success: boolean;
+    /**
+     * @generated from protobuf field: string message = 2
+     */
+    message: string;
+    /**
+     * @generated from protobuf field: float reference_tare_counts = 3
+     */
+    referenceTareCounts: number; // 零点计数    /**
+     * @generated from protobuf field: float counts_per_gram = 4
+     */
+    countsPerGram: number; // 每克计数    /**
+     * @generated from protobuf field: float total_capacity_kg = 5
+     */
+    totalCapacityKg: number; // 总量程 (kg)}
+/**
+ * 阈值请求
+ *
+ * @generated from protobuf message enose.service.ThresholdRequest
+ */
+export interface ThresholdRequest {
+    /**
+     * @generated from protobuf field: float value = 1
+     */
+    value: number; // 阈值 (克)}
+/**
+ * 称重业务配置
+ *
+ * @generated from protobuf message enose.service.LoadCellConfig
+ */
+export interface LoadCellConfig {
+    /**
+     * @generated from protobuf field: float empty_bottle_weight = 1
+     */
+    emptyBottleWeight: number; // 空瓶基准重量 (g)    /**
+     * @generated from protobuf field: float overflow_threshold = 2
+     */
+    overflowThreshold: number; // 溢出警告阈值 (g)    /**
+     * @generated from protobuf field: float drain_complete_margin = 3
+     */
+    drainCompleteMargin: number; // 排空完成余量 (g)    /**
+     * @generated from protobuf field: float stable_threshold = 4
+     */
+    stableThreshold: number; // 稳定判断阈值 (g)    /**
+     * @generated from protobuf field: string last_calibration_time = 5
+     */
+    lastCalibrationTime: string; // 最后标定时间}
 // ============================================================// 请求/响应消息定义// ============================================================
 
 /**
@@ -2019,6 +2192,415 @@ class HeaterPreset$Type extends MessageType<HeaterPreset> {
  * @generated MessageType for protobuf message enose.service.HeaterPreset
  */
 export const HeaterPreset = new HeaterPreset$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class LoadCellReading$Type extends MessageType<LoadCellReading> {
+    constructor() {
+        super("enose.service.LoadCellReading", [
+            { no: 1, name: "weight_grams", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 2, name: "raw_percent", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 3, name: "is_calibrated", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 4, name: "is_stable", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 5, name: "trend", kind: "enum", T: () => ["enose.service.LoadCellReading.WeightTrend", LoadCellReading_WeightTrend] },
+            { no: 6, name: "timestamp", kind: "message", T: () => Timestamp }
+        ]);
+    }
+    create(value?: PartialMessage<LoadCellReading>): LoadCellReading {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.weightGrams = 0;
+        message.rawPercent = 0;
+        message.isCalibrated = false;
+        message.isStable = false;
+        message.trend = 0;
+        if (value !== undefined)
+            reflectionMergePartial<LoadCellReading>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: LoadCellReading): LoadCellReading {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* float weight_grams */ 1:
+                    message.weightGrams = reader.float();
+                    break;
+                case /* float raw_percent */ 2:
+                    message.rawPercent = reader.float();
+                    break;
+                case /* bool is_calibrated */ 3:
+                    message.isCalibrated = reader.bool();
+                    break;
+                case /* bool is_stable */ 4:
+                    message.isStable = reader.bool();
+                    break;
+                case /* enose.service.LoadCellReading.WeightTrend trend */ 5:
+                    message.trend = reader.int32();
+                    break;
+                case /* google.protobuf.Timestamp timestamp */ 6:
+                    message.timestamp = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.timestamp);
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: LoadCellReading, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* float weight_grams = 1; */
+        if (message.weightGrams !== 0)
+            writer.tag(1, WireType.Bit32).float(message.weightGrams);
+        /* float raw_percent = 2; */
+        if (message.rawPercent !== 0)
+            writer.tag(2, WireType.Bit32).float(message.rawPercent);
+        /* bool is_calibrated = 3; */
+        if (message.isCalibrated !== false)
+            writer.tag(3, WireType.Varint).bool(message.isCalibrated);
+        /* bool is_stable = 4; */
+        if (message.isStable !== false)
+            writer.tag(4, WireType.Varint).bool(message.isStable);
+        /* enose.service.LoadCellReading.WeightTrend trend = 5; */
+        if (message.trend !== 0)
+            writer.tag(5, WireType.Varint).int32(message.trend);
+        /* google.protobuf.Timestamp timestamp = 6; */
+        if (message.timestamp)
+            Timestamp.internalBinaryWrite(message.timestamp, writer.tag(6, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.LoadCellReading
+ */
+export const LoadCellReading = new LoadCellReading$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class CalibrationStatus$Type extends MessageType<CalibrationStatus> {
+    constructor() {
+        super("enose.service.CalibrationStatus", [
+            { no: 1, name: "step", kind: "enum", T: () => ["enose.service.CalibrationStatus.CalibrationStep", CalibrationStatus_CalibrationStep] },
+            { no: 2, name: "current_reading", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 3, name: "message", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "success", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
+        ]);
+    }
+    create(value?: PartialMessage<CalibrationStatus>): CalibrationStatus {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.step = 0;
+        message.currentReading = 0;
+        message.message = "";
+        message.success = false;
+        if (value !== undefined)
+            reflectionMergePartial<CalibrationStatus>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: CalibrationStatus): CalibrationStatus {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* enose.service.CalibrationStatus.CalibrationStep step */ 1:
+                    message.step = reader.int32();
+                    break;
+                case /* float current_reading */ 2:
+                    message.currentReading = reader.float();
+                    break;
+                case /* string message */ 3:
+                    message.message = reader.string();
+                    break;
+                case /* bool success */ 4:
+                    message.success = reader.bool();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: CalibrationStatus, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* enose.service.CalibrationStatus.CalibrationStep step = 1; */
+        if (message.step !== 0)
+            writer.tag(1, WireType.Varint).int32(message.step);
+        /* float current_reading = 2; */
+        if (message.currentReading !== 0)
+            writer.tag(2, WireType.Bit32).float(message.currentReading);
+        /* string message = 3; */
+        if (message.message !== "")
+            writer.tag(3, WireType.LengthDelimited).string(message.message);
+        /* bool success = 4; */
+        if (message.success !== false)
+            writer.tag(4, WireType.Varint).bool(message.success);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.CalibrationStatus
+ */
+export const CalibrationStatus = new CalibrationStatus$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class ReferenceWeightRequest$Type extends MessageType<ReferenceWeightRequest> {
+    constructor() {
+        super("enose.service.ReferenceWeightRequest", [
+            { no: 1, name: "weight_grams", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ }
+        ]);
+    }
+    create(value?: PartialMessage<ReferenceWeightRequest>): ReferenceWeightRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.weightGrams = 0;
+        if (value !== undefined)
+            reflectionMergePartial<ReferenceWeightRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ReferenceWeightRequest): ReferenceWeightRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* float weight_grams */ 1:
+                    message.weightGrams = reader.float();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: ReferenceWeightRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* float weight_grams = 1; */
+        if (message.weightGrams !== 0)
+            writer.tag(1, WireType.Bit32).float(message.weightGrams);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.ReferenceWeightRequest
+ */
+export const ReferenceWeightRequest = new ReferenceWeightRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class CalibrationResult$Type extends MessageType<CalibrationResult> {
+    constructor() {
+        super("enose.service.CalibrationResult", [
+            { no: 1, name: "success", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 2, name: "message", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "reference_tare_counts", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 4, name: "counts_per_gram", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 5, name: "total_capacity_kg", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ }
+        ]);
+    }
+    create(value?: PartialMessage<CalibrationResult>): CalibrationResult {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.success = false;
+        message.message = "";
+        message.referenceTareCounts = 0;
+        message.countsPerGram = 0;
+        message.totalCapacityKg = 0;
+        if (value !== undefined)
+            reflectionMergePartial<CalibrationResult>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: CalibrationResult): CalibrationResult {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* bool success */ 1:
+                    message.success = reader.bool();
+                    break;
+                case /* string message */ 2:
+                    message.message = reader.string();
+                    break;
+                case /* float reference_tare_counts */ 3:
+                    message.referenceTareCounts = reader.float();
+                    break;
+                case /* float counts_per_gram */ 4:
+                    message.countsPerGram = reader.float();
+                    break;
+                case /* float total_capacity_kg */ 5:
+                    message.totalCapacityKg = reader.float();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: CalibrationResult, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* bool success = 1; */
+        if (message.success !== false)
+            writer.tag(1, WireType.Varint).bool(message.success);
+        /* string message = 2; */
+        if (message.message !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.message);
+        /* float reference_tare_counts = 3; */
+        if (message.referenceTareCounts !== 0)
+            writer.tag(3, WireType.Bit32).float(message.referenceTareCounts);
+        /* float counts_per_gram = 4; */
+        if (message.countsPerGram !== 0)
+            writer.tag(4, WireType.Bit32).float(message.countsPerGram);
+        /* float total_capacity_kg = 5; */
+        if (message.totalCapacityKg !== 0)
+            writer.tag(5, WireType.Bit32).float(message.totalCapacityKg);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.CalibrationResult
+ */
+export const CalibrationResult = new CalibrationResult$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class ThresholdRequest$Type extends MessageType<ThresholdRequest> {
+    constructor() {
+        super("enose.service.ThresholdRequest", [
+            { no: 1, name: "value", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ }
+        ]);
+    }
+    create(value?: PartialMessage<ThresholdRequest>): ThresholdRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.value = 0;
+        if (value !== undefined)
+            reflectionMergePartial<ThresholdRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ThresholdRequest): ThresholdRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* float value */ 1:
+                    message.value = reader.float();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: ThresholdRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* float value = 1; */
+        if (message.value !== 0)
+            writer.tag(1, WireType.Bit32).float(message.value);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.ThresholdRequest
+ */
+export const ThresholdRequest = new ThresholdRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class LoadCellConfig$Type extends MessageType<LoadCellConfig> {
+    constructor() {
+        super("enose.service.LoadCellConfig", [
+            { no: 1, name: "empty_bottle_weight", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 2, name: "overflow_threshold", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 3, name: "drain_complete_margin", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 4, name: "stable_threshold", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 5, name: "last_calibration_time", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<LoadCellConfig>): LoadCellConfig {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.emptyBottleWeight = 0;
+        message.overflowThreshold = 0;
+        message.drainCompleteMargin = 0;
+        message.stableThreshold = 0;
+        message.lastCalibrationTime = "";
+        if (value !== undefined)
+            reflectionMergePartial<LoadCellConfig>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: LoadCellConfig): LoadCellConfig {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* float empty_bottle_weight */ 1:
+                    message.emptyBottleWeight = reader.float();
+                    break;
+                case /* float overflow_threshold */ 2:
+                    message.overflowThreshold = reader.float();
+                    break;
+                case /* float drain_complete_margin */ 3:
+                    message.drainCompleteMargin = reader.float();
+                    break;
+                case /* float stable_threshold */ 4:
+                    message.stableThreshold = reader.float();
+                    break;
+                case /* string last_calibration_time */ 5:
+                    message.lastCalibrationTime = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: LoadCellConfig, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* float empty_bottle_weight = 1; */
+        if (message.emptyBottleWeight !== 0)
+            writer.tag(1, WireType.Bit32).float(message.emptyBottleWeight);
+        /* float overflow_threshold = 2; */
+        if (message.overflowThreshold !== 0)
+            writer.tag(2, WireType.Bit32).float(message.overflowThreshold);
+        /* float drain_complete_margin = 3; */
+        if (message.drainCompleteMargin !== 0)
+            writer.tag(3, WireType.Bit32).float(message.drainCompleteMargin);
+        /* float stable_threshold = 4; */
+        if (message.stableThreshold !== 0)
+            writer.tag(4, WireType.Bit32).float(message.stableThreshold);
+        /* string last_calibration_time = 5; */
+        if (message.lastCalibrationTime !== "")
+            writer.tag(5, WireType.LengthDelimited).string(message.lastCalibrationTime);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.LoadCellConfig
+ */
+export const LoadCellConfig = new LoadCellConfig$Type();
 /**
  * @generated ServiceType for protobuf service enose.service.ControlService
  */
@@ -2050,4 +2632,21 @@ export const SensorService = new ServiceType("enose.service.SensorService", [
     { name: "SubscribeSensorReadings", serverStreaming: true, options: {}, I: Empty, O: SensorReading },
     { name: "GetSensorStatus", options: {}, I: Empty, O: SensorBoardStatus },
     { name: "ConfigureHeater", options: {}, I: HeaterConfigRequest, O: HeaterConfigResponse }
+]);
+/**
+ * @generated ServiceType for protobuf service enose.service.LoadCellService
+ */
+export const LoadCellService = new ServiceType("enose.service.LoadCellService", [
+    { name: "StartCalibration", options: {}, I: Empty, O: CalibrationStatus },
+    { name: "SetZeroPoint", options: {}, I: Empty, O: CalibrationStatus },
+    { name: "SetReferenceWeight", options: {}, I: ReferenceWeightRequest, O: CalibrationStatus },
+    { name: "SaveCalibration", options: {}, I: Empty, O: CalibrationResult },
+    { name: "CancelCalibration", options: {}, I: Empty, O: Empty },
+    { name: "SetEmptyBottleBaseline", options: {}, I: Empty, O: LoadCellReading },
+    { name: "SetOverflowThreshold", options: {}, I: ThresholdRequest, O: Empty },
+    { name: "GetLoadCellConfig", options: {}, I: Empty, O: LoadCellConfig },
+    { name: "SaveLoadCellConfig", options: {}, I: LoadCellConfig, O: Empty },
+    { name: "Tare", options: {}, I: Empty, O: LoadCellReading },
+    { name: "GetReading", options: {}, I: Empty, O: LoadCellReading },
+    { name: "StreamReadings", serverStreaming: true, options: {}, I: Empty, O: LoadCellReading }
 ]);

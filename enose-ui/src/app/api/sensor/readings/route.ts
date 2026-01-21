@@ -3,11 +3,11 @@ import * as grpc from "@grpc/grpc-js";
 import { getSensorClient } from "@/lib/grpc-client";
 import { Empty } from "@/generated/google/protobuf/empty";
 
-export async function GET() {
+export async function GET(): Promise<Response> {
   try {
     const client = getSensorClient();
     
-    return new Promise((resolve) => {
+    return new Promise<Response>((resolve) => {
       const stream = client.subscribeSensorReadings(Empty.create());
       let readings: Array<{
         timestamp: number;

@@ -157,14 +157,16 @@ void SystemState::start_inject(const InjectionParams& params) {
 }
 
 void SystemState::stop_inject() {
-    // 1. 取消 GCODE_AXIS 注册，恢复 MANUAL_STEPPER 控制
-    actuator_->send_gcode("UNREGISTER_PUMPS");
+    // 使用 Klipper 插件的异步停止命令
+    // ENOSE_ASYNC_STOP 会:
+    // 1. 通过 reactor 回调立即执行（绕过 G-code 队列）
+    // 2. 重置 motion_queuing 时间变量阻止后续步进生成
+    // 3. 清空 trapq 并取消 GCODE_AXIS 注册
+    // 4. 禁用电机
+    // 延迟约 ~1 秒（已发送到 MCU 的步进会执行完）
+    actuator_->send_gcode("ENOSE_ASYNC_STOP");
     
-    // 2. 停止所有蠕动泵
-    const char* pumps[] = {"pump_2", "pump_3", "pump_4", "pump_5"};
-    for (const char* pump : pumps) {
-        actuator_->send_gcode(std::format("MANUAL_STEPPER STEPPER={} ENABLE=0", pump));
-    }
+    spdlog::info("SystemState: ENOSE_ASYNC_STOP sent, pumps will stop in ~1s");
     
     current_peripheral_state_.pump_2 = PumpState::STOPPED;
     current_peripheral_state_.pump_3 = PumpState::STOPPED;
@@ -174,10 +176,29 @@ void SystemState::stop_inject() {
     transition_to(State::INITIAL);
 }
 
+bool SystemState::is_any_pump_running() const {
+    return current_peripheral_state_.pump_2 == PumpState::RUNNING ||
+           current_peripheral_state_.pump_3 == PumpState::RUNNING ||
+           current_peripheral_state_.pump_4 == PumpState::RUNNING ||
+           current_peripheral_state_.pump_5 == PumpState::RUNNING;
+}
+
 void SystemState::transition_to(State target_state) {
     if (current_state_ == target_state) {
         spdlog::debug("SystemState: Already in state {}", state_to_string(target_state));
         return;
+    }
+
+    // 如果有泵正在运行，先停止（自动停止策略）
+    if (is_any_pump_running()) {
+        spdlog::info("SystemState: Pumps running, auto-stopping before state transition");
+        // 发送异步停止命令
+        actuator_->send_gcode("ENOSE_ASYNC_STOP");
+        // 更新泵状态
+        current_peripheral_state_.pump_2 = PumpState::STOPPED;
+        current_peripheral_state_.pump_3 = PumpState::STOPPED;
+        current_peripheral_state_.pump_4 = PumpState::STOPPED;
+        current_peripheral_state_.pump_5 = PumpState::STOPPED;
     }
 
     State old_state = current_state_;

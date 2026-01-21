@@ -44,7 +44,7 @@ struct PeripheralState {
     
     // === 传感器 (只读, 不在状态表中控制) ===
     // sensor_chamber (PF4) - 气室温度
-    // scale (PG6/PG9)      - HX711 称重模块
+    // my_hx711 (PB3/PB4)   - HX711 称重模块 (SPI3)
     
     bool operator==(const PeripheralState& other) const {
         return valve_waste == other.valve_waste &&
@@ -155,6 +155,11 @@ public:
      * @brief 设置状态变化回调
      */
     void set_state_callback(StateCallback callback) { state_callback_ = std::move(callback); }
+
+    /**
+     * @brief 检查是否有泵正在运行
+     */
+    bool is_any_pump_running() const;
 
 private:
     void apply_peripheral_state(const PeripheralState& state);

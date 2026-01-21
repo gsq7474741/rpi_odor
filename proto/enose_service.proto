@@ -297,3 +297,114 @@ message HeaterPreset {
   repeated uint32 temps = 3;
   repeated uint32 durs = 4;
 }
+
+// ============================================================
+// 称重服务 (LoadCellService)
+// 用于称重传感器标定和读取
+// ============================================================
+service LoadCellService {
+  // === 标定相关 ===
+  // 开始标定向导
+  rpc StartCalibration(google.protobuf.Empty) returns (CalibrationStatus);
+  
+  // 设置零点 (空载时调用)
+  rpc SetZeroPoint(google.protobuf.Empty) returns (CalibrationStatus);
+  
+  // 设置参考重量 (放置已知重量物体后调用)
+  rpc SetReferenceWeight(ReferenceWeightRequest) returns (CalibrationStatus);
+  
+  // 保存标定结果
+  rpc SaveCalibration(google.protobuf.Empty) returns (CalibrationResult);
+  
+  // 取消标定
+  rpc CancelCalibration(google.protobuf.Empty) returns (google.protobuf.Empty);
+  
+  // === 业务配置 ===
+  // 设置空瓶基准 (当前重量设为空瓶基准)
+  rpc SetEmptyBottleBaseline(google.protobuf.Empty) returns (LoadCellReading);
+  
+  // 设置溢出阈值
+  rpc SetOverflowThreshold(ThresholdRequest) returns (google.protobuf.Empty);
+  
+  // 获取业务配置
+  rpc GetLoadCellConfig(google.protobuf.Empty) returns (LoadCellConfig);
+  
+  // 保存业务配置
+  rpc SaveLoadCellConfig(LoadCellConfig) returns (google.protobuf.Empty);
+  
+  // === 运行时操作 ===
+  // 去皮 (将当前重量设为零)
+  rpc Tare(google.protobuf.Empty) returns (LoadCellReading);
+  
+  // 获取当前读数
+  rpc GetReading(google.protobuf.Empty) returns (LoadCellReading);
+  
+  // 订阅实时读数流
+  rpc StreamReadings(google.protobuf.Empty) returns (stream LoadCellReading);
+}
+
+// ============================================================
+// 称重服务消息定义
+// ============================================================
+
+// 称重读数
+message LoadCellReading {
+  float weight_grams = 1;         // 标定后的克数
+  float raw_percent = 2;          // 原始百分比 (-100% ~ 100%)
+  bool is_calibrated = 3;         // 是否已完成硬件标定
+  bool is_stable = 4;             // 是否稳定
+  WeightTrend trend = 5;          // 重量趋势
+  google.protobuf.Timestamp timestamp = 6;
+  
+  enum WeightTrend {
+    WEIGHT_TREND_UNSPECIFIED = 0;
+    STABLE = 1;
+    INCREASING = 2;
+    DECREASING = 3;
+  }
+}
+
+// 标定状态
+message CalibrationStatus {
+  CalibrationStep step = 1;       // 当前步骤
+  float current_reading = 2;      // 当前读数 (原始百分比或克数)
+  string message = 3;             // 提示信息
+  bool success = 4;               // 操作是否成功
+  
+  enum CalibrationStep {
+    CALIBRATION_STEP_UNSPECIFIED = 0;
+    IDLE = 1;                     // 未在标定
+    ZERO_POINT = 2;               // 等待设置零点
+    REFERENCE_WEIGHT = 3;         // 等待设置参考重量
+    VERIFY = 4;                   // 验证阶段
+    COMPLETE = 5;                 // 标定完成
+  }
+}
+
+// 参考重量请求
+message ReferenceWeightRequest {
+  float weight_grams = 1;         // 用户输入的参考物体重量 (克)
+}
+
+// 标定结果
+message CalibrationResult {
+  bool success = 1;
+  string message = 2;
+  float reference_tare_counts = 3;  // 零点计数
+  float counts_per_gram = 4;        // 每克计数
+  float total_capacity_kg = 5;      // 总量程 (kg)
+}
+
+// 阈值请求
+message ThresholdRequest {
+  float value = 1;                // 阈值 (克)
+}
+
+// 称重业务配置
+message LoadCellConfig {
+  float empty_bottle_weight = 1;    // 空瓶基准重量 (g)
+  float overflow_threshold = 2;     // 溢出警告阈值 (g)
+  float drain_complete_margin = 3;  // 排空完成余量 (g)
+  float stable_threshold = 4;       // 稳定判断阈值 (g)
+  string last_calibration_time = 5; // 最后标定时间
+}

@@ -8,6 +8,7 @@
 namespace hal {
 class ActuatorDriver;
 class SensorDriver;
+class LoadCellDriver;
 }
 
 namespace workflows {
@@ -26,7 +27,8 @@ public:
     GrpcServer(
         std::shared_ptr<hal::ActuatorDriver> actuator,
         std::shared_ptr<workflows::SystemState> system_state,
-        std::shared_ptr<hal::SensorDriver> sensor = nullptr
+        std::shared_ptr<hal::SensorDriver> sensor = nullptr,
+        std::shared_ptr<hal::LoadCellDriver> load_cell = nullptr
     );
     ~GrpcServer();
 
@@ -50,6 +52,7 @@ private:
     std::shared_ptr<hal::ActuatorDriver> actuator_;
     std::shared_ptr<workflows::SystemState> system_state_;
     std::shared_ptr<hal::SensorDriver> sensor_;
+    std::shared_ptr<hal::LoadCellDriver> load_cell_;
     std::unique_ptr<::grpc::Server> server_;
     std::thread server_thread_;
     bool running_{false};

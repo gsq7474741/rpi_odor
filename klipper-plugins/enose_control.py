@@ -1,16 +1,17 @@
-# E-Nose Klipper Plugin
-# 提供原生 Klipper 不支持的扩展功能
+# E-Nose Klipper Plugin v2.0
+# 提供蠕动泵的异步停止功能
 #
-# 功能列表:
-# - ENOSE_FAST_STOP: 急停，清空队列并禁用电机（无需 FIRMWARE_RESTART）
-# - ENOSE_PUMP_STOP: 仅停止泵电机（保留其他轴）
-# - ENOSE_ASYNC_STOP: 使用 reactor 异步回调立即停止（绕过 G-code 队列）
+# 命令:
+# - ENOSE_ASYNC_STOP: 立即停止所有泵（绕过 G-code 队列，~1秒延迟）
+# - ENOSE_STATUS: 报告插件状态
 #
 # 用法: 在 printer.cfg 中添加 [enose_control]
 #
-# 关键机制:
-# - ENOSE_ASYNC_STOP 使用 reactor.register_async_callback() 立即执行
-# - 这与 M112 急停使用相同的机制，能真正绕过 G-code 队列
+# 工作原理:
+# - 使用 reactor.register_async_callback() 立即执行停止
+# - 重置 motion_queuing 时间变量阻止后续步进生成
+# - 清空 trapq 并取消 GCODE_AXIS 注册
+# - 禁用电机
 
 import logging
 
@@ -29,116 +30,27 @@ class EnoseControl:
         
         # 注册 G-code 命令
         self.gcode.register_command(
-            'ENOSE_FAST_STOP', 
-            self.cmd_fast_stop,
-            desc="Emergency stop: flush queue and disable all motors")
-        
-        self.gcode.register_command(
-            'ENOSE_PUMP_STOP',
-            self.cmd_pump_stop,
-            desc="Stop only pump motors (preserve other axes)")
+            'ENOSE_ASYNC_STOP',
+            self.cmd_async_stop,
+            desc="Async stop: immediately stop all pumps (bypasses G-code queue)")
         
         self.gcode.register_command(
             'ENOSE_STATUS',
             self.cmd_status,
             desc="Report E-Nose plugin status")
         
-        # 【关键】异步停止命令 - 使用 reactor 回调立即执行
-        self.gcode.register_command(
-            'ENOSE_ASYNC_STOP',
-            self.cmd_async_stop,
-            desc="Async stop: immediately schedule stop via reactor (bypasses G-code queue)")
-        
         # 注册 webhook endpoint
         webhooks = self.printer.lookup_object('webhooks')
-        webhooks.register_endpoint('enose/pump_stop', self._handle_pump_stop_webhook)
-        webhooks.register_endpoint('enose/fast_stop', self._handle_fast_stop_webhook)
+        webhooks.register_endpoint('enose/async_stop', self._handle_async_stop_webhook)
         webhooks.register_endpoint('enose/status', self._handle_status_webhook)
         
-        logging.info("EnoseControl: Plugin loaded, pumps: %s", self.pump_names)
-        logging.info("EnoseControl: Commands: ENOSE_FAST_STOP, ENOSE_PUMP_STOP, ENOSE_ASYNC_STOP, ENOSE_STATUS")
-    
-    def cmd_fast_stop(self, gcmd):
-        """急停命令：清空步进队列 + 禁用所有电机"""
-        try:
-            # 1. 获取 toolhead
-            toolhead = self.printer.lookup_object('toolhead')
-            
-            # 2. 清空步进生成队列
-            toolhead.flush_step_generation()
-            
-            # 3. 获取电机使能控制器并关闭所有电机
-            stepper_enable = self.printer.lookup_object('stepper_enable')
-            stepper_enable.motor_off()
-            
-            gcmd.respond_info(
-                "ENOSE_FAST_STOP: Queue flushed, all motors disabled. "
-                "Position lost - re-register GCODE_AXIS before next move.")
-            logging.info("EnoseControl: FAST_STOP executed")
-            
-        except Exception as e:
-            gcmd.respond_info("ENOSE_FAST_STOP failed: %s" % str(e))
-            logging.exception("EnoseControl: FAST_STOP error")
-    
-    def cmd_pump_stop(self, gcmd):
-        """仅停止泵电机（取消 GCODE_AXIS 注册 + 禁用）"""
-        stopped = []
-        errors = []
-        
-        try:
-            # 1. 获取 toolhead 和 motion_queuing
-            toolhead = self.printer.lookup_object('toolhead')
-            motion_queuing = self.printer.lookup_object('motion_queuing')
-            
-            # 2. 清空 Host 端步进生成队列
-            toolhead.flush_step_generation()
-            
-            # 3. 遍历每个泵
-            for pump_name in self.pump_names:
-                try:
-                    stepper = self.printer.lookup_object(
-                        'manual_stepper ' + pump_name)
-                    
-                    # 【关键】清空该泵的 trapq (清除 MCU 端待执行的步进)
-                    if hasattr(stepper, 'trapq') and stepper.trapq is not None:
-                        motion_queuing.wipe_trapq(stepper.trapq)
-                        logging.info("EnoseControl: Wiped trapq for %s", pump_name)
-                    
-                    # 取消 GCODE_AXIS 注册 (直接操作内部状态)
-                    if hasattr(stepper, 'axis_gcode_id') and stepper.axis_gcode_id is not None:
-                        toolhead.remove_extra_axis(stepper)
-                        stepper.axis_gcode_id = None
-                        logging.info("EnoseControl: Unregistered %s from GCODE_AXIS", pump_name)
-                    
-                    # 禁用电机
-                    stepper.do_enable(False)
-                    stopped.append(pump_name)
-                    
-                except Exception as e:
-                    err_msg = "%s: %s" % (pump_name, str(e))
-                    errors.append(err_msg)
-                    logging.warning("EnoseControl: Could not stop %s: %s", pump_name, str(e))
-            
-            # 构建响应消息
-            msg = "ENOSE_PUMP_STOP: "
-            if stopped:
-                msg += "Stopped: %s. " % ', '.join(stopped)
-            if errors:
-                msg += "Errors: %s. " % '; '.join(errors)
-            msg += "Re-register GCODE_AXIS before next move."
-            
-            gcmd.respond_info(msg)
-            logging.info("EnoseControl: PUMP_STOP executed - stopped: %s, errors: %s", 
-                stopped, errors)
-            
-        except Exception as e:
-            gcmd.respond_info("ENOSE_PUMP_STOP failed: %s" % str(e))
-            logging.exception("EnoseControl: PUMP_STOP error")
+        logging.info("EnoseControl: Plugin v2.0 loaded, pumps: %s", self.pump_names)
+        logging.info("EnoseControl: Commands: ENOSE_ASYNC_STOP, ENOSE_STATUS")
     
     def cmd_status(self, gcmd):
         """报告插件状态"""
         # 检查每个泵的状态
-        status_lines = ["E-Nose Control Plugin v1.1"]
+        status_lines = ["E-Nose Control Plugin v2.0"]
         status_lines.append("Configured pumps: %s" % ', '.join(self.pump_names))
         
         toolhead = self.printer.lookup_object('toolhead')
@@ -153,8 +65,8 @@ class EnoseControl:
             except:
                 status_lines.append("  %s: not found" % pump_name)
         
-        status_lines.append("Commands: ENOSE_FAST_STOP, ENOSE_PUMP_STOP, ENOSE_ASYNC_STOP, ENOSE_STATUS")
-        status_lines.append("Webhooks: enose/pump_stop, enose/fast_stop, enose/status")
+        status_lines.append("Commands: ENOSE_ASYNC_STOP, ENOSE_STATUS")
+        status_lines.append("Webhooks: enose/async_stop, enose/status")
         gcmd.respond_info('\n'.join(status_lines))
     
     # ========== 异步停止 (使用 reactor 回调绕过 G-code 队列) ==========
@@ -191,14 +103,28 @@ class EnoseControl:
             # 获取当前估计打印时间
             est_print_time = mcu.estimated_print_time(eventtime)
             
-            # 【关键修复】重置 need_step_gen_time 为当前时间
-            # 这会阻止 _flush_handler 继续生成后续步进
-            # 注意：已经生成的步进（约 0.7 秒内的）仍会执行
+            # 【关键修复】重置时间变量，但不能回到过去
+            # MCU 已经接收了到 last_step_gen_time 的命令，不能重置到更早的时间
             old_need_sg_time = motion_queuing.need_step_gen_time
-            motion_queuing.need_step_gen_time = est_print_time
-            motion_queuing.need_flush_time = est_print_time
-            logging.info("EnoseControl: Reset need_step_gen_time from %.3f to %.3f (diff=%.3fs)", 
-                old_need_sg_time, est_print_time, old_need_sg_time - est_print_time)
+            old_last_sg_time = motion_queuing.last_step_gen_time
+            
+            # reset_time 必须 >= last_step_gen_time，否则会与已调度的 MCU 定时器冲突
+            # 加一点缓冲时间（0.1秒）确保安全
+            SAFETY_BUFFER = 0.1
+            reset_time = max(est_print_time, old_last_sg_time) + SAFETY_BUFFER
+            
+            # 只重置 need_* 变量来阻止新步进生成
+            # 不修改 last_* 变量，因为那些代表已发送到 MCU 的命令
+            motion_queuing.need_step_gen_time = reset_time
+            motion_queuing.need_flush_time = reset_time
+            # 注意：不再重置 last_step_gen_time 和 last_flush_time
+            
+            logging.info("EnoseControl: Reset timing - need_sg: %.3f->%.3f, last_sg: %.3f (kept), blocked %.3fs future steps", 
+                old_need_sg_time, reset_time, old_last_sg_time,
+                old_need_sg_time - reset_time)
+            
+            # 重置 toolhead 的 print_time 到安全时间
+            toolhead.print_time = reset_time
             
             # 清空 lookahead 队列（不调用 flush_all_steps）
             toolhead.lookahead.reset()
@@ -223,6 +149,11 @@ class EnoseControl:
                     # 禁用电机
                     stepper.do_enable(False)
                     
+                    # 【重要】重置坐标为 0，确保下次进样使用相对位移语义
+                    stepper.commanded_pos = 0.
+                    stepper.rail.set_position([0., 0., 0.])
+                    logging.info("EnoseControl: Reset %s position to 0", pump_name)
+                    
                 except Exception as e:
                     logging.warning("EnoseControl: Async stop error for %s: %s", pump_name, str(e))
             
@@ -233,75 +164,23 @@ class EnoseControl:
         except Exception as e:
             logging.exception("EnoseControl: _async_stop_callback error: %s", str(e))
     
-    # ========== Webhook handlers (绕过 G-code 队列，立即执行) ==========
+    # ========== Webhook handlers ==========
     
-    def _do_pump_stop(self):
-        """内部方法：执行泵停止逻辑"""
-        stopped = []
-        errors = []
-        
-        toolhead = self.printer.lookup_object('toolhead')
-        motion_queuing = self.printer.lookup_object('motion_queuing')
-        
-        # 清空 Host 端步进生成队列
-        toolhead.flush_step_generation()
-        
-        for pump_name in self.pump_names:
-            try:
-                stepper = self.printer.lookup_object('manual_stepper ' + pump_name)
-                
-                # 清空该泵的 trapq
-                if hasattr(stepper, 'trapq') and stepper.trapq is not None:
-                    motion_queuing.wipe_trapq(stepper.trapq)
-                
-                # 取消 GCODE_AXIS 注册
-                if hasattr(stepper, 'axis_gcode_id') and stepper.axis_gcode_id is not None:
-                    toolhead.remove_extra_axis(stepper)
-                    stepper.axis_gcode_id = None
-                
-                # 禁用电机
-                stepper.do_enable(False)
-                stopped.append(pump_name)
-                
-            except Exception as e:
-                errors.append("%s: %s" % (pump_name, str(e)))
-        
-        logging.info("EnoseControl: Webhook PUMP_STOP - stopped: %s, errors: %s", stopped, errors)
-        return {'stopped': stopped, 'errors': errors}
-    
-    def _do_fast_stop(self):
-        """内部方法：执行急停逻辑"""
-        toolhead = self.printer.lookup_object('toolhead')
-        toolhead.flush_step_generation()
-        
-        stepper_enable = self.printer.lookup_object('stepper_enable')
-        stepper_enable.motor_off()
-        
-        logging.info("EnoseControl: Webhook FAST_STOP executed")
-        return {'status': 'stopped', 'message': 'All motors disabled'}
-    
-    def _handle_pump_stop_webhook(self, web_request):
-        """Webhook: 泵停止 (绕过 G-code 队列)"""
+    def _handle_async_stop_webhook(self, web_request):
+        """Webhook: 异步停止 (通过 reactor 回调)"""
         try:
-            result = self._do_pump_stop()
-            web_request.send(result)
+            self._stop_requested = True
+            self.reactor.register_async_callback(self._async_stop_callback)
+            web_request.send({'status': 'scheduled', 'message': 'Stop scheduled via reactor'})
+            logging.info("EnoseControl: Webhook async_stop scheduled")
         except Exception as e:
-            logging.exception("EnoseControl: Webhook pump_stop error")
-            raise self.printer.command_error("pump_stop failed: %s" % str(e))
-    
-    def _handle_fast_stop_webhook(self, web_request):
-        """Webhook: 急停 (绕过 G-code 队列)"""
-        try:
-            result = self._do_fast_stop()
-            web_request.send(result)
-        except Exception as e:
-            logging.exception("EnoseControl: Webhook fast_stop error")
-            raise self.printer.command_error("fast_stop failed: %s" % str(e))
+            logging.exception("EnoseControl: Webhook async_stop error")
+            raise self.printer.command_error("async_stop failed: %s" % str(e))
     
     def _handle_status_webhook(self, web_request):
         """Webhook: 获取状态"""
         status = {
-            'plugin_version': '1.2',
+            'plugin_version': '2.0',
             'pumps': {}
         }
         for pump_name in self.pump_names:

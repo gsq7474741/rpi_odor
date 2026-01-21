@@ -6,6 +6,7 @@
 #include <thread>
 #include "hal/sensor_driver.hpp"
 #include "hal/actuator_driver.hpp"
+#include "hal/load_cell_driver.hpp"
 #include "workflows/system_state.hpp"
 #include "grpc/grpc_server.hpp"
 
@@ -35,12 +36,15 @@ int main(int argc, char* argv[]) {
         // Drivers
         auto sensor_driver = std::make_shared<hal::SensorDriver>(io_context);
         auto actuator_driver = std::make_shared<hal::ActuatorDriver>(io_context);
+        
+        // Load Cell Driver (称重传感器)
+        auto load_cell_driver = std::make_shared<hal::LoadCellDriver>(io_context, actuator_driver);
 
         // System State Machine
         auto system_state = std::make_shared<workflows::SystemState>(actuator_driver);
 
-        // gRPC Server (包含传感器服务)
-        enose_grpc::GrpcServer grpc_srv(actuator_driver, system_state, sensor_driver);
+        // gRPC Server (包含传感器服务和称重服务)
+        enose_grpc::GrpcServer grpc_srv(actuator_driver, system_state, sensor_driver, load_cell_driver);
         grpc_srv.start(grpc_address);
 
         // Sensor Signals (调试用)
@@ -61,6 +65,9 @@ int main(int argc, char* argv[]) {
         }
 
         actuator_driver->connect(moonraker_host, moonraker_port);
+        
+        // Start Load Cell Driver
+        load_cell_driver->start();
 
         // Signal Handling (Ctrl+C)
         boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);

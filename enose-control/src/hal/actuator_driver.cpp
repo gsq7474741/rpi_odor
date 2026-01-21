@@ -124,15 +124,25 @@ void ActuatorDriver::on_read(beast::error_code ec, std::size_t bytes_transferred
             // 安排下一次查询
             schedule_printer_info_query();
         }
-        // G-code 命令响应
+        // G-code 命令响应 (包括 query_object 回调)
         else if (j.contains("id") && j.contains("result")) {
             int id = j["id"].get<int>();
             spdlog::debug("ActuatorDriver: RPC[{}] response: {}", id, j["result"].dump());
+            
+            // 检查是否有注册的回调
+            auto it = rpc_callbacks_.find(id);
+            if (it != rpc_callbacks_.end()) {
+                it->second(j);
+                rpc_callbacks_.erase(it);
+            }
         }
         // G-code 命令错误
         else if (j.contains("id") && j.contains("error")) {
             int id = j["id"].get<int>();
             spdlog::error("ActuatorDriver: RPC[{}] error: {}", id, j["error"].dump());
+            
+            // 移除失败的回调
+            rpc_callbacks_.erase(id);
         }
 
     } catch (const std::exception& e) {
@@ -176,8 +186,7 @@ void ActuatorDriver::subscribe_objects() {
     nlohmann::json objects;
     objects["heaters"] = nullptr;
     objects["display_status"] = nullptr;
-    // Add custom sensors if configured in Klipper
-    // objects["sensors"] = nullptr; 
+    objects["load_cell my_hx711"] = nullptr;  // 称重传感器 
     
     req["params"] = {{"objects", objects}};
     req["id"] = rpc_id_++;
@@ -204,6 +213,34 @@ void ActuatorDriver::do_write() {
                 do_write();
             }
         });
+}
+
+void ActuatorDriver::query_object(const std::string& object_name, 
+                                   std::function<void(const nlohmann::json&)> callback) {
+    if (!connected_) {
+        spdlog::warn("ActuatorDriver: Cannot query object, not connected");
+        return;
+    }
+    
+    nlohmann::json req;
+    req["jsonrpc"] = "2.0";
+    req["method"] = "printer.objects.query";
+    
+    nlohmann::json objects;
+    objects[object_name] = nullptr;
+    
+    req["params"] = {{"objects", objects}};
+    int id = rpc_id_++;
+    req["id"] = id;
+    
+    // 注册回调
+    rpc_callbacks_[id] = std::move(callback);
+    
+    std::string msg = req.dump();
+    send_queue_.push(msg);
+    if (send_queue_.size() == 1) {
+        do_write();
+    }
 }
 
 void ActuatorDriver::query_printer_info() {

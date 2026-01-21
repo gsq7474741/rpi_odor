@@ -9,6 +9,8 @@
 #include <memory>
 #include <string>
 #include <queue>
+#include <functional>
+#include <unordered_map>
 
 namespace beast = boost::beast;
 namespace http = beast::http;
@@ -40,6 +42,14 @@ public:
      * @param objects List of objects to subscribe to (e.g., "heater_bed", "toolhead")
      */
     void subscribe_objects();
+
+    /**
+     * @brief Query a specific Klipper object
+     * @param object_name Object name (e.g., "load_cell my_hx711")
+     * @param callback Callback with query response
+     */
+    void query_object(const std::string& object_name, 
+                      std::function<void(const nlohmann::json&)> callback);
 
     /**
      * @brief Check if Klipper firmware is ready (not in shutdown state)
@@ -74,6 +84,9 @@ private:
     int printer_info_rpc_id_{-1};  // 用于识别 printer.info 响应
     bool connected_{false};
     bool firmware_ready_{true};  // Klipper 固件状态 (shutdown 后为 false)
+    
+    // RPC 回调存储
+    std::unordered_map<int, std::function<void(const nlohmann::json&)>> rpc_callbacks_;
 };
 
 } // namespace hal

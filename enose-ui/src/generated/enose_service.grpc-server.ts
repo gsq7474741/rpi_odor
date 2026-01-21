@@ -5,6 +5,12 @@
 // 电子鼻 gRPC 服务定义
 // 提供控制接口和数据流服务
 //
+import { LoadCellConfig } from "./enose_service";
+import { ThresholdRequest } from "./enose_service";
+import { LoadCellReading } from "./enose_service";
+import { CalibrationResult } from "./enose_service";
+import { ReferenceWeightRequest } from "./enose_service";
+import { CalibrationStatus } from "./enose_service";
 import { HeaterConfigResponse } from "./enose_service";
 import { HeaterConfigRequest } from "./enose_service";
 import { SensorBoardStatus } from "./enose_service";
@@ -369,5 +375,223 @@ export const sensorServiceDefinition: grpc.ServiceDefinition<ISensorService> = {
         requestDeserialize: bytes => HeaterConfigRequest.fromBinary(bytes),
         responseSerialize: value => Buffer.from(HeaterConfigResponse.toBinary(value)),
         requestSerialize: value => Buffer.from(HeaterConfigRequest.toBinary(value))
+    }
+};
+/**
+ * ============================================================
+ * 称重服务 (LoadCellService)
+ * 用于称重传感器标定和读取
+ * ============================================================
+ *
+ * @generated from protobuf service enose.service.LoadCellService
+ */
+export interface ILoadCellService extends grpc.UntypedServiceImplementation {
+    /**
+     * === 标定相关 ===
+     * 开始标定向导
+     *
+     * @generated from protobuf rpc: StartCalibration
+     */
+    startCalibration: grpc.handleUnaryCall<Empty, CalibrationStatus>;
+    /**
+     * 设置零点 (空载时调用)
+     *
+     * @generated from protobuf rpc: SetZeroPoint
+     */
+    setZeroPoint: grpc.handleUnaryCall<Empty, CalibrationStatus>;
+    /**
+     * 设置参考重量 (放置已知重量物体后调用)
+     *
+     * @generated from protobuf rpc: SetReferenceWeight
+     */
+    setReferenceWeight: grpc.handleUnaryCall<ReferenceWeightRequest, CalibrationStatus>;
+    /**
+     * 保存标定结果
+     *
+     * @generated from protobuf rpc: SaveCalibration
+     */
+    saveCalibration: grpc.handleUnaryCall<Empty, CalibrationResult>;
+    /**
+     * 取消标定
+     *
+     * @generated from protobuf rpc: CancelCalibration
+     */
+    cancelCalibration: grpc.handleUnaryCall<Empty, Empty>;
+    /**
+     * === 业务配置 ===
+     * 设置空瓶基准 (当前重量设为空瓶基准)
+     *
+     * @generated from protobuf rpc: SetEmptyBottleBaseline
+     */
+    setEmptyBottleBaseline: grpc.handleUnaryCall<Empty, LoadCellReading>;
+    /**
+     * 设置溢出阈值
+     *
+     * @generated from protobuf rpc: SetOverflowThreshold
+     */
+    setOverflowThreshold: grpc.handleUnaryCall<ThresholdRequest, Empty>;
+    /**
+     * 获取业务配置
+     *
+     * @generated from protobuf rpc: GetLoadCellConfig
+     */
+    getLoadCellConfig: grpc.handleUnaryCall<Empty, LoadCellConfig>;
+    /**
+     * 保存业务配置
+     *
+     * @generated from protobuf rpc: SaveLoadCellConfig
+     */
+    saveLoadCellConfig: grpc.handleUnaryCall<LoadCellConfig, Empty>;
+    /**
+     * === 运行时操作 ===
+     * 去皮 (将当前重量设为零)
+     *
+     * @generated from protobuf rpc: Tare
+     */
+    tare: grpc.handleUnaryCall<Empty, LoadCellReading>;
+    /**
+     * 获取当前读数
+     *
+     * @generated from protobuf rpc: GetReading
+     */
+    getReading: grpc.handleUnaryCall<Empty, LoadCellReading>;
+    /**
+     * 订阅实时读数流
+     *
+     * @generated from protobuf rpc: StreamReadings
+     */
+    streamReadings: grpc.handleServerStreamingCall<Empty, LoadCellReading>;
+}
+/**
+ * @grpc/grpc-js definition for the protobuf service enose.service.LoadCellService.
+ *
+ * Usage: Implement the interface ILoadCellService and add to a grpc server.
+ *
+ * ```typescript
+ * const server = new grpc.Server();
+ * const service: ILoadCellService = ...
+ * server.addService(loadCellServiceDefinition, service);
+ * ```
+ */
+export const loadCellServiceDefinition: grpc.ServiceDefinition<ILoadCellService> = {
+    startCalibration: {
+        path: "/enose.service.LoadCellService/StartCalibration",
+        originalName: "StartCalibration",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => CalibrationStatus.fromBinary(bytes),
+        requestDeserialize: bytes => Empty.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(CalibrationStatus.toBinary(value)),
+        requestSerialize: value => Buffer.from(Empty.toBinary(value))
+    },
+    setZeroPoint: {
+        path: "/enose.service.LoadCellService/SetZeroPoint",
+        originalName: "SetZeroPoint",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => CalibrationStatus.fromBinary(bytes),
+        requestDeserialize: bytes => Empty.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(CalibrationStatus.toBinary(value)),
+        requestSerialize: value => Buffer.from(Empty.toBinary(value))
+    },
+    setReferenceWeight: {
+        path: "/enose.service.LoadCellService/SetReferenceWeight",
+        originalName: "SetReferenceWeight",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => CalibrationStatus.fromBinary(bytes),
+        requestDeserialize: bytes => ReferenceWeightRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(CalibrationStatus.toBinary(value)),
+        requestSerialize: value => Buffer.from(ReferenceWeightRequest.toBinary(value))
+    },
+    saveCalibration: {
+        path: "/enose.service.LoadCellService/SaveCalibration",
+        originalName: "SaveCalibration",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => CalibrationResult.fromBinary(bytes),
+        requestDeserialize: bytes => Empty.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(CalibrationResult.toBinary(value)),
+        requestSerialize: value => Buffer.from(Empty.toBinary(value))
+    },
+    cancelCalibration: {
+        path: "/enose.service.LoadCellService/CancelCalibration",
+        originalName: "CancelCalibration",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => Empty.fromBinary(bytes),
+        requestDeserialize: bytes => Empty.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(Empty.toBinary(value)),
+        requestSerialize: value => Buffer.from(Empty.toBinary(value))
+    },
+    setEmptyBottleBaseline: {
+        path: "/enose.service.LoadCellService/SetEmptyBottleBaseline",
+        originalName: "SetEmptyBottleBaseline",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => LoadCellReading.fromBinary(bytes),
+        requestDeserialize: bytes => Empty.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(LoadCellReading.toBinary(value)),
+        requestSerialize: value => Buffer.from(Empty.toBinary(value))
+    },
+    setOverflowThreshold: {
+        path: "/enose.service.LoadCellService/SetOverflowThreshold",
+        originalName: "SetOverflowThreshold",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => Empty.fromBinary(bytes),
+        requestDeserialize: bytes => ThresholdRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(Empty.toBinary(value)),
+        requestSerialize: value => Buffer.from(ThresholdRequest.toBinary(value))
+    },
+    getLoadCellConfig: {
+        path: "/enose.service.LoadCellService/GetLoadCellConfig",
+        originalName: "GetLoadCellConfig",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => LoadCellConfig.fromBinary(bytes),
+        requestDeserialize: bytes => Empty.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(LoadCellConfig.toBinary(value)),
+        requestSerialize: value => Buffer.from(Empty.toBinary(value))
+    },
+    saveLoadCellConfig: {
+        path: "/enose.service.LoadCellService/SaveLoadCellConfig",
+        originalName: "SaveLoadCellConfig",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => Empty.fromBinary(bytes),
+        requestDeserialize: bytes => LoadCellConfig.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(Empty.toBinary(value)),
+        requestSerialize: value => Buffer.from(LoadCellConfig.toBinary(value))
+    },
+    tare: {
+        path: "/enose.service.LoadCellService/Tare",
+        originalName: "Tare",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => LoadCellReading.fromBinary(bytes),
+        requestDeserialize: bytes => Empty.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(LoadCellReading.toBinary(value)),
+        requestSerialize: value => Buffer.from(Empty.toBinary(value))
+    },
+    getReading: {
+        path: "/enose.service.LoadCellService/GetReading",
+        originalName: "GetReading",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => LoadCellReading.fromBinary(bytes),
+        requestDeserialize: bytes => Empty.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(LoadCellReading.toBinary(value)),
+        requestSerialize: value => Buffer.from(Empty.toBinary(value))
+    },
+    streamReadings: {
+        path: "/enose.service.LoadCellService/StreamReadings",
+        originalName: "StreamReadings",
+        requestStream: false,
+        responseStream: true,
+        responseDeserialize: bytes => LoadCellReading.fromBinary(bytes),
+        requestDeserialize: bytes => Empty.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(LoadCellReading.toBinary(value)),
+        requestSerialize: value => Buffer.from(Empty.toBinary(value))
     }
 };

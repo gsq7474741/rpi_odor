@@ -1,0 +1,226 @@
+# Docker 交叉编译环境 for Raspberry Pi 5 (aarch64)
+# 使用 x86 主机 + aarch64 交叉编译工具链
+# 参考 RPi 编译环境: Ubuntu 24.04, GCC 13, C++17
+# Abseil 20240722.0, Protobuf 29.3, gRPC 1.60.0
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 添加 arm64 架构支持
+RUN dpkg --add-architecture arm64
+
+# 配置多架构源
+RUN cat <<EOF > /etc/apt/sources.list.d/ubuntu.sources
+
+Types: deb
+URIs: http://security.ubuntu.com/ubuntu
+Suites: noble-security
+Components: main universe restricted multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+Architectures: amd64
+
+Types: deb
+URIs: http://mirrors.tuna.tsinghua.edu.cn/ubuntu
+Suites: noble noble-updates noble-backports
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+Architectures: amd64
+
+Types: deb
+URIs: http://ports.ubuntu.com/ubuntu-ports/
+Suites: noble-security
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+Architectures: arm64
+
+Types: deb
+URIs: http://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports
+Suites: noble noble-updates noble-backports
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+Architectures: arm64
+
+EOF
+
+# 安装 host 编译工具
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    ninja-build \
+    git \
+    curl \
+    pkg-config \
+    crossbuild-essential-arm64 \
+    && rm -rf /var/lib/apt/lists/*
+
+# 安装 arm64 目标依赖库 (apt 可装的)
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y \
+    libboost-all-dev:arm64 \
+    libssl-dev:arm64 \
+    zlib1g-dev:arm64 \
+    libc-ares-dev:arm64 \
+    libre2-dev:arm64 \
+    nlohmann-json3-dev \
+    libspdlog-dev:arm64 \
+    libfmt-dev:arm64 \
+    libyaml-cpp-dev:arm64 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update && apt-get install -y \
+    g++-aarch64-linux-gnu \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN echo "Checking compiler..." && \
+    ls -al /usr/bin/aarch64-linux-gnu-* || echo "Compiler NOT FOUND in /usr/bin" && \
+    which aarch64-linux-gnu-g++ || echo "g++ NOT in PATH"
+
+# 设置交叉编译环境变量
+ENV CC=aarch64-linux-gnu-gcc \
+    CXX=aarch64-linux-gnu-g++ \
+    AR=aarch64-linux-gnu-ar \
+    RANLIB=aarch64-linux-gnu-ranlib \
+    PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig \
+    PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig
+
+# 创建 sysroot 目录
+ENV SYSROOT=/opt/cross-pi-arm64
+RUN mkdir -p $SYSROOT/usr
+
+# ============================================
+# 编译 Abseil 20240722.0 (arm64)
+# ============================================
+WORKDIR /tmp
+RUN curl -L https://github.com/abseil/abseil-cpp/archive/refs/tags/20240722.0.tar.gz -o abseil.tar.gz && \
+    tar -xzf abseil.tar.gz && cd abseil-cpp-20240722.0 && \
+    mkdir build && cd build && \
+    cmake .. \
+        -DCMAKE_SYSTEM_NAME=Linux \
+        -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+        -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+        -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+        -DCMAKE_FIND_ROOT_PATH=/usr/aarch64-linux-gnu \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_CXX_STANDARD=17 \
+        -DABSL_BUILD_TESTING=OFF \
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+        -DCMAKE_INSTALL_PREFIX=$SYSROOT/usr && \
+    make -j$(nproc) && make install && \
+    cd /tmp && rm -rf abseil*
+
+# ============================================
+# 编译 Protobuf 29.3
+# 需要 host protoc + arm64 库
+# ============================================
+# 先编译 host 版本的 protoc
+RUN git clone --depth 1 --branch v29.3 --recurse-submodules https://github.com/protocolbuffers/protobuf.git protobuf-29.3
+
+RUN apt-get update && apt-get install -y \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -L https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip -o protoc.zip && \
+    unzip protoc.zip -d /usr/local && \
+    chmod +x /usr/local/bin/protoc && \
+    # 清理
+    rm protoc.zip
+
+# RUN cd /tmp/protobuf-29.3 && \
+#     mkdir build-host && cd build-host && \
+#     # 【关键修改】在这里显式指定 -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
+#     # 否则它会读取前面定义的 ENV CC=aarch64... 导致用错编译器
+#     cmake .. \
+#         -DCMAKE_C_COMPILER=gcc \
+#         -DCMAKE_CXX_COMPILER=g++ \
+#         -DCMAKE_BUILD_TYPE=Release \
+#         -DCMAKE_CXX_STANDARD=17 \
+#         -Dprotobuf_BUILD_TESTS=OFF \
+#         -Dprotobuf_ABSL_PROVIDER=module \
+#         -DCMAKE_INSTALL_PREFIX=/usr/local && \
+#     make -j$(nproc) && make install && ldconfig
+
+# 编译 arm64 版本的 protobuf 库
+RUN cd /tmp/protobuf-29.3 && \
+    mkdir build-arm64 && cd build-arm64 && \
+    cmake .. \
+        -DCMAKE_SYSTEM_NAME=Linux \
+        -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+        -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+        -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+        -DCMAKE_FIND_ROOT_PATH="$SYSROOT;/usr/aarch64-linux-gnu" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_CXX_STANDARD=17 \
+        -Dprotobuf_BUILD_TESTS=OFF \
+        -Dprotobuf_BUILD_PROTOC_BINARIES=OFF \
+        -Dprotobuf_ABSL_PROVIDER=package \
+        -Dabsl_DIR=$SYSROOT/usr/lib/cmake/absl \
+        -DCMAKE_INSTALL_PREFIX=$SYSROOT/usr && \
+    make -j$(nproc) && make install && \
+    cd /tmp && rm -rf protobuf*
+
+# ============================================
+# 编译 gRPC 1.60.0 (arm64)
+# ============================================
+RUN git clone --depth 1 --branch v1.60.0 https://github.com/grpc/grpc.git grpc-1.60.0 && \
+    cd grpc-1.60.0 && mkdir -p cmake/build && cd cmake/build && \
+    cmake ../.. \
+        -DCMAKE_SYSTEM_NAME=Linux \
+        -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+        -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+        -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+        -DCMAKE_FIND_ROOT_PATH="$SYSROOT;/usr/aarch64-linux-gnu" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_CXX_STANDARD=17 \
+        -DgRPC_INSTALL=ON \
+        -DgRPC_BUILD_TESTS=OFF \
+        -DgRPC_BUILD_CODEGEN=OFF \
+        -DgRPC_BUILD_GRPC_CPP_PLUGIN=OFF \
+        -DgRPC_BUILD_GRPC_CSHARP_PLUGIN=OFF \
+        -DgRPC_BUILD_GRPC_NODE_PLUGIN=OFF \
+        -DgRPC_BUILD_GRPC_OBJECTIVE_C_PLUGIN=OFF \
+        -DgRPC_BUILD_GRPC_PHP_PLUGIN=OFF \
+        -DgRPC_BUILD_GRPC_PYTHON_PLUGIN=OFF \
+        -DgRPC_BUILD_GRPC_RUBY_PLUGIN=OFF \
+        -DgRPC_ABSL_PROVIDER=package \
+        -DgRPC_CARES_PROVIDER=package \
+        -DgRPC_PROTOBUF_PROVIDER=package \
+        -DgRPC_RE2_PROVIDER=package \
+        -DgRPC_SSL_PROVIDER=package \
+        -DgRPC_ZLIB_PROVIDER=package \
+        -Dabsl_DIR=$SYSROOT/usr/lib/cmake/absl \
+        -DProtobuf_DIR=$SYSROOT/usr/lib/cmake/protobuf \
+        -Dutf8_range_DIR=$SYSROOT/usr/lib/cmake/utf8_range \
+        -DCMAKE_INSTALL_PREFIX=$SYSROOT/usr && \
+    make -j$(nproc) && make install && \
+    cd /tmp && rm -rf grpc*
+
+# 创建 CMake 工具链文件 (修正版: 解决 Boost 找不到的问题)
+RUN echo 'set(CMAKE_SYSTEM_NAME Linux)\n\
+set(CMAKE_SYSTEM_PROCESSOR aarch64)\n\
+set(CMAKE_C_COMPILER aarch64-linux-gnu-gcc)\n\
+set(CMAKE_CXX_COMPILER aarch64-linux-gnu-g++)\n\
+set(CMAKE_CXX_STANDARD 17)\n\
+set(CMAKE_CXX_STANDARD_REQUIRED ON)\n\
+\n\
+# 【关键配置 1】指定库架构，帮助 CMake 在 /usr/lib 下找到正确的 aarch64 目录\n\
+set(CMAKE_LIBRARY_ARCHITECTURE aarch64-linux-gnu)\n\
+set(CMAKE_STAGING_PREFIX /opt/cross-pi-arm64/usr)\n\
+\n\
+# 【关键配置 2】将 /usr 加入查找路径，因为 apt 安装的头文件在 /usr/include\n\
+# 同时保留 /usr/lib/aarch64-linux-gnu 以确保优先找到 ARM64 库\n\
+set(CMAKE_FIND_ROOT_PATH /opt/cross-pi-arm64 /usr/lib/aarch64-linux-gnu /usr)\n\
+\n\
+# 必须设置为 ONLY，防止链接到宿主机 x86 的库 (.so)\n\
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)\n\
+# 必须设置为 ONLY，防止引用宿主机不兼容的头文件(虽然 Boost 没问题，但为了安全)\n\
+# 由于我们在上面的 ROOT_PATH 里加了 /usr，所以这里设置为 ONLY 也能找到 /usr/include\n\
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)\n\
+set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)\n\
+\n\
+set(CMAKE_PREFIX_PATH /opt/cross-pi-arm64/usr)\n\
+' > /opt/toolchain-arm64.cmake
+
+WORKDIR /src

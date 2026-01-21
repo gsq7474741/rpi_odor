@@ -5,6 +5,13 @@
 // 电子鼻 gRPC 服务定义
 // 提供控制接口和数据流服务
 //
+import { LoadCellService } from "./enose_service";
+import type { LoadCellConfig } from "./enose_service";
+import type { ThresholdRequest } from "./enose_service";
+import type { LoadCellReading } from "./enose_service";
+import type { CalibrationResult } from "./enose_service";
+import type { ReferenceWeightRequest } from "./enose_service";
+import type { CalibrationStatus } from "./enose_service";
 import { SensorService } from "./enose_service";
 import type { HeaterConfigResponse } from "./enose_service";
 import type { HeaterConfigRequest } from "./enose_service";
@@ -404,5 +411,250 @@ export class SensorServiceClient extends grpc.Client implements ISensorServiceCl
     configureHeater(input: HeaterConfigRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: HeaterConfigResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: HeaterConfigResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: HeaterConfigResponse) => void)): grpc.ClientUnaryCall {
         const method = SensorService.methods[3];
         return this.makeUnaryRequest<HeaterConfigRequest, HeaterConfigResponse>(`/${SensorService.typeName}/${method.name}`, (value: HeaterConfigRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): HeaterConfigResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+}
+/**
+ * ============================================================
+ * 称重服务 (LoadCellService)
+ * 用于称重传感器标定和读取
+ * ============================================================
+ *
+ * @generated from protobuf service enose.service.LoadCellService
+ */
+export interface ILoadCellServiceClient {
+    /**
+     * === 标定相关 ===
+     * 开始标定向导
+     *
+     * @generated from protobuf rpc: StartCalibration
+     */
+    startCalibration(input: Empty, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: CalibrationStatus) => void): grpc.ClientUnaryCall;
+    startCalibration(input: Empty, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: CalibrationStatus) => void): grpc.ClientUnaryCall;
+    startCalibration(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: CalibrationStatus) => void): grpc.ClientUnaryCall;
+    startCalibration(input: Empty, callback: (err: grpc.ServiceError | null, value?: CalibrationStatus) => void): grpc.ClientUnaryCall;
+    /**
+     * 设置零点 (空载时调用)
+     *
+     * @generated from protobuf rpc: SetZeroPoint
+     */
+    setZeroPoint(input: Empty, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: CalibrationStatus) => void): grpc.ClientUnaryCall;
+    setZeroPoint(input: Empty, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: CalibrationStatus) => void): grpc.ClientUnaryCall;
+    setZeroPoint(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: CalibrationStatus) => void): grpc.ClientUnaryCall;
+    setZeroPoint(input: Empty, callback: (err: grpc.ServiceError | null, value?: CalibrationStatus) => void): grpc.ClientUnaryCall;
+    /**
+     * 设置参考重量 (放置已知重量物体后调用)
+     *
+     * @generated from protobuf rpc: SetReferenceWeight
+     */
+    setReferenceWeight(input: ReferenceWeightRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: CalibrationStatus) => void): grpc.ClientUnaryCall;
+    setReferenceWeight(input: ReferenceWeightRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: CalibrationStatus) => void): grpc.ClientUnaryCall;
+    setReferenceWeight(input: ReferenceWeightRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: CalibrationStatus) => void): grpc.ClientUnaryCall;
+    setReferenceWeight(input: ReferenceWeightRequest, callback: (err: grpc.ServiceError | null, value?: CalibrationStatus) => void): grpc.ClientUnaryCall;
+    /**
+     * 保存标定结果
+     *
+     * @generated from protobuf rpc: SaveCalibration
+     */
+    saveCalibration(input: Empty, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: CalibrationResult) => void): grpc.ClientUnaryCall;
+    saveCalibration(input: Empty, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: CalibrationResult) => void): grpc.ClientUnaryCall;
+    saveCalibration(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: CalibrationResult) => void): grpc.ClientUnaryCall;
+    saveCalibration(input: Empty, callback: (err: grpc.ServiceError | null, value?: CalibrationResult) => void): grpc.ClientUnaryCall;
+    /**
+     * 取消标定
+     *
+     * @generated from protobuf rpc: CancelCalibration
+     */
+    cancelCalibration(input: Empty, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    cancelCalibration(input: Empty, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    cancelCalibration(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    cancelCalibration(input: Empty, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    /**
+     * === 业务配置 ===
+     * 设置空瓶基准 (当前重量设为空瓶基准)
+     *
+     * @generated from protobuf rpc: SetEmptyBottleBaseline
+     */
+    setEmptyBottleBaseline(input: Empty, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: LoadCellReading) => void): grpc.ClientUnaryCall;
+    setEmptyBottleBaseline(input: Empty, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: LoadCellReading) => void): grpc.ClientUnaryCall;
+    setEmptyBottleBaseline(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: LoadCellReading) => void): grpc.ClientUnaryCall;
+    setEmptyBottleBaseline(input: Empty, callback: (err: grpc.ServiceError | null, value?: LoadCellReading) => void): grpc.ClientUnaryCall;
+    /**
+     * 设置溢出阈值
+     *
+     * @generated from protobuf rpc: SetOverflowThreshold
+     */
+    setOverflowThreshold(input: ThresholdRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    setOverflowThreshold(input: ThresholdRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    setOverflowThreshold(input: ThresholdRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    setOverflowThreshold(input: ThresholdRequest, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    /**
+     * 获取业务配置
+     *
+     * @generated from protobuf rpc: GetLoadCellConfig
+     */
+    getLoadCellConfig(input: Empty, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: LoadCellConfig) => void): grpc.ClientUnaryCall;
+    getLoadCellConfig(input: Empty, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: LoadCellConfig) => void): grpc.ClientUnaryCall;
+    getLoadCellConfig(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: LoadCellConfig) => void): grpc.ClientUnaryCall;
+    getLoadCellConfig(input: Empty, callback: (err: grpc.ServiceError | null, value?: LoadCellConfig) => void): grpc.ClientUnaryCall;
+    /**
+     * 保存业务配置
+     *
+     * @generated from protobuf rpc: SaveLoadCellConfig
+     */
+    saveLoadCellConfig(input: LoadCellConfig, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    saveLoadCellConfig(input: LoadCellConfig, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    saveLoadCellConfig(input: LoadCellConfig, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    saveLoadCellConfig(input: LoadCellConfig, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    /**
+     * === 运行时操作 ===
+     * 去皮 (将当前重量设为零)
+     *
+     * @generated from protobuf rpc: Tare
+     */
+    tare(input: Empty, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: LoadCellReading) => void): grpc.ClientUnaryCall;
+    tare(input: Empty, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: LoadCellReading) => void): grpc.ClientUnaryCall;
+    tare(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: LoadCellReading) => void): grpc.ClientUnaryCall;
+    tare(input: Empty, callback: (err: grpc.ServiceError | null, value?: LoadCellReading) => void): grpc.ClientUnaryCall;
+    /**
+     * 获取当前读数
+     *
+     * @generated from protobuf rpc: GetReading
+     */
+    getReading(input: Empty, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: LoadCellReading) => void): grpc.ClientUnaryCall;
+    getReading(input: Empty, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: LoadCellReading) => void): grpc.ClientUnaryCall;
+    getReading(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: LoadCellReading) => void): grpc.ClientUnaryCall;
+    getReading(input: Empty, callback: (err: grpc.ServiceError | null, value?: LoadCellReading) => void): grpc.ClientUnaryCall;
+    /**
+     * 订阅实时读数流
+     *
+     * @generated from protobuf rpc: StreamReadings
+     */
+    streamReadings(input: Empty, metadata?: grpc.Metadata, options?: grpc.CallOptions): grpc.ClientReadableStream<LoadCellReading>;
+    streamReadings(input: Empty, options?: grpc.CallOptions): grpc.ClientReadableStream<LoadCellReading>;
+}
+/**
+ * ============================================================
+ * 称重服务 (LoadCellService)
+ * 用于称重传感器标定和读取
+ * ============================================================
+ *
+ * @generated from protobuf service enose.service.LoadCellService
+ */
+export class LoadCellServiceClient extends grpc.Client implements ILoadCellServiceClient {
+    private readonly _binaryOptions: Partial<BinaryReadOptions & BinaryWriteOptions>;
+    constructor(address: string, credentials: grpc.ChannelCredentials, options: grpc.ClientOptions = {}, binaryOptions: Partial<BinaryReadOptions & BinaryWriteOptions> = {}) {
+        super(address, credentials, options);
+        this._binaryOptions = binaryOptions;
+    }
+    /**
+     * === 标定相关 ===
+     * 开始标定向导
+     *
+     * @generated from protobuf rpc: StartCalibration
+     */
+    startCalibration(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: CalibrationStatus) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: CalibrationStatus) => void), callback?: ((err: grpc.ServiceError | null, value?: CalibrationStatus) => void)): grpc.ClientUnaryCall {
+        const method = LoadCellService.methods[0];
+        return this.makeUnaryRequest<Empty, CalibrationStatus>(`/${LoadCellService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): CalibrationStatus => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 设置零点 (空载时调用)
+     *
+     * @generated from protobuf rpc: SetZeroPoint
+     */
+    setZeroPoint(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: CalibrationStatus) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: CalibrationStatus) => void), callback?: ((err: grpc.ServiceError | null, value?: CalibrationStatus) => void)): grpc.ClientUnaryCall {
+        const method = LoadCellService.methods[1];
+        return this.makeUnaryRequest<Empty, CalibrationStatus>(`/${LoadCellService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): CalibrationStatus => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 设置参考重量 (放置已知重量物体后调用)
+     *
+     * @generated from protobuf rpc: SetReferenceWeight
+     */
+    setReferenceWeight(input: ReferenceWeightRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: CalibrationStatus) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: CalibrationStatus) => void), callback?: ((err: grpc.ServiceError | null, value?: CalibrationStatus) => void)): grpc.ClientUnaryCall {
+        const method = LoadCellService.methods[2];
+        return this.makeUnaryRequest<ReferenceWeightRequest, CalibrationStatus>(`/${LoadCellService.typeName}/${method.name}`, (value: ReferenceWeightRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): CalibrationStatus => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 保存标定结果
+     *
+     * @generated from protobuf rpc: SaveCalibration
+     */
+    saveCalibration(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: CalibrationResult) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: CalibrationResult) => void), callback?: ((err: grpc.ServiceError | null, value?: CalibrationResult) => void)): grpc.ClientUnaryCall {
+        const method = LoadCellService.methods[3];
+        return this.makeUnaryRequest<Empty, CalibrationResult>(`/${LoadCellService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): CalibrationResult => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 取消标定
+     *
+     * @generated from protobuf rpc: CancelCalibration
+     */
+    cancelCalibration(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), callback?: ((err: grpc.ServiceError | null, value?: Empty) => void)): grpc.ClientUnaryCall {
+        const method = LoadCellService.methods[4];
+        return this.makeUnaryRequest<Empty, Empty>(`/${LoadCellService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): Empty => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * === 业务配置 ===
+     * 设置空瓶基准 (当前重量设为空瓶基准)
+     *
+     * @generated from protobuf rpc: SetEmptyBottleBaseline
+     */
+    setEmptyBottleBaseline(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LoadCellReading) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LoadCellReading) => void), callback?: ((err: grpc.ServiceError | null, value?: LoadCellReading) => void)): grpc.ClientUnaryCall {
+        const method = LoadCellService.methods[5];
+        return this.makeUnaryRequest<Empty, LoadCellReading>(`/${LoadCellService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): LoadCellReading => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 设置溢出阈值
+     *
+     * @generated from protobuf rpc: SetOverflowThreshold
+     */
+    setOverflowThreshold(input: ThresholdRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), callback?: ((err: grpc.ServiceError | null, value?: Empty) => void)): grpc.ClientUnaryCall {
+        const method = LoadCellService.methods[6];
+        return this.makeUnaryRequest<ThresholdRequest, Empty>(`/${LoadCellService.typeName}/${method.name}`, (value: ThresholdRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): Empty => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 获取业务配置
+     *
+     * @generated from protobuf rpc: GetLoadCellConfig
+     */
+    getLoadCellConfig(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LoadCellConfig) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LoadCellConfig) => void), callback?: ((err: grpc.ServiceError | null, value?: LoadCellConfig) => void)): grpc.ClientUnaryCall {
+        const method = LoadCellService.methods[7];
+        return this.makeUnaryRequest<Empty, LoadCellConfig>(`/${LoadCellService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): LoadCellConfig => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 保存业务配置
+     *
+     * @generated from protobuf rpc: SaveLoadCellConfig
+     */
+    saveLoadCellConfig(input: LoadCellConfig, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), callback?: ((err: grpc.ServiceError | null, value?: Empty) => void)): grpc.ClientUnaryCall {
+        const method = LoadCellService.methods[8];
+        return this.makeUnaryRequest<LoadCellConfig, Empty>(`/${LoadCellService.typeName}/${method.name}`, (value: LoadCellConfig): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): Empty => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * === 运行时操作 ===
+     * 去皮 (将当前重量设为零)
+     *
+     * @generated from protobuf rpc: Tare
+     */
+    tare(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LoadCellReading) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LoadCellReading) => void), callback?: ((err: grpc.ServiceError | null, value?: LoadCellReading) => void)): grpc.ClientUnaryCall {
+        const method = LoadCellService.methods[9];
+        return this.makeUnaryRequest<Empty, LoadCellReading>(`/${LoadCellService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): LoadCellReading => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 获取当前读数
+     *
+     * @generated from protobuf rpc: GetReading
+     */
+    getReading(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LoadCellReading) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LoadCellReading) => void), callback?: ((err: grpc.ServiceError | null, value?: LoadCellReading) => void)): grpc.ClientUnaryCall {
+        const method = LoadCellService.methods[10];
+        return this.makeUnaryRequest<Empty, LoadCellReading>(`/${LoadCellService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): LoadCellReading => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 订阅实时读数流
+     *
+     * @generated from protobuf rpc: StreamReadings
+     */
+    streamReadings(input: Empty, metadata?: grpc.Metadata | grpc.CallOptions, options?: grpc.CallOptions): grpc.ClientReadableStream<LoadCellReading> {
+        const method = LoadCellService.methods[11];
+        return this.makeServerStreamRequest<Empty, LoadCellReading>(`/${LoadCellService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): LoadCellReading => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), options);
     }
 }
