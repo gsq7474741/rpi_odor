@@ -1,0 +1,193 @@
+# 工作流配置
+# 对应 Protobuf: WorkflowList
+
+workflows:
+  - id: "standard_fast"
+    name: "标准快速流程"
+    description: "适用于大多数样品的快速采集流程"
+    version: "1.0.0"
+    phases:
+      dose:
+        max_duration_s: 60
+        flow_rate_ml_min: 5.0
+        weight_tolerance_g: 0.5
+        control_mode: WEIGHT_FEEDBACK
+      equilibrate:
+        duration_s: 30
+        gas_pump_pwm_percent: 30
+      acquire:
+        termination:
+          type: HEATER_CYCLES
+          heater_cycles: 3
+        gas_pump_pwm_percent: 50
+      cleanup:
+        cycles: 2
+        rinse_volume_ml: 15
+        drain_duration_s: 8
+      baseline_recovery:
+        termination:
+          type: FIXED_DURATION
+          duration_s: 45
+        gas_pump_pwm_percent: 40
+        # stability_required 和 stability_threshold 在 Proto 中属于 TerminationCondition.TrackingParams
+        # 这里需要适配 Proto 结构:
+        # termination:
+        #   type: BASELINE_TRACKING
+        #   tracking:
+        #     window_s: ...
+        #     threshold_percent: ...
+        # 但原来的 JSON 是 duration_s + stability parameters
+        # 如果类型是 FIXED_DURATION，那么 stability 参数可能被忽略或者这是旧配置
+        # 假设这里实际上是想用 duration，但可选稳定性检查。
+        # Proto 中 TerminationCondition 只能选一种 type。
+        # 如果原来的意图是“至少45s，且稳定”，这在目前 Proto 中可能需要组合条件，或者使用 STEADY_STATE + min_duration_s
+        # 让我们修正为使用 STEADY_STATE 或者保留 FIXED_DURATION (忽略稳定性)
+        # 根据 JSON "durationS": 45, "stabilityRequired": true...
+        # 这里的配置可能更接近:
+        # termination:
+        #   type: STEADY_STATE
+        #   min_duration_s: 45
+        #   tracking:
+        #     threshold_percent: 2.0 (0.02 * 100)
+    global:
+      # heaterProfileId -> board_channel_config_id? 
+      # GlobalParams has board_channel_config_id.
+      # 旧 JSON 有 heaterProfileId. 这意味着旧的工作流直接指定 heater profile。
+      # 新 Proto 绑定的是 board_channel_config_id (它包含了 heater assignments)。
+      # 这需要注意：我们需要一个 board_channel_config 来对应 heater_321。
+      # 暂时先填一个占位符或者如果不兼容需要修改 Proto?
+      # 实际上 Workflow.GlobalParams.board_channel_config_id 是引用 BoardChannelConfig。
+      # 我们可以创建一个通用的 BoardChannelConfig 指向 heater_321。
+      board_channel_config_id: "config_standard_fast"
+      heater_preheat_temp_c: 50
+      gas_flow_default_ml_min: 100
+
+  - id: "precision_long"
+    name: "精密长时流程"
+    description: "高精度采集，适用于需要详细数据的实验"
+    version: "1.0.0"
+    phases:
+      dose:
+        max_duration_s: 90
+        flow_rate_ml_min: 3.0
+        weight_tolerance_g: 0.2
+        control_mode: WEIGHT_FEEDBACK
+      equilibrate:
+        duration_s: 60
+        gas_pump_pwm_percent: 25
+      acquire:
+        termination:
+          type: HEATER_CYCLES
+          heater_cycles: 5
+        gas_pump_pwm_percent: 50
+      cleanup:
+        cycles: 3
+        rinse_volume_ml: 20
+        drain_duration_s: 12
+      baseline_recovery:
+        termination:
+          type: STEADY_STATE
+          min_duration_s: 90
+          tracking:
+            threshold_percent: 1.0 # 0.01 * 100
+        gas_pump_pwm_percent: 40
+    global:
+      board_channel_config_id: "config_precision"
+      heater_preheat_temp_c: 50
+      gas_flow_default_ml_min: 80
+
+  - id: "high_throughput"
+    name: "高通量筛选流程"
+    description: "快速筛选，牺牲部分精度"
+    version: "1.0.0"
+    phases:
+      dose:
+        max_duration_s: 30
+        flow_rate_ml_min: 10.0
+        control_mode: TIME_BASED
+      equilibrate:
+        duration_s: 15
+        gas_pump_pwm_percent: 50
+      acquire:
+        termination:
+          type: HEATER_CYCLES
+          heater_cycles: 2
+        gas_pump_pwm_percent: 60
+      cleanup:
+        cycles: 1
+        rinse_volume_ml: 10
+        drain_duration_s: 5
+      baseline_recovery:
+        termination:
+          type: FIXED_DURATION
+          duration_s: 30
+        gas_pump_pwm_percent: 60
+    global:
+      board_channel_config_id: "config_fast"
+      heater_preheat_temp_c: 60
+      gas_flow_default_ml_min: 150
+
+  - id: "volatile_sensitive"
+    name: "挥发性物质流程"
+    description: "针对高挥发性样品优化"
+    version: "1.0.0"
+    phases:
+      dose:
+        max_duration_s: 45
+        flow_rate_ml_min: 2.0
+        control_mode: WEIGHT_FEEDBACK
+      equilibrate:
+        duration_s: 45
+        vent_to_ambient: true
+        gas_pump_pwm_percent: 20
+      acquire:
+        termination:
+          type: HEATER_CYCLES
+          heater_cycles: 4
+        gas_pump_pwm_percent: 40
+      cleanup:
+        cycles: 3
+        rinse_volume_ml: 25
+        drain_duration_s: 15
+      baseline_recovery:
+        termination:
+          type: STEADY_STATE
+          min_duration_s: 60
+          tracking:
+            threshold_percent: 1.5
+        gas_pump_pwm_percent: 40
+    global:
+      board_channel_config_id: "config_sensitive"
+      heater_preheat_temp_c: 40
+      gas_flow_default_ml_min: 60
+
+  - id: "constant_temp"
+    name: "恒温采集流程"
+    description: "使用恒温模式进行长时间采集"
+    version: "1.0.0"
+    phases:
+      dose:
+        max_duration_s: 60
+        flow_rate_ml_min: 5.0
+        control_mode: WEIGHT_FEEDBACK
+      equilibrate:
+        duration_s: 30
+        gas_pump_pwm_percent: 30
+      acquire:
+        termination:
+          type: FIXED_DURATION
+          duration_s: 600
+        gas_pump_pwm_percent: 50
+      cleanup:
+        cycles: 2
+        rinse_volume_ml: 15
+        drain_duration_s: 10
+      baseline_recovery:
+        termination:
+          type: FIXED_DURATION
+          duration_s: 60
+        gas_pump_pwm_percent: 40
+    global:
+      board_channel_config_id: "config_constant"
+      heater_preheat_temp_c: 320
+      gas_flow_default_ml_min: 100

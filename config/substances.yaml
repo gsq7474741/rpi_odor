@@ -1,0 +1,133 @@
+# 待测物实例数据
+# 对应 Protobuf: SubstanceList
+# 待测物 = 不同配比的液体组合
+
+substances:
+  # ============ 单一液体待测物 ============
+  - id: "pure_ethanol_50"
+    name: "50%乙醇 (纯)"
+    description: "纯50%乙醇样品"
+    category: "alcohol"
+    components:
+      - liquid_id: "ethanol_50"
+        ratio: 1.0
+    total_weight_g: 10
+    tags: ["alcohol", "single", "standard"]
+
+  - id: "pure_ethanol_95"
+    name: "95%乙醇 (纯)"
+    description: "纯95%乙醇样品"
+    category: "alcohol"
+    components:
+      - liquid_id: "ethanol_95"
+        ratio: 1.0
+    total_weight_g: 10
+    tags: ["alcohol", "single", "standard"]
+
+  - id: "pure_coffee"
+    name: "咖啡提取液 (纯)"
+    description: "纯咖啡提取液样品"
+    category: "beverage"
+    components:
+      - liquid_id: "coffee_extract"
+        ratio: 1.0
+    total_weight_g: 15
+    tags: ["coffee", "single"]
+
+  - id: "pure_orange"
+    name: "橙汁 (纯)"
+    description: "纯橙汁样品"
+    category: "fruit"
+    components:
+      - liquid_id: "orange_juice"
+        ratio: 1.0
+    total_weight_g: 15
+    tags: ["fruit", "citrus", "single"]
+
+  - id: "pure_vinegar"
+    name: "白醋 (纯)"
+    description: "纯白醋样品"
+    category: "condiment"
+    components:
+      - liquid_id: "vinegar"
+        ratio: 1.0
+    total_weight_g: 10
+    tags: ["acid", "single"]
+
+  # ============ 混合待测物 ============
+  - id: "ethanol_diluted_25"
+    name: "25%乙醇 (稀释)"
+    description: "50%乙醇1:1稀释"
+    category: "alcohol"
+    components:
+      - liquid_id: "ethanol_50"
+        ratio: 0.5
+      - liquid_id: "water"
+        ratio: 0.5
+    total_weight_g: 10
+    tags: ["alcohol", "mixed", "diluted"]
+
+  - id: "coffee_diluted"
+    name: "咖啡 (稀释)"
+    description: "咖啡提取液1:1稀释"
+    category: "beverage"
+    components:
+      - liquid_id: "coffee_extract"
+        ratio: 0.5
+      - liquid_id: "water"
+        ratio: 0.5
+    total_weight_g: 20
+    tags: ["coffee", "mixed", "diluted"]
+
+  - id: "vinegar_orange_mix"
+    name: "橙汁醋"
+    description: "橙汁与白醋3:1混合"
+    category: "mixed"
+    components:
+      - liquid_id: "orange_juice"
+        ratio: 0.75
+      - liquid_id: "vinegar"
+        ratio: 0.25
+    total_weight_g: 15
+    tags: ["fruit", "acid", "mixed"]
+
+  # ============ 浓度梯度系列 ============
+  - id: "ethanol_gradient_5ml"
+    name: "乙醇 5ml"
+    description: "5ml 50%乙醇"
+    category: "alcohol"
+    components:
+      - liquid_id: "ethanol_50"
+        ratio: 1.0
+    total_volume_ml: 5
+    tags: ["alcohol", "gradient", "5ml"]
+
+  - id: "ethanol_gradient_10ml"
+    name: "乙醇 10ml"
+    description: "10ml 50%乙醇"
+    category: "alcohol"
+    components:
+      - liquid_id: "ethanol_50"
+        ratio: 1.0
+    total_volume_ml: 10
+    tags: ["alcohol", "gradient", "10ml"]
+
+  - id: "ethanol_gradient_15ml"
+    name: "乙醇 15ml"
+    description: "15ml 50%乙醇"
+    category: "alcohol"
+    components:
+      - liquid_id: "ethanol_50"
+        ratio: 1.0
+    total_volume_ml: 15
+    tags: ["alcohol", "gradient", "15ml"]
+
+  - id: "ethanol_gradient_20ml"
+    name: "乙醇 20ml"
+    description: "20ml 50%乙醇"
+    category: "alcohol"
+    components:
+      - liquid_id: "ethanol_50"
+        ratio: 1.0
+    total_volume_ml: 20
+    tags: ["alcohol", "gradient", "20ml"]

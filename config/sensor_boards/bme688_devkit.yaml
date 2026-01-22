@@ -1,197 +1,90 @@
 # BME688 Development Kit 传感器板配置
-# 适用于 Bosch BME688 开发套件 (8通道 MOX 气体传感器阵列)
+# 对应 Protobuf: enose.config.SensorBoard
 
-sensor_board:
-  # ============ 基础信息 ============
-  id: "bme688-devkit-v1"
-  name: "BME688 Development Kit"
-  vendor: "Bosch Sensortec"
-  firmware_version: "1.0.0"
-  description: "8通道 MOX 气体传感器阵列，每通道集成温湿度气压传感器"
+id: "bme688-devkit-v1"
+name: "BME688 Development Kit"
+vendor: "Bosch Sensortec"
+firmware_version: "1.0.0"
+description: "8通道 MOX 气体传感器阵列，每通道集成温湿度气压传感器"
+board_type: BME688_DEVKIT
 
-  # ============ 通信配置 ============
-  communication:
-    protocol: "serial"
-    baudrate: 115200
-    data_format: "json"
-    port_pattern: "/dev/ttyUSB*"    # Linux
-    port_pattern_win: "COM*"         # Windows
-    timeout_ms: 1000
-    reconnect_interval_ms: 3000
+# ============ 通信配置 ============
+communication:
+  protocol: "serial"
+  baudrate: 115200
+  data_format: "json"
+  timeout_ms: 1000
 
-  # ============ 主传感器通道配置 ============
-  channels:
-    count: 8
-    type: "mox"                       # Metal Oxide 气体传感器
-    sensors:
-      - index: 0
-        model: "BME688"
-        unit: "ohm"
-        range: [100, 10000000]        # 100 Ω - 10 MΩ
-        description: "通道0 - MOX气体电阻"
-      - index: 1
-        model: "BME688"
-        unit: "ohm"
-        range: [100, 10000000]
-        description: "通道1 - MOX气体电阻"
-      - index: 2
-        model: "BME688"
-        unit: "ohm"
-        range: [100, 10000000]
-        description: "通道2 - MOX气体电阻"
-      - index: 3
-        model: "BME688"
-        unit: "ohm"
-        range: [100, 10000000]
-        description: "通道3 - MOX气体电阻"
-      - index: 4
-        model: "BME688"
-        unit: "ohm"
-        range: [100, 10000000]
-        description: "通道4 - MOX气体电阻"
-      - index: 5
-        model: "BME688"
-        unit: "ohm"
-        range: [100, 10000000]
-        description: "通道5 - MOX气体电阻"
-      - index: 6
-        model: "BME688"
-        unit: "ohm"
-        range: [100, 10000000]
-        description: "通道6 - MOX气体电阻"
-      - index: 7
-        model: "BME688"
-        unit: "ohm"
-        range: [100, 10000000]
-        description: "通道7 - MOX气体电阻"
+# ============ 传感器阵列定义 ============
+sensors:
+  - id: "bme_0"
+    model: "BME688"
+    type: "mox"
+    capabilities:
+      - GAS_RESISTANCE
+      - TEMPERATURE
+      - HUMIDITY
+      - PRESSURE
+    metadata:
+      channel_index: "0"
+      position: "array_0"
 
-  # ============ 环境通道配置 ============
-  environment_channels:
-    - name: "temperature"
-      unit: "celsius"
-      source: "per_channel"           # 每个 BME688 都有独立温度传感器
-      range: [-40, 85]
-      resolution: 0.01
-      accuracy: 1.0
-    - name: "humidity"
-      unit: "percent_rh"
-      source: "per_channel"
-      range: [0, 100]
-      resolution: 0.008
-      accuracy: 3.0
-    - name: "pressure"
-      unit: "hPa"
-      source: "per_channel"
-      range: [300, 1100]
-      resolution: 0.18
-      accuracy: 0.6
+  - id: "bme_1"
+    model: "BME688"
+    type: "mox"
+    capabilities: [GAS_RESISTANCE, TEMPERATURE, HUMIDITY, PRESSURE]
+    metadata:
+      channel_index: "1"
 
-  # ============ 采样配置 ============
-  sampling:
-    mode: "heater_cycle"              # BME688 使用加热器循环模式
-    base_rate_hz: 0.56                # 约每 1.8 秒完成一个循环
-    heater_steps: 10                  # 10 步加热器温度阶梯
-    cycle_duration_ms: 1800           # 单次循环 1.8 秒
-    
-    # 加热器配置模板
-    heater_profile:
-      name: "default"
-      temperatures_c: [320, 100, 100, 100, 200, 200, 200, 320, 320, 320]
-      durations_ms:   [150, 150, 150, 150, 150, 150, 150, 150, 150, 150]
-    
-    # 占空比配置
-    duty_cycle:
-      scanning_cycles: 1              # 扫描周期数
-      sleeping_cycles: 0              # 睡眠周期数
+  - id: "bme_2"
+    model: "BME688"
+    type: "mox"
+    capabilities: [GAS_RESISTANCE, TEMPERATURE, HUMIDITY, PRESSURE]
+    metadata:
+      channel_index: "2"
 
-  # ============ 时间戳配置 ============
-  timestamp:
-    source: "device"                  # 使用设备本地 tick
-    resolution_us: 1000               # 1ms 分辨率
-    sync_method: "startup"            # 启动时同步
-    max_drift_ms: 100                 # 最大允许漂移 100ms
-    
-    # 同步命令
-    sync_command:
-      request: '{"cmd": "sync", "id": 1, "params": {"time": ${HOST_TIME_MS}}}'
-      response_field: "device_tick"
+  - id: "bme_3"
+    model: "BME688"
+    type: "mox"
+    capabilities: [GAS_RESISTANCE, TEMPERATURE, HUMIDITY, PRESSURE]
+    metadata:
+      channel_index: "3"
 
-  # ============ 数据帧格式 ============
-  frame_format:
-    type: "json"
-    fields:
-      - name: "type"
-        type: "string"
-        description: "消息类型 (data/ack/error)"
-      - name: "tick"
-        type: "uint64"
-        description: "设备启动后的毫秒数"
-      - name: "s"
-        type: "uint8"
-        description: "传感器通道索引 (0-7)"
-      - name: "id"
-        type: "uint32"
-        description: "传感器唯一ID"
-      - name: "T"
-        type: "float32"
-        description: "温度 (°C)"
-      - name: "P"
-        type: "float32"
-        description: "气压 (hPa)"
-      - name: "H"
-        type: "float32"
-        description: "相对湿度 (%RH)"
-      - name: "R"
-        type: "float32"
-        description: "气体电阻 (Ω)"
-      - name: "gi"
-        type: "uint8"
-        description: "当前加热器步进索引 (0-9)"
-    
-    # 示例数据帧
-    example: '{"type": "data", "tick": 12345, "s": 0, "id": 123456, "T": 25.3, "P": 1013.2, "H": 45.1, "R": 12345.6, "gi": 3}'
+  - id: "bme_4"
+    model: "BME688"
+    type: "mox"
+    capabilities: [GAS_RESISTANCE, TEMPERATURE, HUMIDITY, PRESSURE]
+    metadata:
+      channel_index: "4"
 
-  # ============ 命令接口 ============
-  commands:
-    - name: "sync"
-      description: "时间同步"
-      request: '{"cmd": "sync", "id": ${ID}, "params": {"time": ${TIME_MS}}}'
-      response: '{"type": "ack", "id": ${ID}, "ok": true}'
-    - name: "init"
-      description: "初始化传感器"
-      request: '{"cmd": "init", "id": ${ID}, "params": {"sensors": [0,1,2,3,4,5,6,7]}}'
-      response: '{"type": "ack", "id": ${ID}, "ok": true}'
-    - name: "start"
-      description: "开始采集"
-      request: '{"cmd": "start", "id": ${ID}, "params": {"sensors": [0,1,2,3,4,5,6,7]}}'
-      response: '{"type": "ack", "id": ${ID}, "ok": true}'
-    - name: "stop"
-      description: "停止采集"
-      request: '{"cmd": "stop", "id": ${ID}}'
-      response: '{"type": "ack", "id": ${ID}, "ok": true}'
-    - name: "status"
-      description: "查询状态"
-      request: '{"cmd": "status", "id": ${ID}}'
-      response: '{"type": "status", "id": ${ID}, "state": "running", "sensors": [...]}'
-    - name: "reset"
-      description: "重置设备"
-      request: '{"cmd": "reset", "id": ${ID}}'
-      response: '{"type": "ack", "id": ${ID}, "ok": true}'
+  - id: "bme_5"
+    model: "BME688"
+    type: "mox"
+    capabilities: [GAS_RESISTANCE, TEMPERATURE, HUMIDITY, PRESSURE]
+    metadata:
+      channel_index: "5"
 
-  # ============ 质检阈值 ============
-  quality_thresholds:
-    gas_resistance:
-      min: 100                        # < 100Ω 可能短路
-      max: 10000000                   # > 10MΩ 可能开路
-      noise_max_percent: 5            # 噪声不超过 5%
-    temperature:
-      min: -10
-      max: 60
-      drift_max_per_hour: 2           # 每小时漂移不超过 2°C
-    humidity:
-      min: 10
-      max: 90
-      drift_max_per_hour: 5
-    baseline:
-      stability_window_s: 60          # 基线稳定性评估窗口
-      max_slope_percent_per_min: 1    # 基线斜率不超过 1%/min
+  - id: "bme_6"
+    model: "BME688"
+    type: "mox"
+    capabilities: [GAS_RESISTANCE, TEMPERATURE, HUMIDITY, PRESSURE]
+    metadata:
+      channel_index: "6"
+
+  - id: "bme_7"
+    model: "BME688"
+    type: "mox"
+    capabilities: [GAS_RESISTANCE, TEMPERATURE, HUMIDITY, PRESSURE]
+    metadata:
+      channel_index: "7"
+
+# ============ 采样配置 ============
+sampling:
+  mode: CONTINUOUS          # 连续采样模式
+  base_rate_hz: 0.714       # 1 / 1.4s (140ms * 10 steps)
+
+# ============ 时间戳配置 ============
+timestamp:
+  sync_method: DEVICE_TICK
+  resolution_us: 1000
+  max_drift_ms: 100

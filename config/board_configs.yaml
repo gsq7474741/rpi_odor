@@ -1,0 +1,45 @@
+# 板子通道配置
+# 对应 Protobuf: BoardChannelConfigList
+# 用于将 HeaterProfile 映射到具体的 SensorBoard 通道
+
+configs:
+  - id: "config_standard_fast"
+    name: "标准快速配置"
+    description: "使用变温模式B (标准)"
+    board_id: "bme688-devkit-v1"
+    assignments:
+      - sensor_ids: ["bme_0", "bme_1", "bme_2", "bme_3", "bme_4", "bme_5", "bme_6", "bme_7"]
+        heater_profile_id: "heater_321"
+
+  - id: "config_precision"
+    name: "精密配置"
+    description: "使用变温模式A (快速/精密)"
+    board_id: "bme688-devkit-v1"
+    assignments:
+      - sensor_ids: ["bme_0", "bme_1", "bme_2", "bme_3", "bme_4", "bme_5", "bme_6", "bme_7"]
+        heater_profile_id: "heater_322"
+
+  - id: "config_fast"
+    name: "快速配置"
+    description: "使用变温模式B (标准)"
+    board_id: "bme688-devkit-v1"
+    assignments:
+      - sensor_ids: ["bme_0", "bme_1", "bme_2", "bme_3", "bme_4", "bme_5", "bme_6", "bme_7"]
+        heater_profile_id: "heater_321"
+
+  - id: "config_sensitive"
+    name: "敏感配置"
+    description: "使用变温模式C (阶梯)"
+    board_id: "bme688-devkit-v1"
+    assignments:
+      - sensor_ids: ["bme_0", "bme_1", "bme_2", "bme_3", "bme_4", "bme_5", "bme_6", "bme_7"]
+        heater_profile_id: "heater_301"
+
+  - id: "config_constant"
+    name: "恒温配置"
+    description: "全通道恒温模式"
+    board_id: "bme688-devkit-v1"
+    assignments:
+      - sensor_ids: ["bme_0", "bme_1", "bme_2", "bme_3", "bme_4", "bme_5", "bme_6", "bme_7"]
+        heater_profile_id: "heater_1"
+

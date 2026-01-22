@@ -1,0 +1,140 @@
+# 实验实例数据
+# 对应 Protobuf: ExperimentList
+# Experiment = Workflow + Substance 的组合
+
+experiments:
+  # ============ 功能验证实验 ============
+  - id: "exp_ethanol_validation"
+    name: "乙醇系统验证"
+    description: "使用50%乙醇验证系统基本功能"
+    workflow_id: "standard_fast"
+    substance_id: "pure_ethanol_50"
+    metadata:
+      author: "system"
+      tags: ["validation", "ethanol"]
+
+  # ============ 单样品实验 ============
+  - id: "exp_coffee_standard"
+    name: "咖啡标准采集"
+    description: "咖啡提取液标准流程采集"
+    workflow_id: "standard_fast"
+    substance_id: "pure_coffee"
+    metadata:
+      author: "user"
+      tags: ["coffee", "standard"]
+
+  - id: "exp_orange_standard"
+    name: "橙汁标准采集"
+    description: "橙汁标准流程采集"
+    workflow_id: "standard_fast"
+    substance_id: "pure_orange"
+    metadata:
+      author: "user"
+      tags: ["fruit", "standard"]
+
+  # ============ 精密实验 ============
+  - id: "exp_ethanol_precision"
+    name: "乙醇精密采集"
+    description: "使用精密流程采集50%乙醇"
+    workflow_id: "precision_long"
+    substance_id: "pure_ethanol_50"
+    metadata:
+      author: "user"
+      tags: ["ethanol", "precision"]
+
+  - id: "exp_coffee_precision"
+    name: "咖啡精密采集"
+    description: "使用精密流程采集咖啡提取液"
+    workflow_id: "precision_long"
+    substance_id: "pure_coffee"
+    overrides:
+      total_weight_g: 20  # 增加样品量
+    metadata:
+      author: "user"
+      tags: ["coffee", "precision"]
+
+  # ============ 高通量筛选实验 ============
+  - id: "exp_vinegar_screening"
+    name: "白醋快速筛选"
+    description: "白醋高通量筛选"
+    workflow_id: "high_throughput"
+    substance_id: "pure_vinegar"
+    metadata:
+      author: "user"
+      tags: ["vinegar", "screening"]
+
+  # ============ 挥发性物质实验 ============
+  - id: "exp_ethanol_95_volatile"
+    name: "高浓度乙醇采集"
+    description: "95%乙醇挥发性物质流程"
+    workflow_id: "volatile_sensitive"
+    substance_id: "pure_ethanol_95"
+    metadata:
+      author: "user"
+      tags: ["ethanol", "volatile", "high_concentration"]
+
+  # ============ 混合物实验 ============
+  - id: "exp_diluted_ethanol"
+    name: "稀释乙醇采集"
+    description: "25%乙醇稀释液采集"
+    workflow_id: "standard_fast"
+    substance_id: "ethanol_diluted_25"
+    metadata:
+      author: "user"
+      tags: ["ethanol", "diluted", "mixed"]
+
+  - id: "exp_vinegar_orange"
+    name: "橙汁醋混合采集"
+    description: "橙汁与白醋混合物采集"
+    workflow_id: "precision_long"
+    substance_id: "vinegar_orange_mix"
+    metadata:
+      author: "user"
+      tags: ["mixed", "fruit", "acid"]
+
+  # ============ 浓度梯度实验系列 ============
+  - id: "exp_gradient_5ml"
+    name: "乙醇梯度 5ml"
+    description: "乙醇浓度梯度实验 - 5ml"
+    workflow_id: "standard_fast"
+    substance_id: "ethanol_gradient_5ml"
+    metadata:
+      author: "user"
+      tags: ["gradient", "5ml"]
+
+  - id: "exp_gradient_10ml"
+    name: "乙醇梯度 10ml"
+    description: "乙醇浓度梯度实验 - 10ml"
+    workflow_id: "standard_fast"
+    substance_id: "ethanol_gradient_10ml"
+    metadata:
+      author: "user"
+      tags: ["gradient", "10ml"]
+
+  - id: "exp_gradient_15ml"
+    name: "乙醇梯度 15ml"
+    description: "乙醇浓度梯度实验 - 15ml"
+    workflow_id: "standard_fast"
+    substance_id: "ethanol_gradient_15ml"
+    metadata:
+      author: "user"
+      tags: ["gradient", "15ml"]
+
+  - id: "exp_gradient_20ml"
+    name: "乙醇梯度 20ml"
+    description: "乙醇浓度梯度实验 - 20ml"
+    workflow_id: "standard_fast"
+    substance_id: "ethanol_gradient_20ml"
+    metadata:
+      author: "user"
+      tags: ["gradient", "20ml"]
+
+  # ============ 恒温实验 ============
+  - id: "exp_ethanol_constant"
+    name: "乙醇恒温采集"
+    description: "使用恒温加热器配置长时间采集"
+    workflow_id: "constant_temp"
+    substance_id: "pure_ethanol_50"
+    metadata:
+      author: "user"
+      tags: ["ethanol", "constant_temp", "long_duration"]

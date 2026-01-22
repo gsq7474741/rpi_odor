@@ -70,6 +70,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     libyaml-cpp-dev:arm64 \
     && rm -rf /var/lib/apt/lists/*
 
+# 安装 host 版本的 grpc_cpp_plugin (用于生成 gRPC 代码)
+RUN apt-get update && apt-get install -y protobuf-compiler-grpc && rm -rf /var/lib/apt/lists/*
+
 RUN apt-get update && apt-get install -y \
     g++-aarch64-linux-gnu \
     && rm -rf /var/lib/apt/lists/*
@@ -111,39 +114,24 @@ RUN curl -L https://github.com/abseil/abseil-cpp/archive/refs/tags/20240722.0.ta
     make -j$(nproc) && make install && \
     cd /tmp && rm -rf abseil*
 
-# ============================================
-# 编译 Protobuf 29.3
-# 需要 host protoc + arm64 库
-# ============================================
-# 先编译 host 版本的 protoc
-RUN git clone --depth 1 --branch v29.3 --recurse-submodules https://github.com/protocolbuffers/protobuf.git protobuf-29.3
-
 RUN apt-get update && apt-get install -y \
     unzip \
     && rm -rf /var/lib/apt/lists/*
 
-RUN curl -L https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip -o protoc.zip && \
+# ============================================
+# 编译 Protobuf 33.4
+# 需要 host protoc + arm64 库
+# ============================================
+# 先编译 host 版本的 protoc
+RUN git clone --depth 1 --branch v33.4 --recurse-submodules https://github.com/protocolbuffers/protobuf.git protobuf-33.4
+
+RUN curl -L https://github.com/protocolbuffers/protobuf/releases/download/v33.4/protoc-33.4-linux-x86_64.zip -o protoc.zip && \
     unzip protoc.zip -d /usr/local && \
     chmod +x /usr/local/bin/protoc && \
-    # 清理
     rm protoc.zip
 
-# RUN cd /tmp/protobuf-29.3 && \
-#     mkdir build-host && cd build-host && \
-#     # 【关键修改】在这里显式指定 -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
-#     # 否则它会读取前面定义的 ENV CC=aarch64... 导致用错编译器
-#     cmake .. \
-#         -DCMAKE_C_COMPILER=gcc \
-#         -DCMAKE_CXX_COMPILER=g++ \
-#         -DCMAKE_BUILD_TYPE=Release \
-#         -DCMAKE_CXX_STANDARD=17 \
-#         -Dprotobuf_BUILD_TESTS=OFF \
-#         -Dprotobuf_ABSL_PROVIDER=module \
-#         -DCMAKE_INSTALL_PREFIX=/usr/local && \
-#     make -j$(nproc) && make install && ldconfig
-
 # 编译 arm64 版本的 protobuf 库
-RUN cd /tmp/protobuf-29.3 && \
+RUN cd /tmp/protobuf-33.4 && \
     mkdir build-arm64 && cd build-arm64 && \
     cmake .. \
         -DCMAKE_SYSTEM_NAME=Linux \
@@ -162,10 +150,10 @@ RUN cd /tmp/protobuf-29.3 && \
     cd /tmp && rm -rf protobuf*
 
 # ============================================
-# 编译 gRPC 1.60.0 (arm64)
+# 编译 gRPC 1.76.0 (arm64)
 # ============================================
-RUN git clone --depth 1 --branch v1.60.0 https://github.com/grpc/grpc.git grpc-1.60.0 && \
-    cd grpc-1.60.0 && mkdir -p cmake/build && cd cmake/build && \
+RUN git clone --depth 1 --branch v1.76.0 https://github.com/grpc/grpc.git grpc-1.76.0 && \
+    cd grpc-1.76.0 && mkdir -p cmake/build && cd cmake/build && \
     cmake ../.. \
         -DCMAKE_SYSTEM_NAME=Linux \
         -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
@@ -196,6 +184,11 @@ RUN git clone --depth 1 --branch v1.60.0 https://github.com/grpc/grpc.git grpc-1
         -DCMAKE_INSTALL_PREFIX=$SYSROOT/usr && \
     make -j$(nproc) && make install && \
     cd /tmp && rm -rf grpc*
+
+
+# 安装 buf
+RUN curl -sSL https://github.com/bufbuild/buf/releases/latest/download/buf-$(uname -s)-$(uname -m) -o /usr/local/bin/buf && \
+    chmod +x /usr/local/bin/buf
 
 # 创建 CMake 工具链文件 (修正版: 解决 Boost 找不到的问题)
 RUN echo 'set(CMAKE_SYSTEM_NAME Linux)\n\

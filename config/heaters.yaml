@@ -1,0 +1,79 @@
+# 加热器配置文件
+# 对应 Protobuf: HeaterProfileList
+
+heaters:
+  # ============================================================
+  # 恒温高温模式 - 320°C 恒温，适用于快速响应
+  # ============================================================
+  - id: "heater_1"
+    name: "恒温高温模式"
+    description: "10步恒定320°C，每步约60秒，总周期约10分钟"
+    time_base_ms: 140
+    steps:
+      - { temp_c: 320, duration_mult: 429 }  # 60.06s
+      - { temp_c: 320, duration_mult: 429 }
+      - { temp_c: 320, duration_mult: 429 }
+      - { temp_c: 320, duration_mult: 429 }
+      - { temp_c: 320, duration_mult: 429 }
+      - { temp_c: 320, duration_mult: 429 }
+      - { temp_c: 320, duration_mult: 429 }
+      - { temp_c: 320, duration_mult: 429 }
+      - { temp_c: 320, duration_mult: 429 }
+      - { temp_c: 320, duration_mult: 429 }
+
+  # ============================================================
+  # 变温模式A - 低温启动，快速升温，中温保持，高温结束
+  # ============================================================
+  - id: "heater_322"
+    name: "变温模式A (快速)"
+    description: "100°C预热 → 320°C快闪 → 200°C中温保持 → 320°C高温采集"
+    time_base_ms: 140
+    steps:
+      - { temp_c: 100, duration_mult: 64 }   # 8.96s  - 低温预热
+      - { temp_c: 320, duration_mult: 2 }    # 0.28s  - 快速升温
+      - { temp_c: 320, duration_mult: 2 }    # 0.28s
+      - { temp_c: 200, duration_mult: 2 }    # 0.28s  - 中温过渡
+      - { temp_c: 200, duration_mult: 31 }   # 4.34s  - 中温保持
+      - { temp_c: 200, duration_mult: 31 }   # 4.34s
+      - { temp_c: 320, duration_mult: 2 }    # 0.28s  - 升温
+      - { temp_c: 320, duration_mult: 20 }   # 2.80s  - 高温采集
+      - { temp_c: 320, duration_mult: 21 }   # 2.94s
+      - { temp_c: 320, duration_mult: 21 }   # 2.94s
+
+  # ============================================================
+  # 变温模式B - 与A类似，但时间分布略有不同
+  # ============================================================
+  - id: "heater_321"
+    name: "变温模式B (标准)"
+    description: "100°C预热 → 320°C快闪 → 200°C中温保持 → 320°C高温采集"
+    time_base_ms: 140
+    steps:
+      - { temp_c: 100, duration_mult: 43 }   # 6.02s  - 低温预热
+      - { temp_c: 320, duration_mult: 2 }    # 0.28s  - 快速升温
+      - { temp_c: 320, duration_mult: 2 }    # 0.28s
+      - { temp_c: 200, duration_mult: 2 }    # 0.28s  - 中温过渡
+      - { temp_c: 200, duration_mult: 21 }   # 2.94s  - 中温保持
+      - { temp_c: 200, duration_mult: 21 }   # 2.94s
+      - { temp_c: 320, duration_mult: 2 }    # 0.28s  - 升温
+      - { temp_c: 320, duration_mult: 14 }   # 1.96s  - 高温采集
+      - { temp_c: 320, duration_mult: 14 }   # 1.96s
+      - { temp_c: 320, duration_mult: 14 }   # 1.96s
+
+  # ============================================================
+  # 变温模式C - 低温启动，阶梯升温
+  # ============================================================
+  - id: "heater_301"
+    name: "变温模式C (阶梯)"
+    description: "100°C → 200°C → 320°C 阶梯升温，渐进式采集"
+    time_base_ms: 140
+    steps:
+      - { temp_c: 100, duration_mult: 2 }    # 0.28s  - 快速启动
+      - { temp_c: 100, duration_mult: 41 }   # 5.74s  - 低温保持
+      - { temp_c: 200, duration_mult: 2 }    # 0.28s  - 升温
+      - { temp_c: 200, duration_mult: 14 }   # 1.96s  - 中温保持
+      - { temp_c: 200, duration_mult: 14 }   # 1.96s
+      - { temp_c: 200, duration_mult: 14 }   # 1.96s
+      - { temp_c: 320, duration_mult: 2 }    # 0.28s  - 升温
+      - { temp_c: 320, duration_mult: 14 }   # 1.96s  - 高温采集
+      - { temp_c: 320, duration_mult: 14 }   # 1.96s
+      - { temp_c: 320, duration_mult: 14 }   # 1.96s

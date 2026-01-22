@@ -54,8 +54,8 @@
 | 传感器名称 | 架构标识 | Octopus 接口 | 信号引脚 | 备注 |
 | :--- | :--- | :--- | :--- | :--- |
 | **气室温度** | `sensor_chamber` | **T0** | PF4 | NTC 100K 热敏电阻 |
-| **称重模块** | `scale` (HX711) | **STOP_0** | PG6 | 作为 DOUT (数据) |
-| | | **STOP_1** | PG9 | 作为 SCK (时钟) |
+| **称重模块** | `my_hx711` (HX711) | **SPI3_MISO** | PB4 | DOUT (数据) |
+| | | **SPI3_SCK** | PB3 | SCLK (时钟) |
 | **气泵控制** | `air_pump_pwm` | **BL_TOUCH** | PB6 | 伺服引脚，用于 PWM 信号 |
 
 ## 4. 通信与电源
@@ -70,8 +70,17 @@
 
 生成的配置文件位于 `klipper-config/printer.cfg`。
 
-### 特殊说明: HX711 称重模块
-Klipper 官方主线暂未直接支持 HX711。您需要：
-1. 使用支持 HX711 的 Klipper 分支（如 [garethky/klipper-hx711](https://github.com/garethky/klipper)）。
-2. 或者编写自定义 Python 扩展。
-3. 当前配置文件中 `[hx711]` 部分已注释，待环境就绪后开启。
+### HX711 称重模块
+Klipper 官方主线已支持 `[load_cell]` 配置，使用 `sensor_type: hx711`。
+
+配置示例：
+```ini
+[load_cell my_hx711]
+sensor_type: hx711
+sclk_pin: PB3    # SPI3_SCK
+dout_pin: PB4    # SPI3_MISO
+```
+
+标定步骤：
+1. 空盘时运行: `LOAD_CELL_DIAGNOSTIC LOAD_CELL=my_hx711`
+2. 放已知重量后运行 `LOAD_CELL_CALIBRATE`
