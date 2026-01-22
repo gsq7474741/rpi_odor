@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../rpi_odor"
+		}
+	],
+	"settings": {
+		"powershell.cwd": "rpi_odor"
+	}
+}

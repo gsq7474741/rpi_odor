@@ -1,0 +1,372 @@
+{
+  "meta": {
+    "appVersion": "1.5.5",
+    "exportedAt": "2021-07-13T02:49:33.775Z"
+  },
+  "data": {
+    "specimenData": {
+      "id": 195,
+      "uuid": "e8d6c217-b606-4e62-b2cd-e877119ac5ea",
+      "name": "Apple_3d",
+      "comment": null,
+      "startTime": 600000,
+      "endTime": 5708947,
+      "cloneOfUuid": null,
+      "measurementSessionId": 63,
+      "createdAt": "2021-07-12T11:46:16.000Z",
+      "updatedAt": "2021-07-12T11:46:16.000Z"
+    },
+    "measurementSession": {
+      "id": 63,
+      "uuid": "7d997d58-7fd6-49c9-9797-6236673db719",
+      "name": "Apple_3d",
+      "startTime": "2021-04-28T07:00:32.000Z",
+      "endTime": "2021-04-28T08:37:41.000Z",
+      "boardId": "40F520488E84",
+      "createdAt": "2021-07-12T11:46:16.000Z",
+      "updatedAt": "2021-07-12T11:46:16.000Z"
+    },
+    "boardConfig": {
+      "id": 63,
+      "boardMode": "burn_in",
+      "measurementSessionId": 63,
+      "boardTypeId": 1,
+      "createdAt": "2021-07-12T11:46:16.000Z",
+      "updatedAt": "2021-07-12T11:46:16.000Z"
+    },
+    "boardType": {
+      "id": 1,
+      "uid": "board_8",
+      "name": "BME Board x8",
+      "numSensors": 8,
+      "createdAt": "2021-06-23T03:03:06.667Z",
+      "updatedAt": "2021-06-23T03:03:06.667Z"
+    },
+    "heaterProfiles": [
+      {
+        "id": 2,
+        "uid": "heater_354",
+        "name": "HP-354",
+        "useCase": "Standard BST profile",
+        "timeBase": 140,
+        "steps": [
+          {
+            "temperature": 320,
+            "duration": 5
+          },
+          {
+            "temperature": 100,
+            "duration": 2
+          },
+          {
+            "temperature": 100,
+            "duration": 10
+          },
+          {
+            "temperature": 100,
+            "duration": 30
+          },
+          {
+            "temperature": 200,
+            "duration": 5
+          },
+          {
+            "temperature": 200,
+            "duration": 5
+          },
+          {
+            "temperature": 200,
+            "duration": 5
+          },
+          {
+            "temperature": 320,
+            "duration": 5
+          },
+          {
+            "temperature": 320,
+            "duration": 5
+          },
+          {
+            "temperature": 320,
+            "duration": 5
+          }
+        ],
+        "createdAt": "2021-06-23T03:03:06.618Z",
+        "updatedAt": "2021-06-23T03:03:06.618Z"
+      }
+    ],
+    "dutyCycleProfiles": [
+      {
+        "id": 14,
+        "uid": "duty_5_10",
+        "name": "RDC-5-10",
+        "description": "",
+        "energyConsumption": 4,
+        "scanningCycles": 5,
+        "sleepingCycles": 10,
+        "createdAt": "2021-06-23T03:03:06.644Z",
+        "updatedAt": "2021-06-23T03:03:06.644Z"
+      }
+    ],
+    "sensorConfigs": [
+      {
+        "id": 497,
+        "boardConfigId": 63,
+        "sensorId": 497,
+        "heaterProfileId": 2,
+        "dutyCycleProfileId": 14,
+        "createdAt": "2021-07-12T11:46:16.000Z",
+        "updatedAt": "2021-07-12T11:46:16.000Z"
+      },
+      {
+        "id": 498,
+        "boardConfigId": 63,
+        "sensorId": 498,
+        "heaterProfileId": 2,
+        "dutyCycleProfileId": 14,
+        "createdAt": "2021-07-12T11:46:16.000Z",
+        "updatedAt": "2021-07-12T11:46:16.000Z"
+      },
+      {
+        "id": 499,
+        "boardConfigId": 63,
+        "sensorId": 499,
+        "heaterProfileId": 2,
+        "dutyCycleProfileId": 14,
+        "createdAt": "2021-07-12T11:46:16.000Z",
+        "updatedAt": "2021-07-12T11:46:16.000Z"
+      },
+      {
+        "id": 500,
+        "boardConfigId": 63,
+        "sensorId": 500,
+        "heaterProfileId": 2,
+        "dutyCycleProfileId": 14,
+        "createdAt": "2021-07-12T11:46:16.000Z",
+        "updatedAt": "2021-07-12T11:46:16.000Z"
+      },
+      {
+        "id": 501,
+        "boardConfigId": 63,
+        "sensorId": 501,
+        "heaterProfileId": 2,
+        "dutyCycleProfileId": 14,
+        "createdAt": "2021-07-12T11:46:16.000Z",
+        "updatedAt": "2021-07-12T11:46:16.000Z"
+      },
+      {
+        "id": 502,
+        "boardConfigId": 63,
+        "sensorId": 502,
+        "heaterProfileId": 2,
+        "dutyCycleProfileId": 14,
+        "createdAt": "2021-07-12T11:46:16.000Z",
+        "updatedAt": "2021-07-12T11:46:16.000Z"
+      },
+      {
+        "id": 503,
+        "boardConfigId": 63,
+        "sensorId": 503,
+        "heaterProfileId": 2,
+        "dutyCycleProfileId": 14,
+        "createdAt": "2021-07-12T11:46:16.000Z",
+        "updatedAt": "2021-07-12T11:46:16.000Z"
+      },
+      {
+        "id": 504,
+        "boardConfigId": 63,
+        "sensorId": 504,
+        "heaterProfileId": 2,
+        "dutyCycleProfileId": 14,
+        "createdAt": "2021-07-12T11:46:16.000Z",
+        "updatedAt": "2021-07-12T11:46:16.000Z"
+      }
+    ],
+    "sensors": [
+      {
+        "id": 497,
+        "index": 0,
+        "createdAt": "2021-07-12T11:46:16.000Z",
+        "updatedAt": "2021-07-12T11:46:16.000Z"
+      },
+      {
+        "id": 498,
+        "index": 1,
+        "createdAt": "2021-07-12T11:46:16.000Z",
+        "updatedAt": "2021-07-12T11:46:16.000Z"
+      },
+      {
+        "id": 499,
+        "index": 2,
+        "createdAt": "2021-07-12T11:46:16.000Z",
+        "updatedAt": "2021-07-12T11:46:16.000Z"
+      },
+      {
+        "id": 500,
+        "index": 3,
+        "createdAt": "2021-07-12T11:46:16.000Z",
+        "updatedAt": "2021-07-12T11:46:16.000Z"
+      },
+      {
+        "id": 501,
+        "index": 4,
+        "createdAt": "2021-07-12T11:46:16.000Z",
+        "updatedAt": "2021-07-12T11:46:16.000Z"
+      },
+      {
+        "id": 502,
+        "index": 5,
+        "createdAt": "2021-07-12T11:46:16.000Z",
+        "updatedAt": "2021-07-12T11:46:16.000Z"
+      },
+      {
+        "id": 503,
+        "index": 6,
+        "createdAt": "2021-07-12T11:46:16.000Z",
+        "updatedAt": "2021-07-12T11:46:16.000Z"
+      },
+      {
+        "id": 504,
+        "index": 7,
+        "createdAt": "2021-07-12T11:46:16.000Z",
+        "updatedAt": "2021-07-12T11:46:16.000Z"
+      }
+    ],
+    "cycles": [
+      {
+        "id": 49610,
+        "uuid": "8381dfad-3653-4483-a52a-5b4e57fe0249",
+        "startTime": 645009,
+        "endTime": 655088,
+        "dropped": false,
+        "measurementSessionId": 63,
+        "sensorId": 497,
+        "createdAt": "2021-07-12T11:46:16.000Z",
+        "updatedAt": "2021-07-12T11:46:16.000Z"
+      },
+      {
+        "id": 49618,
+        "uuid": "4f41298d-eb35-4c6e-ac5d-0e8da26c7d2c",
+        "startTime": 655789,
+        "endTime": 665728,
+        "dropped": false,
+        "measurementSessionId": 63,
+        "sensorId": 497,
+        "createdAt": "2021-07-12T11:46:16.000Z",
+        "updatedAt": "2021-07-12T11:46:16.000Z"
+      },
+      {
+        "id": 49626,
+        "uuid": "54f8609c-a646-48b8-9c65-5a9e4337ed2e",
+        "startTime": 666429,
+        "endTime": 676368,
+        "dropped": false,
+        "measurementSessionId": 63,
+        "sensorId": 497,
+        "createdAt": "2021-07-12T11:46:16.000Z",
+        "updatedAt": "2021-07-12T11:46:16.000Z"
+      },
+    ],
+    "dataColumns": [
+      {
+        "name": "Data Point ID",
+        "unit": "",
+        "format": "integer",
+        "key": "data_point_id"
+      },
+      {
+        "name": "Resistance Gassensor",
+        "unit": "Ohms",
+        "format": "float",
+        "key": "resistance_gassensor"
+      },
+      {
+        "name": "Temperature",
+        "unit": "DegreesCelsius",
+        "format": "float",
+        "key": "temperature"
+      },
+      {
+        "name": "Pressure",
+        "unit": "Hectopascals",
+        "format": "float",
+        "key": "pressure"
+      },
+      {
+        "name": "Relative Humidity",
+        "unit": "Percent",
+        "format": "float",
+        "key": "relative_humidity"
+      },
+      {
+        "name": "Time Since PowerOn",
+        "unit": "Milliseconds",
+        "format": "integer",
+        "key": "timestamp_since_poweron"
+      },
+      {
+        "name": "Real time clock",
+        "unit": "Unix Timestamp: seconds since Jan 01 1970. (UTC); 0 = missing",
+        "format": "integer",
+        "key": "real_time_clock"
+      },
+      {
+        "name": "Error Code",
+        "unit": "",
+        "format": "integer",
+        "key": "error_code"
+      },
+      {
+        "name": "Cycle Step Index",
+        "unit": "",
+        "format": "integer",
+        "key": "cycle_step_index"
+      },
+      {
+        "name": "Cycle ID",
+        "unit": "",
+        "format": "integer",
+        "key": "cycle_id"
+      }
+    ],
+    "specimenDataPoints": [
+      [
+        494914,
+        155670.421875,
+        29.804083,
+        1004.694885,
+        37.397167,
+        645009,
+        1619593877,
+        0,
+        0,
+        49610
+      ],
+      [
+        494915,
+        14118053,
+        29.901867,
+        1004.766602,
+        37.343967,
+        645288,
+        1619593877,
+        0,
+        1,
+        49610
+      ],
+      [
+        494916,
+        14018396,
+        29.849213,
+        1004.754089,
+        36.716137,
+        646688,
+        1619593878,
+        0,
+        2,
+        49610
+      ],
+
+    ]
+  }
+}

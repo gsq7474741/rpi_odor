@@ -86,7 +86,8 @@ Write-Host "  同步完成" -ForegroundColor Green
 # 步骤 3: 远程编译
 # ============================================
 Write-Host "`n[3/5] 远程编译 enose-control..." -ForegroundColor Yellow
-ssh $RPI_HOST "cd ${PROJECT_DIR}/build && make -j4"
+Write-Host "执行: ssh $RPI_HOST cd ${PROJECT_DIR}/build && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_EXE_LINKER_FLAGS=""-fuse-ld=lld"" -DCMAKE_SHARED_LINKER_FLAGS=""-fuse-ld=lld"" -DCMAKE_MODULE_LINKER_FLAGS=""-fuse-ld=lld"" ..  && make -j4" -ForegroundColor Yellow
+ssh $RPI_HOST "cd ${PROJECT_DIR}/build && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_EXE_LINKER_FLAGS=""-fuse-ld=lld"" -DCMAKE_SHARED_LINKER_FLAGS=""-fuse-ld=lld"" -DCMAKE_MODULE_LINKER_FLAGS=""-fuse-ld=lld"" ..  && make -j4"
 if ($LASTEXITCODE -ne 0) { throw "编译失败" }
 Write-Host "  编译成功" -ForegroundColor Green
 

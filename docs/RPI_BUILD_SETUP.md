@@ -6,7 +6,7 @@
 
 - 树莓派 5
 - Ubuntu Server 24.04 LTS (aarch64)
-- 网络连接（部分依赖需要从 GitHub 下载）
+- 科学网络连接（部分依赖需要从 GitHub 下载）
 - 至少 4GB RAM（编译 gRPC 需要较多内存）
 - 约 10GB 可用磁盘空间
 
@@ -15,32 +15,21 @@
 ```bash
 sudo apt update && sudo apt upgrade -y
 
-# 编译工具链
-sudo apt install -y build-essential cmake git
-
-# Boost 库 (用于 Asio)
-sudo apt install -y libboost-all-dev
-
-# JSON 库
-sudo apt install -y nlohmann-json3-dev
-
-# spdlog 日志库
-sudo apt install -y libspdlog-dev
-
-# c-ares (gRPC 依赖)
-sudo apt install -y libc-ares-dev
-
-# re2 正则表达式库 (gRPC 依赖)
-sudo apt install -y libre2-dev
-
-# zlib (gRPC 依赖)
-sudo apt install -y zlib1g-dev
-
-# OpenSSL (gRPC 依赖)
-sudo apt install -y libssl-dev
-
-# pkg-config
-sudo apt install -y pkg-config
+# 编译工具链和库
+sudo apt install -y \
+    build-essential \
+    cmake \
+    git \
+    libboost-all-dev \
+    nlohmann-json3-dev \
+    libspdlog-dev \
+    libc-ares-dev \
+    libre2-dev \
+    zlib1g-dev \
+    libssl-dev \
+    pkg-config \
+    ccache \
+    lld
 ```
 
 ## 2. 编译安装 Abseil (C++ 公共库)
@@ -77,10 +66,10 @@ sudo ldconfig
 ```bash
 cd /tmp
 
-# 下载 Protobuf v29.3
-curl -L https://github.com/protocolbuffers/protobuf/archive/refs/tags/v29.3.tar.gz -o protobuf.tar.gz
+# 下载 Protobuf v33.4
+curl -L https://github.com/protocolbuffers/protobuf/archive/refs/tags/v33.4.tar.gz -o protobuf.tar.gz
 tar -xzf protobuf.tar.gz
-cd protobuf-29.3
+cd protobuf-33.4
 
 # 配置
 mkdir build && cd build
@@ -88,6 +77,7 @@ cmake .. \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_CXX_STANDARD=17 \
     -Dprotobuf_BUILD_TESTS=OFF \
+    -Dprotobuf_BUILD_SHARED_LIBS=OFF \
     -Dprotobuf_ABSL_PROVIDER=package \
     -DCMAKE_INSTALL_PREFIX=/usr/local
 
@@ -98,19 +88,19 @@ sudo ldconfig
 
 # 验证安装
 protoc --version
-# 应输出: libprotoc 29.3
+# 应输出: libprotoc 33.4
 ```
 
-## 4. 编译安装 gRPC v1.60
+## 4. 编译安装 gRPC v1.76
 
-系统自带的 gRPC 版本与 Protobuf v29 不兼容，需要从源码编译。
+系统自带的 gRPC 版本与 Protobuf v33 不兼容，需要从源码编译。
 
 ```bash
 cd /tmp
 
 # 克隆 gRPC 源码 (包含子模块会很大，这里只下载主仓库)
-git clone --depth 1 --branch v1.60.0 https://github.com/grpc/grpc.git grpc-1.60.0
-cd grpc-1.60.0
+git clone --depth 1 --branch v1.76.0 https://github.com/grpc/grpc.git grpc-1.76.0
+cd grpc-1.76.0
 
 # 配置 (使用系统已安装的依赖)
 mkdir -p cmake/build && cd cmake/build
