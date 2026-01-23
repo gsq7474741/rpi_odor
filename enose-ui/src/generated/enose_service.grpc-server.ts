@@ -5,9 +5,12 @@
 // 电子鼻 gRPC 服务定义
 // 提供控制接口和数据流服务
 //
+import { LoadCellReading } from "./enose_service";
 import { LoadCellConfig } from "./enose_service";
 import { ThresholdRequest } from "./enose_service";
-import { LoadCellReading } from "./enose_service";
+import { DynamicEmptyWeightResponse } from "./enose_service";
+import { WaitForEmptyBottleResponse } from "./enose_service";
+import { WaitForEmptyBottleRequest } from "./enose_service";
 import { CalibrationResult } from "./enose_service";
 import { ReferenceWeightRequest } from "./enose_service";
 import { CalibrationStatus } from "./enose_service";
@@ -419,11 +422,23 @@ export interface ILoadCellService extends grpc.UntypedServiceImplementation {
     cancelCalibration: grpc.handleUnaryCall<Empty, Empty>;
     /**
      * === 业务配置 ===
-     * 设置空瓶基准 (当前重量设为空瓶基准)
+     * 等待空瓶稳定 (动态跟踪空瓶值)
      *
-     * @generated from protobuf rpc: SetEmptyBottleBaseline
+     * @generated from protobuf rpc: WaitForEmptyBottle
      */
-    setEmptyBottleBaseline: grpc.handleUnaryCall<Empty, LoadCellReading>;
+    waitForEmptyBottle: grpc.handleUnaryCall<WaitForEmptyBottleRequest, WaitForEmptyBottleResponse>;
+    /**
+     * 重置动态空瓶值
+     *
+     * @generated from protobuf rpc: ResetDynamicEmptyWeight
+     */
+    resetDynamicEmptyWeight: grpc.handleUnaryCall<Empty, Empty>;
+    /**
+     * 获取当前动态空瓶值
+     *
+     * @generated from protobuf rpc: GetDynamicEmptyWeight
+     */
+    getDynamicEmptyWeight: grpc.handleUnaryCall<Empty, DynamicEmptyWeightResponse>;
     /**
      * 设置溢出阈值
      *
@@ -524,14 +539,34 @@ export const loadCellServiceDefinition: grpc.ServiceDefinition<ILoadCellService>
         responseSerialize: value => Buffer.from(Empty.toBinary(value)),
         requestSerialize: value => Buffer.from(Empty.toBinary(value))
     },
-    setEmptyBottleBaseline: {
-        path: "/enose.service.LoadCellService/SetEmptyBottleBaseline",
-        originalName: "SetEmptyBottleBaseline",
+    waitForEmptyBottle: {
+        path: "/enose.service.LoadCellService/WaitForEmptyBottle",
+        originalName: "WaitForEmptyBottle",
         requestStream: false,
         responseStream: false,
-        responseDeserialize: bytes => LoadCellReading.fromBinary(bytes),
+        responseDeserialize: bytes => WaitForEmptyBottleResponse.fromBinary(bytes),
+        requestDeserialize: bytes => WaitForEmptyBottleRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(WaitForEmptyBottleResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(WaitForEmptyBottleRequest.toBinary(value))
+    },
+    resetDynamicEmptyWeight: {
+        path: "/enose.service.LoadCellService/ResetDynamicEmptyWeight",
+        originalName: "ResetDynamicEmptyWeight",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => Empty.fromBinary(bytes),
         requestDeserialize: bytes => Empty.fromBinary(bytes),
-        responseSerialize: value => Buffer.from(LoadCellReading.toBinary(value)),
+        responseSerialize: value => Buffer.from(Empty.toBinary(value)),
+        requestSerialize: value => Buffer.from(Empty.toBinary(value))
+    },
+    getDynamicEmptyWeight: {
+        path: "/enose.service.LoadCellService/GetDynamicEmptyWeight",
+        originalName: "GetDynamicEmptyWeight",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => DynamicEmptyWeightResponse.fromBinary(bytes),
+        requestDeserialize: bytes => Empty.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(DynamicEmptyWeightResponse.toBinary(value)),
         requestSerialize: value => Buffer.from(Empty.toBinary(value))
     },
     setOverflowThreshold: {

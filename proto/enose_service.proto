@@ -320,8 +320,14 @@ service LoadCellService {
   rpc CancelCalibration(google.protobuf.Empty) returns (google.protobuf.Empty);
   
   // === 业务配置 ===
-  // 设置空瓶基准 (当前重量设为空瓶基准)
-  rpc SetEmptyBottleBaseline(google.protobuf.Empty) returns (LoadCellReading);
+  // 等待空瓶稳定 (动态跟踪空瓶值)
+  rpc WaitForEmptyBottle(WaitForEmptyBottleRequest) returns (WaitForEmptyBottleResponse);
+  
+  // 重置动态空瓶值
+  rpc ResetDynamicEmptyWeight(google.protobuf.Empty) returns (google.protobuf.Empty);
+  
+  // 获取当前动态空瓶值
+  rpc GetDynamicEmptyWeight(google.protobuf.Empty) returns (DynamicEmptyWeightResponse);
   
   // 设置溢出阈值
   rpc SetOverflowThreshold(ThresholdRequest) returns (google.protobuf.Empty);
@@ -400,11 +406,30 @@ message ThresholdRequest {
   float value = 1;                // 阈值 (克)
 }
 
+// 等待空瓶请求
+message WaitForEmptyBottleRequest {
+  float tolerance = 1;              // 容差 (g)，默认 30
+  float timeout_sec = 2;            // 超时时间 (s)，默认 60
+  float stability_window_sec = 3;   // 稳定窗口 (s)，默认 5
+}
+
+// 等待空瓶响应
+message WaitForEmptyBottleResponse {
+  bool success = 1;                 // 是否成功
+  float empty_weight = 2;           // 稳定后的空瓶重量 (g)
+  string error_message = 3;         // 错误信息（如超时）
+}
+
+// 动态空瓶值响应
+message DynamicEmptyWeightResponse {
+  bool has_value = 1;               // 是否有动态空瓶值
+  float empty_weight = 2;           // 动态空瓶值 (g)
+}
+
 // 称重业务配置
 message LoadCellConfig {
-  float empty_bottle_weight = 1;    // 空瓶基准重量 (g)
-  float overflow_threshold = 2;     // 溢出警告阈值 (g)
-  float drain_complete_margin = 3;  // 排空完成余量 (g)
-  float stable_threshold = 4;       // 稳定判断阈值 (g)
-  string last_calibration_time = 5; // 最后标定时间
+  float overflow_threshold = 1;     // 溢出警告阈值 (g)
+  float drain_complete_margin = 2;  // 排空完成余量 (g)
+  float stable_threshold = 3;       // 稳定判断阈值 (g)
+  string last_calibration_time = 4; // 最后标定时间
 }

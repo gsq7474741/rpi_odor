@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import {
   getLoadCellConfig,
   saveLoadCellConfig,
-  setEmptyBottleBaseline,
   setOverflowThreshold,
   tareLoadCell,
+  waitForEmptyBottle,
+  resetDynamicEmptyWeight,
+  getDynamicEmptyWeight,
 } from "@/lib/grpc-client";
 
 export async function GET() {
@@ -23,7 +25,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { action, config, value } = body;
+    const { action, config, value, tolerance, timeoutSec, stabilityWindowSec } = body;
 
     let result;
     switch (action) {
@@ -31,8 +33,15 @@ export async function POST(request: Request) {
         await saveLoadCellConfig(config);
         result = { success: true };
         break;
-      case "setEmptyBottle":
-        result = await setEmptyBottleBaseline();
+      case "waitForEmptyBottle":
+        result = await waitForEmptyBottle({ tolerance, timeoutSec, stabilityWindowSec });
+        break;
+      case "resetDynamicEmptyWeight":
+        await resetDynamicEmptyWeight();
+        result = { success: true };
+        break;
+      case "getDynamicEmptyWeight":
+        result = await getDynamicEmptyWeight();
         break;
       case "setOverflow":
         await setOverflowThreshold(value);

@@ -9,6 +9,8 @@
 #include <memory>
 #include <string>
 #include <atomic>
+#include <filesystem>
+#include <optional>
 
 namespace hal {
 
@@ -48,7 +50,6 @@ struct LoadCellConfig {
     float jump_threshold = 50.0f;          // g
     
     // 业务参数
-    float empty_bottle_weight = 0.0f;      // g (空瓶基准)
     float overflow_threshold = 400.0f;     // g (溢出阈值)
     float drain_complete_margin = 10.0f;   // g (排空余量)
 };
@@ -102,8 +103,23 @@ public:
     CalibrationStep get_calibration_step() const { return calibration_step_; }
     
     // 业务配置
-    void set_empty_bottle_baseline();
     void set_overflow_threshold(float threshold);
+    
+    // 动态空瓶值
+    struct WaitForEmptyResult {
+        bool success = false;
+        float empty_weight = 0.0f;
+        std::string error_message;
+    };
+    WaitForEmptyResult wait_for_empty_bottle(float tolerance = 30.0f, float timeout_sec = 60.0f, float stability_window_sec = 5.0f);
+    void reset_dynamic_empty_weight();
+    std::optional<float> get_dynamic_empty_weight() const;
+    
+    // 配置持久化
+    bool load_config_from_file(const std::filesystem::path& path);
+    bool save_config_to_file(const std::filesystem::path& path) const;
+    void set_config_path(const std::filesystem::path& path) { config_path_ = path; }
+    bool save_config();  // 保存到默认路径
     
     boost::signals2::signal<void(const LoadCellStatus&)> on_status_update;
     boost::signals2::signal<void(CalibrationStep, const std::string&)> on_calibration_update;
@@ -140,6 +156,12 @@ private:
     // 标定状态
     CalibrationStep calibration_step_ = CalibrationStep::IDLE;
     float reference_weight_grams_ = 0.0f;
+    
+    // 配置文件路径
+    std::filesystem::path config_path_;
+    
+    // 动态空瓶值
+    std::optional<float> dynamic_empty_weight_;
 };
 
 } // namespace hal

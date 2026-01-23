@@ -650,25 +650,67 @@ export interface ThresholdRequest {
      */
     value: number; // 阈值 (克)}
 /**
+ * 等待空瓶请求
+ *
+ * @generated from protobuf message enose.service.WaitForEmptyBottleRequest
+ */
+export interface WaitForEmptyBottleRequest {
+    /**
+     * @generated from protobuf field: float tolerance = 1
+     */
+    tolerance: number; // 容差 (g)，默认 30    /**
+     * @generated from protobuf field: float timeout_sec = 2
+     */
+    timeoutSec: number; // 超时时间 (s)，默认 60    /**
+     * @generated from protobuf field: float stability_window_sec = 3
+     */
+    stabilityWindowSec: number; // 稳定窗口 (s)，默认 5}
+/**
+ * 等待空瓶响应
+ *
+ * @generated from protobuf message enose.service.WaitForEmptyBottleResponse
+ */
+export interface WaitForEmptyBottleResponse {
+    /**
+     * @generated from protobuf field: bool success = 1
+     */
+    success: boolean; // 是否成功    /**
+     * @generated from protobuf field: float empty_weight = 2
+     */
+    emptyWeight: number; // 稳定后的空瓶重量 (g)    /**
+     * @generated from protobuf field: string error_message = 3
+     */
+    errorMessage: string; // 错误信息（如超时）}
+/**
+ * 动态空瓶值响应
+ *
+ * @generated from protobuf message enose.service.DynamicEmptyWeightResponse
+ */
+export interface DynamicEmptyWeightResponse {
+    /**
+     * @generated from protobuf field: bool has_value = 1
+     */
+    hasValue: boolean; // 是否有动态空瓶值    /**
+     * @generated from protobuf field: float empty_weight = 2
+     */
+    emptyWeight: number; // 动态空瓶值 (g)}
+/**
  * 称重业务配置
  *
  * @generated from protobuf message enose.service.LoadCellConfig
  */
 export interface LoadCellConfig {
     /**
-     * @generated from protobuf field: float empty_bottle_weight = 1
-     */
-    emptyBottleWeight: number; // 空瓶基准重量 (g)    /**
-     * @generated from protobuf field: float overflow_threshold = 2
+     * @generated from protobuf field: float overflow_threshold = 1
      */
     overflowThreshold: number; // 溢出警告阈值 (g)    /**
-     * @generated from protobuf field: float drain_complete_margin = 3
+     * @generated from protobuf field: float drain_complete_margin = 2
      */
     drainCompleteMargin: number; // 排空完成余量 (g)    /**
-     * @generated from protobuf field: float stable_threshold = 4
+     * @generated from protobuf field: float stable_threshold = 3
      */
     stableThreshold: number; // 稳定判断阈值 (g)    /**
-     * @generated from protobuf field: string last_calibration_time = 5
+     * @generated from protobuf field: string last_calibration_time = 4
      */
     lastCalibrationTime: string; // 最后标定时间}
 // ============================================================// 请求/响应消息定义// ============================================================
@@ -2523,19 +2565,198 @@ class ThresholdRequest$Type extends MessageType<ThresholdRequest> {
  */
 export const ThresholdRequest = new ThresholdRequest$Type();
 // @generated message type with reflection information, may provide speed optimized methods
+class WaitForEmptyBottleRequest$Type extends MessageType<WaitForEmptyBottleRequest> {
+    constructor() {
+        super("enose.service.WaitForEmptyBottleRequest", [
+            { no: 1, name: "tolerance", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 2, name: "timeout_sec", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 3, name: "stability_window_sec", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ }
+        ]);
+    }
+    create(value?: PartialMessage<WaitForEmptyBottleRequest>): WaitForEmptyBottleRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.tolerance = 0;
+        message.timeoutSec = 0;
+        message.stabilityWindowSec = 0;
+        if (value !== undefined)
+            reflectionMergePartial<WaitForEmptyBottleRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: WaitForEmptyBottleRequest): WaitForEmptyBottleRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* float tolerance */ 1:
+                    message.tolerance = reader.float();
+                    break;
+                case /* float timeout_sec */ 2:
+                    message.timeoutSec = reader.float();
+                    break;
+                case /* float stability_window_sec */ 3:
+                    message.stabilityWindowSec = reader.float();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: WaitForEmptyBottleRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* float tolerance = 1; */
+        if (message.tolerance !== 0)
+            writer.tag(1, WireType.Bit32).float(message.tolerance);
+        /* float timeout_sec = 2; */
+        if (message.timeoutSec !== 0)
+            writer.tag(2, WireType.Bit32).float(message.timeoutSec);
+        /* float stability_window_sec = 3; */
+        if (message.stabilityWindowSec !== 0)
+            writer.tag(3, WireType.Bit32).float(message.stabilityWindowSec);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.WaitForEmptyBottleRequest
+ */
+export const WaitForEmptyBottleRequest = new WaitForEmptyBottleRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class WaitForEmptyBottleResponse$Type extends MessageType<WaitForEmptyBottleResponse> {
+    constructor() {
+        super("enose.service.WaitForEmptyBottleResponse", [
+            { no: 1, name: "success", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 2, name: "empty_weight", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 3, name: "error_message", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<WaitForEmptyBottleResponse>): WaitForEmptyBottleResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.success = false;
+        message.emptyWeight = 0;
+        message.errorMessage = "";
+        if (value !== undefined)
+            reflectionMergePartial<WaitForEmptyBottleResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: WaitForEmptyBottleResponse): WaitForEmptyBottleResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* bool success */ 1:
+                    message.success = reader.bool();
+                    break;
+                case /* float empty_weight */ 2:
+                    message.emptyWeight = reader.float();
+                    break;
+                case /* string error_message */ 3:
+                    message.errorMessage = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: WaitForEmptyBottleResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* bool success = 1; */
+        if (message.success !== false)
+            writer.tag(1, WireType.Varint).bool(message.success);
+        /* float empty_weight = 2; */
+        if (message.emptyWeight !== 0)
+            writer.tag(2, WireType.Bit32).float(message.emptyWeight);
+        /* string error_message = 3; */
+        if (message.errorMessage !== "")
+            writer.tag(3, WireType.LengthDelimited).string(message.errorMessage);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.WaitForEmptyBottleResponse
+ */
+export const WaitForEmptyBottleResponse = new WaitForEmptyBottleResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class DynamicEmptyWeightResponse$Type extends MessageType<DynamicEmptyWeightResponse> {
+    constructor() {
+        super("enose.service.DynamicEmptyWeightResponse", [
+            { no: 1, name: "has_value", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 2, name: "empty_weight", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ }
+        ]);
+    }
+    create(value?: PartialMessage<DynamicEmptyWeightResponse>): DynamicEmptyWeightResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.hasValue = false;
+        message.emptyWeight = 0;
+        if (value !== undefined)
+            reflectionMergePartial<DynamicEmptyWeightResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: DynamicEmptyWeightResponse): DynamicEmptyWeightResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* bool has_value */ 1:
+                    message.hasValue = reader.bool();
+                    break;
+                case /* float empty_weight */ 2:
+                    message.emptyWeight = reader.float();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: DynamicEmptyWeightResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* bool has_value = 1; */
+        if (message.hasValue !== false)
+            writer.tag(1, WireType.Varint).bool(message.hasValue);
+        /* float empty_weight = 2; */
+        if (message.emptyWeight !== 0)
+            writer.tag(2, WireType.Bit32).float(message.emptyWeight);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.DynamicEmptyWeightResponse
+ */
+export const DynamicEmptyWeightResponse = new DynamicEmptyWeightResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
 class LoadCellConfig$Type extends MessageType<LoadCellConfig> {
     constructor() {
         super("enose.service.LoadCellConfig", [
-            { no: 1, name: "empty_bottle_weight", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
-            { no: 2, name: "overflow_threshold", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
-            { no: 3, name: "drain_complete_margin", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
-            { no: 4, name: "stable_threshold", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
-            { no: 5, name: "last_calibration_time", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+            { no: 1, name: "overflow_threshold", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 2, name: "drain_complete_margin", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 3, name: "stable_threshold", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 4, name: "last_calibration_time", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
         ]);
     }
     create(value?: PartialMessage<LoadCellConfig>): LoadCellConfig {
         const message = globalThis.Object.create((this.messagePrototype!));
-        message.emptyBottleWeight = 0;
         message.overflowThreshold = 0;
         message.drainCompleteMargin = 0;
         message.stableThreshold = 0;
@@ -2549,19 +2770,16 @@ class LoadCellConfig$Type extends MessageType<LoadCellConfig> {
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
             switch (fieldNo) {
-                case /* float empty_bottle_weight */ 1:
-                    message.emptyBottleWeight = reader.float();
-                    break;
-                case /* float overflow_threshold */ 2:
+                case /* float overflow_threshold */ 1:
                     message.overflowThreshold = reader.float();
                     break;
-                case /* float drain_complete_margin */ 3:
+                case /* float drain_complete_margin */ 2:
                     message.drainCompleteMargin = reader.float();
                     break;
-                case /* float stable_threshold */ 4:
+                case /* float stable_threshold */ 3:
                     message.stableThreshold = reader.float();
                     break;
-                case /* string last_calibration_time */ 5:
+                case /* string last_calibration_time */ 4:
                     message.lastCalibrationTime = reader.string();
                     break;
                 default:
@@ -2576,21 +2794,18 @@ class LoadCellConfig$Type extends MessageType<LoadCellConfig> {
         return message;
     }
     internalBinaryWrite(message: LoadCellConfig, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
-        /* float empty_bottle_weight = 1; */
-        if (message.emptyBottleWeight !== 0)
-            writer.tag(1, WireType.Bit32).float(message.emptyBottleWeight);
-        /* float overflow_threshold = 2; */
+        /* float overflow_threshold = 1; */
         if (message.overflowThreshold !== 0)
-            writer.tag(2, WireType.Bit32).float(message.overflowThreshold);
-        /* float drain_complete_margin = 3; */
+            writer.tag(1, WireType.Bit32).float(message.overflowThreshold);
+        /* float drain_complete_margin = 2; */
         if (message.drainCompleteMargin !== 0)
-            writer.tag(3, WireType.Bit32).float(message.drainCompleteMargin);
-        /* float stable_threshold = 4; */
+            writer.tag(2, WireType.Bit32).float(message.drainCompleteMargin);
+        /* float stable_threshold = 3; */
         if (message.stableThreshold !== 0)
-            writer.tag(4, WireType.Bit32).float(message.stableThreshold);
-        /* string last_calibration_time = 5; */
+            writer.tag(3, WireType.Bit32).float(message.stableThreshold);
+        /* string last_calibration_time = 4; */
         if (message.lastCalibrationTime !== "")
-            writer.tag(5, WireType.LengthDelimited).string(message.lastCalibrationTime);
+            writer.tag(4, WireType.LengthDelimited).string(message.lastCalibrationTime);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -2642,7 +2857,9 @@ export const LoadCellService = new ServiceType("enose.service.LoadCellService", 
     { name: "SetReferenceWeight", options: {}, I: ReferenceWeightRequest, O: CalibrationStatus },
     { name: "SaveCalibration", options: {}, I: Empty, O: CalibrationResult },
     { name: "CancelCalibration", options: {}, I: Empty, O: Empty },
-    { name: "SetEmptyBottleBaseline", options: {}, I: Empty, O: LoadCellReading },
+    { name: "WaitForEmptyBottle", options: {}, I: WaitForEmptyBottleRequest, O: WaitForEmptyBottleResponse },
+    { name: "ResetDynamicEmptyWeight", options: {}, I: Empty, O: Empty },
+    { name: "GetDynamicEmptyWeight", options: {}, I: Empty, O: DynamicEmptyWeightResponse },
     { name: "SetOverflowThreshold", options: {}, I: ThresholdRequest, O: Empty },
     { name: "GetLoadCellConfig", options: {}, I: Empty, O: LoadCellConfig },
     { name: "SaveLoadCellConfig", options: {}, I: LoadCellConfig, O: Empty },

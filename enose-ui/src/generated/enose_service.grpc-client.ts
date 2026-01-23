@@ -6,9 +6,12 @@
 // 提供控制接口和数据流服务
 //
 import { LoadCellService } from "./enose_service";
+import type { LoadCellReading } from "./enose_service";
 import type { LoadCellConfig } from "./enose_service";
 import type { ThresholdRequest } from "./enose_service";
-import type { LoadCellReading } from "./enose_service";
+import type { DynamicEmptyWeightResponse } from "./enose_service";
+import type { WaitForEmptyBottleResponse } from "./enose_service";
+import type { WaitForEmptyBottleRequest } from "./enose_service";
 import type { CalibrationResult } from "./enose_service";
 import type { ReferenceWeightRequest } from "./enose_service";
 import type { CalibrationStatus } from "./enose_service";
@@ -470,14 +473,32 @@ export interface ILoadCellServiceClient {
     cancelCalibration(input: Empty, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
     /**
      * === 业务配置 ===
-     * 设置空瓶基准 (当前重量设为空瓶基准)
+     * 等待空瓶稳定 (动态跟踪空瓶值)
      *
-     * @generated from protobuf rpc: SetEmptyBottleBaseline
+     * @generated from protobuf rpc: WaitForEmptyBottle
      */
-    setEmptyBottleBaseline(input: Empty, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: LoadCellReading) => void): grpc.ClientUnaryCall;
-    setEmptyBottleBaseline(input: Empty, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: LoadCellReading) => void): grpc.ClientUnaryCall;
-    setEmptyBottleBaseline(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: LoadCellReading) => void): grpc.ClientUnaryCall;
-    setEmptyBottleBaseline(input: Empty, callback: (err: grpc.ServiceError | null, value?: LoadCellReading) => void): grpc.ClientUnaryCall;
+    waitForEmptyBottle(input: WaitForEmptyBottleRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: WaitForEmptyBottleResponse) => void): grpc.ClientUnaryCall;
+    waitForEmptyBottle(input: WaitForEmptyBottleRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: WaitForEmptyBottleResponse) => void): grpc.ClientUnaryCall;
+    waitForEmptyBottle(input: WaitForEmptyBottleRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: WaitForEmptyBottleResponse) => void): grpc.ClientUnaryCall;
+    waitForEmptyBottle(input: WaitForEmptyBottleRequest, callback: (err: grpc.ServiceError | null, value?: WaitForEmptyBottleResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 重置动态空瓶值
+     *
+     * @generated from protobuf rpc: ResetDynamicEmptyWeight
+     */
+    resetDynamicEmptyWeight(input: Empty, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    resetDynamicEmptyWeight(input: Empty, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    resetDynamicEmptyWeight(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    resetDynamicEmptyWeight(input: Empty, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    /**
+     * 获取当前动态空瓶值
+     *
+     * @generated from protobuf rpc: GetDynamicEmptyWeight
+     */
+    getDynamicEmptyWeight(input: Empty, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: DynamicEmptyWeightResponse) => void): grpc.ClientUnaryCall;
+    getDynamicEmptyWeight(input: Empty, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: DynamicEmptyWeightResponse) => void): grpc.ClientUnaryCall;
+    getDynamicEmptyWeight(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: DynamicEmptyWeightResponse) => void): grpc.ClientUnaryCall;
+    getDynamicEmptyWeight(input: Empty, callback: (err: grpc.ServiceError | null, value?: DynamicEmptyWeightResponse) => void): grpc.ClientUnaryCall;
     /**
      * 设置溢出阈值
      *
@@ -594,13 +615,31 @@ export class LoadCellServiceClient extends grpc.Client implements ILoadCellServi
     }
     /**
      * === 业务配置 ===
-     * 设置空瓶基准 (当前重量设为空瓶基准)
+     * 等待空瓶稳定 (动态跟踪空瓶值)
      *
-     * @generated from protobuf rpc: SetEmptyBottleBaseline
+     * @generated from protobuf rpc: WaitForEmptyBottle
      */
-    setEmptyBottleBaseline(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LoadCellReading) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LoadCellReading) => void), callback?: ((err: grpc.ServiceError | null, value?: LoadCellReading) => void)): grpc.ClientUnaryCall {
+    waitForEmptyBottle(input: WaitForEmptyBottleRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: WaitForEmptyBottleResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: WaitForEmptyBottleResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: WaitForEmptyBottleResponse) => void)): grpc.ClientUnaryCall {
         const method = LoadCellService.methods[5];
-        return this.makeUnaryRequest<Empty, LoadCellReading>(`/${LoadCellService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): LoadCellReading => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+        return this.makeUnaryRequest<WaitForEmptyBottleRequest, WaitForEmptyBottleResponse>(`/${LoadCellService.typeName}/${method.name}`, (value: WaitForEmptyBottleRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): WaitForEmptyBottleResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 重置动态空瓶值
+     *
+     * @generated from protobuf rpc: ResetDynamicEmptyWeight
+     */
+    resetDynamicEmptyWeight(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), callback?: ((err: grpc.ServiceError | null, value?: Empty) => void)): grpc.ClientUnaryCall {
+        const method = LoadCellService.methods[6];
+        return this.makeUnaryRequest<Empty, Empty>(`/${LoadCellService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): Empty => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 获取当前动态空瓶值
+     *
+     * @generated from protobuf rpc: GetDynamicEmptyWeight
+     */
+    getDynamicEmptyWeight(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: DynamicEmptyWeightResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: DynamicEmptyWeightResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: DynamicEmptyWeightResponse) => void)): grpc.ClientUnaryCall {
+        const method = LoadCellService.methods[7];
+        return this.makeUnaryRequest<Empty, DynamicEmptyWeightResponse>(`/${LoadCellService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): DynamicEmptyWeightResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
      * 设置溢出阈值
@@ -608,7 +647,7 @@ export class LoadCellServiceClient extends grpc.Client implements ILoadCellServi
      * @generated from protobuf rpc: SetOverflowThreshold
      */
     setOverflowThreshold(input: ThresholdRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), callback?: ((err: grpc.ServiceError | null, value?: Empty) => void)): grpc.ClientUnaryCall {
-        const method = LoadCellService.methods[6];
+        const method = LoadCellService.methods[8];
         return this.makeUnaryRequest<ThresholdRequest, Empty>(`/${LoadCellService.typeName}/${method.name}`, (value: ThresholdRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): Empty => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
@@ -617,7 +656,7 @@ export class LoadCellServiceClient extends grpc.Client implements ILoadCellServi
      * @generated from protobuf rpc: GetLoadCellConfig
      */
     getLoadCellConfig(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LoadCellConfig) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LoadCellConfig) => void), callback?: ((err: grpc.ServiceError | null, value?: LoadCellConfig) => void)): grpc.ClientUnaryCall {
-        const method = LoadCellService.methods[7];
+        const method = LoadCellService.methods[9];
         return this.makeUnaryRequest<Empty, LoadCellConfig>(`/${LoadCellService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): LoadCellConfig => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
@@ -626,7 +665,7 @@ export class LoadCellServiceClient extends grpc.Client implements ILoadCellServi
      * @generated from protobuf rpc: SaveLoadCellConfig
      */
     saveLoadCellConfig(input: LoadCellConfig, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), callback?: ((err: grpc.ServiceError | null, value?: Empty) => void)): grpc.ClientUnaryCall {
-        const method = LoadCellService.methods[8];
+        const method = LoadCellService.methods[10];
         return this.makeUnaryRequest<LoadCellConfig, Empty>(`/${LoadCellService.typeName}/${method.name}`, (value: LoadCellConfig): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): Empty => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
@@ -636,7 +675,7 @@ export class LoadCellServiceClient extends grpc.Client implements ILoadCellServi
      * @generated from protobuf rpc: Tare
      */
     tare(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LoadCellReading) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LoadCellReading) => void), callback?: ((err: grpc.ServiceError | null, value?: LoadCellReading) => void)): grpc.ClientUnaryCall {
-        const method = LoadCellService.methods[9];
+        const method = LoadCellService.methods[11];
         return this.makeUnaryRequest<Empty, LoadCellReading>(`/${LoadCellService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): LoadCellReading => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
@@ -645,7 +684,7 @@ export class LoadCellServiceClient extends grpc.Client implements ILoadCellServi
      * @generated from protobuf rpc: GetReading
      */
     getReading(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LoadCellReading) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LoadCellReading) => void), callback?: ((err: grpc.ServiceError | null, value?: LoadCellReading) => void)): grpc.ClientUnaryCall {
-        const method = LoadCellService.methods[10];
+        const method = LoadCellService.methods[12];
         return this.makeUnaryRequest<Empty, LoadCellReading>(`/${LoadCellService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): LoadCellReading => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
@@ -654,7 +693,7 @@ export class LoadCellServiceClient extends grpc.Client implements ILoadCellServi
      * @generated from protobuf rpc: StreamReadings
      */
     streamReadings(input: Empty, metadata?: grpc.Metadata | grpc.CallOptions, options?: grpc.CallOptions): grpc.ClientReadableStream<LoadCellReading> {
-        const method = LoadCellService.methods[11];
+        const method = LoadCellService.methods[13];
         return this.makeServerStreamRequest<Empty, LoadCellReading>(`/${LoadCellService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): LoadCellReading => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), options);
     }
 }

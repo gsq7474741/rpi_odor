@@ -279,11 +279,55 @@ export async function cancelCalibration(): Promise<void> {
 
 // === 业务配置 API ===
 
-export async function setEmptyBottleBaseline(): Promise<LoadCellReading> {
-  return loadCellPromisify(
-    getLoadCellClient().setEmptyBottleBaseline.bind(getLoadCellClient()),
+export interface WaitForEmptyBottleRequest {
+  tolerance?: number;      // 容差 (g)，默认 30
+  timeoutSec?: number;     // 超时时间 (s)，默认 60
+  stabilityWindowSec?: number; // 稳定窗口 (s)，默认 5
+}
+
+export interface WaitForEmptyBottleResponse {
+  success: boolean;
+  emptyWeight: number;
+  errorMessage: string;
+}
+
+export interface DynamicEmptyWeightResponse {
+  hasValue: boolean;
+  emptyWeight: number;
+}
+
+export async function waitForEmptyBottle(request: WaitForEmptyBottleRequest = {}): Promise<WaitForEmptyBottleResponse> {
+  const result = await loadCellPromisify(
+    getLoadCellClient().waitForEmptyBottle.bind(getLoadCellClient()),
+    {
+      tolerance: request.tolerance ?? 30,
+      timeoutSec: request.timeoutSec ?? 60,
+      stabilityWindowSec: request.stabilityWindowSec ?? 5,
+    }
+  );
+  return {
+    success: result.success,
+    emptyWeight: result.emptyWeight,
+    errorMessage: result.errorMessage,
+  };
+}
+
+export async function resetDynamicEmptyWeight(): Promise<void> {
+  await loadCellPromisify(
+    getLoadCellClient().resetDynamicEmptyWeight.bind(getLoadCellClient()),
     Empty.create()
   );
+}
+
+export async function getDynamicEmptyWeight(): Promise<DynamicEmptyWeightResponse> {
+  const result = await loadCellPromisify(
+    getLoadCellClient().getDynamicEmptyWeight.bind(getLoadCellClient()),
+    Empty.create()
+  );
+  return {
+    hasValue: result.hasValue,
+    emptyWeight: result.emptyWeight,
+  };
 }
 
 export async function setOverflowThreshold(value: number): Promise<void> {

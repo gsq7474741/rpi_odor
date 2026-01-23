@@ -54,10 +54,22 @@ public:
     ) override;
 
     // === 业务配置 ===
-    ::grpc::Status SetEmptyBottleBaseline(
+    ::grpc::Status WaitForEmptyBottle(
+        ::grpc::ServerContext* context,
+        const ::enose::service::WaitForEmptyBottleRequest* request,
+        ::enose::service::WaitForEmptyBottleResponse* response
+    ) override;
+
+    ::grpc::Status ResetDynamicEmptyWeight(
         ::grpc::ServerContext* context,
         const ::google::protobuf::Empty* request,
-        ::enose::service::LoadCellReading* response
+        ::google::protobuf::Empty* response
+    ) override;
+
+    ::grpc::Status GetDynamicEmptyWeight(
+        ::grpc::ServerContext* context,
+        const ::google::protobuf::Empty* request,
+        ::enose::service::DynamicEmptyWeightResponse* response
     ) override;
 
     ::grpc::Status SetOverflowThreshold(

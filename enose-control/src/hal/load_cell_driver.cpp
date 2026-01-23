@@ -4,6 +4,7 @@
 #include <numeric>
 #include <cmath>
 #include <algorithm>
+#include <fstream>
 
 namespace hal {
 
@@ -276,12 +277,17 @@ void LoadCellDriver::save_calibration() {
         return;
     }
     
-    // 发送 ACCEPT 命令保存标定结果
+    // 发送 ACCEPT 命令接受标定结果
     actuator_->send_gcode("ACCEPT");
+    spdlog::info("LoadCellDriver: Calibration accepted");
+    
+    // 发送 SAVE_CONFIG 命令保存到 printer.cfg 并重启 Klipper
+    // 注意：SAVE_CONFIG 会导致 Klipper 重启，前端需要处理断开重连
+    actuator_->send_gcode("SAVE_CONFIG");
+    spdlog::info("LoadCellDriver: SAVE_CONFIG sent, Klipper will restart");
     
     calibration_step_ = CalibrationStep::COMPLETE;
-    spdlog::info("LoadCellDriver: Calibration saved");
-    on_calibration_update(calibration_step_, "标定已保存");
+    on_calibration_update(calibration_step_, "标定已保存到 printer.cfg，Klipper 正在重启...");
     
     // 重置状态
     calibration_step_ = CalibrationStep::IDLE;
@@ -304,15 +310,201 @@ void LoadCellDriver::cancel_calibration() {
 // 业务配置方法实现
 // ============================================================
 
-void LoadCellDriver::set_empty_bottle_baseline() {
-    config_.empty_bottle_weight = status_.filtered_weight;
-    tare_offset_ = status_.filtered_weight;
-    spdlog::info("LoadCellDriver: Empty bottle baseline set to {:.1f}g", config_.empty_bottle_weight);
-}
-
 void LoadCellDriver::set_overflow_threshold(float threshold) {
     config_.overflow_threshold = threshold;
     spdlog::info("LoadCellDriver: Overflow threshold set to {:.1f}g", threshold);
+}
+
+// ============================================================
+// 动态空瓶值方法实现
+// ============================================================
+
+LoadCellDriver::WaitForEmptyResult LoadCellDriver::wait_for_empty_bottle(
+    float tolerance, float timeout_sec, float stability_window_sec) {
+    
+    WaitForEmptyResult result;
+    
+    // 获取参考空瓶值：优先使用动态值
+    float reference_weight = dynamic_empty_weight_.value_or(0.0f);
+    
+    spdlog::info("LoadCellDriver: Waiting for empty bottle (ref={:.1f}g, tol={:.1f}g, timeout={:.1f}s, window={:.1f}s)",
+                 reference_weight, tolerance, timeout_sec, stability_window_sec);
+    
+    auto start_time = std::chrono::steady_clock::now();
+    int stable_count = 0;
+    float last_weight = 0.0f;
+    std::optional<std::chrono::steady_clock::time_point> window_start_time;
+    float stable_weight = 0.0f;
+    
+    while (true) {
+        auto elapsed = std::chrono::duration<float>(std::chrono::steady_clock::now() - start_time).count();
+        if (elapsed >= timeout_sec) {
+            result.success = false;
+            result.error_message = "等待空瓶稳定超时";
+            spdlog::warn("LoadCellDriver: Wait for empty bottle timeout");
+            return result;
+        }
+        
+        float current_weight = status_.filtered_weight;
+        bool is_stable = status_.is_stable;
+        
+        // 对于第一次使用（没有参考值），只需要等待稳定
+        bool is_near_reference = (reference_weight == 0.0f) || 
+                                  (std::abs(current_weight - reference_weight) <= tolerance);
+        
+        if (is_near_reference && is_stable) {
+            if (std::abs(current_weight - last_weight) < 1.0f) {
+                stable_count++;
+                if (stable_count >= 3) {
+                    // 达到稳态
+                    if (stability_window_sec <= 0) {
+                        // 不使用稳定窗口，直接更新空瓶值并返回
+                        dynamic_empty_weight_ = current_weight;
+                        result.success = true;
+                        result.empty_weight = current_weight;
+                        spdlog::info("LoadCellDriver: Empty bottle detected: {:.1f}g", current_weight);
+                        return result;
+                    }
+                    
+                    if (!window_start_time.has_value()) {
+                        window_start_time = std::chrono::steady_clock::now();
+                        stable_weight = current_weight;
+                        spdlog::info("LoadCellDriver: Stability window started ({:.1f}g)", current_weight);
+                    } else {
+                        if (std::abs(current_weight - stable_weight) >= 0.5f) {
+                            // 重量变化，刷新窗口
+                            window_start_time = std::chrono::steady_clock::now();
+                            stable_weight = current_weight;
+                            spdlog::info("LoadCellDriver: New stable state ({:.1f}g), reset window", current_weight);
+                        } else {
+                            auto window_elapsed = std::chrono::duration<float>(
+                                std::chrono::steady_clock::now() - *window_start_time).count();
+                            if (window_elapsed >= stability_window_sec) {
+                                // 窗口完成，更新空瓶值并返回
+                                dynamic_empty_weight_ = current_weight;
+                                result.success = true;
+                                result.empty_weight = current_weight;
+                                spdlog::info("LoadCellDriver: Stability window complete, empty weight: {:.1f}g", current_weight);
+                                return result;
+                            }
+                        }
+                    }
+                }
+            } else {
+                stable_count = 0;
+                if (window_start_time.has_value()) {
+                    spdlog::debug("LoadCellDriver: Weight change, reset window");
+                    window_start_time.reset();
+                }
+            }
+        } else {
+            stable_count = 0;
+            if (window_start_time.has_value()) {
+                window_start_time.reset();
+            }
+        }
+        
+        last_weight = current_weight;
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+}
+
+void LoadCellDriver::reset_dynamic_empty_weight() {
+    dynamic_empty_weight_.reset();
+    spdlog::info("LoadCellDriver: Dynamic empty weight reset");
+}
+
+std::optional<float> LoadCellDriver::get_dynamic_empty_weight() const {
+    return dynamic_empty_weight_;
+}
+
+// ============================================================
+// 配置持久化方法实现
+// ============================================================
+
+bool LoadCellDriver::load_config_from_file(const std::filesystem::path& path) {
+    try {
+        if (!std::filesystem::exists(path)) {
+            spdlog::info("LoadCellDriver: Config file not found: {}", path.string());
+            return false;
+        }
+        
+        std::ifstream file(path);
+        if (!file.is_open()) {
+            spdlog::warn("LoadCellDriver: Failed to open config file: {}", path.string());
+            return false;
+        }
+        
+        nlohmann::json j;
+        file >> j;
+        
+        // 加载业务配置参数
+        if (j.contains("overflow_threshold")) {
+            config_.overflow_threshold = j["overflow_threshold"].get<float>();
+        }
+        if (j.contains("drain_complete_margin")) {
+            config_.drain_complete_margin = j["drain_complete_margin"].get<float>();
+        }
+        if (j.contains("stable_stddev_threshold")) {
+            config_.stable_stddev_threshold = j["stable_stddev_threshold"].get<float>();
+        }
+        // 可选: 加载其他配置
+        if (j.contains("invert_reading")) {
+            config_.invert_reading = j["invert_reading"].get<bool>();
+        }
+        if (j.contains("filter_window_size")) {
+            config_.filter_window_size = j["filter_window_size"].get<size_t>();
+        }
+        
+        config_path_ = path;
+        spdlog::info("LoadCellDriver: Config loaded from {}", path.string());
+        spdlog::info("  overflow_threshold: {:.1f}g", config_.overflow_threshold);
+        spdlog::info("  drain_complete_margin: {:.1f}g", config_.drain_complete_margin);
+        spdlog::info("  stable_stddev_threshold: {:.1f}g", config_.stable_stddev_threshold);
+        
+        return true;
+    } catch (const std::exception& e) {
+        spdlog::error("LoadCellDriver: Failed to load config: {}", e.what());
+        return false;
+    }
+}
+
+bool LoadCellDriver::save_config_to_file(const std::filesystem::path& path) const {
+    try {
+        // 确保目录存在
+        auto parent = path.parent_path();
+        if (!parent.empty() && !std::filesystem::exists(parent)) {
+            std::filesystem::create_directories(parent);
+        }
+        
+        nlohmann::json j;
+        j["overflow_threshold"] = config_.overflow_threshold;
+        j["drain_complete_margin"] = config_.drain_complete_margin;
+        j["stable_stddev_threshold"] = config_.stable_stddev_threshold;
+        j["invert_reading"] = config_.invert_reading;
+        j["filter_window_size"] = config_.filter_window_size;
+        
+        std::ofstream file(path);
+        if (!file.is_open()) {
+            spdlog::error("LoadCellDriver: Failed to open config file for writing: {}", path.string());
+            return false;
+        }
+        
+        file << j.dump(2);
+        spdlog::info("LoadCellDriver: Config saved to {}", path.string());
+        return true;
+    } catch (const std::exception& e) {
+        spdlog::error("LoadCellDriver: Failed to save config: {}", e.what());
+        return false;
+    }
+}
+
+bool LoadCellDriver::save_config() {
+    if (config_path_.empty()) {
+        spdlog::warn("LoadCellDriver: No config path set, cannot save");
+        return false;
+    }
+    return save_config_to_file(config_path_);
 }
 
 } // namespace hal

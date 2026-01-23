@@ -130,14 +130,45 @@ void LoadCellServiceImpl::fill_calibration_status(::enose::service::CalibrationS
 
 // === 业务配置 ===
 
-::grpc::Status LoadCellServiceImpl::SetEmptyBottleBaseline(
+::grpc::Status LoadCellServiceImpl::WaitForEmptyBottle(
+    ::grpc::ServerContext* context,
+    const ::enose::service::WaitForEmptyBottleRequest* request,
+    ::enose::service::WaitForEmptyBottleResponse* response
+) {
+    float tolerance = request->tolerance() > 0 ? request->tolerance() : 30.0f;
+    float timeout_sec = request->timeout_sec() > 0 ? request->timeout_sec() : 60.0f;
+    float stability_window_sec = request->stability_window_sec() > 0 ? request->stability_window_sec() : 5.0f;
+    
+    spdlog::info("LoadCellServiceImpl: WaitForEmptyBottle (tol={:.1f}g, timeout={:.1f}s, window={:.1f}s)",
+                 tolerance, timeout_sec, stability_window_sec);
+    
+    auto result = load_cell_->wait_for_empty_bottle(tolerance, timeout_sec, stability_window_sec);
+    
+    response->set_success(result.success);
+    response->set_empty_weight(result.empty_weight);
+    response->set_error_message(result.error_message);
+    
+    return ::grpc::Status::OK;
+}
+
+::grpc::Status LoadCellServiceImpl::ResetDynamicEmptyWeight(
     ::grpc::ServerContext* context,
     const ::google::protobuf::Empty* request,
-    ::enose::service::LoadCellReading* response
+    ::google::protobuf::Empty* response
 ) {
-    spdlog::info("LoadCellServiceImpl: SetEmptyBottleBaseline");
-    load_cell_->set_empty_bottle_baseline();
-    fill_reading(response);
+    spdlog::info("LoadCellServiceImpl: ResetDynamicEmptyWeight");
+    load_cell_->reset_dynamic_empty_weight();
+    return ::grpc::Status::OK;
+}
+
+::grpc::Status LoadCellServiceImpl::GetDynamicEmptyWeight(
+    ::grpc::ServerContext* context,
+    const ::google::protobuf::Empty* request,
+    ::enose::service::DynamicEmptyWeightResponse* response
+) {
+    auto weight = load_cell_->get_dynamic_empty_weight();
+    response->set_has_value(weight.has_value());
+    response->set_empty_weight(weight.value_or(0.0f));
     return ::grpc::Status::OK;
 }
 
@@ -159,7 +190,6 @@ void LoadCellServiceImpl::fill_calibration_status(::enose::service::CalibrationS
 ) {
     auto config = load_cell_->get_config();
     
-    response->set_empty_bottle_weight(config.empty_bottle_weight);
     response->set_overflow_threshold(config.overflow_threshold);
     response->set_drain_complete_margin(config.drain_complete_margin);
     response->set_stable_threshold(config.stable_stddev_threshold);
@@ -174,13 +204,18 @@ void LoadCellServiceImpl::fill_calibration_status(::enose::service::CalibrationS
 ) {
     hal::LoadCellConfig config = load_cell_->get_config();
     
-    config.empty_bottle_weight = request->empty_bottle_weight();
     config.overflow_threshold = request->overflow_threshold();
     config.drain_complete_margin = request->drain_complete_margin();
     config.stable_stddev_threshold = request->stable_threshold();
     
     load_cell_->set_config(config);
-    spdlog::info("LoadCellServiceImpl: Config saved");
+    
+    // 持久化到文件
+    if (load_cell_->save_config()) {
+        spdlog::info("LoadCellServiceImpl: Config saved to file");
+    } else {
+        spdlog::warn("LoadCellServiceImpl: Config updated but not persisted to file");
+    }
     
     return ::grpc::Status::OK;
 }
