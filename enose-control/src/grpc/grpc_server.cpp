@@ -2,6 +2,7 @@
 #include "grpc/control_service_impl.hpp"
 #include "grpc/sensor_service_impl.hpp"
 #include "grpc/load_cell_service_impl.hpp"
+#include "grpc/test_service_impl.hpp"
 #include "hal/load_cell_driver.hpp"
 #include <spdlog/spdlog.h>
 
@@ -32,12 +33,15 @@ void GrpcServer::start(const std::string& address) {
         ControlServiceImpl control_service(actuator_, system_state_);
         std::unique_ptr<SensorServiceImpl> sensor_service;
         std::unique_ptr<LoadCellServiceImpl> load_cell_service;
+        std::unique_ptr<grpc_service::TestServiceImpl> test_service;
         
         if (sensor_) {
             sensor_service = std::make_unique<SensorServiceImpl>(sensor_);
         }
         if (load_cell_) {
             load_cell_service = std::make_unique<LoadCellServiceImpl>(load_cell_);
+            // TestService 需要 system_state 和 load_cell
+            test_service = std::make_unique<grpc_service::TestServiceImpl>(system_state_, load_cell_);
         }
         
         // 构建服务器
@@ -49,6 +53,9 @@ void GrpcServer::start(const std::string& address) {
         }
         if (load_cell_service) {
             builder.RegisterService(load_cell_service.get());
+        }
+        if (test_service) {
+            builder.RegisterService(test_service.get());
         }
         
         server_ = builder.BuildAndStart();

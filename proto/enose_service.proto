@@ -433,3 +433,105 @@ message LoadCellConfig {
   float stable_threshold = 3;       // 稳定判断阈值 (g)
   string last_calibration_time = 4; // 最后标定时间
 }
+
+// ============================================================
+// 自动测试服务 (TestService)
+// 测试逻辑在后端运行，前端仅轮询状态
+// ============================================================
+service TestService {
+  // 启动自动测试
+  rpc StartTest(StartTestRequest) returns (TestStatusResponse);
+  
+  // 停止测试
+  rpc StopTest(google.protobuf.Empty) returns (TestStatusResponse);
+  
+  // 获取测试状态 (用于轮询)
+  rpc GetTestStatus(google.protobuf.Empty) returns (TestStatusResponse);
+  
+  // 获取测试结果
+  rpc GetTestResults(google.protobuf.Empty) returns (TestResultsResponse);
+  
+  // 清除测试结果
+  rpc ClearTestResults(google.protobuf.Empty) returns (google.protobuf.Empty);
+}
+
+// ============================================================
+// 测试服务消息定义
+// ============================================================
+
+// 单组参数配置
+message ParamSet {
+  int32 id = 1;
+  string name = 2;
+  float pump2_volume = 3;           // 泵2进样量 (mm)
+  float pump3_volume = 4;           // 泵3进样量 (mm)
+  float pump4_volume = 5;           // 泵4进样量 (mm)
+  float pump5_volume = 6;           // 泵5进样量 (mm)
+  float speed = 7;                  // 进样速度 (mm/s)
+  int32 cycles = 8;                 // 循环次数
+}
+
+// 启动测试请求
+message StartTestRequest {
+  repeated ParamSet param_sets = 1; // 参数组列表
+  float accel = 2;                  // 加速度 (mm/s²)
+  float empty_tolerance = 3;        // 空瓶容差 (g)
+  float drain_stability_window = 4; // 排废稳定窗口 (s)
+}
+
+// 测试状态枚举
+enum TestState {
+  TEST_STATE_UNSPECIFIED = 0;
+  TEST_IDLE = 1;                    // 空闲
+  TEST_DRAINING = 2;                // 排废中
+  TEST_WAITING_EMPTY = 3;           // 等待空瓶稳定
+  TEST_INJECTING = 4;               // 进样中
+  TEST_WAITING_STABLE = 5;          // 等待称重稳定
+  TEST_COMPLETE = 6;                // 测试完成
+  TEST_ERROR = 7;                   // 错误状态
+  TEST_STOPPING = 8;                // 正在停止
+}
+
+// 测试状态响应
+message TestStatusResponse {
+  TestState state = 1;              // 当前状态
+  int32 current_param_set = 2;      // 当前参数组索引 (1-based)
+  int32 total_param_sets = 3;       // 总参数组数
+  int32 current_cycle = 4;          // 当前循环 (1-based)
+  int32 total_cycles = 5;           // 当前参数组总循环数
+  int32 global_cycle = 6;           // 全局循环计数
+  int32 global_total_cycles = 7;    // 全局总循环数
+  string current_param_name = 8;    // 当前参数组名称
+  string message = 9;               // 状态消息/日志
+  repeated string logs = 10;        // 最近日志列表
+  float dynamic_empty_weight = 11;  // 当前动态空瓶值
+  bool has_dynamic_empty_weight = 12; // 是否有动态空瓶值
+}
+
+// 单次测试结果
+message TestResult {
+  int32 param_set_id = 1;
+  string param_set_name = 2;
+  int32 cycle = 3;
+  float total_volume = 4;           // 设定总量 (mm)
+  float pump2_volume = 5;
+  float pump3_volume = 6;
+  float pump4_volume = 7;
+  float pump5_volume = 8;
+  float speed = 9;
+  float empty_weight = 10;          // 空瓶重量 (g)
+  float full_weight = 11;           // 进样后重量 (g)
+  float injected_weight = 12;       // 实际进样重量 (g)
+  int64 drain_duration_ms = 13;     // 排废耗时 (ms)
+  int64 wait_empty_duration_ms = 14;// 等待空瓶耗时 (ms)
+  int64 inject_duration_ms = 15;    // 进样耗时 (ms)
+  int64 wait_stable_duration_ms = 16;// 等待稳定耗时 (ms)
+  int64 total_duration_ms = 17;     // 总耗时 (ms)
+  google.protobuf.Timestamp timestamp = 18;
+}
+
+// 测试结果响应
+message TestResultsResponse {
+  repeated TestResult results = 1;
+  int32 total_count = 2;
+}

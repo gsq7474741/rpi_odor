@@ -5,6 +5,9 @@
 // 电子鼻 gRPC 服务定义
 // 提供控制接口和数据流服务
 //
+import { TestResultsResponse } from "./enose_service";
+import { TestStatusResponse } from "./enose_service";
+import { StartTestRequest } from "./enose_service";
 import { LoadCellReading } from "./enose_service";
 import { LoadCellConfig } from "./enose_service";
 import { ThresholdRequest } from "./enose_service";
@@ -627,6 +630,109 @@ export const loadCellServiceDefinition: grpc.ServiceDefinition<ILoadCellService>
         responseDeserialize: bytes => LoadCellReading.fromBinary(bytes),
         requestDeserialize: bytes => Empty.fromBinary(bytes),
         responseSerialize: value => Buffer.from(LoadCellReading.toBinary(value)),
+        requestSerialize: value => Buffer.from(Empty.toBinary(value))
+    }
+};
+/**
+ * ============================================================
+ * 自动测试服务 (TestService)
+ * 测试逻辑在后端运行，前端仅轮询状态
+ * ============================================================
+ *
+ * @generated from protobuf service enose.service.TestService
+ */
+export interface ITestService extends grpc.UntypedServiceImplementation {
+    /**
+     * 启动自动测试
+     *
+     * @generated from protobuf rpc: StartTest
+     */
+    startTest: grpc.handleUnaryCall<StartTestRequest, TestStatusResponse>;
+    /**
+     * 停止测试
+     *
+     * @generated from protobuf rpc: StopTest
+     */
+    stopTest: grpc.handleUnaryCall<Empty, TestStatusResponse>;
+    /**
+     * 获取测试状态 (用于轮询)
+     *
+     * @generated from protobuf rpc: GetTestStatus
+     */
+    getTestStatus: grpc.handleUnaryCall<Empty, TestStatusResponse>;
+    /**
+     * 获取测试结果
+     *
+     * @generated from protobuf rpc: GetTestResults
+     */
+    getTestResults: grpc.handleUnaryCall<Empty, TestResultsResponse>;
+    /**
+     * 清除测试结果
+     *
+     * @generated from protobuf rpc: ClearTestResults
+     */
+    clearTestResults: grpc.handleUnaryCall<Empty, Empty>;
+}
+/**
+ * @grpc/grpc-js definition for the protobuf service enose.service.TestService.
+ *
+ * Usage: Implement the interface ITestService and add to a grpc server.
+ *
+ * ```typescript
+ * const server = new grpc.Server();
+ * const service: ITestService = ...
+ * server.addService(testServiceDefinition, service);
+ * ```
+ */
+export const testServiceDefinition: grpc.ServiceDefinition<ITestService> = {
+    startTest: {
+        path: "/enose.service.TestService/StartTest",
+        originalName: "StartTest",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => TestStatusResponse.fromBinary(bytes),
+        requestDeserialize: bytes => StartTestRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(TestStatusResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(StartTestRequest.toBinary(value))
+    },
+    stopTest: {
+        path: "/enose.service.TestService/StopTest",
+        originalName: "StopTest",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => TestStatusResponse.fromBinary(bytes),
+        requestDeserialize: bytes => Empty.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(TestStatusResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(Empty.toBinary(value))
+    },
+    getTestStatus: {
+        path: "/enose.service.TestService/GetTestStatus",
+        originalName: "GetTestStatus",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => TestStatusResponse.fromBinary(bytes),
+        requestDeserialize: bytes => Empty.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(TestStatusResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(Empty.toBinary(value))
+    },
+    getTestResults: {
+        path: "/enose.service.TestService/GetTestResults",
+        originalName: "GetTestResults",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => TestResultsResponse.fromBinary(bytes),
+        requestDeserialize: bytes => Empty.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(TestResultsResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(Empty.toBinary(value))
+    },
+    clearTestResults: {
+        path: "/enose.service.TestService/ClearTestResults",
+        originalName: "ClearTestResults",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => Empty.fromBinary(bytes),
+        requestDeserialize: bytes => Empty.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(Empty.toBinary(value)),
         requestSerialize: value => Buffer.from(Empty.toBinary(value))
     }
 };

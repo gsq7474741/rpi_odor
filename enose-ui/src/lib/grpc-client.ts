@@ -369,3 +369,10 @@ export async function getLoadCellReading(): Promise<LoadCellReading> {
 
 // 导出 LoadCellServiceClient 用于流式订阅
 export { getLoadCellClient };
+
+// ============================================================
+// TestService API (测试服务 - 后端控制测试流程)
+// ============================================================
+
+// 注意：TestServiceClient 将在 proto 生成后可用
+// 前端通过 HTTP API 路由调用，不直接使用 gRPC 客户端

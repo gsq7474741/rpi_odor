@@ -838,67 +838,199 @@ export function LoadCellPanel() {
   // 计算总循环数
   const totalCycles = autoTestConfig.paramSets.reduce((sum, ps) => sum + ps.cycles, 0);
   
-  // 开始自动测试
+  // 开始自动测试 (调用后端API)
   const handleStartAutoTest = async () => {
     if (autoTestStep !== "idle") return;
     
-    autoTestAbortRef.current = false;
     setAutoTestResults([]);
     setAutoTestLog([]);
     setAutoTestCurrentCycle(0);
     setAutoTestCurrentParamSet(0);
     setIsPolling(true);
     
-    // 重置动态空瓶值，让第一次排废自动建立基准
-    await resetDynamicEmptyWeight();
-    
+    // 构建后端请求配置
     const enabledParamSets = autoTestConfig.paramSets.filter(ps => ps.cycles > 0);
-    addAutoTestLog(`开始自动测试，${enabledParamSets.length} 组参数，共 ${totalCycles} 个循环`);
+    const config = {
+      paramSets: enabledParamSets.map(ps => ({
+        id: ps.id,
+        name: ps.name,
+        pump2Volume: ps.params.pump2Volume,
+        pump3Volume: ps.params.pump3Volume,
+        pump4Volume: ps.params.pump4Volume,
+        pump5Volume: ps.params.pump5Volume,
+        speed: ps.speed,
+        cycles: ps.cycles,
+      })),
+      accel: autoTestConfig.accel,
+      emptyTolerance: autoTestConfig.emptyTolerance,
+      drainStabilityWindow: autoTestConfig.drainStabilityWindow,
+    };
     
     try {
-      let globalCycle = 0;
-      for (let psIdx = 0; psIdx < enabledParamSets.length; psIdx++) {
-        const paramSet = enabledParamSets[psIdx];
-        setAutoTestCurrentParamSet(psIdx + 1);
-        addAutoTestLog(`=== 开始参数组 [${paramSet.name}] (${paramSet.cycles} 次) ===`);
-        
-        for (let i = 1; i <= paramSet.cycles; i++) {
-          if (autoTestAbortRef.current) break;
-          
-          globalCycle++;
-          setAutoTestCurrentCycle(globalCycle);
-          const result = await runSingleCycle(paramSet, i);
-          setAutoTestResults(prev => [...prev, result]);
-        }
-        
-        if (autoTestAbortRef.current) break;
+      // 调用后端启动测试
+      const response = await fetch('/api/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'start', config }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('启动测试失败');
       }
       
-      if (!autoTestAbortRef.current) {
-        addAutoTestLog("=== 自动测试完成！===");
-        setAutoTestStep("complete");
-        // 最后排废到空瓶
-        addAutoTestLog("最后排废，等待空瓶...");
-        await setSystemState("DRAIN");
-        await waitForEmptyBottle(autoTestConfig.emptyTolerance, 120000);
-        await setSystemState("INITIAL");
-        addAutoTestLog("排废完成，测试结束");
-        setTimeout(() => setAutoTestStep("idle"), 3000);
-      }
+      addAutoTestLog(`开始自动测试 (后端控制)，${enabledParamSets.length} 组参数，共 ${totalCycles} 个循环`);
+      setAutoTestStep("draining");
+      
+      // 开始轮询测试状态
+      startTestStatusPolling();
     } catch (error) {
       addAutoTestLog(`错误: ${error}`);
       setAutoTestStep("idle");
-      await setSystemState("INITIAL");
     }
   };
   
-  // 停止自动测试
+  // 轮询测试状态
+  const testPollingRef = useRef<NodeJS.Timeout | null>(null);
+  const lastLogCountRef = useRef(0);
+  
+  const startTestStatusPolling = () => {
+    if (testPollingRef.current) {
+      clearInterval(testPollingRef.current);
+    }
+    lastLogCountRef.current = 0;
+    
+    testPollingRef.current = setInterval(async () => {
+      try {
+        const response = await fetch('/api/test');
+        if (!response.ok) return;
+        
+        const status = await response.json();
+        
+        // 更新状态
+        updateTestStatus(status);
+        
+        // 检查是否完成
+        if (status.state === 'TEST_IDLE' || status.state === 'TEST_COMPLETE' || status.state === 'TEST_ERROR') {
+          stopTestStatusPolling();
+          
+          if (status.state === 'TEST_COMPLETE') {
+            setAutoTestStep("complete");
+            // 获取最终结果
+            await fetchTestResults();
+            setTimeout(() => setAutoTestStep("idle"), 3000);
+          } else if (status.state === 'TEST_ERROR') {
+            setAutoTestStep("idle");
+          } else {
+            setAutoTestStep("idle");
+          }
+        }
+      } catch (error) {
+        console.error('轮询测试状态失败:', error);
+      }
+    }, 500);
+  };
+  
+  const stopTestStatusPolling = () => {
+    if (testPollingRef.current) {
+      clearInterval(testPollingRef.current);
+      testPollingRef.current = null;
+    }
+  };
+  
+  const updateTestStatus = (status: any) => {
+    // 更新进度
+    setAutoTestCurrentParamSet(status.currentParamSet || 0);
+    setAutoTestCurrentCycle(status.globalCycle || 0);
+    
+    // 更新动态空瓶值
+    if (status.hasDynamicEmptyWeight) {
+      setDynamicEmptyWeight(status.dynamicEmptyWeight);
+    }
+    
+    // 更新状态步骤
+    const stateMap: Record<string, AutoTestStep> = {
+      'TEST_DRAINING': 'draining',
+      'TEST_WAITING_EMPTY': 'waiting_empty',
+      'TEST_INJECTING': 'injecting',
+      'TEST_WAITING_STABLE': 'waiting_stable',
+      'TEST_COMPLETE': 'complete',
+      'TEST_STOPPING': 'draining',
+    };
+    if (stateMap[status.state]) {
+      setAutoTestStep(stateMap[status.state]);
+    }
+    
+    // 添加新日志
+    if (status.logs && status.logs.length > lastLogCountRef.current) {
+      const newLogs = status.logs.slice(lastLogCountRef.current);
+      newLogs.forEach((log: string) => addAutoTestLog(log));
+      lastLogCountRef.current = status.logs.length;
+    }
+  };
+  
+  const fetchTestResults = async () => {
+    try {
+      const response = await fetch('/api/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getResults' }),
+      });
+      
+      if (!response.ok) return;
+      
+      const data = await response.json();
+      if (data.results) {
+        const results: AutoTestResult[] = data.results.map((r: any) => ({
+          paramSetId: r.paramSetId,
+          paramSetName: r.paramSetName,
+          cycle: r.cycle,
+          totalVolume: r.totalVolume,
+          pump2Volume: r.pump2Volume,
+          pump3Volume: r.pump3Volume,
+          pump4Volume: r.pump4Volume,
+          pump5Volume: r.pump5Volume,
+          speed: r.speed,
+          emptyWeight: r.emptyWeight,
+          fullWeight: r.fullWeight,
+          injectedWeight: r.injectedWeight,
+          timestamp: new Date(r.timestamp?.seconds ? r.timestamp.seconds * 1000 : Date.now()),
+          drainDuration: r.drainDurationMs || 0,
+          waitEmptyDuration: r.waitEmptyDurationMs || 0,
+          injectDuration: r.injectDurationMs || 0,
+          waitStableDuration: r.waitStableDurationMs || 0,
+          totalDuration: r.totalDurationMs || 0,
+        }));
+        setAutoTestResults(results);
+      }
+    } catch (error) {
+      console.error('获取测试结果失败:', error);
+    }
+  };
+  
+  // 停止自动测试 (调用后端API)
   const handleStopAutoTest = async () => {
-    autoTestAbortRef.current = true;
     addAutoTestLog("正在停止测试...");
-    await setSystemState("INITIAL");
+    
+    try {
+      await fetch('/api/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'stop' }),
+      });
+    } catch (error) {
+      console.error('停止测试失败:', error);
+    }
+    
+    stopTestStatusPolling();
     setAutoTestStep("idle");
   };
+  
+  // 组件卸载时清理轮询
+  useEffect(() => {
+    return () => {
+      stopTestStatusPolling();
+    };
+  }, []);
   
   // ============================================================
   // 高级测试函数

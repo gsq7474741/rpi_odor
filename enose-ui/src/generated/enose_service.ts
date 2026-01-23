@@ -713,6 +713,188 @@ export interface LoadCellConfig {
      * @generated from protobuf field: string last_calibration_time = 4
      */
     lastCalibrationTime: string; // 最后标定时间}
+// ============================================================// 测试服务消息定义// ============================================================
+
+/**
+ * 单组参数配置
+ *
+ * @generated from protobuf message enose.service.ParamSet
+ */
+export interface ParamSet {
+    /**
+     * @generated from protobuf field: int32 id = 1
+     */
+    id: number;
+    /**
+     * @generated from protobuf field: string name = 2
+     */
+    name: string;
+    /**
+     * @generated from protobuf field: float pump2_volume = 3
+     */
+    pump2Volume: number; // 泵2进样量 (mm)    /**
+     * @generated from protobuf field: float pump3_volume = 4
+     */
+    pump3Volume: number; // 泵3进样量 (mm)    /**
+     * @generated from protobuf field: float pump4_volume = 5
+     */
+    pump4Volume: number; // 泵4进样量 (mm)    /**
+     * @generated from protobuf field: float pump5_volume = 6
+     */
+    pump5Volume: number; // 泵5进样量 (mm)    /**
+     * @generated from protobuf field: float speed = 7
+     */
+    speed: number; // 进样速度 (mm/s)    /**
+     * @generated from protobuf field: int32 cycles = 8
+     */
+    cycles: number; // 循环次数}
+/**
+ * 启动测试请求
+ *
+ * @generated from protobuf message enose.service.StartTestRequest
+ */
+export interface StartTestRequest {
+    /**
+     * @generated from protobuf field: repeated enose.service.ParamSet param_sets = 1
+     */
+    paramSets: ParamSet[]; // 参数组列表    /**
+     * @generated from protobuf field: float accel = 2
+     */
+    accel: number; // 加速度 (mm/s²)    /**
+     * @generated from protobuf field: float empty_tolerance = 3
+     */
+    emptyTolerance: number; // 空瓶容差 (g)    /**
+     * @generated from protobuf field: float drain_stability_window = 4
+     */
+    drainStabilityWindow: number; // 排废稳定窗口 (s)}
+/**
+ * 测试状态响应
+ *
+ * @generated from protobuf message enose.service.TestStatusResponse
+ */
+export interface TestStatusResponse {
+    /**
+     * @generated from protobuf field: enose.service.TestState state = 1
+     */
+    state: TestState; // 当前状态    /**
+     * @generated from protobuf field: int32 current_param_set = 2
+     */
+    currentParamSet: number; // 当前参数组索引 (1-based)    /**
+     * @generated from protobuf field: int32 total_param_sets = 3
+     */
+    totalParamSets: number; // 总参数组数    /**
+     * @generated from protobuf field: int32 current_cycle = 4
+     */
+    currentCycle: number; // 当前循环 (1-based)    /**
+     * @generated from protobuf field: int32 total_cycles = 5
+     */
+    totalCycles: number; // 当前参数组总循环数    /**
+     * @generated from protobuf field: int32 global_cycle = 6
+     */
+    globalCycle: number; // 全局循环计数    /**
+     * @generated from protobuf field: int32 global_total_cycles = 7
+     */
+    globalTotalCycles: number; // 全局总循环数    /**
+     * @generated from protobuf field: string current_param_name = 8
+     */
+    currentParamName: string; // 当前参数组名称    /**
+     * @generated from protobuf field: string message = 9
+     */
+    message: string; // 状态消息/日志    /**
+     * @generated from protobuf field: repeated string logs = 10
+     */
+    logs: string[]; // 最近日志列表    /**
+     * @generated from protobuf field: float dynamic_empty_weight = 11
+     */
+    dynamicEmptyWeight: number; // 当前动态空瓶值    /**
+     * @generated from protobuf field: bool has_dynamic_empty_weight = 12
+     */
+    hasDynamicEmptyWeight: boolean; // 是否有动态空瓶值}
+/**
+ * 单次测试结果
+ *
+ * @generated from protobuf message enose.service.TestResult
+ */
+export interface TestResult {
+    /**
+     * @generated from protobuf field: int32 param_set_id = 1
+     */
+    paramSetId: number;
+    /**
+     * @generated from protobuf field: string param_set_name = 2
+     */
+    paramSetName: string;
+    /**
+     * @generated from protobuf field: int32 cycle = 3
+     */
+    cycle: number;
+    /**
+     * @generated from protobuf field: float total_volume = 4
+     */
+    totalVolume: number; // 设定总量 (mm)    /**
+     * @generated from protobuf field: float pump2_volume = 5
+     */
+    pump2Volume: number;
+    /**
+     * @generated from protobuf field: float pump3_volume = 6
+     */
+    pump3Volume: number;
+    /**
+     * @generated from protobuf field: float pump4_volume = 7
+     */
+    pump4Volume: number;
+    /**
+     * @generated from protobuf field: float pump5_volume = 8
+     */
+    pump5Volume: number;
+    /**
+     * @generated from protobuf field: float speed = 9
+     */
+    speed: number;
+    /**
+     * @generated from protobuf field: float empty_weight = 10
+     */
+    emptyWeight: number; // 空瓶重量 (g)    /**
+     * @generated from protobuf field: float full_weight = 11
+     */
+    fullWeight: number; // 进样后重量 (g)    /**
+     * @generated from protobuf field: float injected_weight = 12
+     */
+    injectedWeight: number; // 实际进样重量 (g)    /**
+     * @generated from protobuf field: int64 drain_duration_ms = 13
+     */
+    drainDurationMs: string; // 排废耗时 (ms)    /**
+     * @generated from protobuf field: int64 wait_empty_duration_ms = 14
+     */
+    waitEmptyDurationMs: string; // 等待空瓶耗时 (ms)    /**
+     * @generated from protobuf field: int64 inject_duration_ms = 15
+     */
+    injectDurationMs: string; // 进样耗时 (ms)    /**
+     * @generated from protobuf field: int64 wait_stable_duration_ms = 16
+     */
+    waitStableDurationMs: string; // 等待稳定耗时 (ms)    /**
+     * @generated from protobuf field: int64 total_duration_ms = 17
+     */
+    totalDurationMs: string; // 总耗时 (ms)    /**
+     * @generated from protobuf field: google.protobuf.Timestamp timestamp = 18
+     */
+    timestamp?: Timestamp;
+}
+/**
+ * 测试结果响应
+ *
+ * @generated from protobuf message enose.service.TestResultsResponse
+ */
+export interface TestResultsResponse {
+    /**
+     * @generated from protobuf field: repeated enose.service.TestResult results = 1
+     */
+    results: TestResult[];
+    /**
+     * @generated from protobuf field: int32 total_count = 2
+     */
+    totalCount: number;
+}
 // ============================================================// 请求/响应消息定义// ============================================================
 
 /**
@@ -755,6 +937,65 @@ export enum SystemStateEnum {
      * @generated from protobuf enum value: INJECT = 5;
      */
     INJECT = 5
+}
+/**
+ * 测试状态枚举
+ *
+ * @generated from protobuf enum enose.service.TestState
+ */
+export enum TestState {
+    /**
+     * @generated from protobuf enum value: TEST_STATE_UNSPECIFIED = 0;
+     */
+    TEST_STATE_UNSPECIFIED = 0,
+    /**
+     * 空闲
+     *
+     * @generated from protobuf enum value: TEST_IDLE = 1;
+     */
+    TEST_IDLE = 1,
+    /**
+     * 排废中
+     *
+     * @generated from protobuf enum value: TEST_DRAINING = 2;
+     */
+    TEST_DRAINING = 2,
+    /**
+     * 等待空瓶稳定
+     *
+     * @generated from protobuf enum value: TEST_WAITING_EMPTY = 3;
+     */
+    TEST_WAITING_EMPTY = 3,
+    /**
+     * 进样中
+     *
+     * @generated from protobuf enum value: TEST_INJECTING = 4;
+     */
+    TEST_INJECTING = 4,
+    /**
+     * 等待称重稳定
+     *
+     * @generated from protobuf enum value: TEST_WAITING_STABLE = 5;
+     */
+    TEST_WAITING_STABLE = 5,
+    /**
+     * 测试完成
+     *
+     * @generated from protobuf enum value: TEST_COMPLETE = 6;
+     */
+    TEST_COMPLETE = 6,
+    /**
+     * 错误状态
+     *
+     * @generated from protobuf enum value: TEST_ERROR = 7;
+     */
+    TEST_ERROR = 7,
+    /**
+     * 正在停止
+     *
+     * @generated from protobuf enum value: TEST_STOPPING = 8;
+     */
+    TEST_STOPPING = 8
 }
 // @generated message type with reflection information, may provide speed optimized methods
 class SystemStatus$Type extends MessageType<SystemStatus> {
@@ -2816,6 +3057,552 @@ class LoadCellConfig$Type extends MessageType<LoadCellConfig> {
  * @generated MessageType for protobuf message enose.service.LoadCellConfig
  */
 export const LoadCellConfig = new LoadCellConfig$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class ParamSet$Type extends MessageType<ParamSet> {
+    constructor() {
+        super("enose.service.ParamSet", [
+            { no: 1, name: "id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "pump2_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 4, name: "pump3_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 5, name: "pump4_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 6, name: "pump5_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 7, name: "speed", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 8, name: "cycles", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<ParamSet>): ParamSet {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.id = 0;
+        message.name = "";
+        message.pump2Volume = 0;
+        message.pump3Volume = 0;
+        message.pump4Volume = 0;
+        message.pump5Volume = 0;
+        message.speed = 0;
+        message.cycles = 0;
+        if (value !== undefined)
+            reflectionMergePartial<ParamSet>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ParamSet): ParamSet {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 id */ 1:
+                    message.id = reader.int32();
+                    break;
+                case /* string name */ 2:
+                    message.name = reader.string();
+                    break;
+                case /* float pump2_volume */ 3:
+                    message.pump2Volume = reader.float();
+                    break;
+                case /* float pump3_volume */ 4:
+                    message.pump3Volume = reader.float();
+                    break;
+                case /* float pump4_volume */ 5:
+                    message.pump4Volume = reader.float();
+                    break;
+                case /* float pump5_volume */ 6:
+                    message.pump5Volume = reader.float();
+                    break;
+                case /* float speed */ 7:
+                    message.speed = reader.float();
+                    break;
+                case /* int32 cycles */ 8:
+                    message.cycles = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: ParamSet, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 id = 1; */
+        if (message.id !== 0)
+            writer.tag(1, WireType.Varint).int32(message.id);
+        /* string name = 2; */
+        if (message.name !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.name);
+        /* float pump2_volume = 3; */
+        if (message.pump2Volume !== 0)
+            writer.tag(3, WireType.Bit32).float(message.pump2Volume);
+        /* float pump3_volume = 4; */
+        if (message.pump3Volume !== 0)
+            writer.tag(4, WireType.Bit32).float(message.pump3Volume);
+        /* float pump4_volume = 5; */
+        if (message.pump4Volume !== 0)
+            writer.tag(5, WireType.Bit32).float(message.pump4Volume);
+        /* float pump5_volume = 6; */
+        if (message.pump5Volume !== 0)
+            writer.tag(6, WireType.Bit32).float(message.pump5Volume);
+        /* float speed = 7; */
+        if (message.speed !== 0)
+            writer.tag(7, WireType.Bit32).float(message.speed);
+        /* int32 cycles = 8; */
+        if (message.cycles !== 0)
+            writer.tag(8, WireType.Varint).int32(message.cycles);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.ParamSet
+ */
+export const ParamSet = new ParamSet$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class StartTestRequest$Type extends MessageType<StartTestRequest> {
+    constructor() {
+        super("enose.service.StartTestRequest", [
+            { no: 1, name: "param_sets", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => ParamSet },
+            { no: 2, name: "accel", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 3, name: "empty_tolerance", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 4, name: "drain_stability_window", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ }
+        ]);
+    }
+    create(value?: PartialMessage<StartTestRequest>): StartTestRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.paramSets = [];
+        message.accel = 0;
+        message.emptyTolerance = 0;
+        message.drainStabilityWindow = 0;
+        if (value !== undefined)
+            reflectionMergePartial<StartTestRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: StartTestRequest): StartTestRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated enose.service.ParamSet param_sets */ 1:
+                    message.paramSets.push(ParamSet.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* float accel */ 2:
+                    message.accel = reader.float();
+                    break;
+                case /* float empty_tolerance */ 3:
+                    message.emptyTolerance = reader.float();
+                    break;
+                case /* float drain_stability_window */ 4:
+                    message.drainStabilityWindow = reader.float();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: StartTestRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated enose.service.ParamSet param_sets = 1; */
+        for (let i = 0; i < message.paramSets.length; i++)
+            ParamSet.internalBinaryWrite(message.paramSets[i], writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        /* float accel = 2; */
+        if (message.accel !== 0)
+            writer.tag(2, WireType.Bit32).float(message.accel);
+        /* float empty_tolerance = 3; */
+        if (message.emptyTolerance !== 0)
+            writer.tag(3, WireType.Bit32).float(message.emptyTolerance);
+        /* float drain_stability_window = 4; */
+        if (message.drainStabilityWindow !== 0)
+            writer.tag(4, WireType.Bit32).float(message.drainStabilityWindow);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.StartTestRequest
+ */
+export const StartTestRequest = new StartTestRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class TestStatusResponse$Type extends MessageType<TestStatusResponse> {
+    constructor() {
+        super("enose.service.TestStatusResponse", [
+            { no: 1, name: "state", kind: "enum", T: () => ["enose.service.TestState", TestState] },
+            { no: 2, name: "current_param_set", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "total_param_sets", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "current_cycle", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 5, name: "total_cycles", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 6, name: "global_cycle", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 7, name: "global_total_cycles", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 8, name: "current_param_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 9, name: "message", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 10, name: "logs", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
+            { no: 11, name: "dynamic_empty_weight", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 12, name: "has_dynamic_empty_weight", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
+        ]);
+    }
+    create(value?: PartialMessage<TestStatusResponse>): TestStatusResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.state = 0;
+        message.currentParamSet = 0;
+        message.totalParamSets = 0;
+        message.currentCycle = 0;
+        message.totalCycles = 0;
+        message.globalCycle = 0;
+        message.globalTotalCycles = 0;
+        message.currentParamName = "";
+        message.message = "";
+        message.logs = [];
+        message.dynamicEmptyWeight = 0;
+        message.hasDynamicEmptyWeight = false;
+        if (value !== undefined)
+            reflectionMergePartial<TestStatusResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: TestStatusResponse): TestStatusResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* enose.service.TestState state */ 1:
+                    message.state = reader.int32();
+                    break;
+                case /* int32 current_param_set */ 2:
+                    message.currentParamSet = reader.int32();
+                    break;
+                case /* int32 total_param_sets */ 3:
+                    message.totalParamSets = reader.int32();
+                    break;
+                case /* int32 current_cycle */ 4:
+                    message.currentCycle = reader.int32();
+                    break;
+                case /* int32 total_cycles */ 5:
+                    message.totalCycles = reader.int32();
+                    break;
+                case /* int32 global_cycle */ 6:
+                    message.globalCycle = reader.int32();
+                    break;
+                case /* int32 global_total_cycles */ 7:
+                    message.globalTotalCycles = reader.int32();
+                    break;
+                case /* string current_param_name */ 8:
+                    message.currentParamName = reader.string();
+                    break;
+                case /* string message */ 9:
+                    message.message = reader.string();
+                    break;
+                case /* repeated string logs */ 10:
+                    message.logs.push(reader.string());
+                    break;
+                case /* float dynamic_empty_weight */ 11:
+                    message.dynamicEmptyWeight = reader.float();
+                    break;
+                case /* bool has_dynamic_empty_weight */ 12:
+                    message.hasDynamicEmptyWeight = reader.bool();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: TestStatusResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* enose.service.TestState state = 1; */
+        if (message.state !== 0)
+            writer.tag(1, WireType.Varint).int32(message.state);
+        /* int32 current_param_set = 2; */
+        if (message.currentParamSet !== 0)
+            writer.tag(2, WireType.Varint).int32(message.currentParamSet);
+        /* int32 total_param_sets = 3; */
+        if (message.totalParamSets !== 0)
+            writer.tag(3, WireType.Varint).int32(message.totalParamSets);
+        /* int32 current_cycle = 4; */
+        if (message.currentCycle !== 0)
+            writer.tag(4, WireType.Varint).int32(message.currentCycle);
+        /* int32 total_cycles = 5; */
+        if (message.totalCycles !== 0)
+            writer.tag(5, WireType.Varint).int32(message.totalCycles);
+        /* int32 global_cycle = 6; */
+        if (message.globalCycle !== 0)
+            writer.tag(6, WireType.Varint).int32(message.globalCycle);
+        /* int32 global_total_cycles = 7; */
+        if (message.globalTotalCycles !== 0)
+            writer.tag(7, WireType.Varint).int32(message.globalTotalCycles);
+        /* string current_param_name = 8; */
+        if (message.currentParamName !== "")
+            writer.tag(8, WireType.LengthDelimited).string(message.currentParamName);
+        /* string message = 9; */
+        if (message.message !== "")
+            writer.tag(9, WireType.LengthDelimited).string(message.message);
+        /* repeated string logs = 10; */
+        for (let i = 0; i < message.logs.length; i++)
+            writer.tag(10, WireType.LengthDelimited).string(message.logs[i]);
+        /* float dynamic_empty_weight = 11; */
+        if (message.dynamicEmptyWeight !== 0)
+            writer.tag(11, WireType.Bit32).float(message.dynamicEmptyWeight);
+        /* bool has_dynamic_empty_weight = 12; */
+        if (message.hasDynamicEmptyWeight !== false)
+            writer.tag(12, WireType.Varint).bool(message.hasDynamicEmptyWeight);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.TestStatusResponse
+ */
+export const TestStatusResponse = new TestStatusResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class TestResult$Type extends MessageType<TestResult> {
+    constructor() {
+        super("enose.service.TestResult", [
+            { no: 1, name: "param_set_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "param_set_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "cycle", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "total_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 5, name: "pump2_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 6, name: "pump3_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 7, name: "pump4_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 8, name: "pump5_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 9, name: "speed", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 10, name: "empty_weight", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 11, name: "full_weight", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 12, name: "injected_weight", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 13, name: "drain_duration_ms", kind: "scalar", T: 3 /*ScalarType.INT64*/ },
+            { no: 14, name: "wait_empty_duration_ms", kind: "scalar", T: 3 /*ScalarType.INT64*/ },
+            { no: 15, name: "inject_duration_ms", kind: "scalar", T: 3 /*ScalarType.INT64*/ },
+            { no: 16, name: "wait_stable_duration_ms", kind: "scalar", T: 3 /*ScalarType.INT64*/ },
+            { no: 17, name: "total_duration_ms", kind: "scalar", T: 3 /*ScalarType.INT64*/ },
+            { no: 18, name: "timestamp", kind: "message", T: () => Timestamp }
+        ]);
+    }
+    create(value?: PartialMessage<TestResult>): TestResult {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.paramSetId = 0;
+        message.paramSetName = "";
+        message.cycle = 0;
+        message.totalVolume = 0;
+        message.pump2Volume = 0;
+        message.pump3Volume = 0;
+        message.pump4Volume = 0;
+        message.pump5Volume = 0;
+        message.speed = 0;
+        message.emptyWeight = 0;
+        message.fullWeight = 0;
+        message.injectedWeight = 0;
+        message.drainDurationMs = "0";
+        message.waitEmptyDurationMs = "0";
+        message.injectDurationMs = "0";
+        message.waitStableDurationMs = "0";
+        message.totalDurationMs = "0";
+        if (value !== undefined)
+            reflectionMergePartial<TestResult>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: TestResult): TestResult {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 param_set_id */ 1:
+                    message.paramSetId = reader.int32();
+                    break;
+                case /* string param_set_name */ 2:
+                    message.paramSetName = reader.string();
+                    break;
+                case /* int32 cycle */ 3:
+                    message.cycle = reader.int32();
+                    break;
+                case /* float total_volume */ 4:
+                    message.totalVolume = reader.float();
+                    break;
+                case /* float pump2_volume */ 5:
+                    message.pump2Volume = reader.float();
+                    break;
+                case /* float pump3_volume */ 6:
+                    message.pump3Volume = reader.float();
+                    break;
+                case /* float pump4_volume */ 7:
+                    message.pump4Volume = reader.float();
+                    break;
+                case /* float pump5_volume */ 8:
+                    message.pump5Volume = reader.float();
+                    break;
+                case /* float speed */ 9:
+                    message.speed = reader.float();
+                    break;
+                case /* float empty_weight */ 10:
+                    message.emptyWeight = reader.float();
+                    break;
+                case /* float full_weight */ 11:
+                    message.fullWeight = reader.float();
+                    break;
+                case /* float injected_weight */ 12:
+                    message.injectedWeight = reader.float();
+                    break;
+                case /* int64 drain_duration_ms */ 13:
+                    message.drainDurationMs = reader.int64().toString();
+                    break;
+                case /* int64 wait_empty_duration_ms */ 14:
+                    message.waitEmptyDurationMs = reader.int64().toString();
+                    break;
+                case /* int64 inject_duration_ms */ 15:
+                    message.injectDurationMs = reader.int64().toString();
+                    break;
+                case /* int64 wait_stable_duration_ms */ 16:
+                    message.waitStableDurationMs = reader.int64().toString();
+                    break;
+                case /* int64 total_duration_ms */ 17:
+                    message.totalDurationMs = reader.int64().toString();
+                    break;
+                case /* google.protobuf.Timestamp timestamp */ 18:
+                    message.timestamp = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.timestamp);
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: TestResult, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 param_set_id = 1; */
+        if (message.paramSetId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.paramSetId);
+        /* string param_set_name = 2; */
+        if (message.paramSetName !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.paramSetName);
+        /* int32 cycle = 3; */
+        if (message.cycle !== 0)
+            writer.tag(3, WireType.Varint).int32(message.cycle);
+        /* float total_volume = 4; */
+        if (message.totalVolume !== 0)
+            writer.tag(4, WireType.Bit32).float(message.totalVolume);
+        /* float pump2_volume = 5; */
+        if (message.pump2Volume !== 0)
+            writer.tag(5, WireType.Bit32).float(message.pump2Volume);
+        /* float pump3_volume = 6; */
+        if (message.pump3Volume !== 0)
+            writer.tag(6, WireType.Bit32).float(message.pump3Volume);
+        /* float pump4_volume = 7; */
+        if (message.pump4Volume !== 0)
+            writer.tag(7, WireType.Bit32).float(message.pump4Volume);
+        /* float pump5_volume = 8; */
+        if (message.pump5Volume !== 0)
+            writer.tag(8, WireType.Bit32).float(message.pump5Volume);
+        /* float speed = 9; */
+        if (message.speed !== 0)
+            writer.tag(9, WireType.Bit32).float(message.speed);
+        /* float empty_weight = 10; */
+        if (message.emptyWeight !== 0)
+            writer.tag(10, WireType.Bit32).float(message.emptyWeight);
+        /* float full_weight = 11; */
+        if (message.fullWeight !== 0)
+            writer.tag(11, WireType.Bit32).float(message.fullWeight);
+        /* float injected_weight = 12; */
+        if (message.injectedWeight !== 0)
+            writer.tag(12, WireType.Bit32).float(message.injectedWeight);
+        /* int64 drain_duration_ms = 13; */
+        if (message.drainDurationMs !== "0")
+            writer.tag(13, WireType.Varint).int64(message.drainDurationMs);
+        /* int64 wait_empty_duration_ms = 14; */
+        if (message.waitEmptyDurationMs !== "0")
+            writer.tag(14, WireType.Varint).int64(message.waitEmptyDurationMs);
+        /* int64 inject_duration_ms = 15; */
+        if (message.injectDurationMs !== "0")
+            writer.tag(15, WireType.Varint).int64(message.injectDurationMs);
+        /* int64 wait_stable_duration_ms = 16; */
+        if (message.waitStableDurationMs !== "0")
+            writer.tag(16, WireType.Varint).int64(message.waitStableDurationMs);
+        /* int64 total_duration_ms = 17; */
+        if (message.totalDurationMs !== "0")
+            writer.tag(17, WireType.Varint).int64(message.totalDurationMs);
+        /* google.protobuf.Timestamp timestamp = 18; */
+        if (message.timestamp)
+            Timestamp.internalBinaryWrite(message.timestamp, writer.tag(18, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.TestResult
+ */
+export const TestResult = new TestResult$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class TestResultsResponse$Type extends MessageType<TestResultsResponse> {
+    constructor() {
+        super("enose.service.TestResultsResponse", [
+            { no: 1, name: "results", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => TestResult },
+            { no: 2, name: "total_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<TestResultsResponse>): TestResultsResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.results = [];
+        message.totalCount = 0;
+        if (value !== undefined)
+            reflectionMergePartial<TestResultsResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: TestResultsResponse): TestResultsResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated enose.service.TestResult results */ 1:
+                    message.results.push(TestResult.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* int32 total_count */ 2:
+                    message.totalCount = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: TestResultsResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated enose.service.TestResult results = 1; */
+        for (let i = 0; i < message.results.length; i++)
+            TestResult.internalBinaryWrite(message.results[i], writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        /* int32 total_count = 2; */
+        if (message.totalCount !== 0)
+            writer.tag(2, WireType.Varint).int32(message.totalCount);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.TestResultsResponse
+ */
+export const TestResultsResponse = new TestResultsResponse$Type();
 /**
  * @generated ServiceType for protobuf service enose.service.ControlService
  */
@@ -2866,4 +3653,14 @@ export const LoadCellService = new ServiceType("enose.service.LoadCellService", 
     { name: "Tare", options: {}, I: Empty, O: LoadCellReading },
     { name: "GetReading", options: {}, I: Empty, O: LoadCellReading },
     { name: "StreamReadings", serverStreaming: true, options: {}, I: Empty, O: LoadCellReading }
+]);
+/**
+ * @generated ServiceType for protobuf service enose.service.TestService
+ */
+export const TestService = new ServiceType("enose.service.TestService", [
+    { name: "StartTest", options: {}, I: StartTestRequest, O: TestStatusResponse },
+    { name: "StopTest", options: {}, I: Empty, O: TestStatusResponse },
+    { name: "GetTestStatus", options: {}, I: Empty, O: TestStatusResponse },
+    { name: "GetTestResults", options: {}, I: Empty, O: TestResultsResponse },
+    { name: "ClearTestResults", options: {}, I: Empty, O: Empty }
 ]);

@@ -5,6 +5,10 @@
 // 电子鼻 gRPC 服务定义
 // 提供控制接口和数据流服务
 //
+import { TestService } from "./enose_service";
+import type { TestResultsResponse } from "./enose_service";
+import type { TestStatusResponse } from "./enose_service";
+import type { StartTestRequest } from "./enose_service";
 import { LoadCellService } from "./enose_service";
 import type { LoadCellReading } from "./enose_service";
 import type { LoadCellConfig } from "./enose_service";
@@ -695,5 +699,120 @@ export class LoadCellServiceClient extends grpc.Client implements ILoadCellServi
     streamReadings(input: Empty, metadata?: grpc.Metadata | grpc.CallOptions, options?: grpc.CallOptions): grpc.ClientReadableStream<LoadCellReading> {
         const method = LoadCellService.methods[13];
         return this.makeServerStreamRequest<Empty, LoadCellReading>(`/${LoadCellService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): LoadCellReading => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), options);
+    }
+}
+/**
+ * ============================================================
+ * 自动测试服务 (TestService)
+ * 测试逻辑在后端运行，前端仅轮询状态
+ * ============================================================
+ *
+ * @generated from protobuf service enose.service.TestService
+ */
+export interface ITestServiceClient {
+    /**
+     * 启动自动测试
+     *
+     * @generated from protobuf rpc: StartTest
+     */
+    startTest(input: StartTestRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: TestStatusResponse) => void): grpc.ClientUnaryCall;
+    startTest(input: StartTestRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: TestStatusResponse) => void): grpc.ClientUnaryCall;
+    startTest(input: StartTestRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: TestStatusResponse) => void): grpc.ClientUnaryCall;
+    startTest(input: StartTestRequest, callback: (err: grpc.ServiceError | null, value?: TestStatusResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 停止测试
+     *
+     * @generated from protobuf rpc: StopTest
+     */
+    stopTest(input: Empty, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: TestStatusResponse) => void): grpc.ClientUnaryCall;
+    stopTest(input: Empty, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: TestStatusResponse) => void): grpc.ClientUnaryCall;
+    stopTest(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: TestStatusResponse) => void): grpc.ClientUnaryCall;
+    stopTest(input: Empty, callback: (err: grpc.ServiceError | null, value?: TestStatusResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 获取测试状态 (用于轮询)
+     *
+     * @generated from protobuf rpc: GetTestStatus
+     */
+    getTestStatus(input: Empty, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: TestStatusResponse) => void): grpc.ClientUnaryCall;
+    getTestStatus(input: Empty, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: TestStatusResponse) => void): grpc.ClientUnaryCall;
+    getTestStatus(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: TestStatusResponse) => void): grpc.ClientUnaryCall;
+    getTestStatus(input: Empty, callback: (err: grpc.ServiceError | null, value?: TestStatusResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 获取测试结果
+     *
+     * @generated from protobuf rpc: GetTestResults
+     */
+    getTestResults(input: Empty, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: TestResultsResponse) => void): grpc.ClientUnaryCall;
+    getTestResults(input: Empty, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: TestResultsResponse) => void): grpc.ClientUnaryCall;
+    getTestResults(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: TestResultsResponse) => void): grpc.ClientUnaryCall;
+    getTestResults(input: Empty, callback: (err: grpc.ServiceError | null, value?: TestResultsResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 清除测试结果
+     *
+     * @generated from protobuf rpc: ClearTestResults
+     */
+    clearTestResults(input: Empty, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    clearTestResults(input: Empty, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    clearTestResults(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    clearTestResults(input: Empty, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+}
+/**
+ * ============================================================
+ * 自动测试服务 (TestService)
+ * 测试逻辑在后端运行，前端仅轮询状态
+ * ============================================================
+ *
+ * @generated from protobuf service enose.service.TestService
+ */
+export class TestServiceClient extends grpc.Client implements ITestServiceClient {
+    private readonly _binaryOptions: Partial<BinaryReadOptions & BinaryWriteOptions>;
+    constructor(address: string, credentials: grpc.ChannelCredentials, options: grpc.ClientOptions = {}, binaryOptions: Partial<BinaryReadOptions & BinaryWriteOptions> = {}) {
+        super(address, credentials, options);
+        this._binaryOptions = binaryOptions;
+    }
+    /**
+     * 启动自动测试
+     *
+     * @generated from protobuf rpc: StartTest
+     */
+    startTest(input: StartTestRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: TestStatusResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: TestStatusResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: TestStatusResponse) => void)): grpc.ClientUnaryCall {
+        const method = TestService.methods[0];
+        return this.makeUnaryRequest<StartTestRequest, TestStatusResponse>(`/${TestService.typeName}/${method.name}`, (value: StartTestRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): TestStatusResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 停止测试
+     *
+     * @generated from protobuf rpc: StopTest
+     */
+    stopTest(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: TestStatusResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: TestStatusResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: TestStatusResponse) => void)): grpc.ClientUnaryCall {
+        const method = TestService.methods[1];
+        return this.makeUnaryRequest<Empty, TestStatusResponse>(`/${TestService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): TestStatusResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 获取测试状态 (用于轮询)
+     *
+     * @generated from protobuf rpc: GetTestStatus
+     */
+    getTestStatus(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: TestStatusResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: TestStatusResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: TestStatusResponse) => void)): grpc.ClientUnaryCall {
+        const method = TestService.methods[2];
+        return this.makeUnaryRequest<Empty, TestStatusResponse>(`/${TestService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): TestStatusResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 获取测试结果
+     *
+     * @generated from protobuf rpc: GetTestResults
+     */
+    getTestResults(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: TestResultsResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: TestResultsResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: TestResultsResponse) => void)): grpc.ClientUnaryCall {
+        const method = TestService.methods[3];
+        return this.makeUnaryRequest<Empty, TestResultsResponse>(`/${TestService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): TestResultsResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 清除测试结果
+     *
+     * @generated from protobuf rpc: ClearTestResults
+     */
+    clearTestResults(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), callback?: ((err: grpc.ServiceError | null, value?: Empty) => void)): grpc.ClientUnaryCall {
+        const method = TestService.methods[4];
+        return this.makeUnaryRequest<Empty, Empty>(`/${TestService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): Empty => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
 }
