@@ -6,7 +6,7 @@
       "port": 5432,
       "database": "enose",
       "user": "enose",
-      "password": "enose_secure_password",
+      "password": "enose_secure_password_change_me",
       "pool_size": 5,
       "connect_timeout_sec": 10
     },

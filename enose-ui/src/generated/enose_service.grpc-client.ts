@@ -6,6 +6,12 @@
 // 提供控制接口和数据流服务
 //
 import { TestService } from "./enose_service";
+import type { WeightSamplesResponse } from "./enose_service";
+import type { GetWeightSamplesRequest } from "./enose_service";
+import type { TestRunDetail } from "./enose_service";
+import type { GetTestRunRequest } from "./enose_service";
+import type { ListTestRunsResponse } from "./enose_service";
+import type { ListTestRunsRequest } from "./enose_service";
 import type { TestResultsResponse } from "./enose_service";
 import type { TestStatusResponse } from "./enose_service";
 import type { StartTestRequest } from "./enose_service";
@@ -738,7 +744,7 @@ export interface ITestServiceClient {
     getTestStatus(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: TestStatusResponse) => void): grpc.ClientUnaryCall;
     getTestStatus(input: Empty, callback: (err: grpc.ServiceError | null, value?: TestStatusResponse) => void): grpc.ClientUnaryCall;
     /**
-     * 获取测试结果
+     * 获取测试结果 (当前运行的内存结果)
      *
      * @generated from protobuf rpc: GetTestResults
      */
@@ -755,6 +761,44 @@ export interface ITestServiceClient {
     clearTestResults(input: Empty, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
     clearTestResults(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
     clearTestResults(input: Empty, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    // === 历史数据查询 (从数据库) ===
+
+    /**
+     * 获取历史测试运行列表
+     *
+     * @generated from protobuf rpc: ListTestRuns
+     */
+    listTestRuns(input: ListTestRunsRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: ListTestRunsResponse) => void): grpc.ClientUnaryCall;
+    listTestRuns(input: ListTestRunsRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: ListTestRunsResponse) => void): grpc.ClientUnaryCall;
+    listTestRuns(input: ListTestRunsRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: ListTestRunsResponse) => void): grpc.ClientUnaryCall;
+    listTestRuns(input: ListTestRunsRequest, callback: (err: grpc.ServiceError | null, value?: ListTestRunsResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 获取单个测试运行详情
+     *
+     * @generated from protobuf rpc: GetTestRun
+     */
+    getTestRun(input: GetTestRunRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: TestRunDetail) => void): grpc.ClientUnaryCall;
+    getTestRun(input: GetTestRunRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: TestRunDetail) => void): grpc.ClientUnaryCall;
+    getTestRun(input: GetTestRunRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: TestRunDetail) => void): grpc.ClientUnaryCall;
+    getTestRun(input: GetTestRunRequest, callback: (err: grpc.ServiceError | null, value?: TestRunDetail) => void): grpc.ClientUnaryCall;
+    /**
+     * 获取测试运行的结果列表
+     *
+     * @generated from protobuf rpc: GetTestRunResults
+     */
+    getTestRunResults(input: GetTestRunRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: TestResultsResponse) => void): grpc.ClientUnaryCall;
+    getTestRunResults(input: GetTestRunRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: TestResultsResponse) => void): grpc.ClientUnaryCall;
+    getTestRunResults(input: GetTestRunRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: TestResultsResponse) => void): grpc.ClientUnaryCall;
+    getTestRunResults(input: GetTestRunRequest, callback: (err: grpc.ServiceError | null, value?: TestResultsResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 获取称重过程数据 (用于绘制曲线)
+     *
+     * @generated from protobuf rpc: GetWeightSamples
+     */
+    getWeightSamples(input: GetWeightSamplesRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: WeightSamplesResponse) => void): grpc.ClientUnaryCall;
+    getWeightSamples(input: GetWeightSamplesRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: WeightSamplesResponse) => void): grpc.ClientUnaryCall;
+    getWeightSamples(input: GetWeightSamplesRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: WeightSamplesResponse) => void): grpc.ClientUnaryCall;
+    getWeightSamples(input: GetWeightSamplesRequest, callback: (err: grpc.ServiceError | null, value?: WeightSamplesResponse) => void): grpc.ClientUnaryCall;
 }
 /**
  * ============================================================
@@ -798,7 +842,7 @@ export class TestServiceClient extends grpc.Client implements ITestServiceClient
         return this.makeUnaryRequest<Empty, TestStatusResponse>(`/${TestService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): TestStatusResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
-     * 获取测试结果
+     * 获取测试结果 (当前运行的内存结果)
      *
      * @generated from protobuf rpc: GetTestResults
      */
@@ -814,5 +858,43 @@ export class TestServiceClient extends grpc.Client implements ITestServiceClient
     clearTestResults(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), callback?: ((err: grpc.ServiceError | null, value?: Empty) => void)): grpc.ClientUnaryCall {
         const method = TestService.methods[4];
         return this.makeUnaryRequest<Empty, Empty>(`/${TestService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): Empty => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    // === 历史数据查询 (从数据库) ===
+
+    /**
+     * 获取历史测试运行列表
+     *
+     * @generated from protobuf rpc: ListTestRuns
+     */
+    listTestRuns(input: ListTestRunsRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: ListTestRunsResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: ListTestRunsResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: ListTestRunsResponse) => void)): grpc.ClientUnaryCall {
+        const method = TestService.methods[5];
+        return this.makeUnaryRequest<ListTestRunsRequest, ListTestRunsResponse>(`/${TestService.typeName}/${method.name}`, (value: ListTestRunsRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): ListTestRunsResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 获取单个测试运行详情
+     *
+     * @generated from protobuf rpc: GetTestRun
+     */
+    getTestRun(input: GetTestRunRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: TestRunDetail) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: TestRunDetail) => void), callback?: ((err: grpc.ServiceError | null, value?: TestRunDetail) => void)): grpc.ClientUnaryCall {
+        const method = TestService.methods[6];
+        return this.makeUnaryRequest<GetTestRunRequest, TestRunDetail>(`/${TestService.typeName}/${method.name}`, (value: GetTestRunRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): TestRunDetail => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 获取测试运行的结果列表
+     *
+     * @generated from protobuf rpc: GetTestRunResults
+     */
+    getTestRunResults(input: GetTestRunRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: TestResultsResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: TestResultsResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: TestResultsResponse) => void)): grpc.ClientUnaryCall {
+        const method = TestService.methods[7];
+        return this.makeUnaryRequest<GetTestRunRequest, TestResultsResponse>(`/${TestService.typeName}/${method.name}`, (value: GetTestRunRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): TestResultsResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 获取称重过程数据 (用于绘制曲线)
+     *
+     * @generated from protobuf rpc: GetWeightSamples
+     */
+    getWeightSamples(input: GetWeightSamplesRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: WeightSamplesResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: WeightSamplesResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: WeightSamplesResponse) => void)): grpc.ClientUnaryCall {
+        const method = TestService.methods[8];
+        return this.makeUnaryRequest<GetWeightSamplesRequest, WeightSamplesResponse>(`/${TestService.typeName}/${method.name}`, (value: GetWeightSamplesRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): WeightSamplesResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
 }

@@ -245,8 +245,21 @@ export function LoadCellPanel() {
     drainStabilityWindow: 5, // 排废稳定窗口默认5秒
   });
   const [autoTestResults, setAutoTestResults] = useState<AutoTestResult[]>([]);
+  
+  // 持久化相关状态
+  const [currentRunId, setCurrentRunId] = useState<number | null>(null);
+  const [historicalRuns, setHistoricalRuns] = useState<Array<{
+    runId: number;
+    status: string;
+    startedAt: string;
+    endedAt?: string;
+    totalCycles: number;
+  }>>([]);
+  const [viewingHistoryRunId, setViewingHistoryRunId] = useState<number | null>(null);
   const [autoTestCurrentCycle, setAutoTestCurrentCycle] = useState(0);
   const [autoTestCurrentParamSet, setAutoTestCurrentParamSet] = useState(0);
+  const [autoTestTotalParamSets, setAutoTestTotalParamSets] = useState(0);  // 后端返回的总参数组数
+  const [autoTestTotalCycles, setAutoTestTotalCycles] = useState(0);  // 后端返回的总循环数
   const [autoTestLog, setAutoTestLog] = useState<string[]>([]);
   const [autoTestEmptyWeight, setAutoTestEmptyWeight] = useState(0);
   const [nextParamSetId, setNextParamSetId] = useState(4);
@@ -393,22 +406,60 @@ export function LoadCellPanel() {
       
       const status = await response.json();
       
+      // 保存 run_id
+      if (status.runId && status.runId > 0) {
+        setCurrentRunId(status.runId);
+      }
+      
+      // Proto 枚举值: TEST_STATE_UNSPECIFIED=0, TEST_IDLE=1, TEST_DRAINING=2, ...
+      // TEST_COMPLETE=6, TEST_ERROR=7, TEST_STOPPING=8
+      const stateValue = typeof status.state === 'number' ? status.state : 
+        (status.state === 'TEST_IDLE' ? 1 : status.state === 'TEST_COMPLETE' ? 6 : 
+         status.state === 'TEST_ERROR' ? 7 : status.state === 'TEST_STATE_UNSPECIFIED' ? 0 : -1);
+      
+      const isRunning = stateValue > 1 && stateValue < 6; // DRAINING=2, WAITING_EMPTY=3, INJECTING=4, WAITING_STABLE=5
+      const isComplete = stateValue === 6;
+      
       // 如果有正在运行的任务，恢复状态显示
-      if (status.state && status.state !== 'TEST_IDLE' && status.state !== 'TEST_COMPLETE' && status.state !== 'TEST_ERROR' && status.state !== 'TEST_STATE_UNSPECIFIED') {
-        addAutoTestLog("检测到后端有正在运行的任务，正在恢复状态...");
+      if (isRunning) {
+        addAutoTestLog(`检测到后端有正在运行的任务 (run_id=${status.runId || 'N/A'})，正在恢复状态...`);
         setIsPolling(true);
         updateTestStatus(status);
         startTestStatusPolling();
         
         // 同时获取已有的结果
-        await fetchTestResults();
-      } else if (status.state === 'TEST_COMPLETE') {
+        await fetchTestResults(status.runId);
+      } else if (isComplete && status.runId > 0) {
         // 如果任务已完成，获取结果
-        addAutoTestLog("检测到后端有已完成的任务，正在加载结果...");
-        await fetchTestResults();
+        addAutoTestLog(`检测到后端有已完成的任务 (run_id=${status.runId})，正在加载结果...`);
+        await fetchTestResults(status.runId);
       }
+      
+      // 加载历史测试列表
+      await fetchHistoricalRuns();
     } catch (error) {
       console.error("检查运行状态失败:", error);
+    }
+  };
+  
+  // 获取历史测试列表
+  const fetchHistoricalRuns = async () => {
+    try {
+      const response = await fetch('/api/test?action=listRuns&limit=20');
+      if (!response.ok) return;
+      
+      const data = await response.json();
+      if (data.runs) {
+        setHistoricalRuns(data.runs.map((r: any) => ({
+          runId: r.runId,
+          status: r.state || r.status,
+          startedAt: r.createdAt?.seconds ? new Date(r.createdAt.seconds * 1000).toLocaleString('zh-CN') : '',
+          endedAt: r.completedAt?.seconds ? new Date(r.completedAt.seconds * 1000).toLocaleString('zh-CN') : undefined,
+          totalCycles: r.totalSteps || 0,
+        })));
+      }
+    } catch (error) {
+      console.error('获取历史测试列表失败:', error);
     }
   };
 
@@ -878,6 +929,10 @@ export function LoadCellPanel() {
     
     // 构建后端请求配置
     const enabledParamSets = autoTestConfig.paramSets.filter(ps => ps.cycles > 0);
+    
+    // 初始化总数（后端轮询会更新为实际值）
+    setAutoTestTotalParamSets(enabledParamSets.length);
+    setAutoTestTotalCycles(enabledParamSets.reduce((sum, ps) => sum + ps.cycles, 0));
     const config = {
       paramSets: enabledParamSets.map(ps => ({
         id: ps.id,
@@ -935,27 +990,36 @@ export function LoadCellPanel() {
         
         const status = await response.json();
         
-        // 更新状态
+        // 更新状态 (包含 run_id)
         updateTestStatus(status);
         
-        // 每2秒获取一次结果以更新图表（避免过多请求）
+        // 每2秒获取一次结果以更新图表（使用 run_id 从数据库获取）
         const now = Date.now();
         if (now - lastResultFetchTime > 2000) {
-          await fetchTestResults();
+          await fetchTestResults(status.runId);
           lastResultFetchTime = now;
         }
         
-        // 检查是否完成
-        if (status.state === 'TEST_IDLE' || status.state === 'TEST_COMPLETE' || status.state === 'TEST_ERROR') {
+        // 检查是否完成 (使用数字枚举值: IDLE=1, COMPLETE=6, ERROR=7)
+        const stateVal = typeof status.state === 'number' ? status.state : -1;
+        const isIdle = stateVal === 1;
+        const isComplete = stateVal === 6;
+        const isError = stateVal === 7;
+        
+        if (isIdle || isComplete || isError) {
           stopTestStatusPolling();
           
-          if (status.state === 'TEST_COMPLETE') {
+          if (isComplete) {
             setAutoTestStep("complete");
             // 获取最终结果
-            await fetchTestResults();
+            await fetchTestResults(status.runId);
+            // 刷新历史测试列表
+            await fetchHistoricalRuns();
             setTimeout(() => setAutoTestStep("idle"), 3000);
-          } else if (status.state === 'TEST_ERROR') {
+          } else if (isError) {
             setAutoTestStep("idle");
+            // 刷新历史测试列表
+            await fetchHistoricalRuns();
           } else {
             setAutoTestStep("idle");
           }
@@ -974,31 +1038,41 @@ export function LoadCellPanel() {
   };
   
   const updateTestStatus = (status: any) => {
-    // 更新进度
+    // 更新 run_id
+    if (status.runId && status.runId > 0) {
+      setCurrentRunId(status.runId);
+    }
+    
+    // 更新进度（使用后端返回的值）
     setAutoTestCurrentParamSet(status.currentParamSet || 0);
     setAutoTestCurrentCycle(status.globalCycle || 0);
+    setAutoTestTotalParamSets(status.totalParamSets || 0);
+    setAutoTestTotalCycles(status.globalTotalCycles || 0);
     
     // 更新动态空瓶值
     if (status.hasDynamicEmptyWeight) {
       setDynamicEmptyWeight(status.dynamicEmptyWeight);
     }
     
-    // 更新状态步骤
-    const stateMap: Record<string, AutoTestStep> = {
-      'TEST_DRAINING': 'draining',
-      'TEST_WAITING_EMPTY': 'waiting_empty',
-      'TEST_INJECTING': 'injecting',
-      'TEST_WAITING_STABLE': 'waiting_stable',
-      'TEST_COMPLETE': 'complete',
-      'TEST_STOPPING': 'draining',
-      'TEST_RUNNING': 'draining',  // 通用运行状态
+    // Proto 枚举值: UNSPECIFIED=0, IDLE=1, DRAINING=2, WAITING_EMPTY=3, INJECTING=4, WAITING_STABLE=5, COMPLETE=6, ERROR=7, STOPPING=8
+    const numericStateMap: Record<number, AutoTestStep> = {
+      2: 'draining',       // TEST_DRAINING
+      3: 'waiting_empty',  // TEST_WAITING_EMPTY
+      4: 'injecting',      // TEST_INJECTING
+      5: 'waiting_stable', // TEST_WAITING_STABLE
+      6: 'complete',       // TEST_COMPLETE
+      8: 'draining',       // TEST_STOPPING
     };
-    if (stateMap[status.state]) {
-      setAutoTestStep(stateMap[status.state]);
-    } else if (status.state && status.state !== 'TEST_IDLE' && status.state !== 'TEST_ERROR' && status.state !== 'TEST_STATE_UNSPECIFIED') {
-      // 未知的运行状态，默认显示为 draining 以确保按钮变为"停止"
+    
+    const stateValue = typeof status.state === 'number' ? status.state : -1;
+    
+    if (numericStateMap[stateValue]) {
+      setAutoTestStep(numericStateMap[stateValue]);
+    } else if (stateValue > 1 && stateValue < 6) {
+      // 运行中状态，默认显示为 draining
       setAutoTestStep('draining');
     }
+    // IDLE(1), ERROR(7), UNSPECIFIED(0) 不改变 autoTestStep
     
     // 添加新日志
     if (status.logs && status.logs.length > lastLogCountRef.current) {
@@ -1008,13 +1082,27 @@ export function LoadCellPanel() {
     }
   };
   
-  const fetchTestResults = async () => {
+  const fetchTestResults = async (runId?: number) => {
     try {
-      const response = await fetch('/api/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'getResults' }),
-      });
+      // 如果指定了 runId，从数据库获取；否则从内存获取当前测试结果
+      const targetRunId = runId || currentRunId;
+      
+      let response;
+      if (targetRunId && targetRunId > 0) {
+        // 从数据库获取历史结果
+        response = await fetch('/api/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'getRunResults', runId: targetRunId }),
+        });
+      } else {
+        // 从内存获取当前结果
+        response = await fetch('/api/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'getResults' }),
+        });
+      }
       
       if (!response.ok) return;
       
@@ -1044,6 +1132,75 @@ export function LoadCellPanel() {
       }
     } catch (error) {
       console.error('获取测试结果失败:', error);
+    }
+  };
+  
+  // 查看历史测试
+  const viewHistoricalRun = async (runId: number) => {
+    setViewingHistoryRunId(runId);
+    addAutoTestLog(`加载历史测试 #${runId}...`);
+    
+    // 获取测试详情（包含 config_json）
+    try {
+      const response = await fetch(`/api/test?action=getRun&runId=${runId}`);
+      if (response.ok) {
+        const runDetail = await response.json();
+        
+        // 解析 config_json 并更新前端配置
+        if (runDetail.configJson) {
+          try {
+            const config = JSON.parse(runDetail.configJson);
+            if (config.param_sets && Array.isArray(config.param_sets)) {
+              // 更新总数显示
+              setAutoTestTotalParamSets(config.param_sets.length);
+              const totalCycles = config.param_sets.reduce((sum: number, ps: any) => sum + (ps.cycles || 0), 0);
+              setAutoTestTotalCycles(totalCycles);
+              
+              // 转换为前端格式并更新配置
+              const paramSets = config.param_sets.map((ps: any, idx: number) => ({
+                id: ps.id || idx + 1,
+                name: ps.name || `参数组${idx + 1}`,
+                params: {
+                  pump2Volume: ps.pump2_volume || 0,
+                  pump3Volume: ps.pump3_volume || 0,
+                  pump4Volume: ps.pump4_volume || 0,
+                  pump5Volume: ps.pump5_volume || 0,
+                },
+                speed: ps.speed || 100,
+                cycles: ps.cycles || 0,
+              }));
+              
+              setAutoTestConfig(prev => ({
+                ...prev,
+                paramSets,
+                accel: config.accel || prev.accel,
+                emptyTolerance: config.empty_tolerance || prev.emptyTolerance,
+                drainStabilityWindow: config.drain_stability_window || prev.drainStabilityWindow,
+              }));
+            }
+          } catch (parseError) {
+            console.error('解析 config_json 失败:', parseError);
+          }
+        }
+        
+        // 更新进度显示
+        setAutoTestCurrentParamSet(runDetail.currentStep || 0);
+        setAutoTestCurrentCycle(runDetail.currentStep || 0);
+      }
+    } catch (error) {
+      console.error('获取测试详情失败:', error);
+    }
+    
+    await fetchTestResults(runId);
+  };
+  
+  // 返回当前测试
+  const backToCurrentRun = async () => {
+    setViewingHistoryRunId(null);
+    if (currentRunId) {
+      await fetchTestResults(currentRunId);
+    } else {
+      setAutoTestResults([]);
     }
   };
   
@@ -2195,9 +2352,41 @@ export function LoadCellPanel() {
                     <h4 className="font-medium flex items-center gap-2">
                       <BarChart3 className="h-4 w-4" />
                       自动进样测试
+                      {currentRunId && !viewingHistoryRunId && (
+                        <Badge variant="outline" className="ml-2 text-xs">
+                          当前 #{currentRunId}
+                        </Badge>
+                      )}
+                      {viewingHistoryRunId && (
+                        <Badge variant="secondary" className="ml-2 text-xs">
+                          查看历史 #{viewingHistoryRunId}
+                        </Badge>
+                      )}
                     </h4>
                     <div className="flex gap-2">
-                      {autoTestStep === "idle" ? (
+                      {/* 历史测试下拉 */}
+                      {historicalRuns.length > 0 && autoTestStep === "idle" && (
+                        <select
+                          className="h-8 px-2 text-xs border rounded-md bg-background"
+                          value={viewingHistoryRunId || ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === "") {
+                              backToCurrentRun();
+                            } else {
+                              viewHistoricalRun(parseInt(val));
+                            }
+                          }}
+                        >
+                          <option value="">当前测试</option>
+                          {historicalRuns.map(run => (
+                            <option key={run.runId} value={run.runId}>
+                              #{run.runId} - {run.status} ({run.totalCycles}循环) {run.startedAt}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      {autoTestStep === "idle" && !viewingHistoryRunId ? (
                         <Button 
                           variant="default" 
                           size="sm" 
@@ -2207,7 +2396,7 @@ export function LoadCellPanel() {
                           <Play className="mr-1 h-3 w-3" />
                           开始测试
                         </Button>
-                      ) : (
+                      ) : autoTestStep !== "idle" ? (
                         <Button 
                           variant="destructive" 
                           size="sm"
@@ -2215,6 +2404,14 @@ export function LoadCellPanel() {
                         >
                           <Square className="mr-1 h-3 w-3" />
                           停止
+                        </Button>
+                      ) : (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={backToCurrentRun}
+                        >
+                          返回当前
                         </Button>
                       )}
                     </div>
@@ -2225,8 +2422,8 @@ export function LoadCellPanel() {
                     <div className="rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 p-3 text-sm border border-blue-200 dark:border-blue-800">
                       <div className="flex items-center justify-between mb-2">
                         <span className="font-medium">
-                          参数组 {autoTestCurrentParamSet}/{autoTestConfig.paramSets.filter(ps => ps.cycles > 0).length} · 
-                          循环 {autoTestCurrentCycle}/{totalCycles}
+                          参数组 {autoTestCurrentParamSet}/{autoTestTotalParamSets || autoTestConfig.paramSets.filter(ps => ps.cycles > 0).length} · 
+                          循环 {autoTestCurrentCycle}/{autoTestTotalCycles || totalCycles}
                         </span>
                         <Badge variant="outline" className="bg-white dark:bg-slate-800">
                           {autoTestStep === "draining" && "排废中..."}
@@ -2241,7 +2438,7 @@ export function LoadCellPanel() {
                       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
                         <div 
                           className="bg-gradient-to-r from-blue-500 to-indigo-500 h-2.5 rounded-full transition-all"
-                          style={{ width: `${(autoTestCurrentCycle / totalCycles) * 100}%` }}
+                          style={{ width: `${(autoTestCurrentCycle / (autoTestTotalCycles || totalCycles || 1)) * 100}%` }}
                         />
                       </div>
                     </div>

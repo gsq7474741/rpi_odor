@@ -103,7 +103,13 @@ TestStatus TestController::get_status() const {
     status.state = state_;
     status.run_id = current_run_id_;
     status.current_param_set = current_param_set_;
-    status.total_param_sets = static_cast<int>(config_.param_sets.size());
+    
+    // 只计算 cycles > 0 的有效参数组数量
+    int active_param_sets = 0;
+    for (const auto& ps : config_.param_sets) {
+        if (ps.cycles > 0) active_param_sets++;
+    }
+    status.total_param_sets = active_param_sets;
     status.current_cycle = current_cycle_;
     
     // 获取当前参数组的总循环数

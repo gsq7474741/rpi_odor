@@ -131,7 +131,7 @@ if (-not (Test-Path $binaryPath)) {
 }
 
 # 确保远程目录存在
-ssh $RPI_HOST "mkdir -p ${REMOTE_DIR}/build/bin"
+ssh $RPI_HOST "mkdir -p ${REMOTE_DIR}/build/bin ${REMOTE_DIR}/config"
 if ($LASTEXITCODE -ne 0) { throw "创建远程目录失败" }
 
 # 停止服务
@@ -140,9 +140,20 @@ if ($LASTEXITCODE -ne 0) { throw "停止服务失败" }
 Write-Host "  服务停止成功" -ForegroundColor Green
 
 # 上传二进制文件
-Write-Host "执行: scp $binaryPath ${RPI_HOST}:${REMOTE_DIR}/build/bin/" -ForegroundColor Yellow
+Write-Host "  上传二进制文件..." -ForegroundColor Yellow
 & scp $binaryPath "${RPI_HOST}:${REMOTE_DIR}/build/bin/"
-if ($LASTEXITCODE -ne 0) { throw "上传失败" }
+if ($LASTEXITCODE -ne 0) { throw "上传二进制文件失败" }
+
+# 上传配置文件
+$configPath = Join-Path $EnoseControl "config\config.json"
+if (Test-Path $configPath) {
+    Write-Host "  上传配置文件..." -ForegroundColor Yellow
+    & scp $configPath "${RPI_HOST}:${REMOTE_DIR}/config/"
+    if ($LASTEXITCODE -ne 0) { throw "上传配置文件失败" }
+} else {
+    Write-Host "  警告: 配置文件不存在: $configPath" -ForegroundColor Yellow
+}
+
 Write-Host "  上传完成" -ForegroundColor Green
 
 # 重启服务

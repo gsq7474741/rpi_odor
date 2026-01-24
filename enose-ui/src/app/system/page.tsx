@@ -5,10 +5,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function SystemPage() {
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">系统功能</h1>
-      <Tabs defaultValue="control" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-3">
+    <div className="min-h-screen bg-background p-4">
+      <div className="w-full max-w-4xl mx-auto">
+        <h1 className="text-2xl font-bold mb-6">系统功能</h1>
+        <Tabs defaultValue="control" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="control">外设控制</TabsTrigger>
           <TabsTrigger value="sensor">传感器</TabsTrigger>
           <TabsTrigger value="loadcell">称重</TabsTrigger>
@@ -22,7 +23,8 @@ export default function SystemPage() {
         <TabsContent value="loadcell" forceMount className="data-[state=inactive]:hidden mt-6">
           <LoadCellPanel />
         </TabsContent>
-      </Tabs>
+        </Tabs>
+      </div>
     </div>
   );
 }

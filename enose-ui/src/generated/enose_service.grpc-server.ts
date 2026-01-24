@@ -5,6 +5,12 @@
 // 电子鼻 gRPC 服务定义
 // 提供控制接口和数据流服务
 //
+import { WeightSamplesResponse } from "./enose_service";
+import { GetWeightSamplesRequest } from "./enose_service";
+import { TestRunDetail } from "./enose_service";
+import { GetTestRunRequest } from "./enose_service";
+import { ListTestRunsResponse } from "./enose_service";
+import { ListTestRunsRequest } from "./enose_service";
 import { TestResultsResponse } from "./enose_service";
 import { TestStatusResponse } from "./enose_service";
 import { StartTestRequest } from "./enose_service";
@@ -661,7 +667,7 @@ export interface ITestService extends grpc.UntypedServiceImplementation {
      */
     getTestStatus: grpc.handleUnaryCall<Empty, TestStatusResponse>;
     /**
-     * 获取测试结果
+     * 获取测试结果 (当前运行的内存结果)
      *
      * @generated from protobuf rpc: GetTestResults
      */
@@ -672,6 +678,32 @@ export interface ITestService extends grpc.UntypedServiceImplementation {
      * @generated from protobuf rpc: ClearTestResults
      */
     clearTestResults: grpc.handleUnaryCall<Empty, Empty>;
+    // === 历史数据查询 (从数据库) ===
+
+    /**
+     * 获取历史测试运行列表
+     *
+     * @generated from protobuf rpc: ListTestRuns
+     */
+    listTestRuns: grpc.handleUnaryCall<ListTestRunsRequest, ListTestRunsResponse>;
+    /**
+     * 获取单个测试运行详情
+     *
+     * @generated from protobuf rpc: GetTestRun
+     */
+    getTestRun: grpc.handleUnaryCall<GetTestRunRequest, TestRunDetail>;
+    /**
+     * 获取测试运行的结果列表
+     *
+     * @generated from protobuf rpc: GetTestRunResults
+     */
+    getTestRunResults: grpc.handleUnaryCall<GetTestRunRequest, TestResultsResponse>;
+    /**
+     * 获取称重过程数据 (用于绘制曲线)
+     *
+     * @generated from protobuf rpc: GetWeightSamples
+     */
+    getWeightSamples: grpc.handleUnaryCall<GetWeightSamplesRequest, WeightSamplesResponse>;
 }
 /**
  * @grpc/grpc-js definition for the protobuf service enose.service.TestService.
@@ -734,5 +766,45 @@ export const testServiceDefinition: grpc.ServiceDefinition<ITestService> = {
         requestDeserialize: bytes => Empty.fromBinary(bytes),
         responseSerialize: value => Buffer.from(Empty.toBinary(value)),
         requestSerialize: value => Buffer.from(Empty.toBinary(value))
+    },
+    listTestRuns: {
+        path: "/enose.service.TestService/ListTestRuns",
+        originalName: "ListTestRuns",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => ListTestRunsResponse.fromBinary(bytes),
+        requestDeserialize: bytes => ListTestRunsRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(ListTestRunsResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(ListTestRunsRequest.toBinary(value))
+    },
+    getTestRun: {
+        path: "/enose.service.TestService/GetTestRun",
+        originalName: "GetTestRun",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => TestRunDetail.fromBinary(bytes),
+        requestDeserialize: bytes => GetTestRunRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(TestRunDetail.toBinary(value)),
+        requestSerialize: value => Buffer.from(GetTestRunRequest.toBinary(value))
+    },
+    getTestRunResults: {
+        path: "/enose.service.TestService/GetTestRunResults",
+        originalName: "GetTestRunResults",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => TestResultsResponse.fromBinary(bytes),
+        requestDeserialize: bytes => GetTestRunRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(TestResultsResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(GetTestRunRequest.toBinary(value))
+    },
+    getWeightSamples: {
+        path: "/enose.service.TestService/GetWeightSamples",
+        originalName: "GetWeightSamples",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => WeightSamplesResponse.fromBinary(bytes),
+        requestDeserialize: bytes => GetWeightSamplesRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(WeightSamplesResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(GetWeightSamplesRequest.toBinary(value))
     }
 };

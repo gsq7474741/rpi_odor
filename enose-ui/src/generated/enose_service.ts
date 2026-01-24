@@ -809,7 +809,10 @@ export interface TestStatusResponse {
     dynamicEmptyWeight: number; // 当前动态空瓶值    /**
      * @generated from protobuf field: bool has_dynamic_empty_weight = 12
      */
-    hasDynamicEmptyWeight: boolean; // 是否有动态空瓶值}
+    hasDynamicEmptyWeight: boolean; // 是否有动态空瓶值    /**
+     * @generated from protobuf field: int32 run_id = 13
+     */
+    runId: number; // 数据库 run_id (0 表示无持久化)}
 /**
  * 单次测试结果
  *
@@ -895,6 +898,194 @@ export interface TestResultsResponse {
      */
     totalCount: number;
 }
+// ============================================================// 历史数据查询消息定义// ============================================================
+
+/**
+ * 列出测试运行请求
+ *
+ * @generated from protobuf message enose.service.ListTestRunsRequest
+ */
+export interface ListTestRunsRequest {
+    /**
+     * @generated from protobuf field: int32 limit = 1
+     */
+    limit: number; // 最大返回数量 (默认50)    /**
+     * @generated from protobuf field: int32 offset = 2
+     */
+    offset: number; // 偏移量 (分页)    /**
+     * @generated from protobuf field: string state_filter = 3
+     */
+    stateFilter: string; // 状态过滤 (running/completed/error/aborted)}
+/**
+ * 列出测试运行响应
+ *
+ * @generated from protobuf message enose.service.ListTestRunsResponse
+ */
+export interface ListTestRunsResponse {
+    /**
+     * @generated from protobuf field: repeated enose.service.TestRunSummary runs = 1
+     */
+    runs: TestRunSummary[];
+    /**
+     * @generated from protobuf field: int32 total_count = 2
+     */
+    totalCount: number;
+}
+/**
+ * 测试运行摘要
+ *
+ * @generated from protobuf message enose.service.TestRunSummary
+ */
+export interface TestRunSummary {
+    /**
+     * @generated from protobuf field: int32 run_id = 1
+     */
+    runId: number;
+    /**
+     * @generated from protobuf field: google.protobuf.Timestamp created_at = 2
+     */
+    createdAt?: Timestamp;
+    /**
+     * @generated from protobuf field: google.protobuf.Timestamp completed_at = 3
+     */
+    completedAt?: Timestamp;
+    /**
+     * @generated from protobuf field: string state = 4
+     */
+    state: string; // running/completed/error/aborted    /**
+     * @generated from protobuf field: int32 current_step = 5
+     */
+    currentStep: number;
+    /**
+     * @generated from protobuf field: int32 total_steps = 6
+     */
+    totalSteps: number;
+    /**
+     * @generated from protobuf field: string error_message = 7
+     */
+    errorMessage: string;
+}
+/**
+ * 获取测试运行请求
+ *
+ * @generated from protobuf message enose.service.GetTestRunRequest
+ */
+export interface GetTestRunRequest {
+    /**
+     * @generated from protobuf field: int32 run_id = 1
+     */
+    runId: number;
+}
+/**
+ * 测试运行详情
+ *
+ * @generated from protobuf message enose.service.TestRunDetail
+ */
+export interface TestRunDetail {
+    /**
+     * @generated from protobuf field: int32 run_id = 1
+     */
+    runId: number;
+    /**
+     * @generated from protobuf field: google.protobuf.Timestamp created_at = 2
+     */
+    createdAt?: Timestamp;
+    /**
+     * @generated from protobuf field: google.protobuf.Timestamp completed_at = 3
+     */
+    completedAt?: Timestamp;
+    /**
+     * @generated from protobuf field: string state = 4
+     */
+    state: string;
+    /**
+     * @generated from protobuf field: string config_json = 5
+     */
+    configJson: string; // 测试配置 JSON    /**
+     * @generated from protobuf field: int32 current_step = 6
+     */
+    currentStep: number;
+    /**
+     * @generated from protobuf field: int32 total_steps = 7
+     */
+    totalSteps: number;
+    /**
+     * @generated from protobuf field: string error_message = 8
+     */
+    errorMessage: string;
+    /**
+     * @generated from protobuf field: repeated enose.service.TestResult results = 9
+     */
+    results: TestResult[]; // 测试结果列表}
+/**
+ * 获取称重样本请求
+ *
+ * @generated from protobuf message enose.service.GetWeightSamplesRequest
+ */
+export interface GetWeightSamplesRequest {
+    /**
+     * @generated from protobuf field: int32 run_id = 1
+     */
+    runId: number; // 测试运行 ID    /**
+     * @generated from protobuf field: optional int32 cycle = 2
+     */
+    cycle?: number; // 可选: 指定循环号    /**
+     * @generated from protobuf field: optional google.protobuf.Timestamp start_time = 3
+     */
+    startTime?: Timestamp; // 可选: 开始时间    /**
+     * @generated from protobuf field: optional google.protobuf.Timestamp end_time = 4
+     */
+    endTime?: Timestamp; // 可选: 结束时间    /**
+     * @generated from protobuf field: int32 limit = 5
+     */
+    limit: number; // 最大返回数量 (默认10000)}
+/**
+ * 称重样本响应
+ *
+ * @generated from protobuf message enose.service.WeightSamplesResponse
+ */
+export interface WeightSamplesResponse {
+    /**
+     * @generated from protobuf field: repeated enose.service.WeightSample samples = 1
+     */
+    samples: WeightSample[];
+    /**
+     * @generated from protobuf field: int32 total_count = 2
+     */
+    totalCount: number;
+}
+/**
+ * 单个称重样本
+ *
+ * @generated from protobuf message enose.service.WeightSample
+ */
+export interface WeightSample {
+    /**
+     * @generated from protobuf field: google.protobuf.Timestamp time = 1
+     */
+    time?: Timestamp;
+    /**
+     * @generated from protobuf field: int32 run_id = 2
+     */
+    runId: number;
+    /**
+     * @generated from protobuf field: int32 cycle = 3
+     */
+    cycle: number;
+    /**
+     * @generated from protobuf field: string phase = 4
+     */
+    phase: string; // drain/wait_empty/inject/wait_stable    /**
+     * @generated from protobuf field: float weight = 5
+     */
+    weight: number; // 重量 (g)    /**
+     * @generated from protobuf field: bool is_stable = 6
+     */
+    isStable: boolean;
+    /**
+     * @generated from protobuf field: string trend = 7
+     */
+    trend: string; // stable/increasing/decreasing}
 // ============================================================// 请求/响应消息定义// ============================================================
 
 /**
@@ -3246,7 +3437,8 @@ class TestStatusResponse$Type extends MessageType<TestStatusResponse> {
             { no: 9, name: "message", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 10, name: "logs", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
             { no: 11, name: "dynamic_empty_weight", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
-            { no: 12, name: "has_dynamic_empty_weight", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
+            { no: 12, name: "has_dynamic_empty_weight", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 13, name: "run_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
         ]);
     }
     create(value?: PartialMessage<TestStatusResponse>): TestStatusResponse {
@@ -3263,6 +3455,7 @@ class TestStatusResponse$Type extends MessageType<TestStatusResponse> {
         message.logs = [];
         message.dynamicEmptyWeight = 0;
         message.hasDynamicEmptyWeight = false;
+        message.runId = 0;
         if (value !== undefined)
             reflectionMergePartial<TestStatusResponse>(this, message, value);
         return message;
@@ -3307,6 +3500,9 @@ class TestStatusResponse$Type extends MessageType<TestStatusResponse> {
                     break;
                 case /* bool has_dynamic_empty_weight */ 12:
                     message.hasDynamicEmptyWeight = reader.bool();
+                    break;
+                case /* int32 run_id */ 13:
+                    message.runId = reader.int32();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -3356,6 +3552,9 @@ class TestStatusResponse$Type extends MessageType<TestStatusResponse> {
         /* bool has_dynamic_empty_weight = 12; */
         if (message.hasDynamicEmptyWeight !== false)
             writer.tag(12, WireType.Varint).bool(message.hasDynamicEmptyWeight);
+        /* int32 run_id = 13; */
+        if (message.runId !== 0)
+            writer.tag(13, WireType.Varint).int32(message.runId);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -3603,6 +3802,598 @@ class TestResultsResponse$Type extends MessageType<TestResultsResponse> {
  * @generated MessageType for protobuf message enose.service.TestResultsResponse
  */
 export const TestResultsResponse = new TestResultsResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class ListTestRunsRequest$Type extends MessageType<ListTestRunsRequest> {
+    constructor() {
+        super("enose.service.ListTestRunsRequest", [
+            { no: 1, name: "limit", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "offset", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "state_filter", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<ListTestRunsRequest>): ListTestRunsRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.limit = 0;
+        message.offset = 0;
+        message.stateFilter = "";
+        if (value !== undefined)
+            reflectionMergePartial<ListTestRunsRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ListTestRunsRequest): ListTestRunsRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 limit */ 1:
+                    message.limit = reader.int32();
+                    break;
+                case /* int32 offset */ 2:
+                    message.offset = reader.int32();
+                    break;
+                case /* string state_filter */ 3:
+                    message.stateFilter = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: ListTestRunsRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 limit = 1; */
+        if (message.limit !== 0)
+            writer.tag(1, WireType.Varint).int32(message.limit);
+        /* int32 offset = 2; */
+        if (message.offset !== 0)
+            writer.tag(2, WireType.Varint).int32(message.offset);
+        /* string state_filter = 3; */
+        if (message.stateFilter !== "")
+            writer.tag(3, WireType.LengthDelimited).string(message.stateFilter);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.ListTestRunsRequest
+ */
+export const ListTestRunsRequest = new ListTestRunsRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class ListTestRunsResponse$Type extends MessageType<ListTestRunsResponse> {
+    constructor() {
+        super("enose.service.ListTestRunsResponse", [
+            { no: 1, name: "runs", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => TestRunSummary },
+            { no: 2, name: "total_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<ListTestRunsResponse>): ListTestRunsResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.runs = [];
+        message.totalCount = 0;
+        if (value !== undefined)
+            reflectionMergePartial<ListTestRunsResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ListTestRunsResponse): ListTestRunsResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated enose.service.TestRunSummary runs */ 1:
+                    message.runs.push(TestRunSummary.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* int32 total_count */ 2:
+                    message.totalCount = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: ListTestRunsResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated enose.service.TestRunSummary runs = 1; */
+        for (let i = 0; i < message.runs.length; i++)
+            TestRunSummary.internalBinaryWrite(message.runs[i], writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        /* int32 total_count = 2; */
+        if (message.totalCount !== 0)
+            writer.tag(2, WireType.Varint).int32(message.totalCount);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.ListTestRunsResponse
+ */
+export const ListTestRunsResponse = new ListTestRunsResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class TestRunSummary$Type extends MessageType<TestRunSummary> {
+    constructor() {
+        super("enose.service.TestRunSummary", [
+            { no: 1, name: "run_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "created_at", kind: "message", T: () => Timestamp },
+            { no: 3, name: "completed_at", kind: "message", T: () => Timestamp },
+            { no: 4, name: "state", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 5, name: "current_step", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 6, name: "total_steps", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 7, name: "error_message", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<TestRunSummary>): TestRunSummary {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.runId = 0;
+        message.state = "";
+        message.currentStep = 0;
+        message.totalSteps = 0;
+        message.errorMessage = "";
+        if (value !== undefined)
+            reflectionMergePartial<TestRunSummary>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: TestRunSummary): TestRunSummary {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 run_id */ 1:
+                    message.runId = reader.int32();
+                    break;
+                case /* google.protobuf.Timestamp created_at */ 2:
+                    message.createdAt = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.createdAt);
+                    break;
+                case /* google.protobuf.Timestamp completed_at */ 3:
+                    message.completedAt = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.completedAt);
+                    break;
+                case /* string state */ 4:
+                    message.state = reader.string();
+                    break;
+                case /* int32 current_step */ 5:
+                    message.currentStep = reader.int32();
+                    break;
+                case /* int32 total_steps */ 6:
+                    message.totalSteps = reader.int32();
+                    break;
+                case /* string error_message */ 7:
+                    message.errorMessage = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: TestRunSummary, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 run_id = 1; */
+        if (message.runId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.runId);
+        /* google.protobuf.Timestamp created_at = 2; */
+        if (message.createdAt)
+            Timestamp.internalBinaryWrite(message.createdAt, writer.tag(2, WireType.LengthDelimited).fork(), options).join();
+        /* google.protobuf.Timestamp completed_at = 3; */
+        if (message.completedAt)
+            Timestamp.internalBinaryWrite(message.completedAt, writer.tag(3, WireType.LengthDelimited).fork(), options).join();
+        /* string state = 4; */
+        if (message.state !== "")
+            writer.tag(4, WireType.LengthDelimited).string(message.state);
+        /* int32 current_step = 5; */
+        if (message.currentStep !== 0)
+            writer.tag(5, WireType.Varint).int32(message.currentStep);
+        /* int32 total_steps = 6; */
+        if (message.totalSteps !== 0)
+            writer.tag(6, WireType.Varint).int32(message.totalSteps);
+        /* string error_message = 7; */
+        if (message.errorMessage !== "")
+            writer.tag(7, WireType.LengthDelimited).string(message.errorMessage);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.TestRunSummary
+ */
+export const TestRunSummary = new TestRunSummary$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetTestRunRequest$Type extends MessageType<GetTestRunRequest> {
+    constructor() {
+        super("enose.service.GetTestRunRequest", [
+            { no: 1, name: "run_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GetTestRunRequest>): GetTestRunRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.runId = 0;
+        if (value !== undefined)
+            reflectionMergePartial<GetTestRunRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetTestRunRequest): GetTestRunRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 run_id */ 1:
+                    message.runId = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetTestRunRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 run_id = 1; */
+        if (message.runId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.runId);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.GetTestRunRequest
+ */
+export const GetTestRunRequest = new GetTestRunRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class TestRunDetail$Type extends MessageType<TestRunDetail> {
+    constructor() {
+        super("enose.service.TestRunDetail", [
+            { no: 1, name: "run_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "created_at", kind: "message", T: () => Timestamp },
+            { no: 3, name: "completed_at", kind: "message", T: () => Timestamp },
+            { no: 4, name: "state", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 5, name: "config_json", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 6, name: "current_step", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 7, name: "total_steps", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 8, name: "error_message", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 9, name: "results", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => TestResult }
+        ]);
+    }
+    create(value?: PartialMessage<TestRunDetail>): TestRunDetail {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.runId = 0;
+        message.state = "";
+        message.configJson = "";
+        message.currentStep = 0;
+        message.totalSteps = 0;
+        message.errorMessage = "";
+        message.results = [];
+        if (value !== undefined)
+            reflectionMergePartial<TestRunDetail>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: TestRunDetail): TestRunDetail {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 run_id */ 1:
+                    message.runId = reader.int32();
+                    break;
+                case /* google.protobuf.Timestamp created_at */ 2:
+                    message.createdAt = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.createdAt);
+                    break;
+                case /* google.protobuf.Timestamp completed_at */ 3:
+                    message.completedAt = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.completedAt);
+                    break;
+                case /* string state */ 4:
+                    message.state = reader.string();
+                    break;
+                case /* string config_json */ 5:
+                    message.configJson = reader.string();
+                    break;
+                case /* int32 current_step */ 6:
+                    message.currentStep = reader.int32();
+                    break;
+                case /* int32 total_steps */ 7:
+                    message.totalSteps = reader.int32();
+                    break;
+                case /* string error_message */ 8:
+                    message.errorMessage = reader.string();
+                    break;
+                case /* repeated enose.service.TestResult results */ 9:
+                    message.results.push(TestResult.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: TestRunDetail, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 run_id = 1; */
+        if (message.runId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.runId);
+        /* google.protobuf.Timestamp created_at = 2; */
+        if (message.createdAt)
+            Timestamp.internalBinaryWrite(message.createdAt, writer.tag(2, WireType.LengthDelimited).fork(), options).join();
+        /* google.protobuf.Timestamp completed_at = 3; */
+        if (message.completedAt)
+            Timestamp.internalBinaryWrite(message.completedAt, writer.tag(3, WireType.LengthDelimited).fork(), options).join();
+        /* string state = 4; */
+        if (message.state !== "")
+            writer.tag(4, WireType.LengthDelimited).string(message.state);
+        /* string config_json = 5; */
+        if (message.configJson !== "")
+            writer.tag(5, WireType.LengthDelimited).string(message.configJson);
+        /* int32 current_step = 6; */
+        if (message.currentStep !== 0)
+            writer.tag(6, WireType.Varint).int32(message.currentStep);
+        /* int32 total_steps = 7; */
+        if (message.totalSteps !== 0)
+            writer.tag(7, WireType.Varint).int32(message.totalSteps);
+        /* string error_message = 8; */
+        if (message.errorMessage !== "")
+            writer.tag(8, WireType.LengthDelimited).string(message.errorMessage);
+        /* repeated enose.service.TestResult results = 9; */
+        for (let i = 0; i < message.results.length; i++)
+            TestResult.internalBinaryWrite(message.results[i], writer.tag(9, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.TestRunDetail
+ */
+export const TestRunDetail = new TestRunDetail$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetWeightSamplesRequest$Type extends MessageType<GetWeightSamplesRequest> {
+    constructor() {
+        super("enose.service.GetWeightSamplesRequest", [
+            { no: 1, name: "run_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "cycle", kind: "scalar", opt: true, T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "start_time", kind: "message", T: () => Timestamp },
+            { no: 4, name: "end_time", kind: "message", T: () => Timestamp },
+            { no: 5, name: "limit", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GetWeightSamplesRequest>): GetWeightSamplesRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.runId = 0;
+        message.limit = 0;
+        if (value !== undefined)
+            reflectionMergePartial<GetWeightSamplesRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetWeightSamplesRequest): GetWeightSamplesRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 run_id */ 1:
+                    message.runId = reader.int32();
+                    break;
+                case /* optional int32 cycle */ 2:
+                    message.cycle = reader.int32();
+                    break;
+                case /* optional google.protobuf.Timestamp start_time */ 3:
+                    message.startTime = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.startTime);
+                    break;
+                case /* optional google.protobuf.Timestamp end_time */ 4:
+                    message.endTime = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.endTime);
+                    break;
+                case /* int32 limit */ 5:
+                    message.limit = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetWeightSamplesRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 run_id = 1; */
+        if (message.runId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.runId);
+        /* optional int32 cycle = 2; */
+        if (message.cycle !== undefined)
+            writer.tag(2, WireType.Varint).int32(message.cycle);
+        /* optional google.protobuf.Timestamp start_time = 3; */
+        if (message.startTime)
+            Timestamp.internalBinaryWrite(message.startTime, writer.tag(3, WireType.LengthDelimited).fork(), options).join();
+        /* optional google.protobuf.Timestamp end_time = 4; */
+        if (message.endTime)
+            Timestamp.internalBinaryWrite(message.endTime, writer.tag(4, WireType.LengthDelimited).fork(), options).join();
+        /* int32 limit = 5; */
+        if (message.limit !== 0)
+            writer.tag(5, WireType.Varint).int32(message.limit);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.GetWeightSamplesRequest
+ */
+export const GetWeightSamplesRequest = new GetWeightSamplesRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class WeightSamplesResponse$Type extends MessageType<WeightSamplesResponse> {
+    constructor() {
+        super("enose.service.WeightSamplesResponse", [
+            { no: 1, name: "samples", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => WeightSample },
+            { no: 2, name: "total_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<WeightSamplesResponse>): WeightSamplesResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.samples = [];
+        message.totalCount = 0;
+        if (value !== undefined)
+            reflectionMergePartial<WeightSamplesResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: WeightSamplesResponse): WeightSamplesResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated enose.service.WeightSample samples */ 1:
+                    message.samples.push(WeightSample.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* int32 total_count */ 2:
+                    message.totalCount = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: WeightSamplesResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated enose.service.WeightSample samples = 1; */
+        for (let i = 0; i < message.samples.length; i++)
+            WeightSample.internalBinaryWrite(message.samples[i], writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        /* int32 total_count = 2; */
+        if (message.totalCount !== 0)
+            writer.tag(2, WireType.Varint).int32(message.totalCount);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.WeightSamplesResponse
+ */
+export const WeightSamplesResponse = new WeightSamplesResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class WeightSample$Type extends MessageType<WeightSample> {
+    constructor() {
+        super("enose.service.WeightSample", [
+            { no: 1, name: "time", kind: "message", T: () => Timestamp },
+            { no: 2, name: "run_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "cycle", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "phase", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 5, name: "weight", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 6, name: "is_stable", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 7, name: "trend", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<WeightSample>): WeightSample {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.runId = 0;
+        message.cycle = 0;
+        message.phase = "";
+        message.weight = 0;
+        message.isStable = false;
+        message.trend = "";
+        if (value !== undefined)
+            reflectionMergePartial<WeightSample>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: WeightSample): WeightSample {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* google.protobuf.Timestamp time */ 1:
+                    message.time = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.time);
+                    break;
+                case /* int32 run_id */ 2:
+                    message.runId = reader.int32();
+                    break;
+                case /* int32 cycle */ 3:
+                    message.cycle = reader.int32();
+                    break;
+                case /* string phase */ 4:
+                    message.phase = reader.string();
+                    break;
+                case /* float weight */ 5:
+                    message.weight = reader.float();
+                    break;
+                case /* bool is_stable */ 6:
+                    message.isStable = reader.bool();
+                    break;
+                case /* string trend */ 7:
+                    message.trend = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: WeightSample, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* google.protobuf.Timestamp time = 1; */
+        if (message.time)
+            Timestamp.internalBinaryWrite(message.time, writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        /* int32 run_id = 2; */
+        if (message.runId !== 0)
+            writer.tag(2, WireType.Varint).int32(message.runId);
+        /* int32 cycle = 3; */
+        if (message.cycle !== 0)
+            writer.tag(3, WireType.Varint).int32(message.cycle);
+        /* string phase = 4; */
+        if (message.phase !== "")
+            writer.tag(4, WireType.LengthDelimited).string(message.phase);
+        /* float weight = 5; */
+        if (message.weight !== 0)
+            writer.tag(5, WireType.Bit32).float(message.weight);
+        /* bool is_stable = 6; */
+        if (message.isStable !== false)
+            writer.tag(6, WireType.Varint).bool(message.isStable);
+        /* string trend = 7; */
+        if (message.trend !== "")
+            writer.tag(7, WireType.LengthDelimited).string(message.trend);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.WeightSample
+ */
+export const WeightSample = new WeightSample$Type();
 /**
  * @generated ServiceType for protobuf service enose.service.ControlService
  */
@@ -3662,5 +4453,9 @@ export const TestService = new ServiceType("enose.service.TestService", [
     { name: "StopTest", options: {}, I: Empty, O: TestStatusResponse },
     { name: "GetTestStatus", options: {}, I: Empty, O: TestStatusResponse },
     { name: "GetTestResults", options: {}, I: Empty, O: TestResultsResponse },
-    { name: "ClearTestResults", options: {}, I: Empty, O: Empty }
+    { name: "ClearTestResults", options: {}, I: Empty, O: Empty },
+    { name: "ListTestRuns", options: {}, I: ListTestRunsRequest, O: ListTestRunsResponse },
+    { name: "GetTestRun", options: {}, I: GetTestRunRequest, O: TestRunDetail },
+    { name: "GetTestRunResults", options: {}, I: GetTestRunRequest, O: TestResultsResponse },
+    { name: "GetWeightSamples", options: {}, I: GetWeightSamplesRequest, O: WeightSamplesResponse }
 ]);
