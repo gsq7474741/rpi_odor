@@ -1,0 +1,110 @@
+services:
+  # TimescaleDB - 时序数据库
+  timescaledb:
+    image: timescale/timescaledb:latest-pg15
+    container_name: enose-timescaledb
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: enose
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-enose_secure_password}
+      POSTGRES_DB: enose
+      # TimescaleDB 调优参数 (适配树莓派 4GB 内存)
+      TIMESCALEDB_TELEMETRY: "off"
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U enose -d enose"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # 资源限制 (树莓派)
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  # Redis - 实时数据缓存和消息队列
+  redis:
+    image: redis:7-alpine
+    container_name: enose-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --appendfsync everysec
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+        reservations:
+          memory: 128M
+
+  # RedisInsight - Redis 官方 Web UI (支持 ARM64)
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: enose-redisinsight
+    restart: unless-stopped
+    ports:
+      - "5540:5540"
+    volumes:
+      - redisinsight_data:/data
+    depends_on:
+      - redis
+    profiles:
+      - dev
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+  
+  # pgAdmin - PostgreSQL Web UI (可选，开发调试用)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: enose-pgadmin
+    restart: unless-stopped
+    ports:
+      - "8082:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - timescaledb
+    profiles:
+      - dev
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+volumes:
+  timescaledb_data:
+    driver: local
+  redis_data:
+    driver: local
+  redisinsight_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  default:
+    name: enose-network
