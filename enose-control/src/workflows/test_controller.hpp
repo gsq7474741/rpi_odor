@@ -11,6 +11,10 @@
 #include <thread>
 #include <vector>
 
+namespace db {
+    class TestRunRepository;
+}
+
 namespace workflows {
 
 // 测试状态枚举
@@ -70,6 +74,7 @@ struct TestResult {
 // 测试状态信息
 struct TestStatus {
     TestState state;
+    int run_id{0};              // 数据库 run_id (0 表示无持久化)
     int current_param_set;      // 1-based
     int total_param_sets;
     int current_cycle;          // 1-based
@@ -92,6 +97,7 @@ using ResetDynamicEmptyWeightFunc = std::function<void()>;
 class TestController {
 public:
     TestController();
+    explicit TestController(std::shared_ptr<db::TestRunRepository> repository);
     ~TestController();
 
     // 设置回调函数
@@ -115,12 +121,17 @@ public:
     
     // 清除结果
     void clear_results();
+    
+    // 获取当前 run_id (用于查询过程性数据)
+    int get_current_run_id() const;
 
 private:
     void test_thread_func();
     void run_single_cycle(const ParamSet& param_set, int cycle_num);
     void add_log(const std::string& msg);
     bool wait_for_weight_stable(float timeout_sec = 30.0f);
+    void record_weight_sample(const std::string& phase);
+    std::string config_to_json() const;
 
     // 回调函数
     SetSystemStateFunc set_system_state_;
@@ -157,6 +168,10 @@ private:
     
     // 测试线程
     std::unique_ptr<std::thread> test_thread_;
+    
+    // 数据库持久化
+    std::shared_ptr<db::TestRunRepository> repository_;
+    int current_run_id_{0};
 };
 
 } // namespace workflows

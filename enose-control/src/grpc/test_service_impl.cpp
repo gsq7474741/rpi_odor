@@ -1,15 +1,21 @@
 #include "test_service_impl.hpp"
+#include "../db/test_run_repository.hpp"
 #include <spdlog/spdlog.h>
 #include <google/protobuf/timestamp.pb.h>
+#include <google/protobuf/util/time_util.h>
 
 namespace grpc_service {
 
 TestServiceImpl::TestServiceImpl(
     std::shared_ptr<workflows::SystemState> system_state,
-    std::shared_ptr<hal::LoadCellDriver> load_cell)
+    std::shared_ptr<hal::LoadCellDriver> load_cell,
+    std::shared_ptr<db::TestRunRepository> repository)
     : system_state_(std::move(system_state))
     , load_cell_(std::move(load_cell))
-    , test_controller_(std::make_unique<workflows::TestController>())
+    , repository_(std::move(repository))
+    , test_controller_(repository_ ? 
+          std::make_unique<workflows::TestController>(repository_) :
+          std::make_unique<workflows::TestController>())
 {
     // 设置回调函数
     test_controller_->set_system_state_callback(
@@ -169,6 +175,7 @@ void TestServiceImpl::fill_status_response(::enose::service::TestStatusResponse*
     auto status = test_controller_->get_status();
     
     response->set_state(convert_state(status.state));
+    response->set_run_id(status.run_id);
     response->set_current_param_set(status.current_param_set);
     response->set_total_param_sets(status.total_param_sets);
     response->set_current_cycle(status.current_cycle);
@@ -212,6 +219,180 @@ void TestServiceImpl::fill_status_response(::enose::service::TestStatusResponse*
         default:
             return ::enose::service::TEST_STATE_UNSPECIFIED;
     }
+}
+
+// === 历史数据查询实现 ===
+
+::grpc::Status TestServiceImpl::ListTestRuns(
+    ::grpc::ServerContext* context,
+    const ::enose::service::ListTestRunsRequest* request,
+    ::enose::service::ListTestRunsResponse* response)
+{
+    if (!repository_) {
+        return ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, "数据库未配置");
+    }
+    
+    int limit = request->limit() > 0 ? request->limit() : 50;
+    int offset = request->offset();
+    std::string state_filter = request->state_filter();
+    
+    auto runs = repository_->list_runs(limit, offset, state_filter);
+    
+    for (const auto& run : runs) {
+        auto* summary = response->add_runs();
+        summary->set_run_id(run.id);
+        
+        auto created_time = std::chrono::system_clock::to_time_t(run.created_at);
+        summary->mutable_created_at()->set_seconds(created_time);
+        
+        if (run.completed_at) {
+            auto completed_time = std::chrono::system_clock::to_time_t(*run.completed_at);
+            summary->mutable_completed_at()->set_seconds(completed_time);
+        }
+        
+        summary->set_state(run.state);
+        summary->set_current_step(run.current_step);
+        summary->set_total_steps(run.total_steps);
+        summary->set_error_message(run.error_message);
+    }
+    
+    response->set_total_count(static_cast<int>(runs.size()));
+    return ::grpc::Status::OK;
+}
+
+::grpc::Status TestServiceImpl::GetTestRun(
+    ::grpc::ServerContext* context,
+    const ::enose::service::GetTestRunRequest* request,
+    ::enose::service::TestRunDetail* response)
+{
+    if (!repository_) {
+        return ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, "数据库未配置");
+    }
+    
+    auto run = repository_->get_run(request->run_id());
+    if (!run) {
+        return ::grpc::Status(::grpc::StatusCode::NOT_FOUND, "测试运行记录不存在");
+    }
+    
+    response->set_run_id(run->id);
+    
+    auto created_time = std::chrono::system_clock::to_time_t(run->created_at);
+    response->mutable_created_at()->set_seconds(created_time);
+    
+    if (run->completed_at) {
+        auto completed_time = std::chrono::system_clock::to_time_t(*run->completed_at);
+        response->mutable_completed_at()->set_seconds(completed_time);
+    }
+    
+    response->set_state(run->state);
+    response->set_config_json(run->config_json);
+    response->set_current_step(run->current_step);
+    response->set_total_steps(run->total_steps);
+    response->set_error_message(run->error_message);
+    
+    // 获取结果列表
+    auto results = repository_->get_results(request->run_id());
+    for (const auto& r : results) {
+        auto* result = response->add_results();
+        result->set_param_set_id(r.param_set_id);
+        result->set_param_set_name(r.param_set_name);
+        result->set_cycle(r.cycle);
+        result->set_total_volume(r.total_volume);
+        result->set_pump2_volume(r.pump2_volume);
+        result->set_pump3_volume(r.pump3_volume);
+        result->set_pump4_volume(r.pump4_volume);
+        result->set_pump5_volume(r.pump5_volume);
+        result->set_speed(r.speed);
+        result->set_empty_weight(r.empty_weight);
+        result->set_full_weight(r.full_weight);
+        result->set_injected_weight(r.injected_weight);
+        result->set_drain_duration_ms(r.drain_duration_ms);
+        result->set_wait_empty_duration_ms(r.wait_empty_duration_ms);
+        result->set_inject_duration_ms(r.inject_duration_ms);
+        result->set_wait_stable_duration_ms(r.wait_stable_duration_ms);
+        result->set_total_duration_ms(r.total_duration_ms);
+        
+        auto time_t = std::chrono::system_clock::to_time_t(r.time);
+        result->mutable_timestamp()->set_seconds(time_t);
+    }
+    
+    return ::grpc::Status::OK;
+}
+
+::grpc::Status TestServiceImpl::GetTestRunResults(
+    ::grpc::ServerContext* context,
+    const ::enose::service::GetTestRunRequest* request,
+    ::enose::service::TestResultsResponse* response)
+{
+    if (!repository_) {
+        return ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, "数据库未配置");
+    }
+    
+    auto results = repository_->get_results(request->run_id());
+    
+    for (const auto& r : results) {
+        auto* result = response->add_results();
+        result->set_param_set_id(r.param_set_id);
+        result->set_param_set_name(r.param_set_name);
+        result->set_cycle(r.cycle);
+        result->set_total_volume(r.total_volume);
+        result->set_pump2_volume(r.pump2_volume);
+        result->set_pump3_volume(r.pump3_volume);
+        result->set_pump4_volume(r.pump4_volume);
+        result->set_pump5_volume(r.pump5_volume);
+        result->set_speed(r.speed);
+        result->set_empty_weight(r.empty_weight);
+        result->set_full_weight(r.full_weight);
+        result->set_injected_weight(r.injected_weight);
+        result->set_drain_duration_ms(r.drain_duration_ms);
+        result->set_wait_empty_duration_ms(r.wait_empty_duration_ms);
+        result->set_inject_duration_ms(r.inject_duration_ms);
+        result->set_wait_stable_duration_ms(r.wait_stable_duration_ms);
+        result->set_total_duration_ms(r.total_duration_ms);
+        
+        auto time_t = std::chrono::system_clock::to_time_t(r.time);
+        result->mutable_timestamp()->set_seconds(time_t);
+    }
+    
+    response->set_total_count(static_cast<int>(results.size()));
+    return ::grpc::Status::OK;
+}
+
+::grpc::Status TestServiceImpl::GetWeightSamples(
+    ::grpc::ServerContext* context,
+    const ::enose::service::GetWeightSamplesRequest* request,
+    ::enose::service::WeightSamplesResponse* response)
+{
+    if (!repository_) {
+        return ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, "数据库未配置");
+    }
+    
+    int run_id = request->run_id();
+    int limit = request->limit() > 0 ? request->limit() : 10000;
+    
+    std::optional<int> cycle;
+    if (request->has_cycle()) {
+        cycle = request->cycle();
+    }
+    
+    auto samples = repository_->get_weight_samples(run_id, cycle, std::nullopt, std::nullopt, limit);
+    
+    for (const auto& s : samples) {
+        auto* sample = response->add_samples();
+        
+        auto time_t = std::chrono::system_clock::to_time_t(s.time);
+        sample->mutable_time()->set_seconds(time_t);
+        
+        sample->set_run_id(s.run_id);
+        sample->set_cycle(s.cycle);
+        sample->set_phase(s.phase);
+        sample->set_weight(s.weight);
+        sample->set_is_stable(s.is_stable);
+        sample->set_trend(s.trend);
+    }
+    
+    response->set_total_count(static_cast<int>(samples.size()));
+    return ::grpc::Status::OK;
 }
 
 } // namespace grpc_service

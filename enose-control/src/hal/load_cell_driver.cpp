@@ -207,20 +207,23 @@ void LoadCellDriver::check_drain_complete() {
         if (!was_stable_) {
             stable_since_ = now;
             was_stable_ = true;
+            drain_complete_fired_ = false;  // 重新进入稳定状态时重置
         }
         
         auto stable_duration = std::chrono::duration<float>(now - stable_since_).count();
-        if (stable_duration >= config_.drain_stable_duration) {
+        if (stable_duration >= config_.drain_stable_duration && !drain_complete_fired_) {
             float weight_diff = std::abs(status_.filtered_weight - last_trend_weight_);
             if (weight_diff < config_.trend_threshold) {
                 spdlog::info("LoadCellDriver: Drain complete detected (stable for {:.1f}s)",
                              stable_duration);
                 on_drain_complete();
                 last_trend_weight_ = status_.filtered_weight;
+                drain_complete_fired_ = true;  // 标记已触发，防止重复
             }
         }
     } else {
         was_stable_ = false;
+        drain_complete_fired_ = false;  // 不稳定时重置
         last_trend_weight_ = status_.filtered_weight;
     }
 }

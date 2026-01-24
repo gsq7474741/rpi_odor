@@ -1,5 +1,7 @@
 #include "test_controller.hpp"
+#include "../db/test_run_repository.hpp"
 #include <spdlog/spdlog.h>
+#include <nlohmann/json.hpp>
 #include <chrono>
 #include <sstream>
 #include <iomanip>
@@ -7,6 +9,11 @@
 namespace workflows {
 
 TestController::TestController() = default;
+
+TestController::TestController(std::shared_ptr<db::TestRunRepository> repository)
+    : repository_(std::move(repository)) {
+    spdlog::info("TestController: Initialized with database repository");
+}
 
 TestController::~TestController() {
     stop_test();
@@ -54,6 +61,18 @@ bool TestController::start_test(const TestConfig& config) {
     message_.clear();
     logs_.clear();
     dynamic_empty_weight_.reset();
+    current_run_id_ = 0;
+    
+    // 创建数据库记录
+    if (repository_) {
+        auto run_id = repository_->create_run(config_to_json(), total);
+        if (run_id) {
+            current_run_id_ = *run_id;
+            spdlog::info("TestController: Created database run with id={}", current_run_id_);
+        } else {
+            spdlog::warn("TestController: Failed to create database run, continuing without persistence");
+        }
+    }
     
     // 启动测试线程
     if (test_thread_ && test_thread_->joinable()) {
@@ -82,6 +101,7 @@ TestStatus TestController::get_status() const {
     
     TestStatus status;
     status.state = state_;
+    status.run_id = current_run_id_;
     status.current_param_set = current_param_set_;
     status.total_param_sets = static_cast<int>(config_.param_sets.size());
     status.current_cycle = current_cycle_;
@@ -113,6 +133,47 @@ std::vector<TestResult> TestController::get_results() const {
 void TestController::clear_results() {
     std::lock_guard<std::mutex> lock(mutex_);
     results_.clear();
+}
+
+int TestController::get_current_run_id() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return current_run_id_;
+}
+
+std::string TestController::config_to_json() const {
+    nlohmann::json j;
+    j["accel"] = config_.accel;
+    j["empty_tolerance"] = config_.empty_tolerance;
+    j["drain_stability_window"] = config_.drain_stability_window;
+    
+    nlohmann::json param_sets = nlohmann::json::array();
+    for (const auto& ps : config_.param_sets) {
+        nlohmann::json p;
+        p["id"] = ps.id;
+        p["name"] = ps.name;
+        p["pump2_volume"] = ps.pump2_volume;
+        p["pump3_volume"] = ps.pump3_volume;
+        p["pump4_volume"] = ps.pump4_volume;
+        p["pump5_volume"] = ps.pump5_volume;
+        p["speed"] = ps.speed;
+        p["cycles"] = ps.cycles;
+        param_sets.push_back(p);
+    }
+    j["param_sets"] = param_sets;
+    
+    return j.dump();
+}
+
+void TestController::record_weight_sample(const std::string& phase) {
+    if (!repository_ || current_run_id_ == 0 || !get_weight_) return;
+    
+    auto [weight, is_stable] = get_weight_();
+    std::string trend = "stable";
+    
+    repository_->insert_weight_sample(
+        current_run_id_, current_cycle_, phase,
+        weight, is_stable, trend
+    );
 }
 
 void TestController::add_log(const std::string& msg) {
@@ -213,6 +274,11 @@ void TestController::test_thread_func() {
                 add_log("=== 自动测试完成！===");
                 message_ = "测试完成";
             }
+            
+            // 更新数据库状态
+            if (repository_ && current_run_id_ > 0) {
+                repository_->complete_run(current_run_id_, "completed");
+            }
         } else {
             // 停止时恢复初始状态
             if (set_system_state_) {
@@ -223,6 +289,11 @@ void TestController::test_thread_func() {
             state_ = TestState::IDLE;
             add_log("测试已停止");
             message_ = "测试已停止";
+            
+            // 更新数据库状态
+            if (repository_ && current_run_id_ > 0) {
+                repository_->complete_run(current_run_id_, "aborted");
+            }
         }
     } catch (const std::exception& e) {
         spdlog::error("TestController: Exception: {}", e.what());
@@ -235,6 +306,11 @@ void TestController::test_thread_func() {
         state_ = TestState::ERROR;
         message_ = std::string("错误: ") + e.what();
         add_log(message_);
+        
+        // 更新数据库状态
+        if (repository_ && current_run_id_ > 0) {
+            repository_->update_run_state(current_run_id_, "error", -1, e.what());
+        }
     }
     
     spdlog::info("TestController: Test thread finished");
@@ -317,6 +393,20 @@ void TestController::run_single_cycle(const ParamSet& param_set, int cycle_num) 
             param_set.pump2_volume, param_set.pump3_volume,
             param_set.pump4_volume, param_set.pump5_volume,
             param_set.speed, config_.accel);
+        
+        // 等待进样完成（根据最大泵量和速度计算预估时间 + 2秒余量）
+        float max_volume = std::max({param_set.pump2_volume, param_set.pump3_volume,
+                                     param_set.pump4_volume, param_set.pump5_volume});
+        int wait_ms = static_cast<int>(max_volume / param_set.speed * 1000) + 2000;
+        
+        add_log("等待进样完成 (" + std::to_string(wait_ms / 1000) + "s)...");
+        
+        // 分段等待，以便可以响应停止请求
+        int waited = 0;
+        while (waited < wait_ms && !stop_requested_) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            waited += 100;
+        }
     }
     
     result.inject_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -360,6 +450,12 @@ void TestController::run_single_cycle(const ParamSet& param_set, int cycle_num) 
             << " 完成: 进样量=" << std::fixed << std::setprecision(2) << result.injected_weight 
             << "g (耗时=" << result.total_duration_ms / 1000.0 << "s)";
         add_log(oss.str());
+    }
+    
+    // 写入数据库
+    if (repository_ && current_run_id_ > 0) {
+        repository_->insert_result(current_run_id_, result);
+        repository_->update_run_state(current_run_id_, "running", global_cycle_);
     }
     
     // 恢复初始状态

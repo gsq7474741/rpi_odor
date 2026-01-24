@@ -127,7 +127,8 @@ void ActuatorDriver::on_read(beast::error_code ec, std::size_t bytes_transferred
         // G-code 命令响应 (包括 query_object 回调)
         else if (j.contains("id") && j.contains("result")) {
             int id = j["id"].get<int>();
-            spdlog::debug("ActuatorDriver: RPC[{}] response: {}", id, j["result"].dump());
+            // RPC 响应日志已禁用 (高频轮询会产生大量日志)
+            // pdlog::debug("ActuatorDriver: RPC[{}] response: {}", id, j["result"].dump());
             
             // 检查是否有注册的回调
             auto it = rpc_callbacks_.find(id);

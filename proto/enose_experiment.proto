@@ -1,0 +1,568 @@
+// 电子鼻实验程序定义
+// 支持静态验证、资源预计算、安全检查
+// 使用 buf validate 进行字段约束验证
+
+syntax = "proto3";
+
+package enose.experiment;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "enose/experiment";
+
+// ============================================================
+// 实验程序 (ExperimentProgram)
+// 完整的实验流程定义，可静态验证
+// ============================================================
+message ExperimentProgram {
+  // 程序唯一标识
+  string id = 1 [(buf.validate.field).string = {
+    pattern: "^[a-z][a-z0-9_]*$",
+    min_len: 1,
+    max_len: 64
+  }];
+  
+  // 程序名称
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1,
+    max_len: 128
+  }];
+  
+  // 程序描述
+  string description = 3;
+  
+  // 版本号 (语义化版本)
+  string version = 4 [(buf.validate.field).string = {
+    pattern: "^\\d+\\.\\d+\\.\\d+$"
+  }];
+  
+  // 硬件约束声明
+  HardwareConstraints hardware = 5 [(buf.validate.field).required = true];
+  
+  // 步骤列表 (至少1步)
+  repeated Step steps = 6 [(buf.validate.field).repeated.min_items = 1];
+  
+  // 元数据
+  Metadata metadata = 10;
+}
+
+// ============================================================
+// 硬件约束 (HardwareConstraints)
+// 声明实验所需的硬件资源和限制
+// ============================================================
+message HardwareConstraints {
+  // 洗气瓶容量 (ml)
+  double bottle_capacity_ml = 1 [(buf.validate.field).double = {
+    gte: 50,
+    lte: 500
+  }];
+  
+  // 最大液位 (ml) - 防溢出安全余量
+  double max_fill_ml = 2 [(buf.validate.field).double = {
+    gt: 0,
+    lte: 500
+  }];
+  
+  // 可用液体库存
+  repeated LiquidInventory liquids = 3 [(buf.validate.field).repeated.min_items = 1];
+  
+  // 气泵最大PWM (%)
+  int32 max_gas_pump_pwm = 4 [(buf.validate.field).int32 = {
+    gte: 0,
+    lte: 100
+  }];
+  
+  // 加热器配置ID (可选)
+  string heater_profile_id = 5;
+  
+  // CEL规则: max_fill < capacity
+  option (buf.validate.message).cel = {
+    id: "fill_under_capacity"
+    message: "最大液位必须小于瓶子容量"
+    expression: "this.max_fill_ml < this.bottle_capacity_ml"
+  };
+}
+
+// 液体库存
+message LiquidInventory {
+  // 液体ID
+  string id = 1 [(buf.validate.field).string = {
+    pattern: "^[a-z][a-z0-9_]*$",
+    min_len: 1,
+    max_len: 64
+  }];
+  
+  // 液体名称
+  string name = 2;
+  
+  // 泵编号 (0=清洗泵, 2-5=样品泵)
+  int32 pump_index = 3 [(buf.validate.field).int32 = {
+    gte: 0,
+    lte: 7
+  }];
+  
+  // 可用量 (ml)
+  double available_ml = 4 [(buf.validate.field).double.gte = 0];
+  
+  // 液体类型
+  LiquidType type = 5;
+  
+  // 密度 (g/ml) - 用于体积/重量换算
+  double density_g_ml = 6 [(buf.validate.field).double = {
+    gte: 0.5,
+    lte: 2.0
+  }];
+}
+
+// 液体类型
+enum LiquidType {
+  LIQUID_TYPE_UNSPECIFIED = 0;
+  LIQUID_RINSE = 1;        // 清洗液
+  LIQUID_SAMPLE = 2;       // 样品液
+  LIQUID_CALIBRATION = 3;  // 标定液
+}
+
+// ============================================================
+// 步骤 (Step)
+// 实验的基本执行单元
+// ============================================================
+message Step {
+  // 步骤名称 (用于日志和显示)
+  string name = 1 [(buf.validate.field).string.min_len = 1];
+  
+  // 步骤动作 (必须指定一个)
+  oneof action {
+    InjectAction inject = 10;
+    WaitAction wait = 11;
+    DrainAction drain = 12;
+    AcquireAction acquire = 13;
+    SetStateAction set_state = 14;
+    SetGasPumpAction set_gas_pump = 15;
+    LoopAction loop = 16;
+    PhaseMarkerAction phase_marker = 17;
+  }
+}
+
+// ============================================================
+// 动作定义
+// ============================================================
+
+// 进样动作 - 按配方注入液体
+message InjectAction {
+  // 液体成分列表
+  repeated LiquidComponent components = 1 [(buf.validate.field).repeated.min_items = 1];
+  
+  // 目标量 (二选一)
+  oneof target {
+    double target_volume_ml = 2;   // 目标体积 (ml)
+    double target_weight_g = 3;    // 目标重量 (g)
+  }
+  
+  // 容差
+  double tolerance = 4 [(buf.validate.field).double = {
+    gt: 0,
+    lte: 10
+  }];
+  
+  // 流速 (ml/min)
+  double flow_rate_ml_min = 5 [(buf.validate.field).double = {
+    gte: 0.5,
+    lte: 20
+  }];
+  
+  // 等待稳定超时 (秒)
+  double stable_timeout_s = 6 [(buf.validate.field).double = {
+    gte: 5,
+    lte: 300
+  }];
+  
+  // CEL规则: 比例之和为1
+  option (buf.validate.message).cel = {
+    id: "ratio_sum_one"
+    message: "所有液体比例之和必须为1"
+    expression: "math.abs(this.components.map(c, c.ratio).sum() - 1.0) < 0.01"
+  };
+}
+
+// 液体成分
+message LiquidComponent {
+  // 液体ID (引用 HardwareConstraints.liquids)
+  string liquid_id = 1 [(buf.validate.field).string.min_len = 1];
+  
+  // 体积比例 (0-1)
+  double ratio = 2 [(buf.validate.field).double = {
+    gt: 0,
+    lte: 1
+  }];
+}
+
+// 等待动作
+message WaitAction {
+  // 等待条件 (必须指定一个)
+  oneof condition {
+    double duration_s = 1;              // 固定时间 (秒)
+    int32 heater_cycles = 2;            // 加热器循环次数
+    StabilityCondition stability = 3;   // 稳定性条件
+    WeightCondition weight = 4;         // 重量条件
+    EmptyBottleCondition empty = 5;     // 空瓶条件
+  }
+  
+  // 最大等待时间 (秒) - 防止无限等待
+  double timeout_s = 10 [(buf.validate.field).double = {
+    gt: 0,
+    lte: 3600
+  }];
+}
+
+// 稳定性条件
+message StabilityCondition {
+  // 稳定窗口 (秒)
+  double window_s = 1 [(buf.validate.field).double = {
+    gte: 5,
+    lte: 300
+  }];
+  
+  // 变化阈值 (%)
+  double threshold_percent = 2 [(buf.validate.field).double = {
+    gt: 0,
+    lte: 20
+  }];
+}
+
+// 重量条件
+message WeightCondition {
+  // 目标重量 (g)
+  double target_g = 1;
+  
+  // 容差 (g)
+  double tolerance_g = 2 [(buf.validate.field).double.gt = 0];
+}
+
+// 空瓶条件
+message EmptyBottleCondition {
+  // 空瓶容差 (g)
+  double tolerance_g = 1 [(buf.validate.field).double = {
+    gt: 0,
+    lte: 100
+  }];
+  
+  // 稳定窗口 (秒)
+  double stability_window_s = 2 [(buf.validate.field).double = {
+    gte: 1,
+    lte: 60
+  }];
+}
+
+// 排废动作
+message DrainAction {
+  // 气泵PWM (%)
+  int32 gas_pump_pwm = 1 [(buf.validate.field).int32 = {
+    gte: 0,
+    lte: 100
+  }];
+  
+  // 空瓶检测容差 (g)
+  double empty_tolerance_g = 2 [(buf.validate.field).double = {
+    gt: 0,
+    lte: 100
+  }];
+  
+  // 稳定窗口 (秒)
+  double stability_window_s = 3 [(buf.validate.field).double = {
+    gte: 1,
+    lte: 60
+  }];
+  
+  // 超时 (秒)
+  double timeout_s = 4 [(buf.validate.field).double = {
+    gt: 0,
+    lte: 300
+  }];
+}
+
+// 采集动作 - 传感器数据采集
+message AcquireAction {
+  // 气泵PWM (%)
+  int32 gas_pump_pwm = 1 [(buf.validate.field).int32 = {
+    gte: 0,
+    lte: 100
+  }];
+  
+  // 终止条件
+  oneof termination {
+    double duration_s = 2;              // 固定时间
+    int32 heater_cycles = 3;            // 加热器循环次数
+    StabilityCondition stability = 4;   // 稳定性条件
+  }
+  
+  // 最大时间 (秒)
+  double max_duration_s = 10 [(buf.validate.field).double = {
+    gt: 0,
+    lte: 3600
+  }];
+}
+
+// 设置系统状态
+message SetStateAction {
+  SystemState state = 1 [(buf.validate.field).enum = {
+    defined_only: true,
+    not_in: [0]
+  }];
+}
+
+// 系统状态枚举
+enum SystemState {
+  SYSTEM_STATE_UNSPECIFIED = 0;
+  STATE_INITIAL = 1;    // 初始状态
+  STATE_DRAIN = 2;      // 排废状态
+  STATE_CLEAN = 3;      // 清洗状态
+  STATE_SAMPLE = 4;     // 采样状态
+  STATE_INJECT = 5;     // 进样状态
+}
+
+// 设置气泵PWM
+message SetGasPumpAction {
+  int32 pwm_percent = 1 [(buf.validate.field).int32 = {
+    gte: 0,
+    lte: 100
+  }];
+}
+
+// 循环动作
+message LoopAction {
+  // 循环次数
+  int32 count = 1 [(buf.validate.field).int32 = {
+    gte: 1,
+    lte: 100
+  }];
+  
+  // 循环体步骤
+  repeated Step steps = 2 [(buf.validate.field).repeated.min_items = 1];
+}
+
+// 阶段标记 - 用于数据打标签
+message PhaseMarkerAction {
+  // 阶段名称
+  string phase_name = 1 [(buf.validate.field).string.min_len = 1];
+  
+  // 是否开始 (true=开始, false=结束)
+  bool is_start = 2;
+}
+
+// ============================================================
+// 元数据 (Metadata)
+// ============================================================
+message Metadata {
+  string author = 1;
+  string created_at = 2;      // ISO 8601 格式
+  string updated_at = 3;
+  repeated string tags = 4;
+  string notes = 5;
+}
+
+// ============================================================
+// 验证结果 (ValidationResult)
+// ============================================================
+message ValidationResult {
+  // 是否验证通过
+  bool valid = 1;
+  
+  // 错误列表
+  repeated ValidationError errors = 2;
+  
+  // 警告列表
+  repeated ValidationError warnings = 3;
+  
+  // 资源预估
+  ResourceEstimate estimate = 4;
+}
+
+// 验证错误
+message ValidationError {
+  // 错误路径 (e.g., "steps[2].inject")
+  string path = 1;
+  
+  // 错误代码
+  string code = 2;
+  
+  // 错误消息
+  string message = 3;
+  
+  // 严重级别
+  Severity severity = 4;
+  
+  enum Severity {
+    SEVERITY_UNSPECIFIED = 0;
+    ERROR = 1;
+    WARNING = 2;
+    INFO = 3;
+  }
+}
+
+// 资源预估
+message ResourceEstimate {
+  // 每个泵的预计消耗量 (ml)
+  map<int32, double> pump_consumption_ml = 1;
+  
+  // 预计峰值液位 (ml)
+  double peak_liquid_level_ml = 2;
+  
+  // 预计总时长 (秒)
+  double estimated_duration_s = 3;
+  
+  // 预计加热器循环数
+  int32 heater_cycles = 4;
+  
+  // 液体消耗详情
+  repeated LiquidConsumption liquid_consumption = 5;
+}
+
+// 液体消耗详情
+message LiquidConsumption {
+  string liquid_id = 1;
+  string liquid_name = 2;
+  int32 pump_index = 3;
+  double required_ml = 4;     // 需要量
+  double available_ml = 5;    // 可用量
+  bool sufficient = 6;        // 是否充足
+}
+
+// ============================================================
+// 实验服务 (ExperimentService)
+// ============================================================
+service ExperimentService {
+  // 验证实验程序 (不执行，仅检查)
+  rpc ValidateProgram(ValidateProgramRequest) returns (ValidationResult);
+  
+  // 加载实验程序 (验证 + 准备执行)
+  rpc LoadProgram(LoadProgramRequest) returns (LoadProgramResponse);
+  
+  // 启动实验
+  rpc StartExperiment(google.protobuf.Empty) returns (ExperimentStatusResponse);
+  
+  // 停止实验
+  rpc StopExperiment(google.protobuf.Empty) returns (ExperimentStatusResponse);
+  
+  // 暂停实验
+  rpc PauseExperiment(google.protobuf.Empty) returns (ExperimentStatusResponse);
+  
+  // 恢复实验
+  rpc ResumeExperiment(google.protobuf.Empty) returns (ExperimentStatusResponse);
+  
+  // 获取实验状态
+  rpc GetExperimentStatus(google.protobuf.Empty) returns (ExperimentStatusResponse);
+  
+  // 订阅实验事件流
+  rpc SubscribeExperimentEvents(google.protobuf.Empty) returns (stream ExperimentEvent);
+}
+
+// 验证请求
+message ValidateProgramRequest {
+  oneof source {
+    ExperimentProgram program = 1;  // 结构化程序
+    string yaml_content = 2;         // YAML 字符串
+  }
+}
+
+// 加载请求
+message LoadProgramRequest {
+  oneof source {
+    ExperimentProgram program = 1;  // 结构化程序
+    string yaml_content = 2;         // YAML 字符串
+  }
+}
+
+// 加载响应
+message LoadProgramResponse {
+  bool success = 1;
+  ValidationResult validation = 2;
+  string error_message = 3;
+}
+
+// 实验状态枚举
+enum ExperimentState {
+  EXPERIMENT_STATE_UNSPECIFIED = 0;
+  EXP_IDLE = 1;           // 空闲 (未加载程序)
+  EXP_LOADED = 2;         // 已加载 (待启动)
+  EXP_RUNNING = 3;        // 运行中
+  EXP_PAUSED = 4;         // 已暂停
+  EXP_COMPLETING = 5;     // 正在完成
+  EXP_COMPLETED = 6;      // 已完成
+  EXP_ERROR = 7;          // 错误
+  EXP_ABORTING = 8;       // 正在中止
+  EXP_ABORTED = 9;        // 已中止
+}
+
+// 实验状态响应
+message ExperimentStatusResponse {
+  // 实验状态
+  ExperimentState state = 1;
+  
+  // 当前程序ID
+  string program_id = 2;
+  
+  // 当前步骤索引
+  int32 current_step_index = 3;
+  
+  // 当前步骤名称
+  string current_step_name = 4;
+  
+  // 循环信息 (如果在循环中)
+  int32 loop_iteration = 5;
+  int32 loop_total = 6;
+  
+  // 进度 (0-100)
+  int32 progress_percent = 7;
+  
+  // 已运行时间 (秒)
+  double elapsed_s = 8;
+  
+  // 预计剩余时间 (秒)
+  double remaining_s = 9;
+  
+  // 状态消息
+  string message = 10;
+  
+  // 最近日志
+  repeated string logs = 11;
+  
+  // 错误信息 (如果有)
+  string error = 12;
+}
+
+// 实验事件
+message ExperimentEvent {
+  // 时间戳
+  google.protobuf.Timestamp timestamp = 1;
+  
+  // 事件类型
+  EventType type = 2;
+  
+  // 事件数据
+  string step_name = 3;
+  string phase_name = 4;
+  string message = 5;
+  
+  // 额外数据
+  map<string, string> data = 10;
+  
+  enum EventType {
+    EVENT_TYPE_UNSPECIFIED = 0;
+    PROGRAM_LOADED = 1;
+    EXPERIMENT_STARTED = 2;
+    EXPERIMENT_STOPPED = 3;
+    EXPERIMENT_PAUSED = 4;
+    EXPERIMENT_RESUMED = 5;
+    EXPERIMENT_COMPLETED = 6;
+    EXPERIMENT_ERROR = 7;
+    STEP_STARTED = 10;
+    STEP_COMPLETED = 11;
+    PHASE_STARTED = 12;
+    PHASE_ENDED = 13;
+    LOOP_ITERATION = 14;
+    WEIGHT_READING = 20;
+    SENSOR_READING = 21;
+  }
+}

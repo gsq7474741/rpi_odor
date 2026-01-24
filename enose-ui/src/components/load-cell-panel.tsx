@@ -379,10 +379,38 @@ export function LoadCellPanel() {
   });
   const [isSavingConfig, setIsSavingConfig] = useState(false);
 
-  // 加载配置
+  // 加载配置并检查是否有正在运行的任务
   useEffect(() => {
     loadConfig();
+    checkRunningTest();
   }, []);
+  
+  // 检查后端是否有正在运行的测试任务
+  const checkRunningTest = async () => {
+    try {
+      const response = await fetch('/api/test');
+      if (!response.ok) return;
+      
+      const status = await response.json();
+      
+      // 如果有正在运行的任务，恢复状态显示
+      if (status.state && status.state !== 'TEST_IDLE' && status.state !== 'TEST_COMPLETE' && status.state !== 'TEST_ERROR' && status.state !== 'TEST_STATE_UNSPECIFIED') {
+        addAutoTestLog("检测到后端有正在运行的任务，正在恢复状态...");
+        setIsPolling(true);
+        updateTestStatus(status);
+        startTestStatusPolling();
+        
+        // 同时获取已有的结果
+        await fetchTestResults();
+      } else if (status.state === 'TEST_COMPLETE') {
+        // 如果任务已完成，获取结果
+        addAutoTestLog("检测到后端有已完成的任务，正在加载结果...");
+        await fetchTestResults();
+      }
+    } catch (error) {
+      console.error("检查运行状态失败:", error);
+    }
+  };
 
   const loadConfig = async () => {
     try {
@@ -899,6 +927,7 @@ export function LoadCellPanel() {
     }
     lastLogCountRef.current = 0;
     
+    let lastResultFetchTime = 0;
     testPollingRef.current = setInterval(async () => {
       try {
         const response = await fetch('/api/test');
@@ -908,6 +937,13 @@ export function LoadCellPanel() {
         
         // 更新状态
         updateTestStatus(status);
+        
+        // 每2秒获取一次结果以更新图表（避免过多请求）
+        const now = Date.now();
+        if (now - lastResultFetchTime > 2000) {
+          await fetchTestResults();
+          lastResultFetchTime = now;
+        }
         
         // 检查是否完成
         if (status.state === 'TEST_IDLE' || status.state === 'TEST_COMPLETE' || status.state === 'TEST_ERROR') {
@@ -955,9 +991,13 @@ export function LoadCellPanel() {
       'TEST_WAITING_STABLE': 'waiting_stable',
       'TEST_COMPLETE': 'complete',
       'TEST_STOPPING': 'draining',
+      'TEST_RUNNING': 'draining',  // 通用运行状态
     };
     if (stateMap[status.state]) {
       setAutoTestStep(stateMap[status.state]);
+    } else if (status.state && status.state !== 'TEST_IDLE' && status.state !== 'TEST_ERROR' && status.state !== 'TEST_STATE_UNSPECIFIED') {
+      // 未知的运行状态，默认显示为 draining 以确保按钮变为"停止"
+      setAutoTestStep('draining');
     }
     
     // 添加新日志

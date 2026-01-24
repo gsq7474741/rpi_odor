@@ -146,6 +146,7 @@ private:
     std::chrono::steady_clock::time_point stable_since_;
     bool was_stable_ = false;
     float last_trend_weight_ = 0.0f;
+    bool drain_complete_fired_ = false;  // 防止重复触发排废完成信号
     
     boost::signals2::connection status_connection_;
     std::atomic<bool> running_{false};

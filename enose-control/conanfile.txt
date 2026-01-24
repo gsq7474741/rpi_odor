@@ -6,6 +6,7 @@ nlohmann_json/3.11.3
 grpc/1.54.3
 protobuf/3.21.12
 yaml-cpp/0.8.0
+# libpqxx 使用系统包 (apt install libpqxx-dev:arm64)
 
 [generators]
 CMakeDeps

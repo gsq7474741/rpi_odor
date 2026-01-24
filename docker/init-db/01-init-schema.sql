@@ -156,7 +156,41 @@ FROM sensor_readings
 WHERE time > NOW() - INTERVAL '1 hour'
 ORDER BY time DESC;
 
+-- ============================================================
+-- 称重过程数据表 (时序超表)
+-- 用于绘制测试过程中的称重曲线
+-- ============================================================
+CREATE TABLE IF NOT EXISTS weight_samples (
+    time        TIMESTAMPTZ NOT NULL,
+    run_id      INTEGER REFERENCES runs(id) ON DELETE CASCADE,
+    cycle       INTEGER,                    -- 当前循环号
+    phase       TEXT,                       -- 阶段: drain, wait_empty, inject, wait_stable
+    weight      REAL NOT NULL,              -- 重量 (g)
+    is_stable   BOOLEAN DEFAULT FALSE,      -- 是否稳定
+    trend       TEXT                        -- 趋势: stable, increasing, decreasing
+);
+
+SELECT create_hypertable('weight_samples', 'time',
+    chunk_time_interval => INTERVAL '1 hour',
+    if_not_exists => TRUE
+);
+
+CREATE INDEX idx_weight_samples_run_id ON weight_samples(run_id, time DESC);
+CREATE INDEX idx_weight_samples_cycle ON weight_samples(run_id, cycle);
+
+-- 压缩策略 (3天后压缩)
+ALTER TABLE weight_samples SET (
+    timescaledb.compress,
+    timescaledb.compress_segmentby = 'run_id,cycle',
+    timescaledb.compress_orderby = 'time DESC'
+);
+SELECT add_compression_policy('weight_samples', INTERVAL '3 days', if_not_exists => TRUE);
+
+-- 保留策略 (30天后删除)
+SELECT add_retention_policy('weight_samples', INTERVAL '30 days', if_not_exists => TRUE);
+
 COMMENT ON TABLE runs IS '实验运行记录';
 COMMENT ON TABLE test_results IS '进样测试结果';
 COMMENT ON TABLE sensor_readings IS '传感器原始时序数据 (16通道 float32, 10Hz)';
+COMMENT ON TABLE weight_samples IS '称重过程时序数据 (用于绘制曲线)';
 COMMENT ON TABLE system_logs IS '系统日志';

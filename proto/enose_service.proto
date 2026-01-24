@@ -448,11 +448,25 @@ service TestService {
   // 获取测试状态 (用于轮询)
   rpc GetTestStatus(google.protobuf.Empty) returns (TestStatusResponse);
   
-  // 获取测试结果
+  // 获取测试结果 (当前运行的内存结果)
   rpc GetTestResults(google.protobuf.Empty) returns (TestResultsResponse);
   
   // 清除测试结果
   rpc ClearTestResults(google.protobuf.Empty) returns (google.protobuf.Empty);
+  
+  // === 历史数据查询 (从数据库) ===
+  
+  // 获取历史测试运行列表
+  rpc ListTestRuns(ListTestRunsRequest) returns (ListTestRunsResponse);
+  
+  // 获取单个测试运行详情
+  rpc GetTestRun(GetTestRunRequest) returns (TestRunDetail);
+  
+  // 获取测试运行的结果列表
+  rpc GetTestRunResults(GetTestRunRequest) returns (TestResultsResponse);
+  
+  // 获取称重过程数据 (用于绘制曲线)
+  rpc GetWeightSamples(GetWeightSamplesRequest) returns (WeightSamplesResponse);
 }
 
 // ============================================================
@@ -506,6 +520,7 @@ message TestStatusResponse {
   repeated string logs = 10;        // 最近日志列表
   float dynamic_empty_weight = 11;  // 当前动态空瓶值
   bool has_dynamic_empty_weight = 12; // 是否有动态空瓶值
+  int32 run_id = 13;                // 数据库 run_id (0 表示无持久化)
 }
 
 // 单次测试结果
@@ -534,4 +549,76 @@ message TestResult {
 message TestResultsResponse {
   repeated TestResult results = 1;
   int32 total_count = 2;
+}
+
+// ============================================================
+// 历史数据查询消息定义
+// ============================================================
+
+// 列出测试运行请求
+message ListTestRunsRequest {
+  int32 limit = 1;                    // 最大返回数量 (默认50)
+  int32 offset = 2;                   // 偏移量 (分页)
+  string state_filter = 3;            // 状态过滤 (running/completed/error/aborted)
+}
+
+// 列出测试运行响应
+message ListTestRunsResponse {
+  repeated TestRunSummary runs = 1;
+  int32 total_count = 2;
+}
+
+// 测试运行摘要
+message TestRunSummary {
+  int32 run_id = 1;
+  google.protobuf.Timestamp created_at = 2;
+  google.protobuf.Timestamp completed_at = 3;
+  string state = 4;                   // running/completed/error/aborted
+  int32 current_step = 5;
+  int32 total_steps = 6;
+  string error_message = 7;
+}
+
+// 获取测试运行请求
+message GetTestRunRequest {
+  int32 run_id = 1;
+}
+
+// 测试运行详情
+message TestRunDetail {
+  int32 run_id = 1;
+  google.protobuf.Timestamp created_at = 2;
+  google.protobuf.Timestamp completed_at = 3;
+  string state = 4;
+  string config_json = 5;             // 测试配置 JSON
+  int32 current_step = 6;
+  int32 total_steps = 7;
+  string error_message = 8;
+  repeated TestResult results = 9;    // 测试结果列表
+}
+
+// 获取称重样本请求
+message GetWeightSamplesRequest {
+  int32 run_id = 1;                   // 测试运行 ID
+  optional int32 cycle = 2;           // 可选: 指定循环号
+  optional google.protobuf.Timestamp start_time = 3;  // 可选: 开始时间
+  optional google.protobuf.Timestamp end_time = 4;    // 可选: 结束时间
+  int32 limit = 5;                    // 最大返回数量 (默认10000)
+}
+
+// 称重样本响应
+message WeightSamplesResponse {
+  repeated WeightSample samples = 1;
+  int32 total_count = 2;
+}
+
+// 单个称重样本
+message WeightSample {
+  google.protobuf.Timestamp time = 1;
+  int32 run_id = 2;
+  int32 cycle = 3;
+  string phase = 4;                   // drain/wait_empty/inject/wait_stable
+  float weight = 5;                   // 重量 (g)
+  bool is_stable = 6;
+  string trend = 7;                   // stable/increasing/decreasing
 }

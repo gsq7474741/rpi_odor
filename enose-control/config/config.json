@@ -1,0 +1,77 @@
+{
+  "local": {
+    "timescaledb": {
+      "enabled": true,
+      "host": "localhost",
+      "port": 5432,
+      "database": "enose",
+      "user": "enose",
+      "password": "enose_secure_password",
+      "pool_size": 5,
+      "connect_timeout_sec": 10
+    },
+    "redis": {
+      "enabled": true,
+      "host": "localhost",
+      "port": 6379,
+      "password": "",
+      "database": 0,
+      "pool_size": 3
+    }
+  },
+  "cloud": {
+    "enabled": false,
+    "timescaledb": {
+      "host": "your-instance.pg.rds.aliyuncs.com",
+      "port": 5432,
+      "database": "enose",
+      "user": "enose",
+      "password": "your_cloud_password",
+      "ssl_mode": "require",
+      "pool_size": 3,
+      "connect_timeout_sec": 30
+    }
+  },
+  "lan": {
+    "enabled": false,
+    "gpu_worker": {
+      "host": "192.168.1.100",
+      "port": 8000,
+      "api_path": "/api/inference"
+    },
+    "timescaledb": {
+      "host": "192.168.1.100",
+      "port": 5432,
+      "database": "enose",
+      "user": "enose",
+      "password": "your_lan_password"
+    }
+  },
+  "grpc": {
+    "host": "0.0.0.0",
+    "port": 50051
+  },
+  "sensor": {
+    "serial_port": "/dev/ttyUSB0",
+    "baud_rate": 115200,
+    "channels": 16,
+    "sample_rate_hz": 10
+  },
+  "actuator": {
+    "moonraker_host": "127.0.0.1",
+    "moonraker_port": 7125
+  },
+  "data_pipeline": {
+    "buffer_size": 1000,
+    "batch_write_interval_ms": 100,
+    "redis_stream_name": "sensor_data",
+    "redis_stream_max_len": 10000,
+    "dual_write_enabled": false
+  },
+  "logging": {
+    "level": "info",
+    "file": "/var/log/enose-control/enose.log",
+    "max_size_mb": 100,
+    "max_files": 5
+  }
+}

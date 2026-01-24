@@ -4,14 +4,20 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <iostream>
 #include <thread>
+#include "core/config.hpp"
 #include "hal/sensor_driver.hpp"
 #include "hal/actuator_driver.hpp"
 #include "hal/load_cell_driver.hpp"
 #include "workflows/system_state.hpp"
 #include "grpc/grpc_server.hpp"
+#include "db/connection_pool.hpp"
+#include "db/test_run_repository.hpp"
 
 // Global io_context to allow signal handling
 boost::asio::io_context io_context;
+
+// 默认配置文件路径
+const std::string DEFAULT_CONFIG_PATH = "/home/user/rpi_odor/enose-control/config/config.json";
 
 int main(int argc, char* argv[]) {
     try {
@@ -21,17 +27,54 @@ int main(int argc, char* argv[]) {
         spdlog::set_level(spdlog::level::debug);
         spdlog::info("Starting Enose Control Service...");
 
-        // Configuration (Hardcoded for now, should load from config)
-        std::string sensor_port = "/dev/ttyUSB0"; 
-        unsigned int sensor_baud = 115200;
-        std::string moonraker_host = "127.0.0.1";
-        std::string moonraker_port = "7125";
-        std::string grpc_address = "0.0.0.0:50051";
+        // 加载配置文件
+        std::string config_path = DEFAULT_CONFIG_PATH;
+        if (argc > 1) {
+            config_path = argv[1];
+        }
+        
+        auto& config = core::Config::instance();
+        if (!config.load(config_path)) {
+            spdlog::warn("Failed to load config from {}, using defaults", config_path);
+        }
+        
+        // 从配置获取参数
+        std::string sensor_port = config.sensor.serial_port;
+        unsigned int sensor_baud = config.sensor.baud_rate;
+        std::string moonraker_host = config.actuator.moonraker_host;
+        std::string moonraker_port = std::to_string(config.actuator.moonraker_port);
+        std::string grpc_address = config.grpc.address();
+        
+        // 设置日志级别
+        if (config.logging.level == "debug") {
+            spdlog::set_level(spdlog::level::debug);
+        } else if (config.logging.level == "info") {
+            spdlog::set_level(spdlog::level::info);
+        } else if (config.logging.level == "warn") {
+            spdlog::set_level(spdlog::level::warn);
+        } else if (config.logging.level == "error") {
+            spdlog::set_level(spdlog::level::err);
+        }
+        
+        spdlog::info("Config loaded: gRPC={}, sensor={}, actuator={}:{}", 
+                     grpc_address, sensor_port, moonraker_host, moonraker_port);
 
-        // Parse command line arguments
-        if (argc > 1) sensor_port = argv[1];
-        if (argc > 2) moonraker_host = argv[2];
-        if (argc > 3) grpc_address = argv[3];
+        // 初始化数据库连接池
+        std::shared_ptr<db::TestRunRepository> repository;
+        if (config.local.timescaledb.enabled) {
+            std::string conn_str = config.local.timescaledb.connection_string();
+            spdlog::info("Initializing database connection pool: host={}, db={}",
+                         config.local.timescaledb.host, config.local.timescaledb.database);
+            
+            if (db::ConnectionPool::instance().initialize(conn_str, config.local.timescaledb.pool_size)) {
+                repository = std::make_shared<db::TestRunRepository>();
+                spdlog::info("Database connection pool initialized successfully");
+            } else {
+                spdlog::warn("Failed to initialize database connection pool, test persistence disabled");
+            }
+        } else {
+            spdlog::info("Database not enabled in config, test persistence disabled");
+        }
 
         // Drivers
         auto sensor_driver = std::make_shared<hal::SensorDriver>(io_context);
@@ -49,7 +92,7 @@ int main(int argc, char* argv[]) {
         auto system_state = std::make_shared<workflows::SystemState>(actuator_driver);
 
         // gRPC Server (包含传感器服务和称重服务)
-        enose_grpc::GrpcServer grpc_srv(actuator_driver, system_state, sensor_driver, load_cell_driver);
+        enose_grpc::GrpcServer grpc_srv(actuator_driver, system_state, sensor_driver, load_cell_driver, repository);
         grpc_srv.start(grpc_address);
 
         // Sensor Signals (调试用)
@@ -80,6 +123,7 @@ int main(int argc, char* argv[]) {
             spdlog::info("Shutting down...");
             grpc_srv.stop();
             sensor_driver->stop();
+            db::ConnectionPool::instance().shutdown();
             io_context.stop();
         });
 
