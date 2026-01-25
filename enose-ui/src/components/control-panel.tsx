@@ -40,10 +40,14 @@ const initialStatus: SystemStatus = {
     valve_outlet: 0,
     air_pump_pwm: 0,
     cleaning_pump: 0,
+    pump_0: "STOPPED",
+    pump_1: "STOPPED",
     pump_2: "STOPPED",
     pump_3: "STOPPED",
     pump_4: "STOPPED",
     pump_5: "STOPPED",
+    pump_6: "STOPPED",
+    pump_7: "STOPPED",
     heater_chamber: 0,
     sensor_chamber_temp: undefined,
     scale_weight: undefined,
@@ -128,7 +132,7 @@ export function ControlPanel() {
   };
 
   const [injectionParams, setInjectionParams] = useState({
-    pump2: 0, pump3: 0, pump4: 0, pump5: 0, speed: 10, accel: 100
+    pump0: 0, pump1: 0, pump2: 0, pump3: 0, pump4: 0, pump5: 0, pump6: 0, pump7: 0, speed: 10, accel: 100
   });
   const [injecting, setInjecting] = useState(false);
   const [injectionUnit, setInjectionUnit] = useState<'mm' | 'g'>('mm');
@@ -261,19 +265,35 @@ export function ControlPanel() {
           <div className="grid grid-cols-4 gap-2">
             <div>
               <Label className="text-xs">泵0 ({injectionUnit})</Label>
-              <Input className="h-8" type="number" value={injectionParams.pump2} onChange={e => setInjectionParams(p => ({...p, pump2: Number(e.target.value)}))} />
+              <Input className="h-8" type="number" value={injectionParams.pump0} onChange={e => setInjectionParams(p => ({...p, pump0: Number(e.target.value)}))} />
             </div>
             <div>
               <Label className="text-xs">泵1 ({injectionUnit})</Label>
-              <Input className="h-8" type="number" value={injectionParams.pump3} onChange={e => setInjectionParams(p => ({...p, pump3: Number(e.target.value)}))} />
+              <Input className="h-8" type="number" value={injectionParams.pump1} onChange={e => setInjectionParams(p => ({...p, pump1: Number(e.target.value)}))} />
             </div>
             <div>
               <Label className="text-xs">泵2 ({injectionUnit})</Label>
-              <Input className="h-8" type="number" value={injectionParams.pump4} onChange={e => setInjectionParams(p => ({...p, pump4: Number(e.target.value)}))} />
+              <Input className="h-8" type="number" value={injectionParams.pump2} onChange={e => setInjectionParams(p => ({...p, pump2: Number(e.target.value)}))} />
             </div>
             <div>
               <Label className="text-xs">泵3 ({injectionUnit})</Label>
+              <Input className="h-8" type="number" value={injectionParams.pump3} onChange={e => setInjectionParams(p => ({...p, pump3: Number(e.target.value)}))} />
+            </div>
+            <div>
+              <Label className="text-xs">泵4 ({injectionUnit})</Label>
+              <Input className="h-8" type="number" value={injectionParams.pump4} onChange={e => setInjectionParams(p => ({...p, pump4: Number(e.target.value)}))} />
+            </div>
+            <div>
+              <Label className="text-xs">泵5 ({injectionUnit})</Label>
               <Input className="h-8" type="number" value={injectionParams.pump5} onChange={e => setInjectionParams(p => ({...p, pump5: Number(e.target.value)}))} />
+            </div>
+            <div>
+              <Label className="text-xs">泵6 ({injectionUnit})</Label>
+              <Input className="h-8" type="number" value={injectionParams.pump6} onChange={e => setInjectionParams(p => ({...p, pump6: Number(e.target.value)}))} />
+            </div>
+            <div>
+              <Label className="text-xs">泵7 ({injectionUnit})</Label>
+              <Input className="h-8" type="number" value={injectionParams.pump7} onChange={e => setInjectionParams(p => ({...p, pump7: Number(e.target.value)}))} />
             </div>
           </div>
           <div className="grid grid-cols-4 gap-2">
@@ -301,10 +321,14 @@ export function ControlPanel() {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
+                          pump0Volume: injectionParams.pump0,
+                          pump1Volume: injectionParams.pump1,
                           pump2Volume: injectionParams.pump2,
                           pump3Volume: injectionParams.pump3,
                           pump4Volume: injectionParams.pump4,
                           pump5Volume: injectionParams.pump5,
+                          pump6Volume: injectionParams.pump6,
+                          pump7Volume: injectionParams.pump7,
                           speed: injectionParams.speed,
                           accel: injectionParams.accel,
                         })
@@ -314,10 +338,14 @@ export function ControlPanel() {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
+                          pump0Weight: injectionParams.pump0,
+                          pump1Weight: injectionParams.pump1,
                           pump2Weight: injectionParams.pump2,
                           pump3Weight: injectionParams.pump3,
                           pump4Weight: injectionParams.pump4,
                           pump5Weight: injectionParams.pump5,
+                          pump6Weight: injectionParams.pump6,
+                          pump7Weight: injectionParams.pump7,
                           speed: injectionParams.speed,
                           accel: injectionParams.accel,
                         })
@@ -479,7 +507,7 @@ export function ControlPanel() {
               样品泵
             </h4>
             <div className="space-y-2">
-              {(["pump_2", "pump_3", "pump_4", "pump_5"] as const).map(
+              {(["pump_0", "pump_1", "pump_2", "pump_3", "pump_4", "pump_5", "pump_6", "pump_7"] as const).map(
                 (pump, idx) => (
                   <div key={pump} className="flex items-center justify-between text-sm">
                     <span>泵 {idx}</span>

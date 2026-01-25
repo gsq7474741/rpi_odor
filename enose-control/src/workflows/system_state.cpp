@@ -19,10 +19,14 @@ const PeripheralState SystemState::STATE_DEFINITIONS[] = {
         // 泵
         .air_pump_pwm = 0.0f,   // 停止
         .cleaning_pump = 0.0f,  // 停止
+        .pump_0 = PumpState::STOPPED,
+        .pump_1 = PumpState::STOPPED,
         .pump_2 = PumpState::STOPPED,
         .pump_3 = PumpState::STOPPED,
         .pump_4 = PumpState::STOPPED,
         .pump_5 = PumpState::STOPPED,
+        .pump_6 = PumpState::STOPPED,
+        .pump_7 = PumpState::STOPPED,
         // 加热器
         .heater_chamber = 0.0f, // 关闭
     },
@@ -36,10 +40,14 @@ const PeripheralState SystemState::STATE_DEFINITIONS[] = {
         // 泵
         .air_pump_pwm = 1.0f,   // 100%
         .cleaning_pump = 0.0f,  // 停止
+        .pump_0 = PumpState::STOPPED,
+        .pump_1 = PumpState::STOPPED,
         .pump_2 = PumpState::STOPPED,
         .pump_3 = PumpState::STOPPED,
         .pump_4 = PumpState::STOPPED,
         .pump_5 = PumpState::STOPPED,
+        .pump_6 = PumpState::STOPPED,
+        .pump_7 = PumpState::STOPPED,
         // 加热器
         .heater_chamber = 0.0f, // 保持 (排废时不改变加热状态)
     },
@@ -53,10 +61,14 @@ const PeripheralState SystemState::STATE_DEFINITIONS[] = {
         // 泵
         .air_pump_pwm = 0.0f,   // 停止
         .cleaning_pump = 1.0f,  // 100%
+        .pump_0 = PumpState::STOPPED,
+        .pump_1 = PumpState::STOPPED,
         .pump_2 = PumpState::STOPPED,
         .pump_3 = PumpState::STOPPED,
         .pump_4 = PumpState::STOPPED,
         .pump_5 = PumpState::STOPPED,
+        .pump_6 = PumpState::STOPPED,
+        .pump_7 = PumpState::STOPPED,
         // 加热器
         .heater_chamber = 0.0f, // 关闭
     },
@@ -70,10 +82,14 @@ const PeripheralState SystemState::STATE_DEFINITIONS[] = {
         // 泵
         .air_pump_pwm = 1.0f,   // 100%
         .cleaning_pump = 0.0f,  // 停止
+        .pump_0 = PumpState::STOPPED,
+        .pump_1 = PumpState::STOPPED,
         .pump_2 = PumpState::STOPPED,
         .pump_3 = PumpState::STOPPED,
         .pump_4 = PumpState::STOPPED,
         .pump_5 = PumpState::STOPPED,
+        .pump_6 = PumpState::STOPPED,
+        .pump_7 = PumpState::STOPPED,
         // 加热器
         .heater_chamber = 0.0f, // 保持
     },
@@ -87,10 +103,14 @@ const PeripheralState SystemState::STATE_DEFINITIONS[] = {
         // 泵: 不使用清洗泵, 使用蠕动泵 (由 start_inject 单独控制)
         .air_pump_pwm = 0.0f,   // 停止
         .cleaning_pump = 0.0f,  // 停止
-        .pump_2 = PumpState::STOPPED,  // 由 start_inject 控制
+        .pump_0 = PumpState::STOPPED,  // 由 start_inject 控制
+        .pump_1 = PumpState::STOPPED,
+        .pump_2 = PumpState::STOPPED,
         .pump_3 = PumpState::STOPPED,
         .pump_4 = PumpState::STOPPED,
         .pump_5 = PumpState::STOPPED,
+        .pump_6 = PumpState::STOPPED,
+        .pump_7 = PumpState::STOPPED,
         // 加热器
         .heater_chamber = 0.0f, // 关闭
     },
@@ -126,34 +146,38 @@ void SystemState::start_inject(const InjectionParams& params) {
     
     // 2. 使用单条 G1 命令同时驱动所有泵
     // 速度转换: params.speed (mm/s) -> F (mm/min) = speed * 60
+    // 轴映射: A=pump_0, B=pump_1, C=pump_2, D=pump_3, H=pump_4, I=pump_5, J=pump_6, K=pump_7
+    // 注意: 跳过E(挤出机专用)/F(feedrate)/G(G-code前缀)
     float feedrate = params.speed * 60.0f;
     
-    std::string g1_cmd = std::format("G1 A{:.3f} B{:.3f} C{:.3f} D{:.3f} F{:.1f}",
-        params.pump_2_volume,  // A = pump_2
-        params.pump_3_volume,  // B = pump_3
-        params.pump_4_volume,  // C = pump_4
-        params.pump_5_volume,  // D = pump_5
+    std::string g1_cmd = std::format("G1 A{:.3f} B{:.3f} C{:.3f} D{:.3f} H{:.3f} I{:.3f} J{:.3f} K{:.3f} F{:.1f}",
+        params.pump_0_volume,  // A = pump_0
+        params.pump_1_volume,  // B = pump_1
+        params.pump_2_volume,  // C = pump_2
+        params.pump_3_volume,  // D = pump_3
+        params.pump_4_volume,  // H = pump_4
+        params.pump_5_volume,  // I = pump_5
+        params.pump_6_volume,  // J = pump_6
+        params.pump_7_volume,  // K = pump_7
         feedrate);
     
     actuator_->send_gcode(g1_cmd);
     
     // 更新泵状态
-    if (params.pump_2_volume > 0) {
-        current_peripheral_state_.pump_2 = PumpState::RUNNING;
-    }
-    if (params.pump_3_volume > 0) {
-        current_peripheral_state_.pump_3 = PumpState::RUNNING;
-    }
-    if (params.pump_4_volume > 0) {
-        current_peripheral_state_.pump_4 = PumpState::RUNNING;
-    }
-    if (params.pump_5_volume > 0) {
-        current_peripheral_state_.pump_5 = PumpState::RUNNING;
-    }
+    if (params.pump_0_volume > 0) current_peripheral_state_.pump_0 = PumpState::RUNNING;
+    if (params.pump_1_volume > 0) current_peripheral_state_.pump_1 = PumpState::RUNNING;
+    if (params.pump_2_volume > 0) current_peripheral_state_.pump_2 = PumpState::RUNNING;
+    if (params.pump_3_volume > 0) current_peripheral_state_.pump_3 = PumpState::RUNNING;
+    if (params.pump_4_volume > 0) current_peripheral_state_.pump_4 = PumpState::RUNNING;
+    if (params.pump_5_volume > 0) current_peripheral_state_.pump_5 = PumpState::RUNNING;
+    if (params.pump_6_volume > 0) current_peripheral_state_.pump_6 = PumpState::RUNNING;
+    if (params.pump_7_volume > 0) current_peripheral_state_.pump_7 = PumpState::RUNNING;
     
-    spdlog::info("SystemState: Parallel inject G1 A{:.3f} B{:.3f} C{:.3f} D{:.3f} F{:.1f}",
+    spdlog::info("SystemState: Parallel inject G1 A{:.3f} B{:.3f} C{:.3f} D{:.3f} H{:.3f} I{:.3f} J{:.3f} K{:.3f} F{:.1f}",
+        params.pump_0_volume, params.pump_1_volume,
         params.pump_2_volume, params.pump_3_volume, 
-        params.pump_4_volume, params.pump_5_volume, feedrate);
+        params.pump_4_volume, params.pump_5_volume,
+        params.pump_6_volume, params.pump_7_volume, feedrate);
 }
 
 void SystemState::stop_inject() {
@@ -168,19 +192,27 @@ void SystemState::stop_inject() {
     
     spdlog::info("SystemState: ENOSE_ASYNC_STOP sent, pumps will stop in ~1s");
     
+    current_peripheral_state_.pump_0 = PumpState::STOPPED;
+    current_peripheral_state_.pump_1 = PumpState::STOPPED;
     current_peripheral_state_.pump_2 = PumpState::STOPPED;
     current_peripheral_state_.pump_3 = PumpState::STOPPED;
     current_peripheral_state_.pump_4 = PumpState::STOPPED;
     current_peripheral_state_.pump_5 = PumpState::STOPPED;
+    current_peripheral_state_.pump_6 = PumpState::STOPPED;
+    current_peripheral_state_.pump_7 = PumpState::STOPPED;
     
     transition_to(State::INITIAL);
 }
 
 bool SystemState::is_any_pump_running() const {
-    return current_peripheral_state_.pump_2 == PumpState::RUNNING ||
+    return current_peripheral_state_.pump_0 == PumpState::RUNNING ||
+           current_peripheral_state_.pump_1 == PumpState::RUNNING ||
+           current_peripheral_state_.pump_2 == PumpState::RUNNING ||
            current_peripheral_state_.pump_3 == PumpState::RUNNING ||
            current_peripheral_state_.pump_4 == PumpState::RUNNING ||
-           current_peripheral_state_.pump_5 == PumpState::RUNNING;
+           current_peripheral_state_.pump_5 == PumpState::RUNNING ||
+           current_peripheral_state_.pump_6 == PumpState::RUNNING ||
+           current_peripheral_state_.pump_7 == PumpState::RUNNING;
 }
 
 void SystemState::transition_to(State target_state) {
@@ -195,10 +227,14 @@ void SystemState::transition_to(State target_state) {
         // 发送异步停止命令
         actuator_->send_gcode("ENOSE_ASYNC_STOP");
         // 更新泵状态
+        current_peripheral_state_.pump_0 = PumpState::STOPPED;
+        current_peripheral_state_.pump_1 = PumpState::STOPPED;
         current_peripheral_state_.pump_2 = PumpState::STOPPED;
         current_peripheral_state_.pump_3 = PumpState::STOPPED;
         current_peripheral_state_.pump_4 = PumpState::STOPPED;
         current_peripheral_state_.pump_5 = PumpState::STOPPED;
+        current_peripheral_state_.pump_6 = PumpState::STOPPED;
+        current_peripheral_state_.pump_7 = PumpState::STOPPED;
     }
 
     State old_state = current_state_;
@@ -266,6 +302,12 @@ void SystemState::apply_peripheral_state(const PeripheralState& state) {
     }
     
     // 步进泵控制 (只处理停止命令，运行需要单独调用)
+    if (state.pump_0 == PumpState::STOPPED && current_peripheral_state_.pump_0 == PumpState::RUNNING) {
+        actuator_->send_gcode("MANUAL_STEPPER STEPPER=pump_0 ENABLE=0");
+    }
+    if (state.pump_1 == PumpState::STOPPED && current_peripheral_state_.pump_1 == PumpState::RUNNING) {
+        actuator_->send_gcode("MANUAL_STEPPER STEPPER=pump_1 ENABLE=0");
+    }
     if (state.pump_2 == PumpState::STOPPED && current_peripheral_state_.pump_2 == PumpState::RUNNING) {
         actuator_->send_gcode("MANUAL_STEPPER STEPPER=pump_2 ENABLE=0");
     }
@@ -277,6 +319,12 @@ void SystemState::apply_peripheral_state(const PeripheralState& state) {
     }
     if (state.pump_5 == PumpState::STOPPED && current_peripheral_state_.pump_5 == PumpState::RUNNING) {
         actuator_->send_gcode("MANUAL_STEPPER STEPPER=pump_5 ENABLE=0");
+    }
+    if (state.pump_6 == PumpState::STOPPED && current_peripheral_state_.pump_6 == PumpState::RUNNING) {
+        actuator_->send_gcode("MANUAL_STEPPER STEPPER=pump_6 ENABLE=0");
+    }
+    if (state.pump_7 == PumpState::STOPPED && current_peripheral_state_.pump_7 == PumpState::RUNNING) {
+        actuator_->send_gcode("MANUAL_STEPPER STEPPER=pump_7 ENABLE=0");
     }
     
     // 加热器控制 (通过 Klipper heater_generic)

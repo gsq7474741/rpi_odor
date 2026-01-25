@@ -232,15 +232,21 @@ ControlServiceImpl::ControlServiceImpl(
 ) {
     (void)context;
     
-    spdlog::info("gRPC: StartInjection - pump2={:.3f}, pump3={:.3f}, pump4={:.3f}, pump5={:.3f}",
+    spdlog::info("gRPC: StartInjection - pump0={:.3f}, pump1={:.3f}, pump2={:.3f}, pump3={:.3f}, pump4={:.3f}, pump5={:.3f}, pump6={:.3f}, pump7={:.3f}",
+                 request->pump_0_volume(), request->pump_1_volume(),
                  request->pump_2_volume(), request->pump_3_volume(),
-                 request->pump_4_volume(), request->pump_5_volume());
+                 request->pump_4_volume(), request->pump_5_volume(),
+                 request->pump_6_volume(), request->pump_7_volume());
     
     workflows::SystemState::InjectionParams params;
+    params.pump_0_volume = request->pump_0_volume();
+    params.pump_1_volume = request->pump_1_volume();
     params.pump_2_volume = request->pump_2_volume();
     params.pump_3_volume = request->pump_3_volume();
     params.pump_4_volume = request->pump_4_volume();
     params.pump_5_volume = request->pump_5_volume();
+    params.pump_6_volume = request->pump_6_volume();
+    params.pump_7_volume = request->pump_7_volume();
     
     // 使用可选参数的默认值
     if (request->has_speed()) {
@@ -286,6 +292,12 @@ void ControlServiceImpl::fill_peripheral_status(::enose::service::PeripheralStat
     status->set_heater_chamber(state.heater_chamber);
     
     // 泵状态
+    status->set_pump_0(state.pump_0 == workflows::PumpState::RUNNING 
+        ? ::enose::service::PeripheralStatus::RUNNING 
+        : ::enose::service::PeripheralStatus::STOPPED);
+    status->set_pump_1(state.pump_1 == workflows::PumpState::RUNNING 
+        ? ::enose::service::PeripheralStatus::RUNNING 
+        : ::enose::service::PeripheralStatus::STOPPED);
     status->set_pump_2(state.pump_2 == workflows::PumpState::RUNNING 
         ? ::enose::service::PeripheralStatus::RUNNING 
         : ::enose::service::PeripheralStatus::STOPPED);
@@ -296,6 +308,12 @@ void ControlServiceImpl::fill_peripheral_status(::enose::service::PeripheralStat
         ? ::enose::service::PeripheralStatus::RUNNING 
         : ::enose::service::PeripheralStatus::STOPPED);
     status->set_pump_5(state.pump_5 == workflows::PumpState::RUNNING 
+        ? ::enose::service::PeripheralStatus::RUNNING 
+        : ::enose::service::PeripheralStatus::STOPPED);
+    status->set_pump_6(state.pump_6 == workflows::PumpState::RUNNING 
+        ? ::enose::service::PeripheralStatus::RUNNING 
+        : ::enose::service::PeripheralStatus::STOPPED);
+    status->set_pump_7(state.pump_7 == workflows::PumpState::RUNNING 
         ? ::enose::service::PeripheralStatus::RUNNING 
         : ::enose::service::PeripheralStatus::STOPPED);
 }
@@ -368,22 +386,29 @@ float ControlServiceImpl::weight_to_mm(float weight_g) const {
     (void)context;
     
     // 将重量 (g) 转换为距离 (mm)
+    float pump0_mm = weight_to_mm(request->pump_0_weight());
+    float pump1_mm = weight_to_mm(request->pump_1_weight());
     float pump2_mm = weight_to_mm(request->pump_2_weight());
     float pump3_mm = weight_to_mm(request->pump_3_weight());
     float pump4_mm = weight_to_mm(request->pump_4_weight());
     float pump5_mm = weight_to_mm(request->pump_5_weight());
+    float pump6_mm = weight_to_mm(request->pump_6_weight());
+    float pump7_mm = weight_to_mm(request->pump_7_weight());
     
-    spdlog::info("gRPC: StartInjectionByWeight - input(g): pump2={:.3f}, pump3={:.3f}, pump4={:.3f}, pump5={:.3f}",
-                 request->pump_2_weight(), request->pump_3_weight(),
-                 request->pump_4_weight(), request->pump_5_weight());
-    spdlog::info("gRPC: StartInjectionByWeight - converted(mm): pump2={:.3f}, pump3={:.3f}, pump4={:.3f}, pump5={:.3f}",
-                 pump2_mm, pump3_mm, pump4_mm, pump5_mm);
+    spdlog::info("gRPC: StartInjectionByWeight - input(g): pump0={:.3f}~pump7={:.3f}",
+                 request->pump_0_weight(), request->pump_7_weight());
+    spdlog::info("gRPC: StartInjectionByWeight - converted(mm): pump0={:.3f}~pump7={:.3f}",
+                 pump0_mm, pump7_mm);
     
     workflows::SystemState::InjectionParams params;
+    params.pump_0_volume = pump0_mm;
+    params.pump_1_volume = pump1_mm;
     params.pump_2_volume = pump2_mm;
     params.pump_3_volume = pump3_mm;
     params.pump_4_volume = pump4_mm;
     params.pump_5_volume = pump5_mm;
+    params.pump_6_volume = pump6_mm;
+    params.pump_7_volume = pump7_mm;
     
     // 使用可选参数的默认值
     if (request->has_speed()) {
@@ -396,8 +421,7 @@ float ControlServiceImpl::weight_to_mm(float weight_g) const {
     system_state_->start_inject(params);
     
     response->set_success(true);
-    response->set_message(std::format("Injection started (converted from g to mm: {:.2f}, {:.2f}, {:.2f}, {:.2f})",
-                                       pump2_mm, pump3_mm, pump4_mm, pump5_mm));
+    response->set_message(std::format("Injection started (8 pumps, converted from g to mm)"));
     return ::grpc::Status::OK;
 }
 

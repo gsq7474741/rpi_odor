@@ -94,7 +94,7 @@ async function setSystemState(targetState: string) {
   return res.json();
 }
 
-async function startInjection(params: { pump2Volume: number; pump3Volume: number; pump4Volume: number; pump5Volume: number; speed?: number; accel?: number }) {
+async function startInjection(params: { pump0Volume: number; pump1Volume: number; pump2Volume: number; pump3Volume: number; pump4Volume: number; pump5Volume: number; pump6Volume: number; pump7Volume: number; speed?: number; accel?: number }) {
   const res = await fetch("/api/injection/start", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -133,10 +133,14 @@ interface TarePoint {
 }
 
 interface InjectionParams {
+  pump0Volume: number;
+  pump1Volume: number;
   pump2Volume: number;
   pump3Volume: number;
   pump4Volume: number;
   pump5Volume: number;
+  pump6Volume: number;
+  pump7Volume: number;
 }
 
 interface ParamSet {
@@ -160,10 +164,14 @@ interface AutoTestResult {
   paramSetName: string;
   cycle: number;
   totalVolume: number; // 泵设定总量 (mm)
+  pump0Volume: number;
+  pump1Volume: number;
   pump2Volume: number;
   pump3Volume: number;
   pump4Volume: number;
   pump5Volume: number;
+  pump6Volume: number;
+  pump7Volume: number;
   speed: number;
   emptyWeight: number;
   fullWeight: number;
@@ -249,9 +257,9 @@ export function LoadCellPanel() {
   const [autoTestStep, setAutoTestStep] = useState<AutoTestStep>("idle");
   const [autoTestConfig, setAutoTestConfig] = useState<AutoTestConfig>({
     paramSets: [
-      { id: 1, name: "小量", params: { pump2Volume: 300, pump3Volume: 300, pump4Volume: 300, pump5Volume: 300 }, speed: 100, cycles: 3 },
-      { id: 2, name: "中量", params: { pump2Volume: 500, pump3Volume: 500, pump4Volume: 500, pump5Volume: 500 }, speed: 100, cycles: 3 },
-      { id: 3, name: "大量", params: { pump2Volume: 900, pump3Volume: 900, pump4Volume: 900, pump5Volume: 900 }, speed: 100, cycles: 3 },
+      { id: 1, name: "小量", params: { pump0Volume: 150, pump1Volume: 150, pump2Volume: 150, pump3Volume: 150, pump4Volume: 150, pump5Volume: 150, pump6Volume: 150, pump7Volume: 150 }, speed: 50, cycles: 3 },
+      { id: 2, name: "中量", params: { pump0Volume: 250, pump1Volume: 250, pump2Volume: 250, pump3Volume: 250, pump4Volume: 250, pump5Volume: 250, pump6Volume: 250, pump7Volume: 250 }, speed: 50, cycles: 3 },
+      { id: 3, name: "大量", params: { pump0Volume: 450, pump1Volume: 450, pump2Volume: 450, pump3Volume: 450, pump4Volume: 450, pump5Volume: 450, pump6Volume: 450, pump7Volume: 450 }, speed: 50, cycles: 3 },
     ],
     speed: 10,
     accel: 100,
@@ -471,6 +479,20 @@ export function LoadCellPanel() {
       
       // 加载历史测试列表
       await fetchHistoricalRuns();
+      
+      // 如果没有当前测试但有历史记录，自动加载最后一次测试
+      if (!status.runId || status.runId === 0) {
+        const historyResponse = await fetch('/api/test?action=listRuns&limit=1');
+        if (historyResponse.ok) {
+          const historyData = await historyResponse.json();
+          if (historyData.runs && historyData.runs.length > 0) {
+            const lastRun = historyData.runs[0];
+            addAutoTestLog(`自动加载最后一次测试 #${lastRun.runId}...`);
+            setCurrentRunId(lastRun.runId);
+            await fetchTestResults(lastRun.runId);
+          }
+        }
+      }
     } catch (error) {
       console.error("检查运行状态失败:", error);
     }
@@ -876,7 +898,7 @@ export function LoadCellPanel() {
   // 执行单次循环
   const runSingleCycle = async (paramSet: ParamSet, cycleNum: number): Promise<AutoTestResult> => {
     const { params, name, speed } = paramSet;
-    const totalVolume = params.pump2Volume + params.pump3Volume + params.pump4Volume + params.pump5Volume;
+    const totalVolume = params.pump0Volume + params.pump1Volume + params.pump2Volume + params.pump3Volume + params.pump4Volume + params.pump5Volume + params.pump6Volume + params.pump7Volume;
     const cycleStartTime = Date.now();
     
     // 步骤1: 排废
@@ -907,20 +929,28 @@ export function LoadCellPanel() {
     setAutoTestStep("injecting");
     await setSystemState("INJECT");
     await startInjection({
+      pump0Volume: params.pump0Volume,
+      pump1Volume: params.pump1Volume,
       pump2Volume: params.pump2Volume,
       pump3Volume: params.pump3Volume,
       pump4Volume: params.pump4Volume,
       pump5Volume: params.pump5Volume,
+      pump6Volume: params.pump6Volume,
+      pump7Volume: params.pump7Volume,
       speed: speed, // 使用参数组的速度
       accel: autoTestConfig.accel,
     });
     
     // 等待进样完成（给蠕动泵运动时间）
     const estimatedTime = Math.max(
+      params.pump0Volume,
+      params.pump1Volume,
       params.pump2Volume,
       params.pump3Volume,
       params.pump4Volume,
-      params.pump5Volume
+      params.pump5Volume,
+      params.pump6Volume,
+      params.pump7Volume
     ) / speed * 1000 + 2000;
     await new Promise(resolve => setTimeout(resolve, estimatedTime));
     const injectDuration = Date.now() - injectStartTime;
@@ -943,10 +973,14 @@ export function LoadCellPanel() {
       paramSetName: name,
       cycle: cycleNum,
       totalVolume,
+      pump0Volume: params.pump0Volume,
+      pump1Volume: params.pump1Volume,
       pump2Volume: params.pump2Volume,
       pump3Volume: params.pump3Volume,
       pump4Volume: params.pump4Volume,
       pump5Volume: params.pump5Volume,
+      pump6Volume: params.pump6Volume,
+      pump7Volume: params.pump7Volume,
       speed,
       emptyWeight,
       fullWeight,
@@ -983,10 +1017,14 @@ export function LoadCellPanel() {
       paramSets: enabledParamSets.map(ps => ({
         id: ps.id,
         name: ps.name,
+        pump0Volume: ps.params.pump0Volume,
+        pump1Volume: ps.params.pump1Volume,
         pump2Volume: ps.params.pump2Volume,
         pump3Volume: ps.params.pump3Volume,
         pump4Volume: ps.params.pump4Volume,
         pump5Volume: ps.params.pump5Volume,
+        pump6Volume: ps.params.pump6Volume,
+        pump7Volume: ps.params.pump7Volume,
         speed: ps.speed,
         cycles: ps.cycles,
       })),
@@ -1207,10 +1245,14 @@ export function LoadCellPanel() {
                 id: ps.id || idx + 1,
                 name: ps.name || `参数组${idx + 1}`,
                 params: {
+                  pump0Volume: ps.pump0_volume || 0,
+                  pump1Volume: ps.pump1_volume || 0,
                   pump2Volume: ps.pump2_volume || 0,
                   pump3Volume: ps.pump3_volume || 0,
                   pump4Volume: ps.pump4_volume || 0,
                   pump5Volume: ps.pump5_volume || 0,
+                  pump6Volume: ps.pump6_volume || 0,
+                  pump7Volume: ps.pump7_volume || 0,
                 },
                 speed: ps.speed || 100,
                 cycles: ps.cycles || 0,
@@ -1315,7 +1357,7 @@ export function LoadCellPanel() {
             totalVolume += deadZoneConfig.stepVolume;
             
             // 构建单泵进样参数
-            const params: any = { pump2Volume: 0, pump3Volume: 0, pump4Volume: 0, pump5Volume: 0 };
+            const params: any = { pump0Volume: 0, pump1Volume: 0, pump2Volume: 0, pump3Volume: 0, pump4Volume: 0, pump5Volume: 0, pump6Volume: 0, pump7Volume: 0 };
             params[`pump${pumpId}Volume`] = deadZoneConfig.stepVolume;
             
             await startInjection({ ...params, speed: deadZoneConfig.speed, accel: 100 });
@@ -1380,12 +1422,12 @@ export function LoadCellPanel() {
       addAutoTestLog(`进样基准液体 ${resolutionConfig.baseVolume}mm (没过管子)...`);
       await setSystemState("INJECT");
       if (resolutionConfig.testMode === 'single') {
-        const params: any = { pump2Volume: 0, pump3Volume: 0, pump4Volume: 0, pump5Volume: 0 };
+        const params: any = { pump0Volume: 0, pump1Volume: 0, pump2Volume: 0, pump3Volume: 0, pump4Volume: 0, pump5Volume: 0, pump6Volume: 0, pump7Volume: 0 };
         params[`pump${resolutionConfig.pumpId}Volume`] = resolutionConfig.baseVolume;
         await startInjection({ ...params, speed: resolutionConfig.speed, accel: 100 });
       } else {
-        const vol = resolutionConfig.baseVolume / 4;
-        await startInjection({ pump2Volume: vol, pump3Volume: vol, pump4Volume: vol, pump5Volume: vol, speed: resolutionConfig.speed, accel: 100 });
+        const vol = resolutionConfig.baseVolume / 8;
+        await startInjection({ pump0Volume: vol, pump1Volume: vol, pump2Volume: vol, pump3Volume: vol, pump4Volume: vol, pump5Volume: vol, pump6Volume: vol, pump7Volume: vol, speed: resolutionConfig.speed, accel: 100 });
       }
       await new Promise(r => setTimeout(r, resolutionConfig.baseVolume / resolutionConfig.speed * 1000 + 2000));
       // 保持INJECT状态，整个测试过程不切换，避免液路不密封导致液滴下滴
@@ -1406,12 +1448,12 @@ export function LoadCellPanel() {
           
           // 进样（保持在INJECT状态，不切换，避免液路不密封导致液滴下滴）
           if (resolutionConfig.testMode === 'single') {
-            const params: any = { pump2Volume: 0, pump3Volume: 0, pump4Volume: 0, pump5Volume: 0 };
+            const params: any = { pump0Volume: 0, pump1Volume: 0, pump2Volume: 0, pump3Volume: 0, pump4Volume: 0, pump5Volume: 0, pump6Volume: 0, pump7Volume: 0 };
             params[`pump${resolutionConfig.pumpId}Volume`] = currentVolume;
             await startInjection({ ...params, speed: resolutionConfig.speed, accel: 100 });
           } else {
-            const vol = currentVolume / 4;
-            await startInjection({ pump2Volume: vol, pump3Volume: vol, pump4Volume: vol, pump5Volume: vol, speed: resolutionConfig.speed, accel: 100 });
+            const vol = currentVolume / 8;
+            await startInjection({ pump0Volume: vol, pump1Volume: vol, pump2Volume: vol, pump3Volume: vol, pump4Volume: vol, pump5Volume: vol, pump6Volume: vol, pump7Volume: vol, speed: resolutionConfig.speed, accel: 100 });
           }
           await new Promise(r => setTimeout(r, currentVolume / resolutionConfig.speed * 1000 + 1000));
           // 不切换状态，保持液路密封
@@ -1493,17 +1535,21 @@ export function LoadCellPanel() {
           // 进样
           await setSystemState("INJECT");
           if (linearityConfig.testMode === 'single') {
-            const params = { pump2Volume: 0, pump3Volume: 0, pump4Volume: 0, pump5Volume: 0 } as { pump2Volume: number; pump3Volume: number; pump4Volume: number; pump5Volume: number; [key: string]: number };
+            const params: any = { pump0Volume: 0, pump1Volume: 0, pump2Volume: 0, pump3Volume: 0, pump4Volume: 0, pump5Volume: 0, pump6Volume: 0, pump7Volume: 0 };
             params[`pump${linearityConfig.pumpId}Volume`] = setVolume;
-            await startInjection({ pump2Volume: params.pump2Volume, pump3Volume: params.pump3Volume, pump4Volume: params.pump4Volume, pump5Volume: params.pump5Volume, speed: linearityConfig.speed, accel: autoTestConfig.accel });
+            await startInjection({ ...params, speed: linearityConfig.speed, accel: autoTestConfig.accel });
           } else {
-            // 多电机模式：4个泵平分进样量
-            const volumePerPump = Math.round(setVolume / 4);
+            // 多电机模式：8个泵平分进样量
+            const volumePerPump = Math.round(setVolume / 8);
             await startInjection({
+              pump0Volume: volumePerPump,
+              pump1Volume: volumePerPump,
               pump2Volume: volumePerPump,
               pump3Volume: volumePerPump,
               pump4Volume: volumePerPump,
               pump5Volume: volumePerPump,
+              pump6Volume: volumePerPump,
+              pump7Volume: volumePerPump,
               speed: linearityConfig.speed,
               accel: autoTestConfig.accel,
             });
@@ -1580,17 +1626,21 @@ export function LoadCellPanel() {
         setWeightCalibStep('injecting');
         await setSystemState("INJECT");
         if (weightCalibConfig.testMode === 'single') {
-          const params = { pump2Volume: 0, pump3Volume: 0, pump4Volume: 0, pump5Volume: 0 } as { pump2Volume: number; pump3Volume: number; pump4Volume: number; pump5Volume: number; [key: string]: number };
+          const params: any = { pump0Volume: 0, pump1Volume: 0, pump2Volume: 0, pump3Volume: 0, pump4Volume: 0, pump5Volume: 0, pump6Volume: 0, pump7Volume: 0 };
           params[`pump${weightCalibConfig.pumpId}Volume`] = setVolume;
-          await startInjection({ pump2Volume: params.pump2Volume, pump3Volume: params.pump3Volume, pump4Volume: params.pump4Volume, pump5Volume: params.pump5Volume, speed: weightCalibConfig.speed, accel: autoTestConfig.accel });
+          await startInjection({ ...params, speed: weightCalibConfig.speed, accel: autoTestConfig.accel });
         } else {
-          // 多电机模式：4个泵平分进样量
-          const volumePerPump = Math.round(setVolume / 4);
+          // 多电机模式：8个泵平分进样量
+          const volumePerPump = Math.round(setVolume / 8);
           await startInjection({
+            pump0Volume: volumePerPump,
+            pump1Volume: volumePerPump,
             pump2Volume: volumePerPump,
             pump3Volume: volumePerPump,
             pump4Volume: volumePerPump,
             pump5Volume: volumePerPump,
+            pump6Volume: volumePerPump,
+            pump7Volume: volumePerPump,
             speed: weightCalibConfig.speed,
             accel: autoTestConfig.accel,
           });
@@ -1728,7 +1778,7 @@ export function LoadCellPanel() {
         return `<div style="font-size:12px">
           <div style="font-weight:bold">${r.paramSetName} #${r.cycle}</div>
           <div>速度: ${r.speed}mm/s</div>
-          <div>泵2/3/4/5: ${r.pump2Volume}/${r.pump3Volume}/${r.pump4Volume}/${r.pump5Volume}mm</div>
+          <div>泵0-7: ${r.pump0Volume}/${r.pump1Volume}/${r.pump2Volume}/${r.pump3Volume}/${r.pump4Volume}/${r.pump5Volume}/${r.pump6Volume}/${r.pump7Volume}mm</div>
           <div>设定总量: ${r.totalVolume}mm</div>
           <div>实际进样: <b>${r.injectedWeight.toFixed(1)}g</b></div>
           <div>空瓶→进样后: ${r.emptyWeight.toFixed(1)}g → ${r.fullWeight.toFixed(1)}g</div>
@@ -2626,21 +2676,28 @@ export function LoadCellPanel() {
                       )}
                     </h4>
                     <div className="flex gap-2">
-                      {/* 历史测试下拉 */}
-                      {historicalRuns.length > 0 && autoTestStep === "idle" && (
+                      {/* 测试选择下拉列表 - 新建测试或查看历史 */}
+                      {autoTestStep === "idle" && (
                         <select
                           className="h-8 px-2 text-xs border rounded-md bg-background"
-                          value={viewingHistoryRunId || ""}
+                          value={viewingHistoryRunId || currentRunId || "new"}
                           onChange={(e) => {
                             const val = e.target.value;
-                            if (val === "") {
-                              backToCurrentRun();
+                            if (val === "new") {
+                              // 新建测试 - 清空状态
+                              setViewingHistoryRunId(null);
+                              setCurrentRunId(null);
+                              setAutoTestResults([]);
+                              setAutoTestLog([]);
+                              setAutoTestCurrentCycle(0);
+                              setAutoTestCurrentParamSet(0);
                             } else {
+                              // 查看历史记录
                               viewHistoricalRun(parseInt(val));
                             }
                           }}
                         >
-                          <option value="">当前测试</option>
+                          <option value="new">+ 新建测试</option>
                           {historicalRuns.map(run => (
                             <option key={run.runId} value={run.runId}>
                               #{run.runId} - {run.status} ({run.totalCycles}循环) {run.startedAt}
@@ -2648,17 +2705,18 @@ export function LoadCellPanel() {
                           ))}
                         </select>
                       )}
-                      {autoTestStep === "idle" && !viewingHistoryRunId ? (
+                      {autoTestStep === "idle" ? (
                         <Button 
                           variant="default" 
                           size="sm" 
                           onClick={handleStartAutoTest}
-                          disabled={!reading?.isCalibrated}
+                          disabled={!reading?.isCalibrated || !!viewingHistoryRunId}
+                          title={viewingHistoryRunId ? "查看历史时无法开始新测试，请先选择「新建测试」" : ""}
                         >
                           <Play className="mr-1 h-3 w-3" />
                           开始测试
                         </Button>
-                      ) : autoTestStep !== "idle" ? (
+                      ) : (
                         <Button 
                           variant="destructive" 
                           size="sm"
@@ -2666,14 +2724,6 @@ export function LoadCellPanel() {
                         >
                           <Square className="mr-1 h-3 w-3" />
                           停止
-                        </Button>
-                      ) : (
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={backToCurrentRun}
-                        >
-                          返回当前
                         </Button>
                       )}
                     </div>
@@ -2770,9 +2820,9 @@ export function LoadCellPanel() {
                             </div>
                             {/* 第二行：4个泵的进样量 */}
                             <div className="grid grid-cols-4 gap-2">
-                              {(['pump2Volume', 'pump3Volume', 'pump4Volume', 'pump5Volume'] as const).map((pumpKey, pIdx) => (
+                              {(['pump0Volume', 'pump1Volume', 'pump2Volume', 'pump3Volume', 'pump4Volume', 'pump5Volume', 'pump6Volume', 'pump7Volume'] as const).map((pumpKey, pIdx) => (
                                 <div key={pumpKey} className="space-y-1">
-                                  <Label className="text-xs text-muted-foreground">泵{pIdx + 2} (mm)</Label>
+                                  <Label className="text-xs text-muted-foreground">泵{pIdx} (mm)</Label>
                                   <Input
                                     className="h-8 text-sm font-mono"
                                     type="number"
@@ -2800,7 +2850,7 @@ export function LoadCellPanel() {
                             paramSets: [...prev.paramSets, {
                               id: nextParamSetId,
                               name: `组${nextParamSetId}`,
-                              params: { pump2Volume: 50, pump3Volume: 50, pump4Volume: 50, pump5Volume: 50 },
+                              params: { pump0Volume: 0, pump1Volume: 0, pump2Volume: 50, pump3Volume: 50, pump4Volume: 50, pump5Volume: 50, pump6Volume: 0, pump7Volume: 0 },
                               speed: 10,
                               cycles: 3,
                             }]

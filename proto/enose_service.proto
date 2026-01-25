@@ -130,10 +130,14 @@ message PeripheralStatus {
   // 泵状态
   float air_pump_pwm = 5;     // 0.0 - 1.0
   float cleaning_pump = 6;    // 0.0 - 1.0
-  PumpRunState pump_2 = 7;    // 样品泵 0
-  PumpRunState pump_3 = 8;    // 样品泵 1
-  PumpRunState pump_4 = 9;    // 样品泵 2
-  PumpRunState pump_5 = 10;   // 样品泵 3
+  PumpRunState pump_0 = 12;   // 样品泵 0
+  PumpRunState pump_1 = 13;   // 样品泵 1
+  PumpRunState pump_2 = 7;    // 样品泵 2
+  PumpRunState pump_3 = 8;    // 样品泵 3
+  PumpRunState pump_4 = 9;    // 样品泵 4
+  PumpRunState pump_5 = 10;   // 样品泵 5
+  PumpRunState pump_6 = 14;   // 样品泵 6
+  PumpRunState pump_7 = 15;   // 样品泵 7
   
   // 加热器状态
   float heater_chamber = 11;  // 0.0 - 1.0
@@ -177,10 +181,14 @@ message ManualControlResponse {
 // 进样请求
 message StartInjectionRequest {
   // 每个蠕动泵的进样量 (单位待标定，目前为步进电机移动距离 mm)
-  float pump_2_volume = 1;  // 蠕动泵0
-  float pump_3_volume = 2;  // 蠕动泵1
-  float pump_4_volume = 3;  // 蠕动泵2
-  float pump_5_volume = 4;  // 蠕动泵3
+  float pump_0_volume = 7;   // 蠕动泵0
+  float pump_1_volume = 8;   // 蠕动泵1
+  float pump_2_volume = 1;   // 蠕动泵2
+  float pump_3_volume = 2;   // 蠕动泵3
+  float pump_4_volume = 3;   // 蠕动泵4
+  float pump_5_volume = 4;   // 蠕动泵5
+  float pump_6_volume = 9;   // 蠕动泵6
+  float pump_7_volume = 10;  // 蠕动泵7
   
   // 可选参数
   optional float speed = 5;  // 进样速度 (mm/s), 默认 10
@@ -196,10 +204,14 @@ message StartInjectionResponse {
 // 后端转换: x = (y - weight_offset) / weight_scale, mm = x / pump_mm_to_ml
 message StartInjectionByWeightRequest {
   // 每个蠕动泵的进样量 (单位: g 真实重量)
-  float pump_2_weight = 1;  // 蠕动泵0
-  float pump_3_weight = 2;  // 蠕动泵1
-  float pump_4_weight = 3;  // 蠕动泵2
-  float pump_5_weight = 4;  // 蠕动泵3
+  float pump_0_weight = 7;   // 蠕动泵0
+  float pump_1_weight = 8;   // 蠕动泵1
+  float pump_2_weight = 1;   // 蠕动泵2
+  float pump_3_weight = 2;   // 蠕动泵3
+  float pump_4_weight = 3;   // 蠕动泵4
+  float pump_5_weight = 4;   // 蠕动泵5
+  float pump_6_weight = 9;   // 蠕动泵6
+  float pump_7_weight = 10;  // 蠕动泵7
   
   // 可选参数
   optional float speed = 5;  // 进样速度 (mm/s), 默认 10
@@ -225,7 +237,7 @@ message FirmwareRestartResponse {
 
 // 运行泵请求
 message RunPumpRequest {
-  // 泵名称 (pump_2, pump_3, pump_4, pump_5, cleaning_pump)
+  // 泵名称 (pump_0 ~ pump_7, cleaning_pump)
   string pump_name = 1;
   
   // 速度 (步进泵: mm/s, DC泵: 0.0-1.0 PWM)
@@ -514,10 +526,14 @@ service TestService {
 message ParamSet {
   int32 id = 1;
   string name = 2;
+  float pump0_volume = 9;           // 泵0进样量 (mm)
+  float pump1_volume = 10;          // 泵1进样量 (mm)
   float pump2_volume = 3;           // 泵2进样量 (mm)
   float pump3_volume = 4;           // 泵3进样量 (mm)
   float pump4_volume = 5;           // 泵4进样量 (mm)
   float pump5_volume = 6;           // 泵5进样量 (mm)
+  float pump6_volume = 11;          // 泵6进样量 (mm)
+  float pump7_volume = 12;          // 泵7进样量 (mm)
   float speed = 7;                  // 进样速度 (mm/s)
   int32 cycles = 8;                 // 循环次数
 }
@@ -566,10 +582,14 @@ message TestResult {
   string param_set_name = 2;
   int32 cycle = 3;
   float total_volume = 4;           // 设定总量 (mm)
+  float pump0_volume = 19;
+  float pump1_volume = 20;
   float pump2_volume = 5;
   float pump3_volume = 6;
   float pump4_volume = 7;
   float pump5_volume = 8;
+  float pump6_volume = 21;
+  float pump7_volume = 22;
   float speed = 9;
   float empty_weight = 10;          // 空瓶重量 (g)
   float full_weight = 11;           // 进样后重量 (g)

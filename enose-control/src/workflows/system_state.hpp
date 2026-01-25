@@ -34,10 +34,14 @@ struct PeripheralState {
     // === 泵 (Pumps) ===
     float air_pump_pwm;     // 0.0 - 1.0 气泵 PWM (PB6)
     float cleaning_pump;    // 0.0 - 1.0 清洗泵 (PA8/FAN0)
-    PumpState pump_2;       // 样品泵 0 (MOTOR2, 步进)
-    PumpState pump_3;       // 样品泵 1 (MOTOR3, 步进)
-    PumpState pump_4;       // 样品泵 2 (MOTOR4, 步进)
-    PumpState pump_5;       // 样品泵 3 (MOTOR5, 步进)
+    PumpState pump_0;       // 样品泵 0 (MOTOR0, 步进)
+    PumpState pump_1;       // 样品泵 1 (MOTOR1, 步进)
+    PumpState pump_2;       // 样品泵 2 (MOTOR2, 步进)
+    PumpState pump_3;       // 样品泵 3 (MOTOR3, 步进)
+    PumpState pump_4;       // 样品泵 4 (MOTOR4, 步进)
+    PumpState pump_5;       // 样品泵 5 (MOTOR5, 步进)
+    PumpState pump_6;       // 样品泵 6 (MOTOR6, 步进)
+    PumpState pump_7;       // 样品泵 7 (MOTOR7, 步进)
     
     // === 加热器 (Heater) ===
     float heater_chamber;   // 0.0 - 1.0 气室加热带 (PA1/BED_OUT)
@@ -53,10 +57,14 @@ struct PeripheralState {
                valve_outlet == other.valve_outlet &&
                air_pump_pwm == other.air_pump_pwm &&
                cleaning_pump == other.cleaning_pump &&
+               pump_0 == other.pump_0 &&
+               pump_1 == other.pump_1 &&
                pump_2 == other.pump_2 &&
                pump_3 == other.pump_3 &&
                pump_4 == other.pump_4 &&
                pump_5 == other.pump_5 &&
+               pump_6 == other.pump_6 &&
+               pump_7 == other.pump_7 &&
                heater_chamber == other.heater_chamber;
     }
 };
@@ -82,10 +90,14 @@ public:
      * 指定每个蠕动泵的进样量 (单位待标定，目前为步进电机步数)
      */
     struct InjectionParams {
-        float pump_2_volume = 0;  // 蠕动泵0 进样量
-        float pump_3_volume = 0;  // 蠕动泵1 进样量
-        float pump_4_volume = 0;  // 蠕动泵2 进样量
-        float pump_5_volume = 0;  // 蠕动泵3 进样量
+        float pump_0_volume = 0;  // 蠕动泵0 进样量
+        float pump_1_volume = 0;  // 蠕动泵1 进样量
+        float pump_2_volume = 0;  // 蠕动泵2 进样量
+        float pump_3_volume = 0;  // 蠕动泵3 进样量
+        float pump_4_volume = 0;  // 蠕动泵4 进样量
+        float pump_5_volume = 0;  // 蠕动泵5 进样量
+        float pump_6_volume = 0;  // 蠕动泵6 进样量
+        float pump_7_volume = 0;  // 蠕动泵7 进样量
         float speed = 10.0f;      // 进样速度 (mm/s)
         float accel = 100.0f;     // 加速度 (mm/s²)
     };

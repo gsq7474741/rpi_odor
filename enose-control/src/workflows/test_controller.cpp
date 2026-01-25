@@ -157,10 +157,14 @@ std::string TestController::config_to_json() const {
         nlohmann::json p;
         p["id"] = ps.id;
         p["name"] = ps.name;
+        p["pump0_volume"] = ps.pump0_volume;
+        p["pump1_volume"] = ps.pump1_volume;
         p["pump2_volume"] = ps.pump2_volume;
         p["pump3_volume"] = ps.pump3_volume;
         p["pump4_volume"] = ps.pump4_volume;
         p["pump5_volume"] = ps.pump5_volume;
+        p["pump6_volume"] = ps.pump6_volume;
+        p["pump7_volume"] = ps.pump7_volume;
         p["speed"] = ps.speed;
         p["cycles"] = ps.cycles;
         param_sets.push_back(p);
@@ -325,18 +329,24 @@ void TestController::test_thread_func() {
 void TestController::run_single_cycle(const ParamSet& param_set, int cycle_num) {
     auto cycle_start = std::chrono::steady_clock::now();
     
-    float total_volume = param_set.pump2_volume + param_set.pump3_volume +
-                         param_set.pump4_volume + param_set.pump5_volume;
+    float total_volume = param_set.pump0_volume + param_set.pump1_volume +
+                         param_set.pump2_volume + param_set.pump3_volume +
+                         param_set.pump4_volume + param_set.pump5_volume +
+                         param_set.pump6_volume + param_set.pump7_volume;
     
     TestResult result;
     result.param_set_id = param_set.id;
     result.param_set_name = param_set.name;
     result.cycle = cycle_num;
     result.total_volume = total_volume;
+    result.pump0_volume = param_set.pump0_volume;
+    result.pump1_volume = param_set.pump1_volume;
     result.pump2_volume = param_set.pump2_volume;
     result.pump3_volume = param_set.pump3_volume;
     result.pump4_volume = param_set.pump4_volume;
     result.pump5_volume = param_set.pump5_volume;
+    result.pump6_volume = param_set.pump6_volume;
+    result.pump7_volume = param_set.pump7_volume;
     result.speed = param_set.speed;
     result.timestamp = std::chrono::system_clock::now();
     
@@ -396,13 +406,17 @@ void TestController::run_single_cycle(const ParamSet& param_set, int cycle_num) 
     
     if (start_injection_) {
         start_injection_(
+            param_set.pump0_volume, param_set.pump1_volume,
             param_set.pump2_volume, param_set.pump3_volume,
             param_set.pump4_volume, param_set.pump5_volume,
+            param_set.pump6_volume, param_set.pump7_volume,
             param_set.speed, config_.accel);
         
         // 等待进样完成（根据最大泵量和速度计算预估时间 + 2秒余量）
-        float max_volume = std::max({param_set.pump2_volume, param_set.pump3_volume,
-                                     param_set.pump4_volume, param_set.pump5_volume});
+        float max_volume = std::max({param_set.pump0_volume, param_set.pump1_volume,
+                                     param_set.pump2_volume, param_set.pump3_volume,
+                                     param_set.pump4_volume, param_set.pump5_volume,
+                                     param_set.pump6_volume, param_set.pump7_volume});
         int wait_ms = static_cast<int>(max_volume / param_set.speed * 1000) + 2000;
         
         add_log("等待进样完成 (" + std::to_string(wait_ms / 1000) + "s)...");

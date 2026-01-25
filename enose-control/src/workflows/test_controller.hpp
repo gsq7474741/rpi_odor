@@ -33,10 +33,14 @@ enum class TestState {
 struct ParamSet {
     int id;
     std::string name;
+    float pump0_volume;  // mm
+    float pump1_volume;  // mm
     float pump2_volume;  // mm
     float pump3_volume;  // mm
     float pump4_volume;  // mm
     float pump5_volume;  // mm
+    float pump6_volume;  // mm
+    float pump7_volume;  // mm
     float speed;         // mm/s
     int cycles;
 };
@@ -55,10 +59,14 @@ struct TestResult {
     std::string param_set_name;
     int cycle;
     float total_volume;      // mm
+    float pump0_volume;
+    float pump1_volume;
     float pump2_volume;
     float pump3_volume;
     float pump4_volume;
     float pump5_volume;
+    float pump6_volume;
+    float pump7_volume;
     float speed;
     float empty_weight;      // g
     float full_weight;       // g
@@ -89,7 +97,7 @@ struct TestStatus {
 
 // 回调函数类型
 using SetSystemStateFunc = std::function<bool(const std::string& state)>;
-using StartInjectionFunc = std::function<bool(float p2, float p3, float p4, float p5, float speed, float accel)>;
+using StartInjectionFunc = std::function<bool(float p0, float p1, float p2, float p3, float p4, float p5, float p6, float p7, float speed, float accel)>;
 using WaitForEmptyBottleFunc = std::function<std::pair<bool, float>(float tolerance, float timeout_sec, float stability_window_sec)>;
 using GetWeightFunc = std::function<std::pair<float, bool>()>;  // 返回 (weight, is_stable)
 using ResetDynamicEmptyWeightFunc = std::function<void()>;

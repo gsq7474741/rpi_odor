@@ -31,12 +31,16 @@ TestServiceImpl::TestServiceImpl(
         });
     
     test_controller_->set_injection_callback(
-        [this](float p2, float p3, float p4, float p5, float speed, float accel) -> bool {
+        [this](float p0, float p1, float p2, float p3, float p4, float p5, float p6, float p7, float speed, float accel) -> bool {
             workflows::SystemState::InjectionParams params;
+            params.pump_0_volume = p0;
+            params.pump_1_volume = p1;
             params.pump_2_volume = p2;
             params.pump_3_volume = p3;
             params.pump_4_volume = p4;
             params.pump_5_volume = p5;
+            params.pump_6_volume = p6;
+            params.pump_7_volume = p7;
             params.speed = speed;
             params.accel = accel;
             system_state_->start_inject(params);
@@ -78,10 +82,14 @@ TestServiceImpl::TestServiceImpl(
         workflows::ParamSet param_set;
         param_set.id = ps.id();
         param_set.name = ps.name();
+        param_set.pump0_volume = ps.pump0_volume();
+        param_set.pump1_volume = ps.pump1_volume();
         param_set.pump2_volume = ps.pump2_volume();
         param_set.pump3_volume = ps.pump3_volume();
         param_set.pump4_volume = ps.pump4_volume();
         param_set.pump5_volume = ps.pump5_volume();
+        param_set.pump6_volume = ps.pump6_volume();
+        param_set.pump7_volume = ps.pump7_volume();
         param_set.speed = ps.speed();
         param_set.cycles = ps.cycles();
         config.param_sets.push_back(param_set);
@@ -138,10 +146,14 @@ TestServiceImpl::TestServiceImpl(
         result->set_param_set_name(r.param_set_name);
         result->set_cycle(r.cycle);
         result->set_total_volume(r.total_volume);
+        result->set_pump0_volume(r.pump0_volume);
+        result->set_pump1_volume(r.pump1_volume);
         result->set_pump2_volume(r.pump2_volume);
         result->set_pump3_volume(r.pump3_volume);
         result->set_pump4_volume(r.pump4_volume);
         result->set_pump5_volume(r.pump5_volume);
+        result->set_pump6_volume(r.pump6_volume);
+        result->set_pump7_volume(r.pump7_volume);
         result->set_speed(r.speed);
         result->set_empty_weight(r.empty_weight);
         result->set_full_weight(r.full_weight);
@@ -298,10 +310,14 @@ void TestServiceImpl::fill_status_response(::enose::service::TestStatusResponse*
         result->set_param_set_name(r.param_set_name);
         result->set_cycle(r.cycle);
         result->set_total_volume(r.total_volume);
+        result->set_pump0_volume(r.pump0_volume);
+        result->set_pump1_volume(r.pump1_volume);
         result->set_pump2_volume(r.pump2_volume);
         result->set_pump3_volume(r.pump3_volume);
         result->set_pump4_volume(r.pump4_volume);
         result->set_pump5_volume(r.pump5_volume);
+        result->set_pump6_volume(r.pump6_volume);
+        result->set_pump7_volume(r.pump7_volume);
         result->set_speed(r.speed);
         result->set_empty_weight(r.empty_weight);
         result->set_full_weight(r.full_weight);
@@ -336,10 +352,14 @@ void TestServiceImpl::fill_status_response(::enose::service::TestStatusResponse*
         result->set_param_set_name(r.param_set_name);
         result->set_cycle(r.cycle);
         result->set_total_volume(r.total_volume);
+        result->set_pump0_volume(r.pump0_volume);
+        result->set_pump1_volume(r.pump1_volume);
         result->set_pump2_volume(r.pump2_volume);
         result->set_pump3_volume(r.pump3_volume);
         result->set_pump4_volume(r.pump4_volume);
         result->set_pump5_volume(r.pump5_volume);
+        result->set_pump6_volume(r.pump6_volume);
+        result->set_pump7_volume(r.pump7_volume);
         result->set_speed(r.speed);
         result->set_empty_weight(r.empty_weight);
         result->set_full_weight(r.full_weight);

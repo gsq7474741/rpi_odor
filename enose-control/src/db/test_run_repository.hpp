@@ -30,10 +30,14 @@ struct TestResultRecord {
     std::string param_set_name;
     int cycle{0};
     float total_volume{0};
+    float pump0_volume{0};
+    float pump1_volume{0};
     float pump2_volume{0};
     float pump3_volume{0};
     float pump4_volume{0};
     float pump5_volume{0};
+    float pump6_volume{0};
+    float pump7_volume{0};
     float speed{0};
     float empty_weight{0};
     float full_weight{0};

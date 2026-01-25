@@ -93,18 +93,30 @@ export interface PeripheralStatus {
      * @generated from protobuf field: float cleaning_pump = 6
      */
     cleaningPump: number; // 0.0 - 1.0    /**
+     * @generated from protobuf field: enose.service.PeripheralStatus.PumpRunState pump_0 = 12
+     */
+    pump0: PeripheralStatus_PumpRunState; // 样品泵 0    /**
+     * @generated from protobuf field: enose.service.PeripheralStatus.PumpRunState pump_1 = 13
+     */
+    pump1: PeripheralStatus_PumpRunState; // 样品泵 1    /**
      * @generated from protobuf field: enose.service.PeripheralStatus.PumpRunState pump_2 = 7
      */
-    pump2: PeripheralStatus_PumpRunState; // 样品泵 0    /**
+    pump2: PeripheralStatus_PumpRunState; // 样品泵 2    /**
      * @generated from protobuf field: enose.service.PeripheralStatus.PumpRunState pump_3 = 8
      */
-    pump3: PeripheralStatus_PumpRunState; // 样品泵 1    /**
+    pump3: PeripheralStatus_PumpRunState; // 样品泵 3    /**
      * @generated from protobuf field: enose.service.PeripheralStatus.PumpRunState pump_4 = 9
      */
-    pump4: PeripheralStatus_PumpRunState; // 样品泵 2    /**
+    pump4: PeripheralStatus_PumpRunState; // 样品泵 4    /**
      * @generated from protobuf field: enose.service.PeripheralStatus.PumpRunState pump_5 = 10
      */
-    pump5: PeripheralStatus_PumpRunState; // 样品泵 3    /**
+    pump5: PeripheralStatus_PumpRunState; // 样品泵 5    /**
+     * @generated from protobuf field: enose.service.PeripheralStatus.PumpRunState pump_6 = 14
+     */
+    pump6: PeripheralStatus_PumpRunState; // 样品泵 6    /**
+     * @generated from protobuf field: enose.service.PeripheralStatus.PumpRunState pump_7 = 15
+     */
+    pump7: PeripheralStatus_PumpRunState; // 样品泵 7    /**
      * 加热器状态
      *
      * @generated from protobuf field: float heater_chamber = 11
@@ -204,18 +216,30 @@ export interface StartInjectionRequest {
     /**
      * 每个蠕动泵的进样量 (单位待标定，目前为步进电机移动距离 mm)
      *
+     * @generated from protobuf field: float pump_0_volume = 7
+     */
+    pump0Volume: number; // 蠕动泵0    /**
+     * @generated from protobuf field: float pump_1_volume = 8
+     */
+    pump1Volume: number; // 蠕动泵1    /**
      * @generated from protobuf field: float pump_2_volume = 1
      */
-    pump2Volume: number; // 蠕动泵0    /**
+    pump2Volume: number; // 蠕动泵2    /**
      * @generated from protobuf field: float pump_3_volume = 2
      */
-    pump3Volume: number; // 蠕动泵1    /**
+    pump3Volume: number; // 蠕动泵3    /**
      * @generated from protobuf field: float pump_4_volume = 3
      */
-    pump4Volume: number; // 蠕动泵2    /**
+    pump4Volume: number; // 蠕动泵4    /**
      * @generated from protobuf field: float pump_5_volume = 4
      */
-    pump5Volume: number; // 蠕动泵3    /**
+    pump5Volume: number; // 蠕动泵5    /**
+     * @generated from protobuf field: float pump_6_volume = 9
+     */
+    pump6Volume: number; // 蠕动泵6    /**
+     * @generated from protobuf field: float pump_7_volume = 10
+     */
+    pump7Volume: number; // 蠕动泵7    /**
      * 可选参数
      *
      * @generated from protobuf field: optional float speed = 5
@@ -247,18 +271,30 @@ export interface StartInjectionByWeightRequest {
     /**
      * 每个蠕动泵的进样量 (单位: g 真实重量)
      *
+     * @generated from protobuf field: float pump_0_weight = 7
+     */
+    pump0Weight: number; // 蠕动泵0    /**
+     * @generated from protobuf field: float pump_1_weight = 8
+     */
+    pump1Weight: number; // 蠕动泵1    /**
      * @generated from protobuf field: float pump_2_weight = 1
      */
-    pump2Weight: number; // 蠕动泵0    /**
+    pump2Weight: number; // 蠕动泵2    /**
      * @generated from protobuf field: float pump_3_weight = 2
      */
-    pump3Weight: number; // 蠕动泵1    /**
+    pump3Weight: number; // 蠕动泵3    /**
      * @generated from protobuf field: float pump_4_weight = 3
      */
-    pump4Weight: number; // 蠕动泵2    /**
+    pump4Weight: number; // 蠕动泵4    /**
      * @generated from protobuf field: float pump_5_weight = 4
      */
-    pump5Weight: number; // 蠕动泵3    /**
+    pump5Weight: number; // 蠕动泵5    /**
+     * @generated from protobuf field: float pump_6_weight = 9
+     */
+    pump6Weight: number; // 蠕动泵6    /**
+     * @generated from protobuf field: float pump_7_weight = 10
+     */
+    pump7Weight: number; // 蠕动泵7    /**
      * 可选参数
      *
      * @generated from protobuf field: optional float speed = 5
@@ -317,7 +353,7 @@ export interface FirmwareRestartResponse {
  */
 export interface RunPumpRequest {
     /**
-     * 泵名称 (pump_2, pump_3, pump_4, pump_5, cleaning_pump)
+     * 泵名称 (pump_0 ~ pump_7, cleaning_pump)
      *
      * @generated from protobuf field: string pump_name = 1
      */
@@ -791,6 +827,12 @@ export interface ParamSet {
      */
     name: string;
     /**
+     * @generated from protobuf field: float pump0_volume = 9
+     */
+    pump0Volume: number; // 泵0进样量 (mm)    /**
+     * @generated from protobuf field: float pump1_volume = 10
+     */
+    pump1Volume: number; // 泵1进样量 (mm)    /**
      * @generated from protobuf field: float pump2_volume = 3
      */
     pump2Volume: number; // 泵2进样量 (mm)    /**
@@ -803,6 +845,12 @@ export interface ParamSet {
      * @generated from protobuf field: float pump5_volume = 6
      */
     pump5Volume: number; // 泵5进样量 (mm)    /**
+     * @generated from protobuf field: float pump6_volume = 11
+     */
+    pump6Volume: number; // 泵6进样量 (mm)    /**
+     * @generated from protobuf field: float pump7_volume = 12
+     */
+    pump7Volume: number; // 泵7进样量 (mm)    /**
      * @generated from protobuf field: float speed = 7
      */
     speed: number; // 进样速度 (mm/s)    /**
@@ -896,6 +944,14 @@ export interface TestResult {
      * @generated from protobuf field: float total_volume = 4
      */
     totalVolume: number; // 设定总量 (mm)    /**
+     * @generated from protobuf field: float pump0_volume = 19
+     */
+    pump0Volume: number;
+    /**
+     * @generated from protobuf field: float pump1_volume = 20
+     */
+    pump1Volume: number;
+    /**
      * @generated from protobuf field: float pump2_volume = 5
      */
     pump2Volume: number;
@@ -911,6 +967,14 @@ export interface TestResult {
      * @generated from protobuf field: float pump5_volume = 8
      */
     pump5Volume: number;
+    /**
+     * @generated from protobuf field: float pump6_volume = 21
+     */
+    pump6Volume: number;
+    /**
+     * @generated from protobuf field: float pump7_volume = 22
+     */
+    pump7Volume: number;
     /**
      * @generated from protobuf field: float speed = 9
      */
@@ -1352,10 +1416,14 @@ class PeripheralStatus$Type extends MessageType<PeripheralStatus> {
             { no: 4, name: "valve_outlet", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 5, name: "air_pump_pwm", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 6, name: "cleaning_pump", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 12, name: "pump_0", kind: "enum", T: () => ["enose.service.PeripheralStatus.PumpRunState", PeripheralStatus_PumpRunState] },
+            { no: 13, name: "pump_1", kind: "enum", T: () => ["enose.service.PeripheralStatus.PumpRunState", PeripheralStatus_PumpRunState] },
             { no: 7, name: "pump_2", kind: "enum", T: () => ["enose.service.PeripheralStatus.PumpRunState", PeripheralStatus_PumpRunState] },
             { no: 8, name: "pump_3", kind: "enum", T: () => ["enose.service.PeripheralStatus.PumpRunState", PeripheralStatus_PumpRunState] },
             { no: 9, name: "pump_4", kind: "enum", T: () => ["enose.service.PeripheralStatus.PumpRunState", PeripheralStatus_PumpRunState] },
             { no: 10, name: "pump_5", kind: "enum", T: () => ["enose.service.PeripheralStatus.PumpRunState", PeripheralStatus_PumpRunState] },
+            { no: 14, name: "pump_6", kind: "enum", T: () => ["enose.service.PeripheralStatus.PumpRunState", PeripheralStatus_PumpRunState] },
+            { no: 15, name: "pump_7", kind: "enum", T: () => ["enose.service.PeripheralStatus.PumpRunState", PeripheralStatus_PumpRunState] },
             { no: 11, name: "heater_chamber", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 20, name: "sensor_chamber_temp", kind: "scalar", opt: true, T: 2 /*ScalarType.FLOAT*/ },
             { no: 21, name: "scale_weight", kind: "scalar", opt: true, T: 2 /*ScalarType.FLOAT*/ }
@@ -1369,10 +1437,14 @@ class PeripheralStatus$Type extends MessageType<PeripheralStatus> {
         message.valveOutlet = 0;
         message.airPumpPwm = 0;
         message.cleaningPump = 0;
+        message.pump0 = 0;
+        message.pump1 = 0;
         message.pump2 = 0;
         message.pump3 = 0;
         message.pump4 = 0;
         message.pump5 = 0;
+        message.pump6 = 0;
+        message.pump7 = 0;
         message.heaterChamber = 0;
         if (value !== undefined)
             reflectionMergePartial<PeripheralStatus>(this, message, value);
@@ -1401,6 +1473,12 @@ class PeripheralStatus$Type extends MessageType<PeripheralStatus> {
                 case /* float cleaning_pump */ 6:
                     message.cleaningPump = reader.float();
                     break;
+                case /* enose.service.PeripheralStatus.PumpRunState pump_0 */ 12:
+                    message.pump0 = reader.int32();
+                    break;
+                case /* enose.service.PeripheralStatus.PumpRunState pump_1 */ 13:
+                    message.pump1 = reader.int32();
+                    break;
                 case /* enose.service.PeripheralStatus.PumpRunState pump_2 */ 7:
                     message.pump2 = reader.int32();
                     break;
@@ -1412,6 +1490,12 @@ class PeripheralStatus$Type extends MessageType<PeripheralStatus> {
                     break;
                 case /* enose.service.PeripheralStatus.PumpRunState pump_5 */ 10:
                     message.pump5 = reader.int32();
+                    break;
+                case /* enose.service.PeripheralStatus.PumpRunState pump_6 */ 14:
+                    message.pump6 = reader.int32();
+                    break;
+                case /* enose.service.PeripheralStatus.PumpRunState pump_7 */ 15:
+                    message.pump7 = reader.int32();
                     break;
                 case /* float heater_chamber */ 11:
                     message.heaterChamber = reader.float();
@@ -1467,6 +1551,18 @@ class PeripheralStatus$Type extends MessageType<PeripheralStatus> {
         /* float heater_chamber = 11; */
         if (message.heaterChamber !== 0)
             writer.tag(11, WireType.Bit32).float(message.heaterChamber);
+        /* enose.service.PeripheralStatus.PumpRunState pump_0 = 12; */
+        if (message.pump0 !== 0)
+            writer.tag(12, WireType.Varint).int32(message.pump0);
+        /* enose.service.PeripheralStatus.PumpRunState pump_1 = 13; */
+        if (message.pump1 !== 0)
+            writer.tag(13, WireType.Varint).int32(message.pump1);
+        /* enose.service.PeripheralStatus.PumpRunState pump_6 = 14; */
+        if (message.pump6 !== 0)
+            writer.tag(14, WireType.Varint).int32(message.pump6);
+        /* enose.service.PeripheralStatus.PumpRunState pump_7 = 15; */
+        if (message.pump7 !== 0)
+            writer.tag(15, WireType.Varint).int32(message.pump7);
         /* optional float sensor_chamber_temp = 20; */
         if (message.sensorChamberTemp !== undefined)
             writer.tag(20, WireType.Bit32).float(message.sensorChamberTemp);
@@ -1707,20 +1803,28 @@ export const ManualControlResponse = new ManualControlResponse$Type();
 class StartInjectionRequest$Type extends MessageType<StartInjectionRequest> {
     constructor() {
         super("enose.service.StartInjectionRequest", [
+            { no: 7, name: "pump_0_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 8, name: "pump_1_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 1, name: "pump_2_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 2, name: "pump_3_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 3, name: "pump_4_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 4, name: "pump_5_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 9, name: "pump_6_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 10, name: "pump_7_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 5, name: "speed", kind: "scalar", opt: true, T: 2 /*ScalarType.FLOAT*/ },
             { no: 6, name: "accel", kind: "scalar", opt: true, T: 2 /*ScalarType.FLOAT*/ }
         ]);
     }
     create(value?: PartialMessage<StartInjectionRequest>): StartInjectionRequest {
         const message = globalThis.Object.create((this.messagePrototype!));
+        message.pump0Volume = 0;
+        message.pump1Volume = 0;
         message.pump2Volume = 0;
         message.pump3Volume = 0;
         message.pump4Volume = 0;
         message.pump5Volume = 0;
+        message.pump6Volume = 0;
+        message.pump7Volume = 0;
         if (value !== undefined)
             reflectionMergePartial<StartInjectionRequest>(this, message, value);
         return message;
@@ -1730,6 +1834,12 @@ class StartInjectionRequest$Type extends MessageType<StartInjectionRequest> {
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
             switch (fieldNo) {
+                case /* float pump_0_volume */ 7:
+                    message.pump0Volume = reader.float();
+                    break;
+                case /* float pump_1_volume */ 8:
+                    message.pump1Volume = reader.float();
+                    break;
                 case /* float pump_2_volume */ 1:
                     message.pump2Volume = reader.float();
                     break;
@@ -1741,6 +1851,12 @@ class StartInjectionRequest$Type extends MessageType<StartInjectionRequest> {
                     break;
                 case /* float pump_5_volume */ 4:
                     message.pump5Volume = reader.float();
+                    break;
+                case /* float pump_6_volume */ 9:
+                    message.pump6Volume = reader.float();
+                    break;
+                case /* float pump_7_volume */ 10:
+                    message.pump7Volume = reader.float();
                     break;
                 case /* optional float speed */ 5:
                     message.speed = reader.float();
@@ -1778,6 +1894,18 @@ class StartInjectionRequest$Type extends MessageType<StartInjectionRequest> {
         /* optional float accel = 6; */
         if (message.accel !== undefined)
             writer.tag(6, WireType.Bit32).float(message.accel);
+        /* float pump_0_volume = 7; */
+        if (message.pump0Volume !== 0)
+            writer.tag(7, WireType.Bit32).float(message.pump0Volume);
+        /* float pump_1_volume = 8; */
+        if (message.pump1Volume !== 0)
+            writer.tag(8, WireType.Bit32).float(message.pump1Volume);
+        /* float pump_6_volume = 9; */
+        if (message.pump6Volume !== 0)
+            writer.tag(9, WireType.Bit32).float(message.pump6Volume);
+        /* float pump_7_volume = 10; */
+        if (message.pump7Volume !== 0)
+            writer.tag(10, WireType.Bit32).float(message.pump7Volume);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -1847,20 +1975,28 @@ export const StartInjectionResponse = new StartInjectionResponse$Type();
 class StartInjectionByWeightRequest$Type extends MessageType<StartInjectionByWeightRequest> {
     constructor() {
         super("enose.service.StartInjectionByWeightRequest", [
+            { no: 7, name: "pump_0_weight", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 8, name: "pump_1_weight", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 1, name: "pump_2_weight", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 2, name: "pump_3_weight", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 3, name: "pump_4_weight", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 4, name: "pump_5_weight", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 9, name: "pump_6_weight", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 10, name: "pump_7_weight", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 5, name: "speed", kind: "scalar", opt: true, T: 2 /*ScalarType.FLOAT*/ },
             { no: 6, name: "accel", kind: "scalar", opt: true, T: 2 /*ScalarType.FLOAT*/ }
         ]);
     }
     create(value?: PartialMessage<StartInjectionByWeightRequest>): StartInjectionByWeightRequest {
         const message = globalThis.Object.create((this.messagePrototype!));
+        message.pump0Weight = 0;
+        message.pump1Weight = 0;
         message.pump2Weight = 0;
         message.pump3Weight = 0;
         message.pump4Weight = 0;
         message.pump5Weight = 0;
+        message.pump6Weight = 0;
+        message.pump7Weight = 0;
         if (value !== undefined)
             reflectionMergePartial<StartInjectionByWeightRequest>(this, message, value);
         return message;
@@ -1870,6 +2006,12 @@ class StartInjectionByWeightRequest$Type extends MessageType<StartInjectionByWei
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
             switch (fieldNo) {
+                case /* float pump_0_weight */ 7:
+                    message.pump0Weight = reader.float();
+                    break;
+                case /* float pump_1_weight */ 8:
+                    message.pump1Weight = reader.float();
+                    break;
                 case /* float pump_2_weight */ 1:
                     message.pump2Weight = reader.float();
                     break;
@@ -1881,6 +2023,12 @@ class StartInjectionByWeightRequest$Type extends MessageType<StartInjectionByWei
                     break;
                 case /* float pump_5_weight */ 4:
                     message.pump5Weight = reader.float();
+                    break;
+                case /* float pump_6_weight */ 9:
+                    message.pump6Weight = reader.float();
+                    break;
+                case /* float pump_7_weight */ 10:
+                    message.pump7Weight = reader.float();
                     break;
                 case /* optional float speed */ 5:
                     message.speed = reader.float();
@@ -1918,6 +2066,18 @@ class StartInjectionByWeightRequest$Type extends MessageType<StartInjectionByWei
         /* optional float accel = 6; */
         if (message.accel !== undefined)
             writer.tag(6, WireType.Bit32).float(message.accel);
+        /* float pump_0_weight = 7; */
+        if (message.pump0Weight !== 0)
+            writer.tag(7, WireType.Bit32).float(message.pump0Weight);
+        /* float pump_1_weight = 8; */
+        if (message.pump1Weight !== 0)
+            writer.tag(8, WireType.Bit32).float(message.pump1Weight);
+        /* float pump_6_weight = 9; */
+        if (message.pump6Weight !== 0)
+            writer.tag(9, WireType.Bit32).float(message.pump6Weight);
+        /* float pump_7_weight = 10; */
+        if (message.pump7Weight !== 0)
+            writer.tag(10, WireType.Bit32).float(message.pump7Weight);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -3487,10 +3647,14 @@ class ParamSet$Type extends MessageType<ParamSet> {
         super("enose.service.ParamSet", [
             { no: 1, name: "id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 2, name: "name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 9, name: "pump0_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 10, name: "pump1_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 3, name: "pump2_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 4, name: "pump3_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 5, name: "pump4_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 6, name: "pump5_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 11, name: "pump6_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 12, name: "pump7_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 7, name: "speed", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 8, name: "cycles", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
         ]);
@@ -3499,10 +3663,14 @@ class ParamSet$Type extends MessageType<ParamSet> {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.id = 0;
         message.name = "";
+        message.pump0Volume = 0;
+        message.pump1Volume = 0;
         message.pump2Volume = 0;
         message.pump3Volume = 0;
         message.pump4Volume = 0;
         message.pump5Volume = 0;
+        message.pump6Volume = 0;
+        message.pump7Volume = 0;
         message.speed = 0;
         message.cycles = 0;
         if (value !== undefined)
@@ -3520,6 +3688,12 @@ class ParamSet$Type extends MessageType<ParamSet> {
                 case /* string name */ 2:
                     message.name = reader.string();
                     break;
+                case /* float pump0_volume */ 9:
+                    message.pump0Volume = reader.float();
+                    break;
+                case /* float pump1_volume */ 10:
+                    message.pump1Volume = reader.float();
+                    break;
                 case /* float pump2_volume */ 3:
                     message.pump2Volume = reader.float();
                     break;
@@ -3531,6 +3705,12 @@ class ParamSet$Type extends MessageType<ParamSet> {
                     break;
                 case /* float pump5_volume */ 6:
                     message.pump5Volume = reader.float();
+                    break;
+                case /* float pump6_volume */ 11:
+                    message.pump6Volume = reader.float();
+                    break;
+                case /* float pump7_volume */ 12:
+                    message.pump7Volume = reader.float();
                     break;
                 case /* float speed */ 7:
                     message.speed = reader.float();
@@ -3574,6 +3754,18 @@ class ParamSet$Type extends MessageType<ParamSet> {
         /* int32 cycles = 8; */
         if (message.cycles !== 0)
             writer.tag(8, WireType.Varint).int32(message.cycles);
+        /* float pump0_volume = 9; */
+        if (message.pump0Volume !== 0)
+            writer.tag(9, WireType.Bit32).float(message.pump0Volume);
+        /* float pump1_volume = 10; */
+        if (message.pump1Volume !== 0)
+            writer.tag(10, WireType.Bit32).float(message.pump1Volume);
+        /* float pump6_volume = 11; */
+        if (message.pump6Volume !== 0)
+            writer.tag(11, WireType.Bit32).float(message.pump6Volume);
+        /* float pump7_volume = 12; */
+        if (message.pump7Volume !== 0)
+            writer.tag(12, WireType.Bit32).float(message.pump7Volume);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -3806,10 +3998,14 @@ class TestResult$Type extends MessageType<TestResult> {
             { no: 2, name: "param_set_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 3, name: "cycle", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 4, name: "total_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 19, name: "pump0_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 20, name: "pump1_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 5, name: "pump2_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 6, name: "pump3_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 7, name: "pump4_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 8, name: "pump5_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 21, name: "pump6_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 22, name: "pump7_volume", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 9, name: "speed", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 10, name: "empty_weight", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 11, name: "full_weight", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
@@ -3828,10 +4024,14 @@ class TestResult$Type extends MessageType<TestResult> {
         message.paramSetName = "";
         message.cycle = 0;
         message.totalVolume = 0;
+        message.pump0Volume = 0;
+        message.pump1Volume = 0;
         message.pump2Volume = 0;
         message.pump3Volume = 0;
         message.pump4Volume = 0;
         message.pump5Volume = 0;
+        message.pump6Volume = 0;
+        message.pump7Volume = 0;
         message.speed = 0;
         message.emptyWeight = 0;
         message.fullWeight = 0;
@@ -3862,6 +4062,12 @@ class TestResult$Type extends MessageType<TestResult> {
                 case /* float total_volume */ 4:
                     message.totalVolume = reader.float();
                     break;
+                case /* float pump0_volume */ 19:
+                    message.pump0Volume = reader.float();
+                    break;
+                case /* float pump1_volume */ 20:
+                    message.pump1Volume = reader.float();
+                    break;
                 case /* float pump2_volume */ 5:
                     message.pump2Volume = reader.float();
                     break;
@@ -3873,6 +4079,12 @@ class TestResult$Type extends MessageType<TestResult> {
                     break;
                 case /* float pump5_volume */ 8:
                     message.pump5Volume = reader.float();
+                    break;
+                case /* float pump6_volume */ 21:
+                    message.pump6Volume = reader.float();
+                    break;
+                case /* float pump7_volume */ 22:
+                    message.pump7Volume = reader.float();
                     break;
                 case /* float speed */ 9:
                     message.speed = reader.float();
@@ -3970,6 +4182,18 @@ class TestResult$Type extends MessageType<TestResult> {
         /* google.protobuf.Timestamp timestamp = 18; */
         if (message.timestamp)
             Timestamp.internalBinaryWrite(message.timestamp, writer.tag(18, WireType.LengthDelimited).fork(), options).join();
+        /* float pump0_volume = 19; */
+        if (message.pump0Volume !== 0)
+            writer.tag(19, WireType.Bit32).float(message.pump0Volume);
+        /* float pump1_volume = 20; */
+        if (message.pump1Volume !== 0)
+            writer.tag(20, WireType.Bit32).float(message.pump1Volume);
+        /* float pump6_volume = 21; */
+        if (message.pump6Volume !== 0)
+            writer.tag(21, WireType.Bit32).float(message.pump6Volume);
+        /* float pump7_volume = 22; */
+        if (message.pump7Volume !== 0)
+            writer.tag(22, WireType.Bit32).float(message.pump7Volume);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);

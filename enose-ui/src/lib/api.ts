@@ -7,10 +7,14 @@ export interface PeripheralStatus {
   valve_outlet: number;
   air_pump_pwm: number;
   cleaning_pump: number;
+  pump_0: "STOPPED" | "RUNNING";
+  pump_1: "STOPPED" | "RUNNING";
   pump_2: "STOPPED" | "RUNNING";
   pump_3: "STOPPED" | "RUNNING";
   pump_4: "STOPPED" | "RUNNING";
   pump_5: "STOPPED" | "RUNNING";
+  pump_6: "STOPPED" | "RUNNING";
+  pump_7: "STOPPED" | "RUNNING";
   heater_chamber: number;
   sensor_chamber_temp?: number;
   scale_weight?: number;
@@ -46,10 +50,14 @@ export async function fetchStatus(): Promise<SystemStatus> {
       valve_outlet: ps?.valveOutlet || 0,
       air_pump_pwm: ps?.airPumpPwm || 0,
       cleaning_pump: ps?.cleaningPump || 0,
+      pump_0: ps?.pump0 === 2 ? "RUNNING" : "STOPPED",
+      pump_1: ps?.pump1 === 2 ? "RUNNING" : "STOPPED",
       pump_2: ps?.pump2 === 2 ? "RUNNING" : "STOPPED",
       pump_3: ps?.pump3 === 2 ? "RUNNING" : "STOPPED",
       pump_4: ps?.pump4 === 2 ? "RUNNING" : "STOPPED",
       pump_5: ps?.pump5 === 2 ? "RUNNING" : "STOPPED",
+      pump_6: ps?.pump6 === 2 ? "RUNNING" : "STOPPED",
+      pump_7: ps?.pump7 === 2 ? "RUNNING" : "STOPPED",
       heater_chamber: ps?.heaterChamber || 0,
       sensor_chamber_temp: ps?.sensorChamberTemp,
       scale_weight: ps?.scaleWeight,

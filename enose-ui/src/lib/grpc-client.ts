@@ -113,10 +113,14 @@ export async function stopAllPumps(): Promise<StopAllPumpsResponse> {
 
 // 进样控制
 export interface InjectionParams {
+  pump0Volume: number;
+  pump1Volume: number;
   pump2Volume: number;
   pump3Volume: number;
   pump4Volume: number;
   pump5Volume: number;
+  pump6Volume: number;
+  pump7Volume: number;
   speed?: number;
   accel?: number;
 }
@@ -125,10 +129,14 @@ export async function startInjection(params: InjectionParams): Promise<{ success
   return promisify(
     getClient().startInjection.bind(getClient()),
     {
+      pump0Volume: params.pump0Volume,
+      pump1Volume: params.pump1Volume,
       pump2Volume: params.pump2Volume,
       pump3Volume: params.pump3Volume,
       pump4Volume: params.pump4Volume,
       pump5Volume: params.pump5Volume,
+      pump6Volume: params.pump6Volume,
+      pump7Volume: params.pump7Volume,
       speed: params.speed,
       accel: params.accel,
     }
@@ -144,10 +152,14 @@ export async function stopInjection(): Promise<{ success: boolean; message: stri
 
 // 按重量进样 (单位: g)
 export interface InjectionByWeightParams {
+  pump0Weight: number;
+  pump1Weight: number;
   pump2Weight: number;
   pump3Weight: number;
   pump4Weight: number;
   pump5Weight: number;
+  pump6Weight: number;
+  pump7Weight: number;
   speed?: number;
   accel?: number;
 }
@@ -156,10 +168,14 @@ export async function startInjectionByWeight(params: InjectionByWeightParams): P
   return promisify(
     getClient().startInjectionByWeight.bind(getClient()),
     {
+      pump0Weight: params.pump0Weight,
+      pump1Weight: params.pump1Weight,
       pump2Weight: params.pump2Weight,
       pump3Weight: params.pump3Weight,
       pump4Weight: params.pump4Weight,
       pump5Weight: params.pump5Weight,
+      pump6Weight: params.pump6Weight,
+      pump7Weight: params.pump7Weight,
       speed: params.speed,
       accel: params.accel,
     }

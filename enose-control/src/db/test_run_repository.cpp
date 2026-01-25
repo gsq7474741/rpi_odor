@@ -234,14 +234,17 @@ bool TestRunRepository::insert_result(int run_id, const workflows::TestResult& r
         pqxx::work txn(conn.get());
         txn.exec_params(
             "INSERT INTO test_results (run_id, param_set_id, param_set_name, cycle, "
-            "total_volume, pump2_volume, pump3_volume, pump4_volume, pump5_volume, "
+            "total_volume, pump0_volume, pump1_volume, pump2_volume, pump3_volume, "
+            "pump4_volume, pump5_volume, pump6_volume, pump7_volume, "
             "speed, empty_weight, full_weight, injected_weight, "
             "drain_duration_ms, wait_empty_duration_ms, inject_duration_ms, "
             "wait_stable_duration_ms, total_duration_ms) "
-            "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)",
+            "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)",
             run_id, result.param_set_id, result.param_set_name, result.cycle,
-            result.total_volume, result.pump2_volume, result.pump3_volume,
-            result.pump4_volume, result.pump5_volume, result.speed,
+            result.total_volume, result.pump0_volume, result.pump1_volume,
+            result.pump2_volume, result.pump3_volume,
+            result.pump4_volume, result.pump5_volume,
+            result.pump6_volume, result.pump7_volume, result.speed,
             result.empty_weight, result.full_weight, result.injected_weight,
             result.drain_duration_ms, result.wait_empty_duration_ms,
             result.inject_duration_ms, result.wait_stable_duration_ms, result.total_duration_ms
@@ -279,10 +282,14 @@ std::vector<TestResultRecord> TestRunRepository::get_results(int run_id) {
             record.param_set_name = row["param_set_name"].as<std::string>();
             record.cycle = row["cycle"].as<int>();
             record.total_volume = row["total_volume"].as<float>();
+            record.pump0_volume = row["pump0_volume"].as<float>(0);
+            record.pump1_volume = row["pump1_volume"].as<float>(0);
             record.pump2_volume = row["pump2_volume"].as<float>();
             record.pump3_volume = row["pump3_volume"].as<float>();
             record.pump4_volume = row["pump4_volume"].as<float>();
             record.pump5_volume = row["pump5_volume"].as<float>();
+            record.pump6_volume = row["pump6_volume"].as<float>(0);
+            record.pump7_volume = row["pump7_volume"].as<float>(0);
             record.speed = row["speed"].as<float>();
             record.empty_weight = row["empty_weight"].as<float>();
             record.full_weight = row["full_weight"].as<float>();
