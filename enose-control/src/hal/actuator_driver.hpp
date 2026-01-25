@@ -34,8 +34,9 @@ public:
 
     /**
      * @brief Send G-code command via JSON-RPC
+     * @param silent If true, don't log the command (for high-frequency commands like breathing LED)
      */
-    void send_gcode(const std::string& gcode);
+    void send_gcode(const std::string& gcode, bool silent = false);
 
     /**
      * @brief Subscribe to object model updates
@@ -57,11 +58,22 @@ public:
     bool is_firmware_ready() const { return firmware_ready_; }
 
     /**
+     * @brief Start breathing LED effect on estop_led pin
+     */
+    void start_breathing_led();
+
+    /**
+     * @brief Stop breathing LED effect
+     */
+    void stop_breathing_led();
+
+    /**
      * @brief Signal for status updates (weight, temperature, etc.)
      */
     boost::signals2::signal<void(const nlohmann::json&)> on_status_update;
 
 private:
+    void breathing_led_tick();
     void on_resolve(beast::error_code ec, tcp::resolver::results_type results);
     void on_connect(beast::error_code ec, tcp::resolver::results_type::endpoint_type ep);
     void on_handshake(beast::error_code ec);
@@ -87,6 +99,11 @@ private:
     
     // RPC 回调存储
     std::unordered_map<int, std::function<void(const nlohmann::json&)>> rpc_callbacks_;
+    
+    // 呼吸灯控制
+    std::unique_ptr<net::steady_timer> breathing_led_timer_;
+    bool breathing_led_running_{false};
+    float breathing_led_phase_{0.0f};
 };
 
 } // namespace hal

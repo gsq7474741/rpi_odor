@@ -32,8 +32,12 @@ service ControlService {
   // 停止所有泵
   rpc StopAllPumps(google.protobuf.Empty) returns (StopAllPumpsResponse);
   
-  // 开始进样 (设置阀门 + 启动指定蠕动泵)
+  // 开始进样 (设置阀门 + 启动指定蠕动泵) - 单位: mm
   rpc StartInjection(StartInjectionRequest) returns (StartInjectionResponse);
+  
+  // 开始进样 (按重量) - 单位: g (真实重量)
+  // 内部转换: x = (y - weight_offset) / weight_scale, mm = x / pump_mm_to_ml
+  rpc StartInjectionByWeight(StartInjectionByWeightRequest) returns (StartInjectionResponse);
   
   // 停止进样
   rpc StopInjection(google.protobuf.Empty) returns (StopInjectionResponse);
@@ -188,6 +192,20 @@ message StartInjectionResponse {
   string message = 2;
 }
 
+// 按重量进样请求 (单位: g 真实重量)
+// 后端转换: x = (y - weight_offset) / weight_scale, mm = x / pump_mm_to_ml
+message StartInjectionByWeightRequest {
+  // 每个蠕动泵的进样量 (单位: g 真实重量)
+  float pump_2_weight = 1;  // 蠕动泵0
+  float pump_3_weight = 2;  // 蠕动泵1
+  float pump_4_weight = 3;  // 蠕动泵2
+  float pump_5_weight = 4;  // 蠕动泵3
+  
+  // 可选参数
+  optional float speed = 5;  // 进样速度 (mm/s), 默认 10
+  optional float accel = 6;  // 加速度 (mm/s²), 默认 100
+}
+
 message StopInjectionResponse {
   bool success = 1;
   string message = 2;
@@ -332,6 +350,9 @@ service LoadCellService {
   // 设置溢出阈值
   rpc SetOverflowThreshold(ThresholdRequest) returns (google.protobuf.Empty);
   
+  // 设置泵校准系数 (mm -> g 线性模型)
+  rpc SetPumpCalibration(PumpCalibrationRequest) returns (google.protobuf.Empty);
+  
   // 获取业务配置
   rpc GetLoadCellConfig(google.protobuf.Empty) returns (LoadCellConfig);
   
@@ -432,6 +453,22 @@ message LoadCellConfig {
   float drain_complete_margin = 2;  // 排空完成余量 (g)
   float stable_threshold = 3;       // 稳定判断阈值 (g)
   string last_calibration_time = 4; // 最后标定时间
+  
+  // 泵校准系数 (mm -> 测量重量 g)
+  // 线性模型: measured_weight = mm * pump_mm_to_ml + pump_mm_offset
+  float pump_mm_to_ml = 5;          // g/mm (斜率)
+  float pump_mm_offset = 6;         // g (截距)
+  
+  // 重量校准系数 (测量值 -> 真实值)
+  // 线性模型: real_weight = weight_scale * measured_weight + weight_offset
+  float weight_scale = 7;           // 斜率
+  float weight_offset = 8;          // 截距 (g)
+}
+
+// 泵校准系数请求
+message PumpCalibrationRequest {
+  float slope = 1;                  // 斜率 (g/mm)
+  float offset = 2;                 // 截距 (g)
 }
 
 // ============================================================

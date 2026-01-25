@@ -142,6 +142,24 @@ ExperimentServiceImpl::~ExperimentServiceImpl() {
     
     std::lock_guard<std::mutex> lock(mutex_);
     
+    // 如果是已加载状态，直接卸载程序
+    if (state_ == experiment::EXP_LOADED) {
+        spdlog::info("卸载程序");
+        loaded_program_.reset();
+        state_ = experiment::EXP_IDLE;
+        // 注意: 不能在持有 mutex_ 的情况下调用 add_log (会死锁)
+        // 直接添加日志
+        auto now = std::chrono::system_clock::now();
+        auto time_t = std::chrono::system_clock::to_time_t(now);
+        char buf[64];
+        std::strftime(buf, sizeof(buf), "%H:%M:%S", std::localtime(&time_t));
+        logs_.push_back(std::string(buf) + " 程序已卸载");
+        if (logs_.size() > 100) logs_.erase(logs_.begin());
+        
+        fill_status_response(response);
+        return ::grpc::Status::OK;
+    }
+    
     if (state_ != experiment::EXP_RUNNING && state_ != experiment::EXP_PAUSED) {
         fill_status_response(response);
         return ::grpc::Status::OK;

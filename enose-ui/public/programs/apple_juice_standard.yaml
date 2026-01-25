@@ -1,0 +1,56 @@
+id: apple_juice_standard
+name: 苹果汁标准检测
+description: 使用标准流程采集苹果汁气味特征
+version: 1.0.0
+hardware:
+  bottle_capacity_ml: 150
+  max_fill_ml: 100
+  liquids:
+    - id: apple_juice
+      name: 苹果汁
+      pump_index: 2
+      type: LIQUID_SAMPLE
+    - id: distilled_water
+      name: 蒸馏水
+      pump_index: 3
+      type: LIQUID_SAMPLE
+    - id: rinse
+      name: 清洗液
+      pump_index: 0
+      type: LIQUID_RINSE
+steps:
+  - name: 标记进样开始
+    phase_marker:
+      phase_name: DOSE
+      is_start: true
+  - name: 进样
+    inject:
+      target_volume_ml: 15.0
+      tolerance: 0.5
+      flow_rate_ml_min: 5.0
+  - name: 标记进样结束
+    phase_marker:
+      phase_name: DOSE
+      is_start: false
+  - name: 切换到采样状态
+    set_state:
+      state: STATE_SAMPLE
+  - name: 设置气泵低速
+    set_gas_pump:
+      pwm_percent: 30
+  - name: 平衡等待
+    wait:
+      duration_s: 60
+      timeout_s: 120
+  - name: 数据采集
+    acquire:
+      gas_pump_pwm: 50
+      heater_cycles: 10
+      max_duration_s: 300
+  - name: 排废
+    drain:
+      gas_pump_pwm: 80
+      timeout_s: 60
+  - name: 恢复初始状态
+    set_state:
+      state: STATE_INITIAL

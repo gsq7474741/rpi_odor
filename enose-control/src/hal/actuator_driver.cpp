@@ -2,6 +2,7 @@
 #include <spdlog/spdlog.h>
 #include <iostream>
 #include <format>
+#include <cmath>
 
 namespace hal {
 
@@ -74,6 +75,9 @@ void ActuatorDriver::on_handshake(beast::error_code ec) {
     
     // 开始定时查询 printer.info
     query_printer_info();
+    
+    // 启动呼吸灯 (急停指示灯)
+    start_breathing_led();
 }
 
 void ActuatorDriver::do_read() {
@@ -153,11 +157,11 @@ void ActuatorDriver::on_read(beast::error_code ec, std::size_t bytes_transferred
     do_read();
 }
 
-void ActuatorDriver::send_gcode(const std::string& gcode) {
+void ActuatorDriver::send_gcode(const std::string& gcode, bool silent) {
     if (!connected_) return;
 
     // 使用 post 确保在 io_context 线程中执行，实现线程安全和非阻塞
-    net::post(io_, [this, self = shared_from_this(), gcode]() {
+    net::post(io_, [this, self = shared_from_this(), gcode, silent]() {
         nlohmann::json req;
         req["jsonrpc"] = "2.0";
         req["method"] = "printer.gcode.script";
@@ -165,7 +169,9 @@ void ActuatorDriver::send_gcode(const std::string& gcode) {
         int id = rpc_id_++;
         req["id"] = id;
         
-        spdlog::info("ActuatorDriver: RPC[{}] send: {}", id, gcode);
+        if (!silent) {
+            spdlog::info("ActuatorDriver: RPC[{}] send: {}", id, gcode);
+        }
 
         std::string msg = req.dump();
         
@@ -265,6 +271,57 @@ void ActuatorDriver::schedule_printer_info_query() {
     printer_info_timer_.async_wait([this, self = shared_from_this()](beast::error_code ec) {
         if (!ec && connected_) {
             query_printer_info();
+        }
+    });
+}
+
+void ActuatorDriver::start_breathing_led() {
+    if (breathing_led_running_) return;
+    
+    breathing_led_running_ = true;
+    breathing_led_phase_ = 0.0f;
+    breathing_led_timer_ = std::make_unique<net::steady_timer>(io_);
+    
+    spdlog::info("ActuatorDriver: Starting breathing LED");
+    breathing_led_tick();
+}
+
+void ActuatorDriver::stop_breathing_led() {
+    if (!breathing_led_running_) return;
+    
+    breathing_led_running_ = false;
+    if (breathing_led_timer_) {
+        breathing_led_timer_->cancel();
+        breathing_led_timer_.reset();
+    }
+    spdlog::info("ActuatorDriver: Stopped breathing LED");
+}
+
+void ActuatorDriver::breathing_led_tick() {
+    if (!breathing_led_running_ || !connected_) return;
+    
+    // 使用正弦波生成呼吸效果 (0.0 ~ 1.0)
+    // 周期约 2 秒 (50ms * 40 steps)
+    float value = (std::sin(breathing_led_phase_) + 1.0f) / 2.0f;
+    
+    // 最小亮度 0.1，避免完全熄灭
+    value = 0.1f + value * 0.9f;
+    
+    // 发送 G-code 设置 LED 亮度 (静默模式，不输出日志)
+    std::string gcode = std::format("SET_PIN PIN=estop_led VALUE={:.2f}", value);
+    send_gcode(gcode, true);
+    
+    // 更新相位 (每次增加约 0.157 弧度，约 40 步完成一个周期)
+    breathing_led_phase_ += 0.157f;
+    if (breathing_led_phase_ > 6.283f) {  // 2 * PI
+        breathing_led_phase_ -= 6.283f;
+    }
+    
+    // 50ms 后再次触发
+    breathing_led_timer_->expires_after(std::chrono::milliseconds(50));
+    breathing_led_timer_->async_wait([this, self = shared_from_this()](beast::error_code ec) {
+        if (!ec && breathing_led_running_) {
+            breathing_led_tick();
         }
     });
 }

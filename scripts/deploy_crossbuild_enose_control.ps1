@@ -64,7 +64,7 @@ $cachedDockerHash = if (Test-Path $DockerHashFile) { Get-Content $DockerHashFile
 $needBuildImage = $Force -or ($currentDockerHash -ne $cachedDockerHash) -or ($null -eq (docker images -q $DockerImage 2>$null))
 
 if ($needBuildImage) {
-    Write-Host "`n[1/5] 构建 Docker 交叉编译镜像..." -ForegroundColor Yellow
+    Write-Host "`n[1/6] 构建 Docker 交叉编译镜像..." -ForegroundColor Yellow
     if ($Force) {
         Write-Host "  (强制重新构建)" -ForegroundColor DarkGray
     } elseif ($currentDockerHash -ne $cachedDockerHash) {
@@ -80,7 +80,7 @@ if ($needBuildImage) {
     $currentDockerHash | Out-File -FilePath $DockerHashFile -NoNewline
     Write-Host "  Docker 镜像构建完成" -ForegroundColor Green
 } else {
-    Write-Host "`n[1/5] Docker 镜像已是最新 (跳过构建)" -ForegroundColor DarkGray
+    Write-Host "`n[1/6] Docker 镜像已是最新 (跳过构建)" -ForegroundColor DarkGray
 }
 
 # ============================================
@@ -92,7 +92,7 @@ $cachedProtoHash = if (Test-Path $ProtoHashFile) { Get-Content $ProtoHashFile } 
 $needGenProto = $Proto -or ($currentProtoHash -ne $cachedProtoHash)
 
 if ($needGenProto) {
-    Write-Host "`n[2/5] 生成 Protobuf 代码 (容器内 buf)..." -ForegroundColor Yellow
+    Write-Host "`n[2/6] 生成 Protobuf 代码 (容器内 buf)..." -ForegroundColor Yellow
     if ($Proto) {
         Write-Host "  (强制生成)" -ForegroundColor DarkGray
     } else {
@@ -107,13 +107,13 @@ if ($needGenProto) {
     $currentProtoHash | Out-File -FilePath $ProtoHashFile -NoNewline
     Write-Host "  Protobuf 生成完成" -ForegroundColor Green
 } else {
-    Write-Host "`n[2/5] Protobuf 已是最新 (跳过生成)" -ForegroundColor DarkGray
+    Write-Host "`n[2/6] Protobuf 已是最新 (跳过生成)" -ForegroundColor DarkGray
 }
 
 # ============================================
 # 步骤 3: 交叉编译
 # ============================================
-Write-Host "`n[3/5] 交叉编译 enose-control (arm64)..." -ForegroundColor Yellow
+Write-Host "`n[3/6] 交叉编译 enose-control (arm64)..." -ForegroundColor Yellow
 
 $cmd = 'cd /src/enose-control && mkdir -p build && cd build && cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/opt/toolchain-arm64.cmake -DCMAKE_PREFIX_PATH=/opt/cross-pi-arm64/usr .. && ninja -j$(nproc)'
 & docker run --rm -v "${ProjectRoot}:/src" $DockerImage bash -c $cmd 2>&1 | ForEach-Object { Write-Host $_ }
@@ -123,7 +123,7 @@ Write-Host "  编译成功" -ForegroundColor Green
 # ============================================
 # 步骤 4: 部署到 RPi5
 # ============================================
-Write-Host "`n[4/5] 部署到 RPi5..." -ForegroundColor Yellow
+Write-Host "`n[4/6] 部署到 RPi5..." -ForegroundColor Yellow
 
 $binaryPath = Join-Path $EnoseControl "build\bin\enose-control"
 if (-not (Test-Path $binaryPath)) {
@@ -147,12 +147,23 @@ if ($LASTEXITCODE -ne 0) { throw "上传二进制文件失败" }
 # 上传配置文件
 $configPath = Join-Path $EnoseControl "config\config.json"
 if (Test-Path $configPath) {
-    Write-Host "  上传配置文件..." -ForegroundColor Yellow
+    Write-Host "  上传配置文件 config.json..." -ForegroundColor Yellow
     & scp $configPath "${RPI_HOST}:${REMOTE_DIR}/config/"
     if ($LASTEXITCODE -ne 0) { throw "上传配置文件失败" }
 } else {
     Write-Host "  警告: 配置文件不存在: $configPath" -ForegroundColor Yellow
 }
+
+# # 上传 load_cell 配置文件
+# # 目前不上传，因为配置文件在运行时会自动创建并手动校准
+# $loadCellConfigPath = Join-Path $EnoseControl "config\load_cell.json"
+# if (Test-Path $loadCellConfigPath) {
+#     Write-Host "  上传配置文件 load_cell.json..." -ForegroundColor Yellow
+#     & scp $loadCellConfigPath "${RPI_HOST}:${REMOTE_DIR}/config/"
+#     if ($LASTEXITCODE -ne 0) { throw "上传 load_cell 配置文件失败" }
+# } else {
+#     Write-Host "  警告: load_cell 配置文件不存在: $loadCellConfigPath" -ForegroundColor Yellow
+# }
 
 Write-Host "  上传完成" -ForegroundColor Green
 
@@ -163,8 +174,22 @@ if ($LASTEXITCODE -ne 0) { throw "重启服务失败" }
 # ============================================
 # 步骤 5: 检查服务状态
 # ============================================
-Write-Host "`n[5/5] 检查服务状态..." -ForegroundColor Yellow
+Write-Host "`n[5/6] 检查服务状态..." -ForegroundColor Yellow
 Start-Sleep -Seconds 2
 ssh $RPI_HOST "systemctl status enose-control --no-pager"
 
 Write-Host "`n=== 交叉编译部署完成! ===" -ForegroundColor Green
+
+# ============================================
+# 步骤 6: 复制生成的 TypeScript 类型到前端
+# ============================================
+$genTsPath = Join-Path $ProjectRoot "gen\typescript"
+$frontendGenPath = Join-Path $ProjectRoot "enose-ui\src\generated"
+
+if (Test-Path $genTsPath) {
+    Write-Host "`n[6/6] 复制 TypeScript 类型到前端..." -ForegroundColor Yellow
+    Copy-Item -Path "$genTsPath\*" -Destination $frontendGenPath -Recurse -Force
+    Write-Host "  复制完成: $frontendGenPath" -ForegroundColor Green
+} else {
+    Write-Host "`n[6/6] 跳过: 未找到生成的 TypeScript 文件" -ForegroundColor Yellow
+}

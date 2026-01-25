@@ -142,6 +142,30 @@ export async function stopInjection(): Promise<{ success: boolean; message: stri
   );
 }
 
+// 按重量进样 (单位: g)
+export interface InjectionByWeightParams {
+  pump2Weight: number;
+  pump3Weight: number;
+  pump4Weight: number;
+  pump5Weight: number;
+  speed?: number;
+  accel?: number;
+}
+
+export async function startInjectionByWeight(params: InjectionByWeightParams): Promise<{ success: boolean; message: string }> {
+  return promisify(
+    getClient().startInjectionByWeight.bind(getClient()),
+    {
+      pump2Weight: params.pump2Weight,
+      pump3Weight: params.pump3Weight,
+      pump4Weight: params.pump4Weight,
+      pump5Weight: params.pump5Weight,
+      speed: params.speed,
+      accel: params.accel,
+    }
+  );
+}
+
 // 紧急停止 (发送 M112)
 export async function emergencyStop(): Promise<{ success: boolean; message: string }> {
   return promisify(
@@ -334,6 +358,14 @@ export async function setOverflowThreshold(value: number): Promise<void> {
   await loadCellPromisify(
     getLoadCellClient().setOverflowThreshold.bind(getLoadCellClient()),
     { value }
+  );
+}
+
+// 设置泵校准系数 (mm -> g 线性模型)
+export async function setPumpCalibration(slope: number, offset: number): Promise<void> {
+  await loadCellPromisify(
+    getLoadCellClient().setPumpCalibration.bind(getLoadCellClient()),
+    { slope, offset }
   );
 }
 

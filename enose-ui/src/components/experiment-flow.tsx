@@ -1,5 +1,6 @@
 "use client";
 
+import yaml from "js-yaml";
 import { cn } from "@/lib/utils";
 import {
   Droplets,
@@ -336,15 +337,21 @@ function countLoops(steps: ExperimentStep[]): number {
   return count;
 }
 
+// 从YAML字符串解析为程序对象
+export function parseYamlString(yamlStr: string): ExperimentProgram {
+  const parsed = yaml.load(yamlStr) as Record<string, unknown>;
+  return parseYamlProgram(parsed);
+}
+
 // 从YAML解析的原始数据转换为组件需要的格式
-export function parseYamlProgram(yaml: Record<string, unknown>): ExperimentProgram {
+export function parseYamlProgram(data: Record<string, unknown>): ExperimentProgram {
   return {
-    id: yaml.id as string || "unknown",
-    name: yaml.name as string || "未命名程序",
-    description: yaml.description as string,
-    version: yaml.version as string,
-    hardware: yaml.hardware as ExperimentProgram["hardware"],
-    steps: parseSteps(yaml.steps as Array<Record<string, unknown>> || []),
+    id: data.id as string || "unknown",
+    name: data.name as string || "未命名程序",
+    description: data.description as string,
+    version: data.version as string,
+    hardware: data.hardware as ExperimentProgram["hardware"],
+    steps: parseSteps(data.steps as Array<Record<string, unknown>> || []),
   };
 }
 

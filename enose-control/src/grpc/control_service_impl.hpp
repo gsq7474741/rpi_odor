@@ -7,6 +7,7 @@
 
 namespace hal {
 class ActuatorDriver;
+class LoadCellDriver;
 }
 
 namespace enose_grpc {
@@ -24,7 +25,8 @@ class ControlServiceImpl final : public enose::service::ControlService::Service 
 public:
     ControlServiceImpl(
         std::shared_ptr<hal::ActuatorDriver> actuator,
-        std::shared_ptr<workflows::SystemState> system_state
+        std::shared_ptr<workflows::SystemState> system_state,
+        std::shared_ptr<hal::LoadCellDriver> load_cell = nullptr
     );
 
     // 获取系统状态
@@ -62,10 +64,17 @@ public:
         ::enose::service::StopAllPumpsResponse* response
     ) override;
 
-    // 开始进样
+    // 开始进样 (mm)
     ::grpc::Status StartInjection(
         ::grpc::ServerContext* context,
         const ::enose::service::StartInjectionRequest* request,
+        ::enose::service::StartInjectionResponse* response
+    ) override;
+
+    // 开始进样 (按重量 g)
+    ::grpc::Status StartInjectionByWeight(
+        ::grpc::ServerContext* context,
+        const ::enose::service::StartInjectionByWeightRequest* request,
         ::enose::service::StartInjectionResponse* response
     ) override;
 
@@ -107,9 +116,14 @@ public:
 private:
     std::shared_ptr<hal::ActuatorDriver> actuator_;
     std::shared_ptr<workflows::SystemState> system_state_;
+    std::shared_ptr<hal::LoadCellDriver> load_cell_;
     
     // 将内部状态转换为 proto 消息
     void fill_peripheral_status(::enose::service::PeripheralStatus* status);
+    
+    // 将重量(g)转换为电机距离(mm)
+    // 公式: x = (y - weight_offset) / weight_scale, mm = x / pump_mm_to_ml
+    float weight_to_mm(float weight_g) const;
 };
 
 } // namespace enose_grpc

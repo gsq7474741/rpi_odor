@@ -52,6 +52,18 @@ struct LoadCellConfig {
     // 业务参数
     float overflow_threshold = 400.0f;     // g (溢出阈值)
     float drain_complete_margin = 10.0f;   // g (排空余量)
+    
+    // 泵校准系数 (mm -> 测量重量 g)
+    // 线性模型: measured_weight = mm * pump_mm_to_ml + pump_mm_offset
+    // 由线性度测试得出: 斜率 0.0314 g/mm, 截距 -7.34 g
+    float pump_mm_to_ml = 0.0314f;         // g/mm (斜率)
+    float pump_mm_offset = -7.34f;         // g (截距)
+    
+    // 重量校准系数 (测量值 -> 真实值)
+    // 公式: real_weight = weight_scale * measured_weight + weight_offset
+    // 由校准数据拟合得出: y = 1.2865x - 6.2513
+    float weight_scale = 1.2865f;          // 斜率
+    float weight_offset = -6.2513f;        // 截距 (g)
 };
 
 struct LoadCellStatus {
@@ -104,6 +116,7 @@ public:
     
     // 业务配置
     void set_overflow_threshold(float threshold);
+    void set_pump_calibration(float slope, float offset);  // 设置泵校准系数 (斜率, 截距)
     
     // 动态空瓶值
     struct WaitForEmptyResult {

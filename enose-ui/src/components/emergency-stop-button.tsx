@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, OctagonX, RotateCcw } from "lucide-react";
 
@@ -8,6 +8,29 @@ export function EmergencyStopButton() {
   const [loading, setLoading] = useState(false);
   const [firmwareReady, setFirmwareReady] = useState(true);
   const [restartLoading, setRestartLoading] = useState(false);
+
+  // 轮询后端状态检测物理急停
+  const checkFirmwareStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/status');
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.firmwareReady === 'boolean') {
+          setFirmwareReady(data.firmwareReady);
+        }
+      }
+    } catch {
+      // 忽略网络错误
+    }
+  }, []);
+
+  useEffect(() => {
+    // 初始检查
+    checkFirmwareStatus();
+    // 每 2 秒轮询一次
+    const interval = setInterval(checkFirmwareStatus, 2000);
+    return () => clearInterval(interval);
+  }, [checkFirmwareStatus]);
 
   const handleEmergencyStop = async () => {
     setLoading(true);

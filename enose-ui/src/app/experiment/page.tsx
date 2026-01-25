@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Play, Square, Pause, RotateCcw, Upload, CheckCircle, AlertCircle, Clock, X, Wifi, WifiOff } from "lucide-react";
-import { ExperimentFlow, ExperimentProgram, parseYamlProgram } from "@/components/experiment-flow";
+import { Play, Square, Pause, RotateCcw, Upload, CheckCircle, AlertCircle, Clock, X, Wifi, WifiOff, FileUp } from "lucide-react";
+import { ExperimentFlow, ExperimentProgram, parseYamlString } from "@/components/experiment-flow";
 
 // API 调用函数
 async function experimentApi(action: string, body?: object) {
@@ -23,8 +23,23 @@ async function getExperimentStatus() {
 }
 
 // 后端状态映射到前端状态
-function mapBackendState(state: string): ExperimentStatus {
-  const stateMap: Record<string, ExperimentStatus> = {
+// Proto 枚举值是数字: UNSPECIFIED=0, IDLE=1, LOADED=2, RUNNING=3, PAUSED=4, COMPLETING=5, COMPLETED=6, ERROR=7
+function mapBackendState(state: number | string): ExperimentStatus {
+  // 数字枚举映射
+  const numericStateMap: Record<number, ExperimentStatus> = {
+    1: "idle",      // EXP_IDLE
+    2: "loaded",    // EXP_LOADED
+    3: "running",   // EXP_RUNNING
+    4: "paused",    // EXP_PAUSED
+    5: "running",   // EXP_COMPLETING (显示为运行中)
+    6: "completed", // EXP_COMPLETED
+    7: "error",     // EXP_ERROR
+    8: "running",   // EXP_ABORTING (显示为运行中)
+    9: "idle",      // EXP_ABORTED (显示为空闲)
+  };
+  
+  // 字符串枚举映射 (fallback)
+  const stringStateMap: Record<string, ExperimentStatus> = {
     EXP_IDLE: "idle",
     EXP_LOADED: "loaded",
     EXP_RUNNING: "running",
@@ -32,7 +47,11 @@ function mapBackendState(state: string): ExperimentStatus {
     EXP_COMPLETED: "completed",
     EXP_ERROR: "error",
   };
-  return stateMap[state] || "idle";
+  
+  if (typeof state === 'number') {
+    return numericStateMap[state] || "idle";
+  }
+  return stringStateMap[state] || "idle";
 }
 
 type ExperimentStatus = "idle" | "loaded" | "running" | "paused" | "completed" | "error";
@@ -55,64 +74,31 @@ const statusConfig: Record<ExperimentStatus, { label: string; variant: "default"
   error: { label: "错误", variant: "destructive" },
 };
 
-// 原始程序数据 (用于 YAML 序列化)
-const rawProgramData: Record<string, any> = {
-  apple_juice_standard: {
-    id: "apple_juice_standard",
-    name: "苹果汁标准采气实验",
-    description: "使用标准流程采集苹果汁气味特征",
-    version: "1.0.0",
-    hardware: {
-      bottle_capacity_ml: 150,
-      max_fill_ml: 100,
-      liquids: [
-        { id: "apple_juice", name: "苹果汁", pump_index: 2, type: "LIQUID_SAMPLE" },
-        { id: "distilled_water", name: "蒸馏水", pump_index: 3, type: "LIQUID_SAMPLE" },
-        { id: "rinse", name: "清洗液", pump_index: 0, type: "LIQUID_RINSE" },
-      ],
-    },
-    steps: [
-      { name: "标记进样开始", phase_marker: { phase_name: "DOSE", is_start: true } },
-      { name: "进样", inject: { target_volume_ml: 15.0, tolerance: 0.5, flow_rate_ml_min: 5.0 } },
-      { name: "标记进样结束", phase_marker: { phase_name: "DOSE", is_start: false } },
-      { name: "切换到采样状态", set_state: { state: "STATE_SAMPLE" } },
-      { name: "设置气泵低速", set_gas_pump: { pwm_percent: 30 } },
-      { name: "平衡等待", wait: { duration_s: 60, timeout_s: 120 } },
-      { name: "数据采集", acquire: { gas_pump_pwm: 50, heater_cycles: 10, max_duration_s: 300 } },
-      { name: "排废", drain: { gas_pump_pwm: 80, timeout_s: 60 } },
-      { name: "恢复初始状态", set_state: { state: "STATE_INITIAL" } },
-    ],
-  },
-  wine_analysis: {
-    id: "wine_analysis",
-    name: "葡萄酒香气分析",
-    description: "葡萄酒香气成分分析流程",
-    version: "1.0.0",
-    steps: [
-      { name: "进样", inject: { target_volume_ml: 10.0 } },
-      { name: "平衡等待", wait: { duration_s: 120 } },
-      { name: "数据采集", acquire: { heater_cycles: 15, max_duration_s: 600 } },
-      { name: "排废", drain: { timeout_s: 60 } },
-    ],
-  },
-  quick_test: {
-    id: "quick_test",
-    name: "快速测试",
-    description: "简单的系统功能验证",
-    version: "1.0.0",
-    steps: [
-      { name: "切换状态", set_state: { state: "STATE_SAMPLE" } },
-      { name: "等待", wait: { duration_s: 5 } },
-      { name: "恢复", set_state: { state: "STATE_INITIAL" } },
-    ],
-  },
-};
+// 程序信息接口
+interface ProgramInfo {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  filename: string;
+}
 
-const samplePrograms: Record<string, ExperimentProgram> = {
-  apple_juice_standard: parseYamlProgram(rawProgramData.apple_juice_standard),
-  wine_analysis: parseYamlProgram(rawProgramData.wine_analysis),
-  quick_test: parseYamlProgram(rawProgramData.quick_test),
-};
+// 获取内置程序列表
+async function fetchBuiltinPrograms(): Promise<ProgramInfo[]> {
+  try {
+    const res = await fetch("/api/experiment/programs");
+    const data = await res.json();
+    return data.programs || [];
+  } catch {
+    return [];
+  }
+}
+
+// 获取程序 YAML 内容
+async function fetchProgramYaml(filename: string): Promise<string> {
+  const res = await fetch(`/programs/${filename}`);
+  return res.text();
+}
 
 export default function ExperimentPage() {
   const [experiment, setExperiment] = useState<ExperimentState>({
@@ -127,14 +113,15 @@ export default function ExperimentPage() {
   const [loadedProgram, setLoadedProgram] = useState<ExperimentProgram | null>(null);
   const [connected, setConnected] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
-
-  const programs = [
-    { id: "apple_juice_standard", name: "苹果汁标准检测", description: "标准苹果汁样品检测流程" },
-    { id: "wine_analysis", name: "葡萄酒分析", description: "葡萄酒香气成分分析" },
-    { id: "quick_test", name: "快速测试", description: "简单的系统功能验证" },
-  ];
-
+  const [programs, setPrograms] = useState<ProgramInfo[]>([]);
   const [selectedProgram, setSelectedProgram] = useState<string | null>(null);
+  const [uploadedYaml, setUploadedYaml] = useState<string | null>(null);
+  const fileInputRef = { current: null as HTMLInputElement | null };
+
+  // 加载内置程序列表
+  useEffect(() => {
+    fetchBuiltinPrograms().then(setPrograms);
+  }, []);
 
   const addLog = useCallback((message: string) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -145,6 +132,7 @@ export default function ExperimentPage() {
   const pollStatus = useCallback(async () => {
     try {
       const status = await getExperimentStatus();
+      console.log('[Experiment] Backend status:', status.state, '->', mapBackendState(status.state));
       if (status.error && !status.connected) {
         setConnected(false);
         return;
@@ -152,14 +140,25 @@ export default function ExperimentPage() {
       setConnected(true);
       
       const backendState = mapBackendState(status.state);
-      setExperiment(prev => ({
-        ...prev,
-        status: backendState,
-        currentStep: status.currentStepIndex || 0,
-        totalSteps: status.totalSteps || prev.totalSteps,
-        elapsedTime: status.elapsedSeconds || 0,
-        message: status.currentStepName || prev.message,
-      }));
+      
+      setExperiment(prev => {
+        // 计算总步骤数（从已加载的程序获取，或使用后端返回的值）
+        const totalSteps = loadedProgram?.steps.length || prev.totalSteps;
+        
+        return {
+          ...prev,
+          status: backendState,
+          currentStep: status.currentStepIndex || 0,
+          totalSteps: totalSteps,
+          elapsedTime: Math.round(status.elapsedS || 0),
+          message: status.currentStepName || prev.message,
+        };
+      });
+      
+      // 如果实验完成，显示完成消息
+      if (backendState === "completed") {
+        addLog("实验已完成");
+      }
     } catch {
       setConnected(false);
     }
@@ -172,98 +171,74 @@ export default function ExperimentPage() {
     return () => clearInterval(interval);
   }, [pollStatus]);
 
-  // 将程序数据转换为 YAML 字符串
-  const programToYaml = (programId: string): string => {
-    const data = rawProgramData[programId];
-    if (!data) return "";
+  // 处理文件上传
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
     
-    // 简单的 YAML 序列化
-    const lines: string[] = [];
-    lines.push(`id: ${data.id}`);
-    lines.push(`name: ${data.name}`);
-    lines.push(`description: ${data.description || ""}`);
-    lines.push(`version: ${data.version}`);
-    
-    if (data.hardware) {
-      lines.push("hardware:");
-      lines.push(`  bottle_capacity_ml: ${data.hardware.bottle_capacity_ml}`);
-      lines.push(`  max_fill_ml: ${data.hardware.max_fill_ml}`);
-      if (data.hardware.liquids) {
-        lines.push("  liquids:");
-        for (const liq of data.hardware.liquids) {
-          lines.push(`    - id: ${liq.id}`);
-          lines.push(`      name: ${liq.name}`);
-          lines.push(`      pump_index: ${liq.pump_index}`);
-          lines.push(`      type: ${liq.type}`);
-        }
-      }
-    }
-    
-    const formatStep = (step: any, indent: string): void => {
-      lines.push(`${indent}- name: ${step.name}`);
-      if (step.inject) {
-        lines.push(`${indent}  inject:`);
-        if (step.inject.target_volume_ml) lines.push(`${indent}    target_volume_ml: ${step.inject.target_volume_ml}`);
-        if (step.inject.tolerance) lines.push(`${indent}    tolerance: ${step.inject.tolerance}`);
-        if (step.inject.flow_rate_ml_min) lines.push(`${indent}    flow_rate_ml_min: ${step.inject.flow_rate_ml_min}`);
-      } else if (step.wait) {
-        lines.push(`${indent}  wait:`);
-        if (step.wait.duration_s) lines.push(`${indent}    duration_s: ${step.wait.duration_s}`);
-        if (step.wait.timeout_s) lines.push(`${indent}    timeout_s: ${step.wait.timeout_s}`);
-      } else if (step.drain) {
-        lines.push(`${indent}  drain:`);
-        if (step.drain.gas_pump_pwm) lines.push(`${indent}    gas_pump_pwm: ${step.drain.gas_pump_pwm}`);
-        if (step.drain.timeout_s) lines.push(`${indent}    timeout_s: ${step.drain.timeout_s}`);
-      } else if (step.acquire) {
-        lines.push(`${indent}  acquire:`);
-        if (step.acquire.gas_pump_pwm) lines.push(`${indent}    gas_pump_pwm: ${step.acquire.gas_pump_pwm}`);
-        if (step.acquire.heater_cycles) lines.push(`${indent}    heater_cycles: ${step.acquire.heater_cycles}`);
-        if (step.acquire.max_duration_s) lines.push(`${indent}    max_duration_s: ${step.acquire.max_duration_s}`);
-      } else if (step.set_state) {
-        lines.push(`${indent}  set_state:`);
-        lines.push(`${indent}    state: ${step.set_state.state}`);
-      } else if (step.set_gas_pump) {
-        lines.push(`${indent}  set_gas_pump:`);
-        lines.push(`${indent}    pwm_percent: ${step.set_gas_pump.pwm_percent}`);
-      } else if (step.phase_marker) {
-        lines.push(`${indent}  phase_marker:`);
-        lines.push(`${indent}    phase_name: ${step.phase_marker.phase_name}`);
-        lines.push(`${indent}    is_start: ${step.phase_marker.is_start}`);
-      } else if (step.loop) {
-        lines.push(`${indent}  loop:`);
-        lines.push(`${indent}    count: ${step.loop.count}`);
-        lines.push(`${indent}    steps:`);
-        for (const subStep of step.loop.steps) {
-          formatStep(subStep, indent + "      ");
-        }
-      }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target?.result as string;
+      setUploadedYaml(content);
+      setSelectedProgram(null);
+      addLog(`已选择文件: ${file.name}`);
     };
-    
-    lines.push("steps:");
-    for (const step of data.steps) {
-      formatStep(step, "  ");
-    }
-    
-    return lines.join("\n");
+    reader.readAsText(file);
   };
 
   const handleLoadProgram = async () => {
-    if (!selectedProgram) return;
-    const program = programs.find(p => p.id === selectedProgram);
-    const programData = samplePrograms[selectedProgram];
-    if (!program || !programData) return;
+    let yamlContent: string;
+    let programName: string;
+    
+    if (uploadedYaml) {
+      yamlContent = uploadedYaml;
+      programName = "上传的程序";
+    } else if (selectedProgram) {
+      const program = programs.find(p => p.id === selectedProgram);
+      if (!program) return;
+      programName = program.name;
+      try {
+        yamlContent = await fetchProgramYaml(program.filename);
+      } catch (e: any) {
+        addLog(`获取程序文件失败: ${e.message}`);
+        return;
+      }
+    } else {
+      return;
+    }
 
-    addLog(`加载程序: ${program.name}`);
+    addLog(`加载程序: ${programName}`);
+    
+    // 解析 YAML 为前端程序对象
+    const programData = parseYamlString(yamlContent);
     setLoadedProgram(programData);
 
     try {
-      const yamlContent = programToYaml(selectedProgram);
       const result = await experimentApi("load", { yaml_content: yamlContent });
       
       if (result.error) {
         addLog(`后端加载失败: ${result.error}`);
       } else {
         addLog("后端加载成功");
+        
+        // 显示验证结果
+        if (result.validation) {
+          const { errors, warnings } = result.validation;
+          
+          // 显示错误
+          if (errors && errors.length > 0) {
+            for (const err of errors) {
+              addLog(`❌ 错误 [${err.path}]: ${err.message}`);
+            }
+          }
+          
+          // 显示警告
+          if (warnings && warnings.length > 0) {
+            for (const warn of warnings) {
+              addLog(`⚠️ 警告 [${warn.path}]: ${warn.message}`);
+            }
+          }
+        }
       }
     } catch (e: any) {
       addLog(`后端通信失败: ${e.message}`);
@@ -271,12 +246,15 @@ export default function ExperimentPage() {
 
     setExperiment({
       status: "loaded",
-      programName: program.name,
+      programName: programName,
       currentStep: 0,
       totalSteps: programData.steps.length,
       elapsedTime: 0,
-      message: `已加载: ${program.name}`,
+      message: `已加载: ${programName}`,
     });
+    
+    // 清除上传的文件
+    setUploadedYaml(null);
   };
 
   const handleStart = async () => {
@@ -383,24 +361,62 @@ export default function ExperimentPage() {
               <CardDescription>选择要执行的实验程序</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {programs.map((program) => (
-                <div
-                  key={program.id}
-                  onClick={() => experiment.status === "idle" && setSelectedProgram(program.id)}
-                  className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                    selectedProgram === program.id
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/50"
-                  } ${experiment.status !== "idle" ? "opacity-50 cursor-not-allowed" : ""}`}
-                >
-                  <div className="font-medium">{program.name}</div>
-                  <div className="text-sm text-muted-foreground">{program.description}</div>
+              {/* 内置程序列表 */}
+              {programs.length === 0 ? (
+                <div className="text-sm text-muted-foreground text-center py-4">
+                  加载内置程序中...
                 </div>
-              ))}
+              ) : (
+                programs.map((program) => (
+                  <div
+                    key={program.id}
+                    onClick={() => {
+                      if (experiment.status === "idle") {
+                        setSelectedProgram(program.id);
+                        setUploadedYaml(null);
+                      }
+                    }}
+                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                      selectedProgram === program.id && !uploadedYaml
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
+                    } ${experiment.status !== "idle" ? "opacity-50 cursor-not-allowed" : ""}`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <div className="font-medium">{program.name}</div>
+                      <div className="text-xs text-muted-foreground">v{program.version}</div>
+                    </div>
+                    <div className="text-sm text-muted-foreground">{program.description}</div>
+                  </div>
+                ))
+              )}
+              
+              {/* 上传 YAML 文件 */}
+              {experiment.status === "idle" && (
+                <div className={`p-3 rounded-lg border border-dashed ${uploadedYaml ? "border-primary bg-primary/5" : "border-border"}`}>
+                  <input
+                    type="file"
+                    accept=".yaml,.yml"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    id="yaml-upload"
+                  />
+                  <label
+                    htmlFor="yaml-upload"
+                    className="flex items-center justify-center gap-2 cursor-pointer py-2"
+                  >
+                    <FileUp className="h-4 w-4" />
+                    <span className="text-sm">
+                      {uploadedYaml ? "已选择上传文件" : "上传 YAML 文件"}
+                    </span>
+                  </label>
+                </div>
+              )}
+              
               {experiment.status === "idle" ? (
                 <Button
                   onClick={handleLoadProgram}
-                  disabled={!selectedProgram}
+                  disabled={!selectedProgram && !uploadedYaml}
                   className="w-full mt-4"
                 >
                   <Upload className="mr-2 h-4 w-4" />

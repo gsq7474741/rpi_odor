@@ -131,6 +131,7 @@ export function ControlPanel() {
     pump2: 0, pump3: 0, pump4: 0, pump5: 0, speed: 10, accel: 100
   });
   const [injecting, setInjecting] = useState(false);
+  const [injectionUnit, setInjectionUnit] = useState<'mm' | 'g'>('mm');
 
   const handleStateChange = async (targetState: "INITIAL" | "DRAIN" | "CLEAN" | "SAMPLE" | "INJECT") => {
     try {
@@ -238,22 +239,40 @@ export function ControlPanel() {
             {status.current_state !== "INJECT" && (
               <span className="text-xs text-muted-foreground font-normal">（需先切换到进样状态）</span>
             )}
+            <div className="ml-auto flex items-center gap-1">
+              <Button
+                size="sm"
+                variant={injectionUnit === 'mm' ? 'default' : 'outline'}
+                className="h-6 px-2 text-xs"
+                onClick={() => setInjectionUnit('mm')}
+              >
+                mm
+              </Button>
+              <Button
+                size="sm"
+                variant={injectionUnit === 'g' ? 'default' : 'outline'}
+                className="h-6 px-2 text-xs"
+                onClick={() => setInjectionUnit('g')}
+              >
+                g
+              </Button>
+            </div>
           </h4>
           <div className="grid grid-cols-4 gap-2">
             <div>
-              <Label className="text-xs">泵0 (mm)</Label>
+              <Label className="text-xs">泵0 ({injectionUnit})</Label>
               <Input className="h-8" type="number" value={injectionParams.pump2} onChange={e => setInjectionParams(p => ({...p, pump2: Number(e.target.value)}))} />
             </div>
             <div>
-              <Label className="text-xs">泵1 (mm)</Label>
+              <Label className="text-xs">泵1 ({injectionUnit})</Label>
               <Input className="h-8" type="number" value={injectionParams.pump3} onChange={e => setInjectionParams(p => ({...p, pump3: Number(e.target.value)}))} />
             </div>
             <div>
-              <Label className="text-xs">泵2 (mm)</Label>
+              <Label className="text-xs">泵2 ({injectionUnit})</Label>
               <Input className="h-8" type="number" value={injectionParams.pump4} onChange={e => setInjectionParams(p => ({...p, pump4: Number(e.target.value)}))} />
             </div>
             <div>
-              <Label className="text-xs">泵3 (mm)</Label>
+              <Label className="text-xs">泵3 ({injectionUnit})</Label>
               <Input className="h-8" type="number" value={injectionParams.pump5} onChange={e => setInjectionParams(p => ({...p, pump5: Number(e.target.value)}))} />
             </div>
           </div>
@@ -277,18 +296,33 @@ export function ControlPanel() {
                   }
                   setInjecting(true);
                   try {
-                    await fetch('/api/injection/start', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        pump2Volume: injectionParams.pump2,
-                        pump3Volume: injectionParams.pump3,
-                        pump4Volume: injectionParams.pump4,
-                        pump5Volume: injectionParams.pump5,
-                        speed: injectionParams.speed,
-                        accel: injectionParams.accel,
-                      })
-                    });
+                    if (injectionUnit === 'mm') {
+                      await fetch('/api/injection/start', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          pump2Volume: injectionParams.pump2,
+                          pump3Volume: injectionParams.pump3,
+                          pump4Volume: injectionParams.pump4,
+                          pump5Volume: injectionParams.pump5,
+                          speed: injectionParams.speed,
+                          accel: injectionParams.accel,
+                        })
+                      });
+                    } else {
+                      await fetch('/api/injection/start-by-weight', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          pump2Weight: injectionParams.pump2,
+                          pump3Weight: injectionParams.pump3,
+                          pump4Weight: injectionParams.pump4,
+                          pump5Weight: injectionParams.pump5,
+                          speed: injectionParams.speed,
+                          accel: injectionParams.accel,
+                        })
+                      });
+                    }
                     await refreshStatus();
                   } catch (err: any) { setError(err.message); }
                   setInjecting(false);

@@ -84,7 +84,7 @@ int main(int argc, char* argv[]) {
         auto load_cell_driver = std::make_shared<hal::LoadCellDriver>(io_context, actuator_driver);
         
         // 加载 Load Cell 配置 (持久化)
-        std::string load_cell_config_path = "/home/user/rpi_odor/config/load_cell.json";
+        std::string load_cell_config_path = "/home/user/rpi_odor/enose-control/config/load_cell.json";
         load_cell_driver->load_config_from_file(load_cell_config_path);
         load_cell_driver->set_config_path(load_cell_config_path);
 

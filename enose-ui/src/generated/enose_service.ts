@@ -238,6 +238,36 @@ export interface StartInjectionResponse {
     message: string;
 }
 /**
+ * 按重量进样请求 (单位: g 真实重量)
+ * 后端转换: x = (y - weight_offset) / weight_scale, mm = x / pump_mm_to_ml
+ *
+ * @generated from protobuf message enose.service.StartInjectionByWeightRequest
+ */
+export interface StartInjectionByWeightRequest {
+    /**
+     * 每个蠕动泵的进样量 (单位: g 真实重量)
+     *
+     * @generated from protobuf field: float pump_2_weight = 1
+     */
+    pump2Weight: number; // 蠕动泵0    /**
+     * @generated from protobuf field: float pump_3_weight = 2
+     */
+    pump3Weight: number; // 蠕动泵1    /**
+     * @generated from protobuf field: float pump_4_weight = 3
+     */
+    pump4Weight: number; // 蠕动泵2    /**
+     * @generated from protobuf field: float pump_5_weight = 4
+     */
+    pump5Weight: number; // 蠕动泵3    /**
+     * 可选参数
+     *
+     * @generated from protobuf field: optional float speed = 5
+     */
+    speed?: number; // 进样速度 (mm/s), 默认 10    /**
+     * @generated from protobuf field: optional float accel = 6
+     */
+    accel?: number; // 加速度 (mm/s²), 默认 100}
+/**
  * @generated from protobuf message enose.service.StopInjectionResponse
  */
 export interface StopInjectionResponse {
@@ -712,7 +742,38 @@ export interface LoadCellConfig {
     stableThreshold: number; // 稳定判断阈值 (g)    /**
      * @generated from protobuf field: string last_calibration_time = 4
      */
-    lastCalibrationTime: string; // 最后标定时间}
+    lastCalibrationTime: string; // 最后标定时间    /**
+     * 泵校准系数 (mm -> 测量重量 g)
+     * 线性模型: measured_weight = mm * pump_mm_to_ml + pump_mm_offset
+     *
+     * @generated from protobuf field: float pump_mm_to_ml = 5
+     */
+    pumpMmToMl: number; // g/mm (斜率)    /**
+     * @generated from protobuf field: float pump_mm_offset = 6
+     */
+    pumpMmOffset: number; // g (截距)    /**
+     * 重量校准系数 (测量值 -> 真实值)
+     * 线性模型: real_weight = weight_scale * measured_weight + weight_offset
+     *
+     * @generated from protobuf field: float weight_scale = 7
+     */
+    weightScale: number; // 斜率    /**
+     * @generated from protobuf field: float weight_offset = 8
+     */
+    weightOffset: number; // 截距 (g)}
+/**
+ * 泵校准系数请求
+ *
+ * @generated from protobuf message enose.service.PumpCalibrationRequest
+ */
+export interface PumpCalibrationRequest {
+    /**
+     * @generated from protobuf field: float slope = 1
+     */
+    slope: number; // 斜率 (g/mm)    /**
+     * @generated from protobuf field: float offset = 2
+     */
+    offset: number; // 截距 (g)}
 // ============================================================// 测试服务消息定义// ============================================================
 
 /**
@@ -1782,6 +1843,91 @@ class StartInjectionResponse$Type extends MessageType<StartInjectionResponse> {
  * @generated MessageType for protobuf message enose.service.StartInjectionResponse
  */
 export const StartInjectionResponse = new StartInjectionResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class StartInjectionByWeightRequest$Type extends MessageType<StartInjectionByWeightRequest> {
+    constructor() {
+        super("enose.service.StartInjectionByWeightRequest", [
+            { no: 1, name: "pump_2_weight", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 2, name: "pump_3_weight", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 3, name: "pump_4_weight", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 4, name: "pump_5_weight", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 5, name: "speed", kind: "scalar", opt: true, T: 2 /*ScalarType.FLOAT*/ },
+            { no: 6, name: "accel", kind: "scalar", opt: true, T: 2 /*ScalarType.FLOAT*/ }
+        ]);
+    }
+    create(value?: PartialMessage<StartInjectionByWeightRequest>): StartInjectionByWeightRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.pump2Weight = 0;
+        message.pump3Weight = 0;
+        message.pump4Weight = 0;
+        message.pump5Weight = 0;
+        if (value !== undefined)
+            reflectionMergePartial<StartInjectionByWeightRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: StartInjectionByWeightRequest): StartInjectionByWeightRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* float pump_2_weight */ 1:
+                    message.pump2Weight = reader.float();
+                    break;
+                case /* float pump_3_weight */ 2:
+                    message.pump3Weight = reader.float();
+                    break;
+                case /* float pump_4_weight */ 3:
+                    message.pump4Weight = reader.float();
+                    break;
+                case /* float pump_5_weight */ 4:
+                    message.pump5Weight = reader.float();
+                    break;
+                case /* optional float speed */ 5:
+                    message.speed = reader.float();
+                    break;
+                case /* optional float accel */ 6:
+                    message.accel = reader.float();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: StartInjectionByWeightRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* float pump_2_weight = 1; */
+        if (message.pump2Weight !== 0)
+            writer.tag(1, WireType.Bit32).float(message.pump2Weight);
+        /* float pump_3_weight = 2; */
+        if (message.pump3Weight !== 0)
+            writer.tag(2, WireType.Bit32).float(message.pump3Weight);
+        /* float pump_4_weight = 3; */
+        if (message.pump4Weight !== 0)
+            writer.tag(3, WireType.Bit32).float(message.pump4Weight);
+        /* float pump_5_weight = 4; */
+        if (message.pump5Weight !== 0)
+            writer.tag(4, WireType.Bit32).float(message.pump5Weight);
+        /* optional float speed = 5; */
+        if (message.speed !== undefined)
+            writer.tag(5, WireType.Bit32).float(message.speed);
+        /* optional float accel = 6; */
+        if (message.accel !== undefined)
+            writer.tag(6, WireType.Bit32).float(message.accel);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.StartInjectionByWeightRequest
+ */
+export const StartInjectionByWeightRequest = new StartInjectionByWeightRequest$Type();
 // @generated message type with reflection information, may provide speed optimized methods
 class StopInjectionResponse$Type extends MessageType<StopInjectionResponse> {
     constructor() {
@@ -3184,7 +3330,11 @@ class LoadCellConfig$Type extends MessageType<LoadCellConfig> {
             { no: 1, name: "overflow_threshold", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 2, name: "drain_complete_margin", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 3, name: "stable_threshold", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
-            { no: 4, name: "last_calibration_time", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+            { no: 4, name: "last_calibration_time", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 5, name: "pump_mm_to_ml", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 6, name: "pump_mm_offset", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 7, name: "weight_scale", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 8, name: "weight_offset", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ }
         ]);
     }
     create(value?: PartialMessage<LoadCellConfig>): LoadCellConfig {
@@ -3193,6 +3343,10 @@ class LoadCellConfig$Type extends MessageType<LoadCellConfig> {
         message.drainCompleteMargin = 0;
         message.stableThreshold = 0;
         message.lastCalibrationTime = "";
+        message.pumpMmToMl = 0;
+        message.pumpMmOffset = 0;
+        message.weightScale = 0;
+        message.weightOffset = 0;
         if (value !== undefined)
             reflectionMergePartial<LoadCellConfig>(this, message, value);
         return message;
@@ -3213,6 +3367,18 @@ class LoadCellConfig$Type extends MessageType<LoadCellConfig> {
                     break;
                 case /* string last_calibration_time */ 4:
                     message.lastCalibrationTime = reader.string();
+                    break;
+                case /* float pump_mm_to_ml */ 5:
+                    message.pumpMmToMl = reader.float();
+                    break;
+                case /* float pump_mm_offset */ 6:
+                    message.pumpMmOffset = reader.float();
+                    break;
+                case /* float weight_scale */ 7:
+                    message.weightScale = reader.float();
+                    break;
+                case /* float weight_offset */ 8:
+                    message.weightOffset = reader.float();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -3238,6 +3404,18 @@ class LoadCellConfig$Type extends MessageType<LoadCellConfig> {
         /* string last_calibration_time = 4; */
         if (message.lastCalibrationTime !== "")
             writer.tag(4, WireType.LengthDelimited).string(message.lastCalibrationTime);
+        /* float pump_mm_to_ml = 5; */
+        if (message.pumpMmToMl !== 0)
+            writer.tag(5, WireType.Bit32).float(message.pumpMmToMl);
+        /* float pump_mm_offset = 6; */
+        if (message.pumpMmOffset !== 0)
+            writer.tag(6, WireType.Bit32).float(message.pumpMmOffset);
+        /* float weight_scale = 7; */
+        if (message.weightScale !== 0)
+            writer.tag(7, WireType.Bit32).float(message.weightScale);
+        /* float weight_offset = 8; */
+        if (message.weightOffset !== 0)
+            writer.tag(8, WireType.Bit32).float(message.weightOffset);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -3248,6 +3426,61 @@ class LoadCellConfig$Type extends MessageType<LoadCellConfig> {
  * @generated MessageType for protobuf message enose.service.LoadCellConfig
  */
 export const LoadCellConfig = new LoadCellConfig$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class PumpCalibrationRequest$Type extends MessageType<PumpCalibrationRequest> {
+    constructor() {
+        super("enose.service.PumpCalibrationRequest", [
+            { no: 1, name: "slope", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 2, name: "offset", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ }
+        ]);
+    }
+    create(value?: PartialMessage<PumpCalibrationRequest>): PumpCalibrationRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.slope = 0;
+        message.offset = 0;
+        if (value !== undefined)
+            reflectionMergePartial<PumpCalibrationRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: PumpCalibrationRequest): PumpCalibrationRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* float slope */ 1:
+                    message.slope = reader.float();
+                    break;
+                case /* float offset */ 2:
+                    message.offset = reader.float();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: PumpCalibrationRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* float slope = 1; */
+        if (message.slope !== 0)
+            writer.tag(1, WireType.Bit32).float(message.slope);
+        /* float offset = 2; */
+        if (message.offset !== 0)
+            writer.tag(2, WireType.Bit32).float(message.offset);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.PumpCalibrationRequest
+ */
+export const PumpCalibrationRequest = new PumpCalibrationRequest$Type();
 // @generated message type with reflection information, may provide speed optimized methods
 class ParamSet$Type extends MessageType<ParamSet> {
     constructor() {
@@ -4404,6 +4637,7 @@ export const ControlService = new ServiceType("enose.service.ControlService", [
     { name: "RunPump", options: {}, I: RunPumpRequest, O: RunPumpResponse },
     { name: "StopAllPumps", options: {}, I: Empty, O: StopAllPumpsResponse },
     { name: "StartInjection", options: {}, I: StartInjectionRequest, O: StartInjectionResponse },
+    { name: "StartInjectionByWeight", options: {}, I: StartInjectionByWeightRequest, O: StartInjectionResponse },
     { name: "StopInjection", options: {}, I: Empty, O: StopInjectionResponse },
     { name: "EmergencyStop", options: {}, I: Empty, O: EmergencyStopResponse },
     { name: "FirmwareRestart", options: {}, I: Empty, O: FirmwareRestartResponse },
@@ -4439,6 +4673,7 @@ export const LoadCellService = new ServiceType("enose.service.LoadCellService", 
     { name: "ResetDynamicEmptyWeight", options: {}, I: Empty, O: Empty },
     { name: "GetDynamicEmptyWeight", options: {}, I: Empty, O: DynamicEmptyWeightResponse },
     { name: "SetOverflowThreshold", options: {}, I: ThresholdRequest, O: Empty },
+    { name: "SetPumpCalibration", options: {}, I: PumpCalibrationRequest, O: Empty },
     { name: "GetLoadCellConfig", options: {}, I: Empty, O: LoadCellConfig },
     { name: "SaveLoadCellConfig", options: {}, I: LoadCellConfig, O: Empty },
     { name: "Tare", options: {}, I: Empty, O: LoadCellReading },

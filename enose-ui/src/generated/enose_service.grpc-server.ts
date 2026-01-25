@@ -16,6 +16,7 @@ import { TestStatusResponse } from "./enose_service";
 import { StartTestRequest } from "./enose_service";
 import { LoadCellReading } from "./enose_service";
 import { LoadCellConfig } from "./enose_service";
+import { PumpCalibrationRequest } from "./enose_service";
 import { ThresholdRequest } from "./enose_service";
 import { DynamicEmptyWeightResponse } from "./enose_service";
 import { WaitForEmptyBottleResponse } from "./enose_service";
@@ -36,6 +37,7 @@ import { Event } from "./enose_data";
 import { FirmwareRestartResponse } from "./enose_service";
 import { EmergencyStopResponse } from "./enose_service";
 import { StopInjectionResponse } from "./enose_service";
+import { StartInjectionByWeightRequest } from "./enose_service";
 import { StartInjectionResponse } from "./enose_service";
 import { StartInjectionRequest } from "./enose_service";
 import { StopAllPumpsResponse } from "./enose_service";
@@ -88,11 +90,18 @@ export interface IControlService extends grpc.UntypedServiceImplementation {
      */
     stopAllPumps: grpc.handleUnaryCall<Empty, StopAllPumpsResponse>;
     /**
-     * 开始进样 (设置阀门 + 启动指定蠕动泵)
+     * 开始进样 (设置阀门 + 启动指定蠕动泵) - 单位: mm
      *
      * @generated from protobuf rpc: StartInjection
      */
     startInjection: grpc.handleUnaryCall<StartInjectionRequest, StartInjectionResponse>;
+    /**
+     * 开始进样 (按重量) - 单位: g (真实重量)
+     * 内部转换: x = (y - weight_offset) / weight_scale, mm = x / pump_mm_to_ml
+     *
+     * @generated from protobuf rpc: StartInjectionByWeight
+     */
+    startInjectionByWeight: grpc.handleUnaryCall<StartInjectionByWeightRequest, StartInjectionResponse>;
     /**
      * 停止进样
      *
@@ -195,6 +204,16 @@ export const controlServiceDefinition: grpc.ServiceDefinition<IControlService> =
         requestDeserialize: bytes => StartInjectionRequest.fromBinary(bytes),
         responseSerialize: value => Buffer.from(StartInjectionResponse.toBinary(value)),
         requestSerialize: value => Buffer.from(StartInjectionRequest.toBinary(value))
+    },
+    startInjectionByWeight: {
+        path: "/enose.service.ControlService/StartInjectionByWeight",
+        originalName: "StartInjectionByWeight",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => StartInjectionResponse.fromBinary(bytes),
+        requestDeserialize: bytes => StartInjectionByWeightRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(StartInjectionResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(StartInjectionByWeightRequest.toBinary(value))
     },
     stopInjection: {
         path: "/enose.service.ControlService/StopInjection",
@@ -455,6 +474,12 @@ export interface ILoadCellService extends grpc.UntypedServiceImplementation {
      */
     setOverflowThreshold: grpc.handleUnaryCall<ThresholdRequest, Empty>;
     /**
+     * 设置泵校准系数 (mm -> g 线性模型)
+     *
+     * @generated from protobuf rpc: SetPumpCalibration
+     */
+    setPumpCalibration: grpc.handleUnaryCall<PumpCalibrationRequest, Empty>;
+    /**
      * 获取业务配置
      *
      * @generated from protobuf rpc: GetLoadCellConfig
@@ -587,6 +612,16 @@ export const loadCellServiceDefinition: grpc.ServiceDefinition<ILoadCellService>
         requestDeserialize: bytes => ThresholdRequest.fromBinary(bytes),
         responseSerialize: value => Buffer.from(Empty.toBinary(value)),
         requestSerialize: value => Buffer.from(ThresholdRequest.toBinary(value))
+    },
+    setPumpCalibration: {
+        path: "/enose.service.LoadCellService/SetPumpCalibration",
+        originalName: "SetPumpCalibration",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => Empty.fromBinary(bytes),
+        requestDeserialize: bytes => PumpCalibrationRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(Empty.toBinary(value)),
+        requestSerialize: value => Buffer.from(PumpCalibrationRequest.toBinary(value))
     },
     getLoadCellConfig: {
         path: "/enose.service.LoadCellService/GetLoadCellConfig",

@@ -1,5 +1,6 @@
 #include "grpc/control_service_impl.hpp"
 #include "hal/actuator_driver.hpp"
+#include "hal/load_cell_driver.hpp"
 #include <spdlog/spdlog.h>
 #include <format>
 
@@ -7,9 +8,11 @@ namespace enose_grpc {
 
 ControlServiceImpl::ControlServiceImpl(
     std::shared_ptr<hal::ActuatorDriver> actuator,
-    std::shared_ptr<workflows::SystemState> system_state
+    std::shared_ptr<workflows::SystemState> system_state,
+    std::shared_ptr<hal::LoadCellDriver> load_cell
 ) : actuator_(std::move(actuator))
-  , system_state_(std::move(system_state)) {}
+  , system_state_(std::move(system_state))
+  , load_cell_(std::move(load_cell)) {}
 
 ::grpc::Status ControlServiceImpl::GetStatus(
     ::grpc::ServerContext* context,
@@ -329,6 +332,72 @@ void ControlServiceImpl::fill_peripheral_status(::enose::service::PeripheralStat
     response->set_success(true);
     response->set_message("Firmware restart command sent.");
     
+    return ::grpc::Status::OK;
+}
+
+float ControlServiceImpl::weight_to_mm(float weight_g) const {
+    // 两阶段线性转换 (逆向):
+    // 正向: measured_weight = mm * pump_mm_to_ml + pump_mm_offset
+    //       real_weight = weight_scale * measured_weight + weight_offset
+    // 逆向: measured_weight = (real_weight - weight_offset) / weight_scale
+    //       mm = (measured_weight - pump_mm_offset) / pump_mm_to_ml
+    
+    if (!load_cell_) {
+        // 无 load cell config时使用默认值
+        constexpr float default_weight_scale = 1.635205f;
+        constexpr float default_weight_offset = -5.903611f;
+        constexpr float default_pump_mm_to_ml = 0.0314f;
+        constexpr float default_pump_mm_offset = -7.34f;
+        
+        float measured_weight = (weight_g - default_weight_offset) / default_weight_scale;
+        return (measured_weight - default_pump_mm_offset) / default_pump_mm_to_ml;
+    }
+    
+    const auto& config = load_cell_->get_config();
+    // 第一阶段: 真实重量 -> 测量重量
+    float measured_weight = (weight_g - config.weight_offset) / config.weight_scale;
+    // 第二阶段: 测量重量 -> mm
+    return (measured_weight - config.pump_mm_offset) / config.pump_mm_to_ml;
+}
+
+::grpc::Status ControlServiceImpl::StartInjectionByWeight(
+    ::grpc::ServerContext* context,
+    const ::enose::service::StartInjectionByWeightRequest* request,
+    ::enose::service::StartInjectionResponse* response
+) {
+    (void)context;
+    
+    // 将重量 (g) 转换为距离 (mm)
+    float pump2_mm = weight_to_mm(request->pump_2_weight());
+    float pump3_mm = weight_to_mm(request->pump_3_weight());
+    float pump4_mm = weight_to_mm(request->pump_4_weight());
+    float pump5_mm = weight_to_mm(request->pump_5_weight());
+    
+    spdlog::info("gRPC: StartInjectionByWeight - input(g): pump2={:.3f}, pump3={:.3f}, pump4={:.3f}, pump5={:.3f}",
+                 request->pump_2_weight(), request->pump_3_weight(),
+                 request->pump_4_weight(), request->pump_5_weight());
+    spdlog::info("gRPC: StartInjectionByWeight - converted(mm): pump2={:.3f}, pump3={:.3f}, pump4={:.3f}, pump5={:.3f}",
+                 pump2_mm, pump3_mm, pump4_mm, pump5_mm);
+    
+    workflows::SystemState::InjectionParams params;
+    params.pump_2_volume = pump2_mm;
+    params.pump_3_volume = pump3_mm;
+    params.pump_4_volume = pump4_mm;
+    params.pump_5_volume = pump5_mm;
+    
+    // 使用可选参数的默认值
+    if (request->has_speed()) {
+        params.speed = request->speed();
+    }
+    if (request->has_accel()) {
+        params.accel = request->accel();
+    }
+    
+    system_state_->start_inject(params);
+    
+    response->set_success(true);
+    response->set_message(std::format("Injection started (converted from g to mm: {:.2f}, {:.2f}, {:.2f}, {:.2f})",
+                                       pump2_mm, pump3_mm, pump4_mm, pump5_mm));
     return ::grpc::Status::OK;
 }
 

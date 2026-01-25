@@ -1,0 +1,18 @@
+id: wine_analysis
+name: 葡萄酒香气分析
+description: 葡萄酒香气成分分析流程
+version: 1.0.0
+steps:
+  - name: 进样
+    inject:
+      target_volume_ml: 10.0
+  - name: 平衡等待
+    wait:
+      duration_s: 120
+  - name: 数据采集
+    acquire:
+      heater_cycles: 15
+      max_duration_s: 600
+  - name: 排废
+    drain:
+      timeout_s: 60

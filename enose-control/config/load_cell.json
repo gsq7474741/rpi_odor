@@ -1,0 +1,12 @@
+{
+  "drain_complete_margin": 10.0,
+  "empty_bottle_weight": 322.6600341796875,
+  "filter_window_size": 10,
+  "invert_reading": true,
+  "overflow_threshold": 435.0,
+  "stable_stddev_threshold": 2.0,
+  "pump_mm_to_ml": 0.0314,
+  "pump_mm_offset": -7.34,
+  "weight_scale": 1.635205,
+  "weight_offset": -5.903611
+}

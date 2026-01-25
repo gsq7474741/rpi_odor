@@ -78,6 +78,12 @@ public:
         ::google::protobuf::Empty* response
     ) override;
 
+    ::grpc::Status SetPumpCalibration(
+        ::grpc::ServerContext* context,
+        const ::enose::service::PumpCalibrationRequest* request,
+        ::google::protobuf::Empty* response
+    ) override;
+
     ::grpc::Status GetLoadCellConfig(
         ::grpc::ServerContext* context,
         const ::google::protobuf::Empty* request,

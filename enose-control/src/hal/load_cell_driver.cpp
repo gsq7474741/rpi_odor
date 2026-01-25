@@ -139,7 +139,11 @@ void LoadCellDriver::update_filter(float new_sample) {
     
     if (!samples_.empty()) {
         float sum = std::accumulate(samples_.begin(), samples_.end(), 0.0f);
-        status_.filtered_weight = sum / static_cast<float>(samples_.size());
+        float raw_filtered = sum / static_cast<float>(samples_.size());
+        
+        // 直接使用原始测量值，不应用校准
+        // weight_scale/weight_offset 仅用于进样时的 mm->g 转换补偿
+        status_.filtered_weight = raw_filtered;
         status_.tared_weight = status_.filtered_weight - tare_offset_;
     }
 }
@@ -318,6 +322,17 @@ void LoadCellDriver::set_overflow_threshold(float threshold) {
     spdlog::info("LoadCellDriver: Overflow threshold set to {:.1f}g", threshold);
 }
 
+void LoadCellDriver::set_pump_calibration(float slope, float offset) {
+    config_.pump_mm_to_ml = slope;
+    config_.pump_mm_offset = offset;
+    spdlog::info("LoadCellDriver: Pump calibration set: slope={:.4f} g/mm, offset={:.2f} g", slope, offset);
+    
+    // 自动保存到配置文件
+    if (save_config()) {
+        spdlog::info("LoadCellDriver: Pump calibration saved to config file");
+    }
+}
+
 // ============================================================
 // 动态空瓶值方法实现
 // ============================================================
@@ -458,12 +473,26 @@ bool LoadCellDriver::load_config_from_file(const std::filesystem::path& path) {
         if (j.contains("filter_window_size")) {
             config_.filter_window_size = j["filter_window_size"].get<size_t>();
         }
+        if (j.contains("pump_mm_to_ml")) {
+            config_.pump_mm_to_ml = j["pump_mm_to_ml"].get<float>();
+        }
+        if (j.contains("pump_mm_offset")) {
+            config_.pump_mm_offset = j["pump_mm_offset"].get<float>();
+        }
+        if (j.contains("weight_scale")) {
+            config_.weight_scale = j["weight_scale"].get<float>();
+        }
+        if (j.contains("weight_offset")) {
+            config_.weight_offset = j["weight_offset"].get<float>();
+        }
         
         config_path_ = path;
         spdlog::info("LoadCellDriver: Config loaded from {}", path.string());
         spdlog::info("  overflow_threshold: {:.1f}g", config_.overflow_threshold);
         spdlog::info("  drain_complete_margin: {:.1f}g", config_.drain_complete_margin);
         spdlog::info("  stable_stddev_threshold: {:.1f}g", config_.stable_stddev_threshold);
+        spdlog::info("  pump_mm_to_ml: {:.4f} g/mm, pump_mm_offset: {:.2f} g", config_.pump_mm_to_ml, config_.pump_mm_offset);
+        spdlog::info("  weight_scale: {:.4f}, weight_offset: {:.4f}g", config_.weight_scale, config_.weight_offset);
         
         return true;
     } catch (const std::exception& e) {
@@ -486,6 +515,10 @@ bool LoadCellDriver::save_config_to_file(const std::filesystem::path& path) cons
         j["stable_stddev_threshold"] = config_.stable_stddev_threshold;
         j["invert_reading"] = config_.invert_reading;
         j["filter_window_size"] = config_.filter_window_size;
+        j["pump_mm_to_ml"] = config_.pump_mm_to_ml;
+        j["pump_mm_offset"] = config_.pump_mm_offset;
+        j["weight_scale"] = config_.weight_scale;
+        j["weight_offset"] = config_.weight_offset;
         
         std::ofstream file(path);
         if (!file.is_open()) {

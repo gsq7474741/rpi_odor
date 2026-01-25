@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Scale, Target, Settings, RefreshCw, Check, X, Loader2, Plus, Trash2, Play, Square, BarChart3 } from "lucide-react";
+import { Scale, Target, Settings, RefreshCw, Check, X, Loader2, Plus, Trash2, Play, Square, BarChart3, Save } from "lucide-react";
 import ReactECharts from "echarts-for-react";
 
 // API 调用函数 (通过 Next.js API 路由)
@@ -119,6 +119,10 @@ interface LoadCellConfig {
   overflowThreshold: number;
   drainCompleteMargin: number;
   stableThreshold: number;
+  pumpMmToMl?: number;  // 从后端读取的泵校准系数
+  pumpMmOffset?: number;
+  weightScale?: number;
+  weightOffset?: number;
 }
 
 interface TarePoint {
@@ -216,8 +220,18 @@ interface LinearityResult {
   timestamp: Date;
 }
 
+// 称重标定结果
+interface WeightCalibrationResult {
+  index: number; // 序号
+  setVolumeMm: number; // 设定进样量 (mm)
+  setVolumeMl: number; // 计算的ml值
+  measuredWeight: number; // 称重变化值 (g)
+  realWeight: number | null; // 用户输入的真实值 (g)
+  timestamp: Date;
+}
+
 // 高级测试类型
-type AdvancedTestType = 'deadzone' | 'resolution' | 'baseline' | 'linearity' | null;
+type AdvancedTestType = 'deadzone' | 'resolution' | 'baseline' | 'linearity' | 'weight_calibration' | null;
 
 export function LoadCellPanel() {
   // 实时读数
@@ -326,6 +340,21 @@ export function LoadCellPanel() {
     steps: 10,
   });
   
+  // 称重标定
+  const [weightCalibResults, setWeightCalibResults] = useState<WeightCalibrationResult[]>([]);
+  const [weightCalibConfig, setWeightCalibConfig] = useState({
+    testMode: 'single' as 'single' | 'multi',
+    pumpId: 2,
+    volumeSteps: [100, 200, 300, 400, 500, 600, 700, 800], // 测试进样量序列 (mm)
+    speed: 100,
+    pumpMmToMl: 0.0314, // 从后端配置加载
+    pumpMmOffset: -7.34, // 从后端配置加载
+  });
+  const [weightCalibStep, setWeightCalibStep] = useState<'idle' | 'injecting' | 'waiting_user' | 'draining'>('idle');
+  const [weightCalibCurrentIndex, setWeightCalibCurrentIndex] = useState(0);
+  const [weightCalibSeqGenOpen, setWeightCalibSeqGenOpen] = useState(false);
+  const weightCalibContinueRef = useRef<(() => void) | null>(null);
+  
   // 生成序列的函数
   const generateSequence = (type: string, min: number, max: number, steps: number): number[] => {
     if (steps < 2) return [min, max];
@@ -389,7 +418,12 @@ export function LoadCellPanel() {
     overflowThreshold: 500,
     drainCompleteMargin: 5,
     stableThreshold: 2,
+    pumpMmToMl: 0,
+    pumpMmOffset: 0,
+    weightScale: 1,
+    weightOffset: 0,
   });
+  const [weightCalibSaving, setWeightCalibSaving] = useState(false);
   const [isSavingConfig, setIsSavingConfig] = useState(false);
 
   // 加载配置并检查是否有正在运行的任务
@@ -470,7 +504,19 @@ export function LoadCellPanel() {
         overflowThreshold: cfg.overflowThreshold,
         drainCompleteMargin: cfg.drainCompleteMargin,
         stableThreshold: cfg.stableThreshold,
+        pumpMmToMl: cfg.pumpMmToMl || 0,
+        pumpMmOffset: cfg.pumpMmOffset || 0,
+        weightScale: cfg.weightScale || 1,
+        weightOffset: cfg.weightOffset || 0,
       });
+      // 同步更新称重标定配置中的泵系数
+      if (cfg.pumpMmToMl) {
+        setWeightCalibConfig(prev => ({
+          ...prev,
+          pumpMmToMl: cfg.pumpMmToMl,
+          pumpMmOffset: cfg.pumpMmOffset || 0,
+        }));
+      }
       // 同时获取后端的动态空瓶值
       await fetchDynamicEmptyWeight();
     } catch (error) {
@@ -1493,6 +1539,133 @@ export function LoadCellPanel() {
     }
   };
   
+  // 称重标定测试
+  const runWeightCalibrationTest = async () => {
+    if (advancedTestRunning) return;
+    advancedTestAbortRef.current = false;
+    setAdvancedTestRunning(true);
+    setWeightCalibResults([]);
+    setWeightCalibStep('idle');
+    setWeightCalibCurrentIndex(0);
+    setIsPolling(true);
+    
+    // 重置动态空瓶值
+    await resetDynamicEmptyWeight();
+    
+    const modeLabel = weightCalibConfig.testMode === 'single' ? `单电机(泵${weightCalibConfig.pumpId})` : '多电机';
+    addAutoTestLog(`=== 开始称重标定测试 (${modeLabel}) ===`);
+    addAutoTestLog(`测试进样量序列: ${weightCalibConfig.volumeSteps.join(', ')}mm`);
+    
+    try {
+      for (let idx = 0; idx < weightCalibConfig.volumeSteps.length; idx++) {
+        if (advancedTestAbortRef.current) break;
+        
+        const setVolume = weightCalibConfig.volumeSteps[idx];
+        setWeightCalibCurrentIndex(idx);
+        
+        addAutoTestLog(`--- 测试 ${idx + 1}/${weightCalibConfig.volumeSteps.length}: ${setVolume}mm ---`);
+        
+        // 排废
+        setWeightCalibStep('draining');
+        addAutoTestLog(`  排废中...`);
+        await setSystemState("DRAIN");
+        await waitForEmptyBottle();
+        await setSystemState("INITIAL");
+        
+        // 记录空瓶重量
+        const emptyWeight = await waitForStable(3000);
+        addAutoTestLog(`  空瓶重量: ${emptyWeight.toFixed(2)}g`);
+        
+        // 进样
+        setWeightCalibStep('injecting');
+        await setSystemState("INJECT");
+        if (weightCalibConfig.testMode === 'single') {
+          const params = { pump2Volume: 0, pump3Volume: 0, pump4Volume: 0, pump5Volume: 0 } as { pump2Volume: number; pump3Volume: number; pump4Volume: number; pump5Volume: number; [key: string]: number };
+          params[`pump${weightCalibConfig.pumpId}Volume`] = setVolume;
+          await startInjection({ pump2Volume: params.pump2Volume, pump3Volume: params.pump3Volume, pump4Volume: params.pump4Volume, pump5Volume: params.pump5Volume, speed: weightCalibConfig.speed, accel: autoTestConfig.accel });
+        } else {
+          // 多电机模式：4个泵平分进样量
+          const volumePerPump = Math.round(setVolume / 4);
+          await startInjection({
+            pump2Volume: volumePerPump,
+            pump3Volume: volumePerPump,
+            pump4Volume: volumePerPump,
+            pump5Volume: volumePerPump,
+            speed: weightCalibConfig.speed,
+            accel: autoTestConfig.accel,
+          });
+        }
+        
+        // 等待进样完成
+        const injectionTime = setVolume / weightCalibConfig.speed * 1000 + 1000;
+        await new Promise(r => setTimeout(r, injectionTime));
+        await setSystemState("INITIAL");
+        
+        // 等待稳定并记录重量
+        const fullWeight = await waitForStable(5000);
+        const measuredWeight = fullWeight - emptyWeight;
+        
+        // 计算ml值
+        const mlValue = setVolume * weightCalibConfig.pumpMmToMl + weightCalibConfig.pumpMmOffset;
+        
+        // 记录结果
+        setWeightCalibResults(prev => [...prev, {
+          index: idx,
+          setVolumeMm: setVolume,
+          setVolumeMl: mlValue,
+          measuredWeight,
+          realWeight: null,
+          timestamp: new Date(),
+        }]);
+        
+        addAutoTestLog(`  称重变化: ${measuredWeight.toFixed(2)}g (计算ml: ${mlValue.toFixed(2)})`);
+        
+        // 等待用户接液
+        setWeightCalibStep('waiting_user');
+        addAutoTestLog(`  ⏸️ 请准备好接液容器，点击"继续"后将排废`);
+        
+        // 等待用户点击继续
+        await new Promise<void>(resolve => {
+          weightCalibContinueRef.current = resolve;
+        });
+        weightCalibContinueRef.current = null;
+        
+        if (advancedTestAbortRef.current) break;
+        
+        // 排废让用户接液测量真实重量
+        addAutoTestLog(`  用户已确认，正在排废...`);
+        setWeightCalibStep('draining');
+        await setSystemState("DRAIN");
+        await waitForEmptyBottle();
+        await setSystemState("INITIAL");
+        addAutoTestLog(`  排废完成，请称量接到的液体重量并填入表格`);
+      }
+      
+      addAutoTestLog("=== 称重标定测试完成 ===");
+      addAutoTestLog("请在表格中输入真实重量值，然后保存校准系数");
+    } catch (error) {
+      addAutoTestLog(`错误: ${error}`);
+    } finally {
+      setWeightCalibStep('idle');
+      await setSystemState("INITIAL");
+      setAdvancedTestRunning(false);
+    }
+  };
+  
+  // 用户点击继续按钮
+  const handleWeightCalibContinue = () => {
+    if (weightCalibContinueRef.current) {
+      weightCalibContinueRef.current();
+    }
+  };
+  
+  // 更新真实重量值
+  const updateWeightCalibRealWeight = (index: number, value: number | null) => {
+    setWeightCalibResults(prev => prev.map(r => 
+      r.index === index ? { ...r, realWeight: value } : r
+    ));
+  };
+  
   // 停止高级测试
   const handleStopAdvancedTest = async () => {
     advancedTestAbortRef.current = true;
@@ -2031,6 +2204,95 @@ export function LoadCellPanel() {
     totalDrift: baselineDriftData[baselineDriftData.length - 1].driftFromFirst,
     maxDrift: Math.max(...baselineDriftData.map(d => Math.abs(d.driftFromFirst))),
     avgDriftPerCycle: baselineDriftData[baselineDriftData.length - 1].driftFromFirst / (baselineDriftData.length - 1),
+  } : null;
+  
+  // ============================================================
+  // 称重标定图表和回归
+  // ============================================================
+  
+  // 过滤有真实值的结果
+  const weightCalibValidResults = weightCalibResults.filter(r => r.realWeight !== null);
+  
+  // 线性回归计算 (称重变化值 -> 真实值)
+  const weightCalibRegression = weightCalibValidResults.length >= 2 ? (() => {
+    const n = weightCalibValidResults.length;
+    const sumX = weightCalibValidResults.reduce((s, r) => s + r.measuredWeight, 0);
+    const sumY = weightCalibValidResults.reduce((s, r) => s + (r.realWeight || 0), 0);
+    const sumXY = weightCalibValidResults.reduce((s, r) => s + r.measuredWeight * (r.realWeight || 0), 0);
+    const sumX2 = weightCalibValidResults.reduce((s, r) => s + r.measuredWeight * r.measuredWeight, 0);
+    
+    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+    
+    // R² 计算
+    const yMean = sumY / n;
+    const ssTotal = weightCalibValidResults.reduce((s, r) => s + Math.pow((r.realWeight || 0) - yMean, 2), 0);
+    const ssResidual = weightCalibValidResults.reduce((s, r) => s + Math.pow((r.realWeight || 0) - (slope * r.measuredWeight + intercept), 2), 0);
+    const r2 = ssTotal > 0 ? 1 - ssResidual / ssTotal : 0;
+    
+    // 最大误差
+    const maxError = Math.max(...weightCalibValidResults.map(r => Math.abs((r.realWeight || 0) - (slope * r.measuredWeight + intercept))));
+    
+    return { slope, intercept, r2, maxError };
+  })() : null;
+  
+  // 称重标定图表配置
+  const weightCalibChartOption = weightCalibResults.length > 0 ? {
+    tooltip: {
+      trigger: 'item',
+      formatter: (params: any) => {
+        if (params.seriesType === 'scatter') {
+          const r = weightCalibResults[params.dataIndex];
+          return `<div style="font-size:12px">
+            <div>设定量: ${r?.setVolumeMm}mm (${r?.setVolumeMl.toFixed(2)}ml)</div>
+            <div>称重变化: ${params.value[0]?.toFixed(2)}g</div>
+            <div>真实值: ${params.value[1] !== null ? params.value[1]?.toFixed(2) + 'g' : '未输入'}</div>
+          </div>`;
+        }
+        return '';
+      }
+    },
+    legend: { data: ['测量点', '拟合线'], bottom: 0 },
+    grid: { left: 60, right: 30, top: 40, bottom: 50 },
+    xAxis: {
+      type: 'value',
+      name: '称重变化值 (g)',
+      nameLocation: 'middle',
+      nameGap: 25,
+      axisLabel: { fontSize: 10 },
+    },
+    yAxis: {
+      type: 'value',
+      name: '真实重量 (g)',
+      axisLabel: { fontSize: 10 },
+      splitLine: { lineStyle: { type: 'dashed', opacity: 0.3 } },
+    },
+    series: [
+      // 测量点
+      {
+        name: '测量点',
+        type: 'scatter',
+        data: weightCalibValidResults.map(r => [r.measuredWeight, r.realWeight]),
+        itemStyle: { color: chartColors.primary },
+        symbolSize: 12,
+      },
+      // 拟合线
+      ...(weightCalibRegression ? [{
+        name: '拟合线',
+        type: 'line',
+        data: weightCalibValidResults.length > 0 ? (() => {
+          const minX = Math.min(...weightCalibValidResults.map(r => r.measuredWeight));
+          const maxX = Math.max(...weightCalibValidResults.map(r => r.measuredWeight));
+          return [
+            [minX, weightCalibRegression.slope * minX + weightCalibRegression.intercept],
+            [maxX, weightCalibRegression.slope * maxX + weightCalibRegression.intercept],
+          ];
+        })() : [],
+        itemStyle: { color: chartColors.success },
+        lineStyle: { type: 'dashed', width: 2 },
+        symbol: 'none',
+      }] : []),
+    ],
   } : null;
   
   // ============================================================
@@ -2727,15 +2989,15 @@ export function LoadCellPanel() {
           {/* 高级测试 */}
           <TabsContent value="advanced" className="space-y-4">
             {/* 测试类型选择 */}
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-5 gap-3">
               <button
                 onClick={() => setAdvancedTestType(advancedTestType === 'deadzone' ? null : 'deadzone')}
                 className={`p-4 rounded-lg border-2 text-left transition-all ${
                   advancedTestType === 'deadzone' ? 'border-primary bg-primary/5' : 'border-muted hover:border-primary/50'
                 }`}
               >
-                <div className="text-sm font-medium">🔧 管路死区检测</div>
-                <div className="text-xs text-muted-foreground mt-1">检测排废后管路中的气体死区</div>
+                <div className="text-sm font-medium">🔧 管路死区</div>
+                <div className="text-xs text-muted-foreground mt-1">检测管路气体死区</div>
               </button>
               <button
                 onClick={() => setAdvancedTestType(advancedTestType === 'resolution' ? null : 'resolution')}
@@ -2744,7 +3006,7 @@ export function LoadCellPanel() {
                 }`}
               >
                 <div className="text-sm font-medium">📏 分辨率检测</div>
-                <div className="text-xs text-muted-foreground mt-1">检测可稳定重复的最小进样量</div>
+                <div className="text-xs text-muted-foreground mt-1">最小可靠进样量</div>
               </button>
               <button
                 onClick={() => setAdvancedTestType(advancedTestType === 'linearity' ? null : 'linearity')}
@@ -2753,7 +3015,16 @@ export function LoadCellPanel() {
                 }`}
               >
                 <div className="text-sm font-medium">📈 线性度检测</div>
-                <div className="text-xs text-muted-foreground mt-1">检测进样量与重量的线性关系</div>
+                <div className="text-xs text-muted-foreground mt-1">进样量与重量关系</div>
+              </button>
+              <button
+                onClick={() => setAdvancedTestType(advancedTestType === 'weight_calibration' ? null : 'weight_calibration')}
+                className={`p-4 rounded-lg border-2 text-left transition-all ${
+                  advancedTestType === 'weight_calibration' ? 'border-primary bg-primary/5' : 'border-muted hover:border-primary/50'
+                }`}
+              >
+                <div className="text-sm font-medium">⚖️ 称重标定</div>
+                <div className="text-xs text-muted-foreground mt-1">标定测量值到真实值</div>
               </button>
               <button
                 onClick={() => setAdvancedTestType(advancedTestType === 'baseline' ? null : 'baseline')}
@@ -2761,8 +3032,8 @@ export function LoadCellPanel() {
                   advancedTestType === 'baseline' ? 'border-primary bg-primary/5' : 'border-muted hover:border-primary/50'
                 }`}
               >
-                <div className="text-sm font-medium">📊 基线漂移分析</div>
-                <div className="text-xs text-muted-foreground mt-1">分析空瓶重量随循环的漂移</div>
+                <div className="text-sm font-medium">📊 基线漂移</div>
+                <div className="text-xs text-muted-foreground mt-1">空瓶重量漂移分析</div>
               </button>
             </div>
             
@@ -3147,6 +3418,44 @@ export function LoadCellPanel() {
                   </div>
                 )}
                 
+                {/* 保存校准系数按钮 */}
+                {linearityRegression && (
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-blue-900 dark:text-blue-100">保存泵校准系数</div>
+                      <div className="text-xs text-blue-700 dark:text-blue-300">
+                        斜率: {linearityRegression.slope.toFixed(4)} g/mm, 截距: {linearityRegression.intercept.toFixed(2)} g
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          const res = await fetch('/api/load-cell/pump-calibration', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              slope: linearityRegression.slope,
+                              offset: linearityRegression.intercept,
+                            }),
+                          });
+                          const data = await res.json();
+                          if (data.success) {
+                            alert('校准系数已保存到后端配置');
+                          } else {
+                            alert('保存失败: ' + data.message);
+                          }
+                        } catch (err: any) {
+                          alert('保存失败: ' + err.message);
+                        }
+                      }}
+                    >
+                      <Save className="h-4 w-4 mr-1" />
+                      保存到后端
+                    </Button>
+                  </div>
+                )}
+                
                 {/* 各进样量统计表 */}
                 {linearitySortedGroups.length > 0 && (
                   <div className="rounded-lg border p-3">
@@ -3171,6 +3480,292 @@ export function LoadCellPanel() {
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* 称重标定 */}
+            {advancedTestType === 'weight_calibration' && (
+              <div className="space-y-4 rounded-lg border p-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-medium">称重标定</h3>
+                  <div className="flex items-center gap-2">
+                    {weightCalibStep === 'waiting_user' && (
+                      <Button size="sm" onClick={handleWeightCalibContinue} className="bg-green-600 hover:bg-green-700">
+                        <Play className="h-4 w-4 mr-1" /> 继续（已接好液体）
+                      </Button>
+                    )}
+                    {advancedTestRunning ? (
+                      <Button variant="destructive" size="sm" onClick={handleStopAdvancedTest}>
+                        <Square className="h-4 w-4 mr-1" /> 停止
+                      </Button>
+                    ) : (
+                      <Button size="sm" onClick={runWeightCalibrationTest}>
+                        <Play className="h-4 w-4 mr-1" /> 开始标定
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                
+                {/* 当前状态提示 */}
+                {advancedTestRunning && (
+                  <div className={`p-3 rounded-lg border ${
+                    weightCalibStep === 'waiting_user' 
+                      ? 'bg-yellow-50 border-yellow-300 dark:bg-yellow-900/20 dark:border-yellow-700' 
+                      : 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-700'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      {weightCalibStep === 'waiting_user' ? (
+                        <>
+                          <span className="text-2xl">⏸️</span>
+                          <div>
+                            <div className="font-medium text-yellow-800 dark:text-yellow-200">请用杯子接住排废口</div>
+                            <div className="text-sm text-yellow-700 dark:text-yellow-300">准备好后点击上方「继续」按钮</div>
+                          </div>
+                        </>
+                      ) : weightCalibStep === 'injecting' ? (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                          <div className="text-blue-800 dark:text-blue-200">正在进样... (第 {weightCalibCurrentIndex + 1}/{weightCalibConfig.volumeSteps.length} 个)</div>
+                        </>
+                      ) : weightCalibStep === 'draining' ? (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                          <div className="text-blue-800 dark:text-blue-200">正在排废...</div>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
+                )}
+                
+                {/* 配置区域 */}
+                <div className="grid grid-cols-4 gap-3 text-sm">
+                  <div>
+                    <Label className="text-xs">测试模式</Label>
+                    <div className="flex gap-1 mt-1">
+                      <button onClick={() => setWeightCalibConfig(p => ({ ...p, testMode: 'single' }))}
+                        className={`flex-1 px-2 py-1 text-xs rounded ${weightCalibConfig.testMode === 'single' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                        单电机
+                      </button>
+                      <button onClick={() => setWeightCalibConfig(p => ({ ...p, testMode: 'multi' }))}
+                        className={`flex-1 px-2 py-1 text-xs rounded ${weightCalibConfig.testMode === 'multi' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                        多电机
+                      </button>
+                    </div>
+                  </div>
+                  {weightCalibConfig.testMode === 'single' && (
+                    <div>
+                      <Label className="text-xs">测试泵</Label>
+                      <div className="flex gap-1 mt-1">
+                        {[2, 3, 4, 5].map(id => (
+                          <button key={id} onClick={() => setWeightCalibConfig(p => ({ ...p, pumpId: id }))}
+                            className={`px-2 py-1 text-xs rounded ${weightCalibConfig.pumpId === id ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                            {id}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div>
+                    <Label className="text-xs">进样速度 (mm/s)</Label>
+                    <Input type="number" className="h-8" value={weightCalibConfig.speed}
+                      onChange={e => setWeightCalibConfig(p => ({ ...p, speed: +e.target.value || 100 }))} />
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-xs">泵线性系数 (ml = slope × mm + offset)</Label>
+                    <div className="h-8 px-3 py-1.5 rounded-md border bg-muted/50 text-sm font-mono flex items-center gap-3">
+                      <span>slope: <strong>{config.pumpMmToMl ? config.pumpMmToMl.toFixed(4) : '未标定'}</strong></span>
+                      <span>offset: <strong>{config.pumpMmOffset !== undefined ? config.pumpMmOffset.toFixed(2) : '未标定'}</strong></span>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-0.5">从线性度检测获取</div>
+                  </div>
+                </div>
+                
+                {/* 序列配置 */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-xs">进样量序列 (mm)</Label>
+                    <Button variant="outline" size="sm" className="h-6 text-xs" onClick={() => setWeightCalibSeqGenOpen(!weightCalibSeqGenOpen)}>
+                      序列生成器
+                    </Button>
+                  </div>
+                  <Input 
+                    className="h-8 font-mono text-xs"
+                    value={weightCalibConfig.volumeSteps.join(', ')}
+                    onChange={e => {
+                      const vals = e.target.value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n > 0);
+                      if (vals.length > 0) setWeightCalibConfig(p => ({ ...p, volumeSteps: vals }));
+                    }}
+                  />
+                  
+                  {/* 序列生成器弹出框 */}
+                  {weightCalibSeqGenOpen && (
+                    <div className="mt-2 p-3 rounded-lg border bg-muted/30">
+                      <div className="grid grid-cols-5 gap-2 text-xs">
+                        <div>
+                          <Label className="text-xs">类型</Label>
+                          <select className="w-full h-8 rounded border px-2 text-xs"
+                            value={seqGenConfig.type}
+                            onChange={e => setSeqGenConfig(p => ({ ...p, type: e.target.value as any }))}>
+                            <option value="linear">线性</option>
+                            <option value="log">对数</option>
+                            <option value="exp">指数</option>
+                            <option value="quadratic">二次</option>
+                            <option value="sqrt">平方根</option>
+                          </select>
+                        </div>
+                        <div>
+                          <Label className="text-xs">最小值</Label>
+                          <Input type="number" className="h-8" value={seqGenConfig.min}
+                            onChange={e => setSeqGenConfig(p => ({ ...p, min: +e.target.value || 50 }))} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">最大值</Label>
+                          <Input type="number" className="h-8" value={seqGenConfig.max}
+                            onChange={e => setSeqGenConfig(p => ({ ...p, max: +e.target.value || 1000 }))} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">步数</Label>
+                          <Input type="number" className="h-8" value={seqGenConfig.steps}
+                            onChange={e => setSeqGenConfig(p => ({ ...p, steps: +e.target.value || 10 }))} />
+                        </div>
+                        <div className="flex items-end">
+                          <Button size="sm" className="h-8 w-full" onClick={() => {
+                            const seq = generateSequence(seqGenConfig.type, seqGenConfig.min, seqGenConfig.max, seqGenConfig.steps);
+                            setWeightCalibConfig(p => ({ ...p, volumeSteps: seq }));
+                            setWeightCalibSeqGenOpen(false);
+                          }}>应用</Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* 图表 */}
+                {weightCalibChartOption && (
+                  <div className="rounded-lg border p-3">
+                    <div className="text-xs font-medium mb-2">称重标定拟合 (称重变化值 → 真实重量)</div>
+                    <ReactECharts option={weightCalibChartOption} style={{ height: 250 }} />
+                  </div>
+                )}
+                
+                {/* 回归统计 */}
+                {weightCalibRegression && (
+                  <div className="grid grid-cols-4 gap-3 text-center">
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <div className="text-xs text-muted-foreground">R² (决定系数)</div>
+                      <div className={`text-xl font-bold ${weightCalibRegression.r2 >= 0.99 ? 'text-green-600' : weightCalibRegression.r2 >= 0.95 ? 'text-yellow-600' : 'text-red-600'}`}>
+                        {weightCalibRegression.r2.toFixed(4)}
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <div className="text-xs text-muted-foreground">weight_scale (斜率)</div>
+                      <div className="text-xl font-bold text-primary">
+                        {weightCalibRegression.slope.toFixed(4)}
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <div className="text-xs text-muted-foreground">weight_offset (截距)</div>
+                      <div className="text-xl font-bold text-primary">
+                        {weightCalibRegression.intercept.toFixed(4)}g
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <div className="text-xs text-muted-foreground">最大误差 (g)</div>
+                      <div className={`text-xl font-bold ${weightCalibRegression.maxError < 1 ? 'text-green-600' : weightCalibRegression.maxError < 3 ? 'text-yellow-600' : 'text-red-600'}`}>
+                        {weightCalibRegression.maxError.toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* 保存校准系数按钮 */}
+                {weightCalibRegression && (
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-green-900 dark:text-green-100">保存称重校准系数</div>
+                      <div className="text-xs text-green-700 dark:text-green-300">
+                        real_weight = {weightCalibRegression.slope.toFixed(4)} × measured_weight + ({weightCalibRegression.intercept.toFixed(4)})
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700"
+                      disabled={weightCalibSaving}
+                      onClick={async () => {
+                        setWeightCalibSaving(true);
+                        try {
+                          await saveLoadCellConfig({
+                            ...config,
+                            weightScale: weightCalibRegression.slope,
+                            weightOffset: weightCalibRegression.intercept,
+                          });
+                          // 更新本地config
+                          setConfig(prev => ({
+                            ...prev,
+                            weightScale: weightCalibRegression.slope,
+                            weightOffset: weightCalibRegression.intercept,
+                          }));
+                          addAutoTestLog('✅ 称重校准系数已保存到后端');
+                        } catch (err: any) {
+                          addAutoTestLog(`❌ 保存失败: ${err.message}`);
+                        } finally {
+                          setWeightCalibSaving(false);
+                        }
+                      }}
+                    >
+                      {weightCalibSaving ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4 mr-1" />
+                      )}
+                      {weightCalibSaving ? '保存中...' : '保存到后端'}
+                    </Button>
+                  </div>
+                )}
+                
+                {/* 数据表格 */}
+                {weightCalibResults.length > 0 && (
+                  <div className="rounded-lg border p-3">
+                    <div className="text-xs font-medium mb-2">标定数据表</div>
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b text-left text-muted-foreground">
+                          <th className="py-1 px-2">#</th>
+                          <th className="py-1 px-2 text-right">设定量 (mm)</th>
+                          <th className="py-1 px-2 text-right">计算ml值</th>
+                          <th className="py-1 px-2 text-right">称重变化 (g)</th>
+                          <th className="py-1 px-2">真实重量 (g)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {weightCalibResults.map(r => (
+                          <tr key={r.index} className="border-b last:border-0">
+                            <td className="py-1 px-2 font-mono">{r.index + 1}</td>
+                            <td className="py-1 px-2 text-right font-mono">{r.setVolumeMm}</td>
+                            <td className="py-1 px-2 text-right font-mono">{r.setVolumeMl.toFixed(2)}</td>
+                            <td className="py-1 px-2 text-right font-mono">{r.measuredWeight.toFixed(2)}</td>
+                            <td className="py-1 px-2">
+                              <Input
+                                type="number"
+                                step="0.1"
+                                className="h-7 w-24 text-xs"
+                                placeholder="输入真实值"
+                                value={r.realWeight ?? ''}
+                                onChange={e => {
+                                  const val = e.target.value === '' ? null : parseFloat(e.target.value);
+                                  updateWeightCalibRealWeight(r.index, val);
+                                }}
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      提示: 输入用电子秤测量的排出液体真实重量，系统将自动拟合称重变化值到真实值的线性关系
+                    </div>
                   </div>
                 )}
               </div>

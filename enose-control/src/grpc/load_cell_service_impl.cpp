@@ -183,6 +183,18 @@ void LoadCellServiceImpl::fill_calibration_status(::enose::service::CalibrationS
     return ::grpc::Status::OK;
 }
 
+::grpc::Status LoadCellServiceImpl::SetPumpCalibration(
+    ::grpc::ServerContext* context,
+    const ::enose::service::PumpCalibrationRequest* request,
+    ::google::protobuf::Empty* response
+) {
+    float slope = request->slope();
+    float offset = request->offset();
+    spdlog::info("LoadCellServiceImpl: SetPumpCalibration slope={:.4f} g/mm, offset={:.2f} g", slope, offset);
+    load_cell_->set_pump_calibration(slope, offset);
+    return ::grpc::Status::OK;
+}
+
 ::grpc::Status LoadCellServiceImpl::GetLoadCellConfig(
     ::grpc::ServerContext* context,
     const ::google::protobuf::Empty* request,
@@ -193,6 +205,14 @@ void LoadCellServiceImpl::fill_calibration_status(::enose::service::CalibrationS
     response->set_overflow_threshold(config.overflow_threshold);
     response->set_drain_complete_margin(config.drain_complete_margin);
     response->set_stable_threshold(config.stable_stddev_threshold);
+    
+    // 泵校准系数
+    response->set_pump_mm_to_ml(config.pump_mm_to_ml);
+    response->set_pump_mm_offset(config.pump_mm_offset);
+    
+    // 重量校准系数
+    response->set_weight_scale(config.weight_scale);
+    response->set_weight_offset(config.weight_offset);
     
     return ::grpc::Status::OK;
 }
@@ -208,11 +228,26 @@ void LoadCellServiceImpl::fill_calibration_status(::enose::service::CalibrationS
     config.drain_complete_margin = request->drain_complete_margin();
     config.stable_stddev_threshold = request->stable_threshold();
     
+    // 泵校准系数 (mm -> 测量重量)
+    if (request->pump_mm_to_ml() != 0) {
+        config.pump_mm_to_ml = request->pump_mm_to_ml();
+    }
+    if (request->pump_mm_offset() != 0) {
+        config.pump_mm_offset = request->pump_mm_offset();
+    }
+    
+    // 重量校准系数 (测量值 -> 真实值)
+    if (request->weight_scale() != 0) {
+        config.weight_scale = request->weight_scale();
+    }
+    config.weight_offset = request->weight_offset(); // offset可以为0
+    
     load_cell_->set_config(config);
     
     // 持久化到文件
     if (load_cell_->save_config()) {
-        spdlog::info("LoadCellServiceImpl: Config saved to file");
+        spdlog::info("LoadCellServiceImpl: Config saved to file (weight_scale={:.4f}, weight_offset={:.4f})",
+                     config.weight_scale, config.weight_offset);
     } else {
         spdlog::warn("LoadCellServiceImpl: Config updated but not persisted to file");
     }

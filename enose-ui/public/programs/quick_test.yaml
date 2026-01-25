@@ -1,0 +1,14 @@
+id: quick_test
+name: 快速测试
+description: 简单的系统功能验证
+version: 1.0.0
+steps:
+  - name: 切换状态
+    set_state:
+      state: STATE_SAMPLE
+  - name: 等待
+    wait:
+      duration_s: 5
+  - name: 恢复
+    set_state:
+      state: STATE_INITIAL

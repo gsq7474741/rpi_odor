@@ -33,7 +33,7 @@ void GrpcServer::start(const std::string& address) {
 
     server_thread_ = std::thread([this, address]() {
         // 创建服务实现
-        ControlServiceImpl control_service(actuator_, system_state_);
+        ControlServiceImpl control_service(actuator_, system_state_, load_cell_);
         std::unique_ptr<SensorServiceImpl> sensor_service;
         std::unique_ptr<LoadCellServiceImpl> load_cell_service;
         std::unique_ptr<grpc_service::TestServiceImpl> test_service;
