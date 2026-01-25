@@ -22,74 +22,70 @@ import {
   Loader2,
 } from "lucide-react";
 import {
-  fetchStatus,
   setSystemState as apiSetSystemState,
   manualControl,
   runPump,
   stopAllPumps,
   type SystemStatus,
 } from "@/lib/api";
+import { useStatusStream } from "@/hooks/use-status-stream";
+
+// 状态枚举常量
+const STATE_NAMES: Record<number, string> = {
+  0: "UNSPECIFIED", 1: "INITIAL", 2: "DRAIN", 3: "CLEAN", 4: "SAMPLE", 5: "INJECT"
+};
 
 // 初始状态
 const initialStatus: SystemStatus = {
-  current_state: "UNSPECIFIED",
-  peripheral_status: {
-    valve_waste: 0,
-    valve_pinch: 0,
-    valve_air: 0,
-    valve_outlet: 0,
-    air_pump_pwm: 0,
-    cleaning_pump: 0,
-    pump_0: "STOPPED",
-    pump_1: "STOPPED",
-    pump_2: "STOPPED",
-    pump_3: "STOPPED",
-    pump_4: "STOPPED",
-    pump_5: "STOPPED",
-    pump_6: "STOPPED",
-    pump_7: "STOPPED",
-    heater_chamber: 0,
-    sensor_chamber_temp: undefined,
-    scale_weight: undefined,
+  currentState: 0,
+  peripheralStatus: {
+    valveWaste: 0,
+    valvePinch: 0,
+    valveAir: 0,
+    valveOutlet: 0,
+    airPumpPwm: 0,
+    cleaningPump: 0,
+    pump0: 1,
+    pump1: 1,
+    pump2: 1,
+    pump3: 1,
+    pump4: 1,
+    pump5: 1,
+    pump6: 1,
+    pump7: 1,
+    heaterChamber: 0,
+    sensorChamberTemp: undefined,
+    scaleWeight: undefined,
   },
-  moonraker_connected: false,
-  sensor_connected: false,
-  firmware_ready: true,
+  moonrakerConnected: false,
+  sensorConnected: false,
+  firmwareReady: true,
 };
 
 export function ControlPanel() {
+  // 使用 SSE 获取状态
+  const { status: streamStatus, connected: grpcConnected, lastUpdate: lastUpdateTime, error: streamError, refreshStatus } = useStatusStream();
   const [status, setStatus] = useState<SystemStatus>(initialStatus);
-  const [grpcConnected, setGrpcConnected] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastUpdateTime, setLastUpdateTime] = useState<number | null>(null);
   const [timeSinceUpdate, setTimeSinceUpdate] = useState<number>(0);
   const [emergencyStopLoading, setEmergencyStopLoading] = useState(false);
   const [firmwareRestartLoading, setFirmwareRestartLoading] = useState(false);
 
-  // 获取状态
-  const refreshStatus = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await fetchStatus();
-      setStatus(data);
-      setGrpcConnected(true);
-      setLastUpdateTime(Date.now());
-    } catch (err: any) {
-      setError(err.message);
-      setGrpcConnected(false);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // 初始化和轮询 (500ms 实时更新)
+  // 同步 SSE 状态到本地状态
   useEffect(() => {
-    refreshStatus();
-    const interval = setInterval(refreshStatus, 500);
-    return () => clearInterval(interval);
-  }, [refreshStatus]);
+    if (streamStatus) {
+      setStatus(streamStatus);
+    }
+  }, [streamStatus]);
+
+  // 同步 SSE 错误
+  useEffect(() => {
+    if (streamError) {
+      setError(streamError);
+    } else {
+      setError(null);
+    }
+  }, [streamError]);
 
   // 计时器：每100ms更新距离上次收到报文的时间
   useEffect(() => {
@@ -106,8 +102,8 @@ export function ControlPanel() {
       await manualControl(name, value ? 1 : 0);
       setStatus((prev) => ({
         ...prev,
-        peripheral_status: {
-          ...prev.peripheral_status,
+        peripheralStatus: {
+          ...prev.peripheralStatus,
           [name]: value ? 1 : 0,
         },
       }));
@@ -121,8 +117,8 @@ export function ControlPanel() {
       await manualControl(name, value);
       setStatus((prev) => ({
         ...prev,
-        peripheral_status: {
-          ...prev.peripheral_status,
+        peripheralStatus: {
+          ...prev.peripheralStatus,
           [name]: value,
         },
       }));
@@ -178,8 +174,8 @@ export function ControlPanel() {
             <Badge variant={timeSinceUpdate < 1000 ? "outline" : "destructive"} className="text-xs font-mono">
               {timeSinceUpdate < 1000 ? `${timeSinceUpdate}ms` : `${(timeSinceUpdate / 1000).toFixed(1)}s`}
             </Badge>
-            <Badge variant={status.moonraker_connected ? "outline" : "secondary"} className="text-xs">
-              Moonraker {status.moonraker_connected ? "✓" : "✗"}
+            <Badge variant={status.moonrakerConnected ? "outline" : "secondary"} className="text-xs">
+              Moonraker {status.moonrakerConnected ? "✓" : "✗"}
             </Badge>
           </div>
         </div>
@@ -193,41 +189,41 @@ export function ControlPanel() {
               系统状态
             </h4>
             <Badge variant="outline" className="font-mono px-3">
-              {status.current_state}
+              {STATE_NAMES[status.currentState]}
             </Badge>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
               size="sm"
-              variant={status.current_state === "INITIAL" ? "default" : "outline"}
+              variant={STATE_NAMES[status.currentState] === "INITIAL" ? "default" : "outline"}
               onClick={() => handleStateChange("INITIAL")}
             >
               初始
             </Button>
             <Button
               size="sm"
-              variant={status.current_state === "DRAIN" ? "default" : "outline"}
+              variant={STATE_NAMES[status.currentState] === "DRAIN" ? "default" : "outline"}
               onClick={() => handleStateChange("DRAIN")}
             >
               排废
             </Button>
             <Button
               size="sm"
-              variant={status.current_state === "CLEAN" ? "default" : "outline"}
+              variant={STATE_NAMES[status.currentState] === "CLEAN" ? "default" : "outline"}
               onClick={() => handleStateChange("CLEAN")}
             >
               清洗
             </Button>
             <Button
               size="sm"
-              variant={status.current_state === "SAMPLE" ? "default" : "outline"}
+              variant={STATE_NAMES[status.currentState] === "SAMPLE" ? "default" : "outline"}
               onClick={() => handleStateChange("SAMPLE")}
             >
               采样
             </Button>
             <Button
               size="sm"
-              variant={status.current_state === "INJECT" ? "default" : "outline"}
+              variant={STATE_NAMES[status.currentState] === "INJECT" ? "default" : "outline"}
               onClick={() => handleStateChange("INJECT")}
             >
               进样
@@ -240,7 +236,7 @@ export function ControlPanel() {
           <h4 className="font-medium flex items-center gap-2 text-sm">
             <Droplets className="w-4 h-4" />
             进样控制
-            {status.current_state !== "INJECT" && (
+            {STATE_NAMES[status.currentState] !== "INJECT" && (
               <span className="text-xs text-muted-foreground font-normal">（需先切换到进样状态）</span>
             )}
             <div className="ml-auto flex items-center gap-1">
@@ -310,7 +306,7 @@ export function ControlPanel() {
                 size="sm"
                 className="flex-1"
                 onClick={async () => {
-                  if (status.current_state !== "INJECT") {
+                  if (STATE_NAMES[status.currentState] !== "INJECT") {
                     setError("请先切换到进样状态");
                     return;
                   }
@@ -355,7 +351,7 @@ export function ControlPanel() {
                   } catch (err: any) { setError(err.message); }
                   setInjecting(false);
                 }}
-                disabled={injecting || status.current_state !== "INJECT"}
+                disabled={injecting || STATE_NAMES[status.currentState] !== "INJECT"}
               >
                 开始进样
               </Button>
@@ -368,7 +364,7 @@ export function ControlPanel() {
                     await refreshStatus();
                   } catch (err: any) { setError(err.message); }
                 }}
-                disabled={status.current_state !== "INJECT"}
+                disabled={STATE_NAMES[status.currentState] !== "INJECT"}
               >
                 停止
               </Button>
@@ -385,38 +381,38 @@ export function ControlPanel() {
           <div className="grid grid-cols-3 md:grid-cols-6 gap-2 text-xs">
             <div className="flex items-center justify-between p-2 bg-background rounded border">
               <span>废液阀</span>
-              <Badge variant={status.peripheral_status.valve_waste === 1 ? "default" : "secondary"} className="text-xs px-1.5">
-                {status.peripheral_status.valve_waste === 1 ? "开" : "关"}
+              <Badge variant={status.peripheralStatus.valveWaste === 1 ? "default" : "secondary"} className="text-xs px-1.5">
+                {status.peripheralStatus.valveWaste === 1 ? "开" : "关"}
               </Badge>
             </div>
             <div className="flex items-center justify-between p-2 bg-background rounded border">
               <span>夹管阀</span>
-              <Badge variant={status.peripheral_status.valve_pinch === 1 ? "default" : "secondary"} className="text-xs px-1.5">
-                {status.peripheral_status.valve_pinch === 1 ? "液" : "气"}
+              <Badge variant={status.peripheralStatus.valvePinch === 1 ? "default" : "secondary"} className="text-xs px-1.5">
+                {status.peripheralStatus.valvePinch === 1 ? "液" : "气"}
               </Badge>
             </div>
             <div className="flex items-center justify-between p-2 bg-background rounded border">
               <span>三通阀</span>
-              <Badge variant={status.peripheral_status.valve_air === 1 ? "default" : "secondary"} className="text-xs px-1.5">
-                {status.peripheral_status.valve_air === 1 ? "室" : "排"}
+              <Badge variant={status.peripheralStatus.valveAir === 1 ? "default" : "secondary"} className="text-xs px-1.5">
+                {status.peripheralStatus.valveAir === 1 ? "室" : "排"}
               </Badge>
             </div>
             <div className="flex items-center justify-between p-2 bg-background rounded border">
               <span>出气阀</span>
-              <Badge variant={status.peripheral_status.valve_outlet === 0 ? "default" : "secondary"} className="text-xs px-1.5">
-                {status.peripheral_status.valve_outlet === 0 ? "开" : "关"}
+              <Badge variant={status.peripheralStatus.valveOutlet === 0 ? "default" : "secondary"} className="text-xs px-1.5">
+                {status.peripheralStatus.valveOutlet === 0 ? "开" : "关"}
               </Badge>
             </div>
             <div className="flex items-center justify-between p-2 bg-background rounded border">
               <span>气泵</span>
-              <Badge variant={status.peripheral_status.air_pump_pwm > 0 ? "default" : "secondary"} className="text-xs px-1.5 font-mono">
-                {Math.round(status.peripheral_status.air_pump_pwm * 100)}%
+              <Badge variant={status.peripheralStatus.airPumpPwm > 0 ? "default" : "secondary"} className="text-xs px-1.5 font-mono">
+                {Math.round(status.peripheralStatus.airPumpPwm * 100)}%
               </Badge>
             </div>
             <div className="flex items-center justify-between p-2 bg-background rounded border">
               <span>清洗泵</span>
-              <Badge variant={status.peripheral_status.cleaning_pump > 0 ? "default" : "secondary"} className="text-xs px-1.5 font-mono">
-                {Math.round(status.peripheral_status.cleaning_pump * 100)}%
+              <Badge variant={status.peripheralStatus.cleaningPump > 0 ? "default" : "secondary"} className="text-xs px-1.5 font-mono">
+                {Math.round(status.peripheralStatus.cleaningPump * 100)}%
               </Badge>
             </div>
           </div>
@@ -434,28 +430,28 @@ export function ControlPanel() {
               <div className="flex items-center justify-between text-sm">
                 <span>废液阀</span>
                 <Switch
-                  checked={status.peripheral_status.valve_waste === 1}
+                  checked={status.peripheralStatus.valveWaste === 1}
                   onCheckedChange={(v) => handleValveToggle("valve_waste", v)}
                 />
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span>夹管阀</span>
                 <Switch
-                  checked={status.peripheral_status.valve_pinch === 1}
+                  checked={status.peripheralStatus.valvePinch === 1}
                   onCheckedChange={(v) => handleValveToggle("valve_pinch", v)}
                 />
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span>三通阀</span>
                 <Switch
-                  checked={status.peripheral_status.valve_air === 1}
+                  checked={status.peripheralStatus.valveAir === 1}
                   onCheckedChange={(v) => handleValveToggle("valve_air", v)}
                 />
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span>出气阀</span>
                 <Switch
-                  checked={status.peripheral_status.valve_outlet === 1}
+                  checked={status.peripheralStatus.valveOutlet === 1}
                   onCheckedChange={(v) => handleValveToggle("valve_outlet", v)}
                 />
               </div>
@@ -473,11 +469,11 @@ export function ControlPanel() {
                 <div className="flex items-center justify-between text-sm">
                   <span>气泵 PWM</span>
                   <span className="text-xs text-muted-foreground font-mono">
-                    {Math.round(status.peripheral_status.air_pump_pwm * 100)}%
+                    {Math.round(status.peripheralStatus.airPumpPwm * 100)}%
                   </span>
                 </div>
                 <Slider
-                  value={[status.peripheral_status.air_pump_pwm * 100]}
+                  value={[status.peripheralStatus.airPumpPwm * 100]}
                   onValueChange={([v]) => handlePwmChange("air_pump_pwm", v / 100)}
                   max={100}
                   step={5}
@@ -487,11 +483,11 @@ export function ControlPanel() {
                 <div className="flex items-center justify-between text-sm">
                   <span>清洗泵</span>
                   <span className="text-xs text-muted-foreground font-mono">
-                    {Math.round(status.peripheral_status.cleaning_pump * 100)}%
+                    {Math.round(status.peripheralStatus.cleaningPump * 100)}%
                   </span>
                 </div>
                 <Slider
-                  value={[status.peripheral_status.cleaning_pump * 100]}
+                  value={[status.peripheralStatus.cleaningPump * 100]}
                   onValueChange={([v]) => handlePwmChange("cleaning_pump", v / 100)}
                   max={100}
                   step={5}
@@ -507,18 +503,18 @@ export function ControlPanel() {
               样品泵
             </h4>
             <div className="space-y-2">
-              {(["pump_0", "pump_1", "pump_2", "pump_3", "pump_4", "pump_5", "pump_6", "pump_7"] as const).map(
+              {(["pump0", "pump1", "pump2", "pump3", "pump4", "pump5", "pump6", "pump7"] as const).map(
                 (pump, idx) => (
                   <div key={pump} className="flex items-center justify-between text-sm">
                     <span>泵 {idx}</span>
                     <div className="flex items-center gap-1.5">
                       <Badge
-                        variant={status.peripheral_status[pump] === "RUNNING" ? "default" : "secondary"}
+                        variant={status.peripheralStatus[pump] === 2 ? "default" : "secondary"}
                         className="text-xs w-16 justify-center"
                       >
-                        {status.peripheral_status[pump] === "RUNNING" ? "运行中" : "停止"}
+                        {status.peripheralStatus[pump] === 2 ? "运行中" : "停止"}
                       </Badge>
-                      <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => handleRunPump(pump)}>
+                      <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => handleRunPump(`pump_${idx}`)}>
                         运行
                       </Button>
                       <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => handleStopAllPumps()}>
@@ -543,11 +539,11 @@ export function ControlPanel() {
               <div className="flex items-center justify-between text-sm">
                 <span>气室加热带</span>
                 <span className="text-xs text-muted-foreground font-mono">
-                  {Math.round(status.peripheral_status.heater_chamber * 100)}%
+                  {Math.round(status.peripheralStatus.heaterChamber * 100)}%
                 </span>
               </div>
               <Slider
-                value={[status.peripheral_status.heater_chamber * 100]}
+                value={[status.peripheralStatus.heaterChamber * 100]}
                 onValueChange={([v]) => handlePwmChange("heater_chamber", v / 100)}
                 max={100}
                 step={5}
@@ -556,7 +552,7 @@ export function ControlPanel() {
             <div className="flex items-center justify-between text-sm pt-2 border-t">
               <span>当前温度</span>
               <Badge variant="outline" className="font-mono">
-                {status.peripheral_status.sensor_chamber_temp?.toFixed(1) ?? "--"}°C
+                {status.peripheralStatus.sensorChamberTemp?.toFixed(1) ?? "--"}°C
               </Badge>
             </div>
           </div>
@@ -573,7 +569,7 @@ export function ControlPanel() {
                   <span>气室温度</span>
                 </div>
                 <Badge variant="outline" className="font-mono">
-                  {status.peripheral_status.sensor_chamber_temp?.toFixed(1) ?? "--"}°C
+                  {status.peripheralStatus.sensorChamberTemp?.toFixed(1) ?? "--"}°C
                 </Badge>
               </div>
               <div className="flex items-center justify-between text-sm">
@@ -582,7 +578,7 @@ export function ControlPanel() {
                   <span>称重</span>
                 </div>
                 <Badge variant="outline" className="font-mono">
-                  {status.peripheral_status.scale_weight?.toFixed(2) ?? "--"} g
+                  {status.peripheralStatus.scaleWeight?.toFixed(2) ?? "--"} g
                 </Badge>
               </div>
             </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,43 +12,43 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Loader2,
+  Moon,
   OctagonX,
   Power,
   RotateCcw,
   Settings,
   Square,
+  Sun,
+  Monitor,
 } from "lucide-react";
+import { useTheme } from "next-themes";
+import { useStatusStream } from "@/hooks/use-status-stream";
 
 export function TopBar() {
+  // 使用 SSE 获取状态（与 ControlPanel 共享同一连接）
+  const { status } = useStatusStream();
   const [firmwareReady, setFirmwareReady] = useState(true);
   const [estopLoading, setEstopLoading] = useState(false);
   const [restartLoading, setRestartLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
 
-  // 轮询后端状态检测物理急停
-  const checkFirmwareStatus = useCallback(async () => {
-    try {
-      const res = await fetch('/api/status');
-      if (res.ok) {
-        const data = await res.json();
-        if (typeof data.firmwareReady === 'boolean') {
-          setFirmwareReady(data.firmwareReady);
-          // 如果正在等待重启完成，检测到 ready 后停止 loading
-          if (data.firmwareReady && restartLoading) {
-            setRestartLoading(false);
-          }
-        }
-      }
-    } catch {
-      // 忽略网络错误
-    }
-  }, [restartLoading]);
-
+  // 避免SSR hydration mismatch
   useEffect(() => {
-    checkFirmwareStatus();
-    const interval = setInterval(checkFirmwareStatus, 1000);
-    return () => clearInterval(interval);
-  }, [checkFirmwareStatus]);
+    setMounted(true);
+  }, []);
+
+  // 从 SSE 状态同步 firmwareReady
+  useEffect(() => {
+    if (status && typeof status.firmwareReady === 'boolean') {
+      setFirmwareReady(status.firmwareReady);
+      // 如果正在等待重启完成，检测到 ready 后停止 loading
+      if (status.firmwareReady && restartLoading) {
+        setRestartLoading(false);
+      }
+    }
+  }, [status, restartLoading]);
 
   const handleEmergencyStop = async () => {
     setEstopLoading(true);
@@ -88,10 +88,10 @@ export function TopBar() {
   };
 
   return (
-    <div className="h-12 bg-white border-b border-zinc-200 flex items-center justify-between px-4 shrink-0">
+    <div className="h-12 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4 shrink-0">
       {/* 左侧：标题 */}
       <div className="flex items-center gap-3">
-        <span className="text-zinc-700 text-sm font-medium">Proj RPi Enose 电子鼻实验系统</span>
+        <span className="text-zinc-700 dark:text-zinc-200 text-sm font-medium">Proj RPi Enose 电子鼻实验系统</span>
       </div>
 
       {/* 右侧：急停 + 系统控制 */}
@@ -130,15 +130,45 @@ export function TopBar() {
           <span className="text-xs font-medium">紧急停止</span>
         </Button>
 
+        {/* 主题切换按钮 */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-800">
+              {mounted && (
+                <>
+                  {theme === "light" && <Sun className="w-4 h-4" />}
+                  {theme === "dark" && <Moon className="w-4 h-4" />}
+                  {theme === "system" && <Monitor className="w-4 h-4" />}
+                </>
+              )}
+              {!mounted && <Sun className="w-4 h-4" />}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-32">
+            <DropdownMenuItem onClick={() => setTheme("light")} className="cursor-pointer">
+              <Sun className="w-4 h-4 mr-2" />
+              浅色
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setTheme("dark")} className="cursor-pointer">
+              <Moon className="w-4 h-4 mr-2" />
+              深色
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setTheme("system")} className="cursor-pointer">
+              <Monitor className="w-4 h-4 mr-2" />
+              自动
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         {/* 设置按钮 (预留) */}
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100">
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-800">
           <Settings className="w-4 h-4" />
         </Button>
 
         {/* 电源菜单 */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100">
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-800">
               <Power className="w-4 h-4" />
             </Button>
           </DropdownMenuTrigger>

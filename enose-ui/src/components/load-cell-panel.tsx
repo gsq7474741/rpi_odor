@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Scale, Target, Settings, RefreshCw, Check, X, Loader2, Plus, Trash2, Play, Square, BarChart3, Save } from "lucide-react";
 import ReactECharts from "echarts-for-react";
+import { useLoadCellStream } from "@/hooks/use-load-cell-stream";
 
 // API 调用函数 (通过 Next.js API 路由)
 async function getLoadCellReading() {
@@ -546,28 +547,15 @@ export function LoadCellPanel() {
     }
   };
 
-  // 轮询读数
-  const pollReading = useCallback(async () => {
-    try {
-      const r = await getLoadCellReading();
-      setReading({
-        weightGrams: r.weightGrams,
-        rawPercent: r.rawPercent,
-        isCalibrated: r.isCalibrated,
-        isStable: r.isStable,
-        trend: r.trend,
-      });
-    } catch (error) {
-      console.error("Failed to get reading:", error);
-    }
-  }, []);
-
+  // 使用 SSE 获取读数
+  const { reading: streamReading, connected: loadCellConnected } = useLoadCellStream(isPolling);
+  
+  // 同步 SSE 读数到本地状态
   useEffect(() => {
-    if (isPolling) {
-      const interval = setInterval(pollReading, 500);
-      return () => clearInterval(interval);
+    if (streamReading) {
+      setReading(streamReading);
     }
-  }, [isPolling, pollReading]);
+  }, [streamReading]);
   
   // 日志自动滚动（类似VSCode终端行为）
   useEffect(() => {
@@ -2475,7 +2463,7 @@ export function LoadCellPanel() {
         <Tabs defaultValue="monitor" className="w-full">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="monitor">实时监测</TabsTrigger>
-            <TabsTrigger value="advanced">高级测试</TabsTrigger>
+            <TabsTrigger value="advanced">检测&标定</TabsTrigger>
             <TabsTrigger value="calibration">硬件标定</TabsTrigger>
             <TabsTrigger value="config">业务配置</TabsTrigger>
           </TabsList>
@@ -2505,33 +2493,32 @@ export function LoadCellPanel() {
               </Button>
             </div>
 
-            {reading && (
-              <div className="space-y-4">
-                {/* 电子秤主显示 */}
-                <div className="rounded-lg border-2 border-primary/20 bg-gradient-to-br from-background to-muted/30 p-6">
-                  <div className="flex items-baseline justify-between">
-                    <div>
-                      <div className="text-sm text-muted-foreground mb-1">
-                        {tareOffset !== 0 ? "去皮后重量" : "当前重量"}
-                      </div>
-                      <div className="text-5xl font-bold tracking-tight">
-                        {reading.isCalibrated ? `${taredWeight.toFixed(1)}` : "---"}
-                        <span className="text-2xl font-normal text-muted-foreground ml-1">g</span>
-                      </div>
+            <div className="space-y-4">
+              {/* 电子秤主显示 */}
+              <div className="rounded-lg border-2 border-primary/20 bg-gradient-to-br from-background to-muted/30 p-6">
+                <div className="flex items-baseline justify-between">
+                  <div>
+                    <div className="text-sm text-muted-foreground mb-1">
+                      {tareOffset !== 0 ? "去皮后重量" : "当前重量"}
                     </div>
-                    <div className="text-right">
-                      <Badge variant={reading.isStable ? "default" : "secondary"} className="mb-2">
-                        {reading.isStable ? "稳定" : "变化中"}
-                      </Badge>
-                      <div className="text-2xl">{getTrendIcon(reading.trend)}</div>
+                    <div className="text-5xl font-bold tracking-tight">
+                      {reading ? (reading.isCalibrated ? `${taredWeight.toFixed(1)}` : "---") : "---"}
+                      <span className="text-2xl font-normal text-muted-foreground ml-1">g</span>
                     </div>
                   </div>
-                  {tareOffset !== 0 && (
-                    <div className="mt-3 pt-3 border-t border-dashed text-sm text-muted-foreground flex justify-between">
-                      <span>原始: {reading.weightGrams.toFixed(1)}g</span>
-                      <span>去皮值: {tareOffset.toFixed(1)}g</span>
-                      <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={handleClearTare}>
-                        清除去皮
+                  <div className="text-right">
+                    <Badge variant={reading?.isStable ? "default" : "secondary"} className="mb-2">
+                      {reading ? (reading.isStable ? "稳定" : "变化中") : "等待数据"}
+                    </Badge>
+                    <div className="text-2xl">{reading ? getTrendIcon(reading.trend) : "—"}</div>
+                  </div>
+                </div>
+                {reading && tareOffset !== 0 && (
+                  <div className="mt-3 pt-3 border-t border-dashed text-sm text-muted-foreground flex justify-between">
+                    <span>原始: {reading.weightGrams.toFixed(1)}g</span>
+                    <span>去皮值: {tareOffset.toFixed(1)}g</span>
+                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={handleClearTare}>
+                      清除去皮
                       </Button>
                     </div>
                   )}
@@ -2541,17 +2528,17 @@ export function LoadCellPanel() {
                 <div className="grid grid-cols-3 gap-2 text-center text-sm">
                   <div className="rounded border p-2">
                     <div className="text-muted-foreground">状态</div>
-                    <Badge variant={reading.isCalibrated ? "outline" : "destructive"} className="mt-1">
-                      {reading.isCalibrated ? "已标定" : "未标定"}
+                    <Badge variant={reading?.isCalibrated ? "outline" : "destructive"} className="mt-1">
+                      {reading?.isCalibrated ? "已标定" : "未标定"}
                     </Badge>
                   </div>
                   <div className="rounded border p-2">
                     <div className="text-muted-foreground">原始值</div>
-                    <div className="font-mono mt-1">{reading.rawPercent.toFixed(2)}%</div>
+                    <div className="font-mono mt-1">{reading?.rawPercent.toFixed(2) ?? "---"}%</div>
                   </div>
                   <div className="rounded border p-2">
                     <div className="text-muted-foreground">绝对重量</div>
-                    <div className="font-mono mt-1">{reading.weightGrams.toFixed(1)}g</div>
+                    <div className="font-mono mt-1">{reading?.weightGrams.toFixed(1) ?? "---"}g</div>
                   </div>
                 </div>
                 
@@ -2567,7 +2554,7 @@ export function LoadCellPanel() {
                         variant="outline" 
                         size="sm" 
                         onClick={handleAddTarePoint}
-                        disabled={!reading.isCalibrated || !reading.isStable}
+                        disabled={!reading?.isCalibrated || !reading?.isStable}
                       >
                         <Plus className="mr-1 h-3 w-3" />
                         记录点
@@ -2594,7 +2581,7 @@ export function LoadCellPanel() {
                       {/* 去皮点列表 */}
                       <div className="space-y-2 max-h-48 overflow-y-auto">
                         {tarePoints.map((point) => {
-                          const diff = reading.weightGrams - point.weight;
+                          const diff = (reading?.weightGrams ?? 0) - point.weight;
                           const diffColor = Math.abs(diff) < 1 ? "text-green-600" : 
                                            Math.abs(diff) < 3 ? "text-yellow-600" : "text-red-600";
                           return (
@@ -3033,7 +3020,6 @@ export function LoadCellPanel() {
                   )}
                 </div>
               </div>
-            )}
           </TabsContent>
 
           {/* 高级测试 */}
@@ -3064,8 +3050,8 @@ export function LoadCellPanel() {
                   advancedTestType === 'linearity' ? 'border-primary bg-primary/5' : 'border-muted hover:border-primary/50'
                 }`}
               >
-                <div className="text-sm font-medium">📈 线性度检测</div>
-                <div className="text-xs text-muted-foreground mt-1">进样量与重量关系</div>
+                <div className="text-sm font-medium">📈 电机标定</div>
+                <div className="text-xs text-muted-foreground mt-1">进样距离到测量重量</div>
               </button>
               <button
                 onClick={() => setAdvancedTestType(advancedTestType === 'weight_calibration' ? null : 'weight_calibration')}
@@ -3300,7 +3286,7 @@ export function LoadCellPanel() {
             {advancedTestType === 'linearity' && (
               <div className="space-y-4 rounded-lg border p-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-medium">线性度检测</h3>
+                  <h3 className="font-medium">电机标定</h3>
                   {advancedTestRunning ? (
                     <Button variant="destructive" size="sm" onClick={handleStopAdvancedTest}>
                       <Square className="h-4 w-4 mr-1" /> 停止

@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Activity, Play, Square, RefreshCw, Thermometer, Zap, Settings, Trash2 } from "lucide-react";
 import ReactECharts from "echarts-for-react";
 import type { EChartsOption } from "echarts";
+import { useSensorStatusStream, useSensorReadingsStream } from "@/hooks/use-sensor-stream";
 
 const SENSOR_COLORS = ['#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#46f0f0', '#f032e6'];
 
@@ -83,50 +84,54 @@ export function SensorPanel() {
     } catch { addLog(`${cmd}: 错误`); return { success: false }; }
   }, [addLog]);
 
-  const fetchSensorStatus = useCallback(async () => {
-    const st = Date.now();
-    try {
-      const res = await fetch('/api/sensor/status');
-      const data = await res.json();
-      setSensorStatus(data);
-      setGrpcConnected(data.connected);
-      setLastRefreshTime(Date.now() - st);
-    } catch { setGrpcConnected(false); }
-  }, []);
-
-  useEffect(() => { fetchSensorStatus(); const i = setInterval(fetchSensorStatus, 2000); return () => clearInterval(i); }, [fetchSensorStatus]);
-
+  // 使用 SSE 获取传感器状态
+  const { status: streamSensorStatus, connected: sseConnected } = useSensorStatusStream();
+  
+  // 同步 SSE 状态
   useEffect(() => {
-    if (!sensorStatus.running) return;
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch('/api/sensor/readings');
-        const data = await res.json();
-        const readings: SensorReading[] = data.readings || [];
-        if (readings.length > 0) {
-          if (startTimeRef.current === null) startTimeRef.current = readings[0].timestamp;
-          readings.forEach(r => {
-            if (r.sensorIndex < 0 || r.sensorIndex >= 8) return;
-            const time = (r.timestamp - startTimeRef.current!) / 1000;
-            setSensorData(prev => { 
-              const n = [...prev]; 
-              const existing = n[r.sensorIndex] || [];
-              n[r.sensorIndex] = [...existing.slice(-2000), { 
-                time, 
-                resistance: r.gasResistance,
-                temperature: r.temperature,
-                humidity: r.humidity,
-                pressure: r.pressure
-              }]; 
-              return n; 
-            });
-            setDataCount(c => c + 1);
-          });
-        }
-      } catch {}
-    }, 100);
-    return () => clearInterval(interval);
-  }, [sensorStatus.running]);
+    if (streamSensorStatus) {
+      setSensorStatus(streamSensorStatus);
+      setGrpcConnected(streamSensorStatus.connected);
+    }
+  }, [streamSensorStatus]);
+
+  // 使用 SSE 获取传感器读数 (仅在运行时启用)
+  const { readings: streamReadings, connected: readingsConnected } = useSensorReadingsStream(sensorStatus.running);
+  const lastProcessedIndexRef = useRef<number>(0);
+  
+  // 处理新的读数 - 处理所有未处理的数据
+  useEffect(() => {
+    if (streamReadings.length === 0) return;
+    
+    // 处理从上次处理位置到当前末尾的所有数据
+    const startIdx = lastProcessedIndexRef.current;
+    const newReadings = streamReadings.slice(startIdx);
+    
+    if (newReadings.length === 0) return;
+    
+    // 更新已处理索引
+    lastProcessedIndexRef.current = streamReadings.length;
+    
+    // 批量处理所有新读数
+    setSensorData(prev => {
+      const n = [...prev];
+      newReadings.forEach(r => {
+        if (r.sensorIndex < 0 || r.sensorIndex >= 8) return;
+        if (startTimeRef.current === null) startTimeRef.current = r.timestamp;
+        const time = (r.timestamp - startTimeRef.current!) / 1000;
+        const existing = n[r.sensorIndex] || [];
+        n[r.sensorIndex] = [...existing.slice(-2000), { 
+          time, 
+          resistance: r.gasResistance,
+          temperature: r.temperature,
+          humidity: r.humidity,
+          pressure: r.pressure
+        }];
+      });
+      return n;
+    });
+    setDataCount(c => c + newReadings.length);
+  }, [streamReadings]);
 
   const makeChartOption = useCallback((field: 'resistance' | 'temperature' | 'humidity' | 'pressure', yName: string, formatter?: (v: number) => string, compact = false): EChartsOption => {
     const maxTime = Math.max(...sensorData.flatMap(d => d.map(p => p.time)), windowSeconds);
@@ -152,8 +157,8 @@ export function SensorPanel() {
   const humidityOption = useMemo(() => makeChartOption('humidity', '%RH', undefined, true), [makeChartOption]);
   const pressureOption = useMemo(() => makeChartOption('pressure', 'hPa', undefined, true), [makeChartOption]);
 
-  const handleStart = async () => { await sendCommand('start'); fetchSensorStatus(); };
-  const handleStop = async () => { await sendCommand('stop'); fetchSensorStatus(); };
+  const handleStart = async () => { await sendCommand('start'); };
+  const handleStop = async () => { await sendCommand('stop'); };
   const handleApplyHeater = async () => {
     const preset = HEATER_PRESETS[selectedPreset];
     const temps = preset ? preset.temps : Array(10).fill(customTemp);
