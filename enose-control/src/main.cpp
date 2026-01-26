@@ -1,7 +1,9 @@
 #include <boost/asio.hpp>
 #include <boost/asio/signal_set.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <systemd/sd-daemon.h>
 #include <iostream>
 #include <thread>
 #include "core/config.hpp"
@@ -126,6 +128,23 @@ int main(int argc, char* argv[]) {
             db::ConnectionPool::instance().shutdown();
             io_context.stop();
         });
+
+        // Systemd watchdog timer (WatchdogSec=5, 发送间隔 = WatchdogSec / 2 = 2.5s)
+        boost::asio::steady_timer watchdog_timer(io_context);
+        std::function<void(const boost::system::error_code&)> watchdog_handler;
+        watchdog_handler = [&](const boost::system::error_code& ec) {
+            if (!ec) {
+                sd_notify(0, "WATCHDOG=1");
+                watchdog_timer.expires_after(std::chrono::milliseconds(2500));
+                watchdog_timer.async_wait(watchdog_handler);
+            }
+        };
+        watchdog_timer.expires_after(std::chrono::milliseconds(2500));
+        watchdog_timer.async_wait(watchdog_handler);
+        
+        // 通知 systemd 服务已就绪
+        sd_notify(0, "READY=1");
+        spdlog::info("Systemd notified: READY=1");
 
         // Run loop
         spdlog::info("Service running. gRPC on {}, Press Ctrl+C to exit.", grpc_address);

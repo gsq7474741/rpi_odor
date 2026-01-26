@@ -1,64 +1,69 @@
 # Docker 交叉编译环境 for Raspberry Pi 5 (aarch64)
 # 使用 x86 主机 + aarch64 交叉编译工具链
-# 参考 RPi 编译环境: Ubuntu 24.04, GCC 13, C++17
-# Abseil 20240722.0, Protobuf 29.3, gRPC 1.60.0
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# 添加 arm64 架构支持
-RUN dpkg --add-architecture arm64
-
-# 配置多架构源
 RUN cat <<EOF > /etc/apt/sources.list.d/ubuntu.sources
-
-Types: deb
-URIs: http://security.ubuntu.com/ubuntu
-Suites: noble-security
-Components: main universe restricted multiverse
-Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
-Architectures: amd64
-
+# =================================================================
+# 1. AMD64 (Host) 源 - 全部指向清华 TUNA
+# 包含了 noble, updates, backports 以及 security
+# =================================================================
 Types: deb
 URIs: http://mirrors.tuna.tsinghua.edu.cn/ubuntu
-Suites: noble noble-updates noble-backports
+Suites: noble noble-updates noble-backports noble-security
 Components: main restricted universe multiverse
 Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 Architectures: amd64
 
-Types: deb
-URIs: http://ports.ubuntu.com/ubuntu-ports/
-Suites: noble-security
-Components: main restricted universe multiverse
-Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
-Architectures: arm64
-
+# =================================================================
+# 2. ARM64 (Target) 源 - 全部指向清华 TUNA (ubuntu-ports)
+# 包含了 noble, updates, backports 以及 security
+# =================================================================
 Types: deb
 URIs: http://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports
-Suites: noble noble-updates noble-backports
+Suites: noble noble-updates noble-backports noble-security
 Components: main restricted universe multiverse
 Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 Architectures: arm64
-
 EOF
+
+# =========================================================
+# 基础配置层：放在所有 apt 操作之前
+# =========================================================
+RUN rm -f /etc/apt/apt.conf.d/docker-clean && \
+    echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
+
+# 添加 arm64 架构支持
+RUN dpkg --add-architecture arm64
 
 # 安装 host 编译工具
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && apt-get install -y \
+    apt-get update && apt-get install -y -o Acquire::Retries=10 -o Acquire::http::Timeout="20" \
     build-essential \
     cmake \
     ninja-build \
     git \
     curl \
+    unzip \
     pkg-config \
     crossbuild-essential-arm64 \
-    && rm -rf /var/lib/apt/lists/*
+    protobuf-compiler-grpc \
+    # # 显式指定版本，确保 C++ 编译器被安装
+    # gcc-13-aarch64-linux-gnu \
+    # g++-13-aarch64-linux-gnu \
+    # # 手动建立软链接，防止系统 update-alternatives 没配置好
+    # && ln -sf /usr/bin/aarch64-linux-gnu-g++-13 /usr/bin/aarch64-linux-gnu-g++ \
+    # && ln -sf /usr/bin/aarch64-linux-gnu-gcc-13 /usr/bin/aarch64-linux-gnu-gcc \
+    && rm -rf /var/lib/apt/lists/* \
+    && echo "Host tools installed"
+
 
 # 安装 arm64 目标依赖库 (apt 可装的)
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && apt-get install -y \
+    apt-get update && apt-get install -y -o Acquire::Retries=10 -o Acquire::http::Timeout="20" \
     libboost-all-dev:arm64 \
     libssl-dev:arm64 \
     zlib1g-dev:arm64 \
@@ -68,14 +73,47 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     libspdlog-dev:arm64 \
     libfmt-dev:arm64 \
     libyaml-cpp-dev:arm64 \
-    && rm -rf /var/lib/apt/lists/*
+    libsystemd-dev:arm64 \
+    libpq-dev:arm64 \
+    && rm -rf /var/lib/apt/lists/* \
+    && echo "arm6464 libraries installed"
 
-# 安装 host 版本的 grpc_cpp_plugin (用于生成 gRPC 代码)
-RUN apt-get update && apt-get install -y protobuf-compiler-grpc && rm -rf /var/lib/apt/lists/*
+# 安装 host 编译工具
+RUN rm -rf /var/lib/apt/lists/* \
+    && apt-get update && apt-get install -y -o Acquire::Retries=10 -o Acquire::http::Timeout="20" \
+    gcc-13-aarch64-linux-gnu \
+    g++-13-aarch64-linux-gnu \
+    && echo "Host gcc/g++ installed"
 
-RUN apt-get update && apt-get install -y \
-    g++-aarch64-linux-gnu \
-    && rm -rf /var/lib/apt/lists/*
+# ➜ docker run --rm enose-cross-arm64 find /usr -name "*aarch64*g++*" -o -name "aarch64-linux-gnu-g*"
+# /usr/bin/aarch64-linux-gnu-g++-13
+# /usr/bin/aarch64-linux-gnu-gcc-ar-13
+# /usr/bin/aarch64-linux-gnu-gprof
+# /usr/bin/aarch64-linux-gnu-gcc-ranlib-13
+# /usr/bin/aarch64-linux-gnu-gcc-13
+# /usr/bin/aarch64-linux-gnu-gcov-13
+# /usr/bin/aarch64-linux-gnu-gcov-tool-13
+# /usr/bin/aarch64-linux-gnu-gold
+# /usr/bin/aarch64-linux-gnu-gcov-dump-13
+# /usr/bin/aarch64-linux-gnu-gcc-nm-13
+# /usr/bin/aarch64-linux-gnu-gcc-ranlib
+# /usr/bin/aarch64-linux-gnu-gcc-ar
+# /usr/bin/aarch64-linux-gnu-gcc-nm
+# /usr/bin/aarch64-linux-gnu-gcov-tool
+# /usr/bin/aarch64-linux-gnu-gcov
+# /usr/bin/aarch64-linux-gnu-gcc
+# /usr/bin/aarch64-linux-gnu-gcov-dump
+# /usr/lib/aarch64-linux-gnu/fortran/aarch64-linux-gnu-gfortran-13
+# /usr/lib/aarch64-linux-gnu/fortran/aarch64-linux-gnu-gfortran-11
+# /usr/lib/aarch64-linux-gnu/fortran/aarch64-linux-gnu-gfortran-8
+# /usr/lib/aarch64-linux-gnu/fortran/aarch64-linux-gnu-gfortran-12
+# /usr/lib/aarch64-linux-gnu/fortran/aarch64-linux-gnu-gfortran-14
+# /usr/lib/aarch64-linux-gnu/fortran/aarch64-linux-gnu-gfortran-10
+# /usr/lib/aarch64-linux-gnu/fortran/aarch64-linux-gnu-gfortran-9
+
+# 软链接
+RUN ln -sf /usr/bin/aarch64-linux-gnu-g++-13 /usr/bin/aarch64-linux-gnu-g++ && \
+    ln -sf /usr/bin/aarch64-linux-gnu-gcc-13 /usr/bin/aarch64-linux-gnu-gcc
 
 RUN echo "Checking compiler..." && \
     ls -al /usr/bin/aarch64-linux-gnu-* || echo "Compiler NOT FOUND in /usr/bin" && \
@@ -93,10 +131,35 @@ ENV CC=aarch64-linux-gnu-gcc \
 ENV SYSROOT=/opt/cross-pi-arm64
 RUN mkdir -p $SYSROOT/usr
 
+WORKDIR /tmp
+
+# ============================================
+# 编译 libpqxx (arm64 静态库, 动态链接 libpq)
+# ============================================
+RUN curl -L https://github.com/jtv/libpqxx/archive/refs/tags/7.9.2.tar.gz -o libpqxx.tar.gz && \
+    tar -xzf libpqxx.tar.gz && \
+    cd libpqxx-7.9.2 && \
+    mkdir build && cd build && \
+    cmake .. \
+        -DCMAKE_SYSTEM_NAME=Linux \
+        -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+        -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+        -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+        -DCMAKE_CXX_STANDARD=20 \
+        -DCMAKE_INSTALL_PREFIX=$SYSROOT/usr \
+        -DCMAKE_FIND_ROOT_PATH="/usr/lib/aarch64-linux-gnu;$SYSROOT/usr" \
+        -DPostgreSQL_INCLUDE_DIR=/usr/include/postgresql \
+        -DPostgreSQL_LIBRARY=/usr/lib/aarch64-linux-gnu/libpq.so \
+        -DPostgreSQL_TYPE_INCLUDE_DIR=/usr/include/postgresql \
+        -DSKIP_BUILD_TEST=ON \
+        -DBUILD_DOC=OFF \
+        -DBUILD_SHARED_LIBS=OFF && \
+    make -j$(nproc) && make install && \
+    cd /tmp && rm -rf libpqxx*
+
 # ============================================
 # 编译 Abseil 20240722.0 (arm64)
 # ============================================
-WORKDIR /tmp
 RUN curl -L https://github.com/abseil/abseil-cpp/archive/refs/tags/20240722.0.tar.gz -o abseil.tar.gz && \
     tar -xzf abseil.tar.gz && cd abseil-cpp-20240722.0 && \
     mkdir build && cd build && \
@@ -114,24 +177,20 @@ RUN curl -L https://github.com/abseil/abseil-cpp/archive/refs/tags/20240722.0.ta
     make -j$(nproc) && make install && \
     cd /tmp && rm -rf abseil*
 
-RUN apt-get update && apt-get install -y \
-    unzip \
-    && rm -rf /var/lib/apt/lists/*
 
 # ============================================
 # 编译 Protobuf 33.4
 # 需要 host protoc + arm64 库
 # ============================================
-# 先编译 host 版本的 protoc
-RUN git clone --depth 1 --branch v33.4 --recurse-submodules https://github.com/protocolbuffers/protobuf.git protobuf-33.4
-
+# 下载并安装 host protoc
 RUN curl -L https://github.com/protocolbuffers/protobuf/releases/download/v33.4/protoc-33.4-linux-x86_64.zip -o protoc.zip && \
     unzip protoc.zip -d /usr/local && \
     chmod +x /usr/local/bin/protoc && \
     rm protoc.zip
 
 # 编译 arm64 版本的 protobuf 库
-RUN cd /tmp/protobuf-33.4 && \
+RUN git clone --depth 1 --branch v33.4 --recurse-submodules https://github.com/protocolbuffers/protobuf.git protobuf-33.4 && \
+    cd /tmp/protobuf-33.4 && \
     mkdir build-arm64 && cd build-arm64 && \
     cmake .. \
         -DCMAKE_SYSTEM_NAME=Linux \
@@ -153,7 +212,7 @@ RUN cd /tmp/protobuf-33.4 && \
 # 编译 gRPC 1.76.0 (arm64)
 # ============================================
 RUN git clone --depth 1 --branch v1.76.0 https://github.com/grpc/grpc.git grpc-1.76.0 && \
-    cd grpc-1.76.0 && mkdir -p cmake/build && cd cmake/build && \
+    cd /tmp/grpc-1.76.0 && mkdir -p cmake/build && cd cmake/build && \
     cmake ../.. \
         -DCMAKE_SYSTEM_NAME=Linux \
         -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
@@ -184,40 +243,6 @@ RUN git clone --depth 1 --branch v1.76.0 https://github.com/grpc/grpc.git grpc-1
         -DCMAKE_INSTALL_PREFIX=$SYSROOT/usr && \
     make -j$(nproc) && make install && \
     cd /tmp && rm -rf grpc*
-
-
-# 安装 buf
-RUN curl -sSL https://github.com/bufbuild/buf/releases/latest/download/buf-$(uname -s)-$(uname -m) -o /usr/local/bin/buf && \
-    chmod +x /usr/local/bin/buf
-
-# 安装 arm64 版本的 libpq 开发文件 (用于编译时链接)
-# 运行时 RPi5 需要安装 libpq5: sudo apt install libpq5
-RUN apt-get update && apt-get install -y \
-    libpq-dev:arm64 \
-    && rm -rf /var/lib/apt/lists/*
-
-# 交叉编译 libpqxx (静态库, 但动态链接 libpq)
-ENV SYSROOT=/opt/cross-pi-arm64
-RUN cd /tmp && \
-    curl -L https://github.com/jtv/libpqxx/archive/refs/tags/7.9.2.tar.gz | tar xz && \
-    cd libpqxx-7.9.2 && \
-    mkdir build && cd build && \
-    cmake .. \
-        -DCMAKE_SYSTEM_NAME=Linux \
-        -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
-        -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
-        -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
-        -DCMAKE_CXX_STANDARD=20 \
-        -DCMAKE_INSTALL_PREFIX=$SYSROOT/usr \
-        -DCMAKE_FIND_ROOT_PATH="/usr/lib/aarch64-linux-gnu;$SYSROOT/usr" \
-        -DPostgreSQL_INCLUDE_DIR=/usr/include/postgresql \
-        -DPostgreSQL_LIBRARY=/usr/lib/aarch64-linux-gnu/libpq.so \
-        -DPostgreSQL_TYPE_INCLUDE_DIR=/usr/include/postgresql \
-        -DSKIP_BUILD_TEST=ON \
-        -DBUILD_DOC=OFF \
-        -DBUILD_SHARED_LIBS=OFF && \
-    make -j$(nproc) && make install && \
-    cd /tmp && rm -rf libpqxx*
 
 # 创建 CMake 工具链文件 (修正版: 解决 Boost 找不到的问题)
 RUN echo 'set(CMAKE_SYSTEM_NAME Linux)\n\

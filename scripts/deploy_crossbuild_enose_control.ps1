@@ -73,6 +73,7 @@ if ($needBuildImage) {
         Write-Host "  (镜像不存在)" -ForegroundColor DarkGray
     }
     
+    Write-Host "  执行命令: docker build --progress=plain --network=host -t $DockerImage -f $dockerfilePath $EnoseControl" -ForegroundColor Yellow
     & docker build --progress=plain --network=host -t $DockerImage -f $dockerfilePath $EnoseControl 2>&1 | ForEach-Object { Write-Host $_ }
     if ($LASTEXITCODE -ne 0) { throw "Docker 镜像构建失败" }
     

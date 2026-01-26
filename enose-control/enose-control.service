@@ -4,13 +4,14 @@ After=network.target klipper.service
 Wants=klipper.service
 
 [Service]
-Type=simple
+Type=notify
 User=user
 Group=user
 WorkingDirectory=/home/user/rpi_odor/enose-control/build
 ExecStart=/home/user/rpi_odor/enose-control/build/bin/enose-control
 Restart=on-failure
 RestartSec=5
+WatchdogSec=5
 StandardOutput=journal
 StandardError=journal
 
