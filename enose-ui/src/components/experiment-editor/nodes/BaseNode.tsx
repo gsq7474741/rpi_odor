@@ -35,6 +35,10 @@ const HANDLE_INFO: Record<string, Record<'in' | 'out', HandleInfo>> = {
     in: { label: '硬件配置', color: '#6366f1' },
     out: { label: '→开始', color: '#6366f1' },
   },
+  loopBody: {
+    in: { label: '循环体返回', color: '#f59e0b', hint: '← 末尾' },
+    out: { label: '循环体', color: '#f59e0b', hint: '开始 →' },
+  },
 };
 
 // 带 tooltip 的 Handle 组件
@@ -44,7 +48,7 @@ interface TooltipHandleProps {
   id: string;
   className: string;
   style?: React.CSSProperties;
-  handleType: 'flow' | 'liquid' | 'hardware';
+  handleType: 'flow' | 'liquid' | 'hardware' | 'loopBody';
 }
 
 const TooltipHandle = memo(function TooltipHandle({ 
@@ -232,6 +236,30 @@ export const BaseNode = memo(function BaseNode({
           className="!w-3 !h-3 !bg-indigo-500 !border-2 !border-background"
           style={{ top: '50%' }}
           handleType="hardware"
+        />
+      )}
+      
+      {/* 循环体输出句柄 (右侧上部 - 连接到循环体第一个节点) */}
+      {meta.hasLoopBodyOut && (
+        <TooltipHandle
+          type="source"
+          position={Position.Right}
+          id={HANDLE_TYPES.LOOP_BODY}
+          className="!w-3 !h-3 !bg-amber-500 !border-2 !border-background"
+          style={{ top: '30%' }}
+          handleType="loopBody"
+        />
+      )}
+      
+      {/* 循环体输入句柄 (左侧下部 - 循环体最后一个节点连回来) */}
+      {meta.hasLoopBodyIn && (
+        <TooltipHandle
+          type="target"
+          position={Position.Left}
+          id={HANDLE_TYPES.LOOP_BODY}
+          className="!w-3 !h-3 !bg-amber-500 !border-2 !border-background"
+          style={{ top: '70%' }}
+          handleType="loopBody"
         />
       )}
     </div>

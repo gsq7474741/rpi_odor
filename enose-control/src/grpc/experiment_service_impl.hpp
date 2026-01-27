@@ -11,6 +11,7 @@
 #include "../workflows/experiment_validator.hpp"
 #include "../workflows/system_state.hpp"
 #include "../hal/load_cell_driver.hpp"
+#include "../hal/sensor_driver.hpp"
 #include "../db/consumable_repository.hpp"
 
 namespace grpc_service {
@@ -25,6 +26,7 @@ public:
     ExperimentServiceImpl(
         std::shared_ptr<workflows::SystemState> system_state,
         std::shared_ptr<hal::LoadCellDriver> load_cell,
+        std::shared_ptr<hal::SensorDriver> sensor_driver = nullptr,
         std::shared_ptr<db::ConsumableRepository> consumable_repo = nullptr);
     
     ~ExperimentServiceImpl();
@@ -74,6 +76,7 @@ private:
     // 依赖
     std::shared_ptr<workflows::SystemState> system_state_;
     std::shared_ptr<hal::LoadCellDriver> load_cell_;
+    std::shared_ptr<hal::SensorDriver> sensor_driver_;
     std::shared_ptr<db::ConsumableRepository> consumable_repo_;
     enose::workflows::ExperimentValidator validator_;
     
@@ -119,6 +122,11 @@ private:
     void execute_set_gas_pump(const ::enose::experiment::SetGasPumpAction& action);
     void execute_loop(const ::enose::experiment::LoopAction& action);
     void execute_phase_marker(const ::enose::experiment::PhaseMarkerAction& action);
+    void execute_wash(const ::enose::experiment::WashAction& action);
+    
+    // 等待辅助方法
+    bool wait_for_heater_cycles(int count, double timeout_s);
+    bool wait_for_sensor_stability(double window_s, double threshold_percent, double timeout_s);
     
     // 辅助方法
     void add_log(const std::string& message);

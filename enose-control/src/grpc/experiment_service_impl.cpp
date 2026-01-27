@@ -10,9 +10,11 @@ namespace experiment = ::enose::experiment;
 ExperimentServiceImpl::ExperimentServiceImpl(
     std::shared_ptr<workflows::SystemState> system_state,
     std::shared_ptr<hal::LoadCellDriver> load_cell,
+    std::shared_ptr<hal::SensorDriver> sensor_driver,
     std::shared_ptr<db::ConsumableRepository> consumable_repo)
     : system_state_(std::move(system_state))
     , load_cell_(std::move(load_cell))
+    , sensor_driver_(std::move(sensor_driver))
     , consumable_repo_(std::move(consumable_repo)) {
     spdlog::info("ExperimentService 初始化完成");
 }
@@ -374,6 +376,9 @@ void ExperimentServiceImpl::execute_step(const experiment::Step& step) {
         case experiment::Step::kPhaseMarker:
             execute_phase_marker(step.phase_marker());
             break;
+        case experiment::Step::kWash:
+            execute_wash(step.wash());
+            break;
         default:
             spdlog::warn("未知的步骤动作类型");
             break;
@@ -550,27 +555,51 @@ void ExperimentServiceImpl::execute_acquire(const experiment::AcquireAction& act
     // 切换到采样状态
     system_state_->transition_to(workflows::SystemState::State::SAMPLE);
     
-    // TODO: 设置气泵PWM
+    // TODO: 设置气泵PWM到指定值
     
     // 根据终止条件等待
-    double duration_s = 0;
     switch (action.termination_case()) {
-        case experiment::AcquireAction::kDurationS:
-            duration_s = action.duration_s();
+        case experiment::AcquireAction::kDurationS: {
+            // 1. 固定时间等待
+            add_log("采集模式: 固定时间 " + std::to_string(action.duration_s()) + "s");
+            auto end = std::chrono::steady_clock::now() + 
+                      std::chrono::milliseconds(static_cast<int>(action.duration_s() * 1000));
+            while (std::chrono::steady_clock::now() < end) {
+                if (check_stop_or_pause()) return;
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
             break;
-        case experiment::AcquireAction::kHeaterCycles:
-            duration_s = action.heater_cycles() * 2.5;  // 假设每个循环2.5秒
+        }
+        
+        case experiment::AcquireAction::kHeaterCycles: {
+            // 2. 等待完整的加热配置周期 (通过传感器上报的 heater_step 判断)
+            add_log("采集模式: 加热周期 x" + std::to_string(action.heater_cycles()));
+            wait_for_heater_cycles(action.heater_cycles(), action.max_duration_s());
             break;
-        default:
-            duration_s = action.max_duration_s();
+        }
+        
+        case experiment::AcquireAction::kStability: {
+            // 3. 稳定性条件 - 监测传感器读数变化
+            add_log("采集模式: 稳定性检测");
+            wait_for_sensor_stability(
+                action.stability().window_s(),
+                action.stability().threshold_percent(),
+                action.max_duration_s()
+            );
             break;
-    }
-    
-    auto end = std::chrono::steady_clock::now() + 
-              std::chrono::milliseconds(static_cast<int>(duration_s * 1000));
-    while (std::chrono::steady_clock::now() < end) {
-        if (check_stop_or_pause()) return;
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        
+        default: {
+            // 默认: 使用最大时间
+            add_log("采集模式: 默认最大时间 " + std::to_string(action.max_duration_s()) + "s");
+            auto end = std::chrono::steady_clock::now() + 
+                      std::chrono::milliseconds(static_cast<int>(action.max_duration_s() * 1000));
+            while (std::chrono::steady_clock::now() < end) {
+                if (check_stop_or_pause()) return;
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+            break;
+        }
     }
     
     add_log("采集完成");
@@ -649,6 +678,241 @@ void ExperimentServiceImpl::execute_phase_marker(const experiment::PhaseMarkerAc
         add_log("阶段结束: " + action.phase_name());
         emit_event(experiment::ExperimentEvent::PHASE_ENDED, action.phase_name());
     }
+}
+
+void ExperimentServiceImpl::execute_wash(const experiment::WashAction& action) {
+    add_log("清洗: 目标重量变化=" + std::to_string(action.target_weight_g()) + 
+            "g, 重复" + std::to_string(action.repeat_count()) + "次");
+    
+    for (int i = 0; i < action.repeat_count(); ++i) {
+        if (check_stop_or_pause()) return;
+        
+        add_log("清洗循环 " + std::to_string(i + 1) + "/" + std::to_string(action.repeat_count()));
+        
+        // 1. 排废确认空瓶稳态 (baseline)
+        add_log("排废确认空瓶...");
+        system_state_->transition_to(workflows::SystemState::State::DRAIN);
+        
+        auto empty_result = load_cell_->wait_for_empty_bottle(
+            action.empty_tolerance_g(),
+            action.drain_timeout_s(),
+            action.empty_stability_window_s()
+        );
+        
+        if (!empty_result.success) {
+            add_log("排废超时，继续清洗");
+        }
+        
+        float baseline_weight = load_cell_->get_filtered_weight();
+        add_log("空瓶基线重量: " + std::to_string(baseline_weight) + "g");
+        
+        if (check_stop_or_pause()) return;
+        
+        // 2. 切换到 CLEAN 状态 (清洗泵开启)
+        add_log("开始注入清洗液...");
+        system_state_->transition_to(workflows::SystemState::State::CLEAN);
+        
+        // 3. 监测重量变化，达到阈值立即切换到排废
+        auto fill_start = std::chrono::steady_clock::now();
+        auto fill_timeout = std::chrono::seconds(static_cast<int>(action.fill_timeout_s()));
+        bool target_reached = false;
+        
+        while (!check_stop_or_pause()) {
+            float current_weight = load_cell_->get_filtered_weight();
+            float weight_change = current_weight - baseline_weight;
+            
+            if (weight_change >= action.target_weight_g()) {
+                add_log("达到目标重量变化: " + std::to_string(weight_change) + "g");
+                target_reached = true;
+                break;
+            }
+            
+            if (std::chrono::steady_clock::now() - fill_start > fill_timeout) {
+                add_log("清洗注入超时，当前重量变化: " + std::to_string(weight_change) + "g");
+                break;
+            }
+            
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        
+        if (check_stop_or_pause()) return;
+        
+        // 4. 排废直到空瓶稳定
+        add_log("排废清洗液...");
+        system_state_->transition_to(workflows::SystemState::State::DRAIN);
+        
+        auto drain_result = load_cell_->wait_for_empty_bottle(
+            action.empty_tolerance_g(),
+            action.drain_timeout_s(),
+            action.empty_stability_window_s()
+        );
+        
+        if (drain_result.success) {
+            add_log("排废完成: " + std::to_string(drain_result.empty_weight) + "g");
+        } else {
+            add_log("排废超时");
+        }
+    }
+    
+    // 恢复初始状态
+    system_state_->transition_to(workflows::SystemState::State::INITIAL);
+    add_log("清洗完成");
+}
+
+bool ExperimentServiceImpl::wait_for_heater_cycles(int count, double timeout_s) {
+    if (!sensor_driver_) {
+        add_log("警告: 无传感器驱动，使用估算时间");
+        // 降级: 无传感器时用估算时间 (假设每个周期约 26 秒，可根据实际配置调整)
+        double estimated_cycle_time = 26.0;
+        double total_time = count * estimated_cycle_time;
+        auto end = std::chrono::steady_clock::now() + 
+                  std::chrono::milliseconds(static_cast<int>(std::min(total_time, timeout_s) * 1000));
+        while (std::chrono::steady_clock::now() < end) {
+            if (check_stop_or_pause()) return false;
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        return true;
+    }
+    
+    add_log("等待 " + std::to_string(count) + " 个加热周期完成");
+    
+    int completed_cycles = 0;
+    int last_heater_step = -1;
+    int max_heater_step = 0;  // 记录观察到的最大步数
+    bool seen_first_cycle = false;
+    
+    auto start = std::chrono::steady_clock::now();
+    auto timeout = std::chrono::seconds(static_cast<int>(timeout_s));
+    
+    // 订阅传感器数据，监听 heater_step 变化
+    std::mutex cycle_mutex;
+    std::condition_variable cycle_cv;
+    
+    auto conn = sensor_driver_->on_packet.connect([&](const nlohmann::json& packet) {
+        if (!packet.contains("type") || packet["type"] != "reading") return;
+        if (!packet.contains("heater_step")) return;
+        
+        int current_step = packet["heater_step"].get<int>();
+        
+        std::lock_guard<std::mutex> lock(cycle_mutex);
+        
+        // 更新观察到的最大步数
+        if (current_step > max_heater_step) {
+            max_heater_step = current_step;
+        }
+        
+        // 检测周期完成: 从非0步回到0步
+        if (last_heater_step > 0 && current_step == 0 && seen_first_cycle) {
+            completed_cycles++;
+            add_log("完成加热周期 " + std::to_string(completed_cycles) + "/" + std::to_string(count));
+            cycle_cv.notify_all();
+        }
+        
+        // 第一次看到步数从大变小，标记为已见过第一个周期
+        if (last_heater_step > current_step && !seen_first_cycle) {
+            seen_first_cycle = true;
+        }
+        
+        last_heater_step = current_step;
+    });
+    
+    // 等待完成指定数量的周期
+    {
+        std::unique_lock<std::mutex> lock(cycle_mutex);
+        while (completed_cycles < count) {
+            if (check_stop_or_pause()) {
+                conn.disconnect();
+                return false;
+            }
+            
+            if (std::chrono::steady_clock::now() - start > timeout) {
+                add_log("等待加热周期超时");
+                conn.disconnect();
+                return false;
+            }
+            
+            cycle_cv.wait_for(lock, std::chrono::milliseconds(100));
+        }
+    }
+    
+    conn.disconnect();
+    add_log("加热周期等待完成");
+    return true;
+}
+
+bool ExperimentServiceImpl::wait_for_sensor_stability(double window_s, double threshold_percent, double timeout_s) {
+    if (!sensor_driver_) {
+        add_log("警告: 无传感器驱动，使用最大时间");
+        auto end = std::chrono::steady_clock::now() + 
+                  std::chrono::milliseconds(static_cast<int>(timeout_s * 1000));
+        while (std::chrono::steady_clock::now() < end) {
+            if (check_stop_or_pause()) return false;
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        return true;
+    }
+    
+    add_log("等待传感器稳定 (窗口=" + std::to_string(window_s) + "s, 阈值=" + 
+            std::to_string(threshold_percent) + "%)");
+    
+    std::deque<double> readings;
+    auto window_duration = std::chrono::milliseconds(static_cast<int>(window_s * 1000));
+    auto start = std::chrono::steady_clock::now();
+    auto timeout = std::chrono::seconds(static_cast<int>(timeout_s));
+    
+    std::mutex readings_mutex;
+    bool stable = false;
+    
+    auto conn = sensor_driver_->on_packet.connect([&](const nlohmann::json& packet) {
+        if (!packet.contains("type") || packet["type"] != "reading") return;
+        if (!packet.contains("value")) return;
+        
+        double value = packet["value"].get<double>();
+        
+        std::lock_guard<std::mutex> lock(readings_mutex);
+        readings.push_back(value);
+        
+        // 只保留窗口内的数据
+        auto now = std::chrono::steady_clock::now();
+        while (readings.size() > 1 && 
+               (now - start) > window_duration && 
+               readings.size() > static_cast<size_t>(window_s * 10)) {  // 假设约 10Hz 采样
+            readings.pop_front();
+        }
+        
+        // 检查稳定性: 计算变化百分比
+        if (readings.size() >= 10) {
+            double min_val = *std::min_element(readings.begin(), readings.end());
+            double max_val = *std::max_element(readings.begin(), readings.end());
+            double mean_val = (min_val + max_val) / 2.0;
+            
+            if (mean_val > 0) {
+                double variation_percent = ((max_val - min_val) / mean_val) * 100.0;
+                if (variation_percent <= threshold_percent) {
+                    stable = true;
+                }
+            }
+        }
+    });
+    
+    while (!stable) {
+        if (check_stop_or_pause()) {
+            conn.disconnect();
+            return false;
+        }
+        
+        if (std::chrono::steady_clock::now() - start > timeout) {
+            add_log("等待稳定超时");
+            conn.disconnect();
+            return false;
+        }
+        
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+    
+    conn.disconnect();
+    add_log("传感器已稳定");
+    return true;
 }
 
 void ExperimentServiceImpl::add_log(const std::string& message) {

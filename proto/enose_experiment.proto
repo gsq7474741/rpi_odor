@@ -142,6 +142,7 @@ message Step {
     SetGasPumpAction set_gas_pump = 15;
     LoopAction loop = 16;
     PhaseMarkerAction phase_marker = 17;
+    WashAction wash = 18;
   }
 }
 
@@ -349,6 +350,52 @@ message PhaseMarkerAction {
   
   // 是否开始 (true=开始, false=结束)
   bool is_start = 2;
+}
+
+// 清洗动作 - 使用清洗泵冲洗反应瓶
+// 流程: 排废确认空瓶 → CLEAN状态(清洗泵开) → 监测重量变化 → 排废
+message WashAction {
+  // 目标清洗量 (g) - 重量变化阈值，达到后立即切换到排废
+  double target_weight_g = 1 [(buf.validate.field).double = {
+    gte: 5,
+    lte: 200
+  }];
+  
+  // 重复次数
+  int32 repeat_count = 2 [(buf.validate.field).int32 = {
+    gte: 1,
+    lte: 10
+  }];
+  
+  // 清洗泵注入超时 (秒)
+  double fill_timeout_s = 3 [(buf.validate.field).double = {
+    gt: 0,
+    lte: 120
+  }];
+  
+  // 排废超时 (秒)
+  double drain_timeout_s = 4 [(buf.validate.field).double = {
+    gt: 0,
+    lte: 120
+  }];
+  
+  // 排废气泵 PWM (%)
+  int32 drain_gas_pump_pwm = 5 [(buf.validate.field).int32 = {
+    gte: 0,
+    lte: 100
+  }];
+  
+  // 空瓶检测容差 (g)
+  double empty_tolerance_g = 6 [(buf.validate.field).double = {
+    gt: 0,
+    lte: 50
+  }];
+  
+  // 空瓶稳定窗口 (秒)
+  double empty_stability_window_s = 7 [(buf.validate.field).double = {
+    gte: 1,
+    lte: 30
+  }];
 }
 
 // ============================================================

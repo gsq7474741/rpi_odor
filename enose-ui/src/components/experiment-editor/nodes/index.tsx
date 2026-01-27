@@ -30,12 +30,64 @@ export const EndNode = memo(function EndNode(props: NodeProps) {
 // 循环节点
 export const LoopNode = memo(function LoopNode(props: NodeProps) {
   const data = props.data as Record<string, unknown>;
+  const edges = useEdges();
+  const nodes = useNodes();
+  
+  // 检查是否已连接循环体
+  const loopBodyOutEdge = edges.find(
+    e => e.source === props.id && e.sourceHandle === HANDLE_TYPES.LOOP_BODY
+  );
+  const loopBodyInEdge = edges.find(
+    e => e.target === props.id && e.targetHandle === HANDLE_TYPES.LOOP_BODY
+  );
+  
+  const hasLoopBody = loopBodyOutEdge && loopBodyInEdge;
+  
+  // 计算循环体节点数量
+  let bodyNodeCount = 0;
+  if (loopBodyOutEdge) {
+    // 从循环体第一个节点开始，沿着 flow 边遍历
+    let currentId: string | undefined = loopBodyOutEdge.target;
+    const visited = new Set<string>();
+    const flowAdjacency = new Map<string, string>();
+    for (const edge of edges) {
+      if (edge.sourceHandle === HANDLE_TYPES.FLOW || !edge.sourceHandle) {
+        flowAdjacency.set(edge.source, edge.target);
+      }
+    }
+    
+    while (currentId && !visited.has(currentId)) {
+      visited.add(currentId);
+      bodyNodeCount++;
+      
+      // 检查是否是循环体返回节点
+      const isReturn = edges.some(
+        e => e.source === currentId && e.target === props.id && e.targetHandle === HANDLE_TYPES.LOOP_BODY
+      );
+      if (isReturn) break;
+      
+      currentId = flowAdjacency.get(currentId);
+    }
+  }
+  
   return (
     <BaseNode {...props}>
-      <div className="text-xs">
-        <span className="text-muted-foreground">重复 </span>
-        <span className="font-medium">{String(data.count ?? 1)}</span>
-        <span className="text-muted-foreground"> 次</span>
+      <div className="text-xs space-y-1">
+        <div className="font-medium">{data.name as string || '循环'}</div>
+        <div>
+          <span className="text-muted-foreground">重复 </span>
+          <span className="font-medium">{String(data.count ?? 1)}</span>
+          <span className="text-muted-foreground"> 次</span>
+        </div>
+        {hasLoopBody ? (
+          <div className="text-amber-500 text-[10px]">
+            ⟳ 循环体: {bodyNodeCount} 个步骤
+          </div>
+        ) : (
+          <div className="text-[10px] text-muted-foreground">
+            {loopBodyOutEdge ? '⚠ 请连接循环体返回' : '→ 连接循环体'}
+          </div>
+        )}
       </div>
     </BaseNode>
   );

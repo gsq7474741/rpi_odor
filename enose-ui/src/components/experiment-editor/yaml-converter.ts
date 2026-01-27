@@ -147,7 +147,7 @@ export function graphToYaml(
 
     // 跳过开始和结束节点
     if (node.type !== NodeType.START && node.type !== NodeType.END) {
-      const step = nodeToStep(node, liquidConnections, nodes);
+      const step = nodeToStep(node, liquidConnections, nodes, edges);
       if (step) {
         steps.push(step);
       }
@@ -200,7 +200,8 @@ export function graphToYaml(
 function nodeToStep(
   node: ExperimentNode,
   liquidConnections: Map<string, string[]>,
-  allNodes: ExperimentNode[]
+  allNodes: ExperimentNode[],
+  allEdges: ExperimentEdge[] = []
 ): YamlStep | null {
   const data = node.data as Record<string, unknown>;
   const name = String(data.name || getDefaultName(node.type as NodeType));
@@ -319,12 +320,59 @@ function nodeToStep(
       };
 
     case NodeType.LOOP: {
-      // TODO: 处理循环节点（需要递归处理循环体）
+      // 收集循环体节点
+      const loopBodySteps: YamlStep[] = [];
+      
+      // 找到循环体输出边 (从 Loop 节点的 loopBody handle 出发)
+      const loopBodyOutEdge = allEdges.find(
+        e => e.source === node.id && e.sourceHandle === HANDLE_TYPES.LOOP_BODY
+      );
+      
+      if (loopBodyOutEdge) {
+        // 从循环体第一个节点开始，沿着 flow 边遍历直到回到 Loop 节点
+        let currentId: string | undefined = loopBodyOutEdge.target;
+        const visitedInLoop = new Set<string>();
+        
+        // 构建循环体内的 flow 邻接表
+        const flowEdgesInBody = allEdges.filter(
+          e => e.sourceHandle === HANDLE_TYPES.FLOW || !e.sourceHandle
+        );
+        const bodyAdjacency = new Map<string, string>();
+        for (const edge of flowEdgesInBody) {
+          bodyAdjacency.set(edge.source, edge.target);
+        }
+        
+        while (currentId && !visitedInLoop.has(currentId)) {
+          visitedInLoop.add(currentId);
+          const bodyNode = allNodes.find(n => n.id === currentId);
+          if (!bodyNode) break;
+          
+          // 检查是否是循环体返回边的源节点（即循环体最后一个节点）
+          const isLoopBodyReturn = allEdges.some(
+            e => e.source === currentId && 
+                 e.target === node.id && 
+                 e.targetHandle === HANDLE_TYPES.LOOP_BODY
+          );
+          
+          // 转换节点为步骤
+          const bodyStep = nodeToStep(bodyNode, liquidConnections, allNodes, allEdges);
+          if (bodyStep) {
+            loopBodySteps.push(bodyStep);
+          }
+          
+          // 如果是循环体最后一个节点，停止遍历
+          if (isLoopBodyReturn) break;
+          
+          // 继续沿着 flow 边遍历
+          currentId = bodyAdjacency.get(currentId);
+        }
+      }
+      
       return {
         name,
         loop: {
           count: Number(data.count || 1),
-          steps: [],
+          steps: loopBodySteps,
         },
       };
     }

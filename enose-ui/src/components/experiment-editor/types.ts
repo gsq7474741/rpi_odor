@@ -83,6 +83,8 @@ export const NODE_META: Record<NodeType, {
   hasLiquidOut?: boolean;
   hasHardwareIn?: boolean;
   hasHardwareOut?: boolean;
+  hasLoopBodyOut?: boolean;  // 循环体输出端口 (连接到循环体第一个节点)
+  hasLoopBodyIn?: boolean;   // 循环体输入端口 (循环体最后一个节点连回来)
 }> = {
   [NodeType.START]: {
     label: '开始',
@@ -101,10 +103,12 @@ export const NODE_META: Record<NodeType, {
   },
   [NodeType.LOOP]: {
     label: '循环',
-    description: '重复执行步骤',
+    description: '重复执行步骤（连接循环体）',
     icon: 'Repeat',
     hasFlowIn: true,
     hasFlowOut: true,
+    hasLoopBodyOut: true,  // 循环体输出 (连接到循环体第一个节点)
+    hasLoopBodyIn: true,   // 循环体输入 (循环体最后一个节点连回来)
   },
   [NodeType.PHASE_MARKER]: {
     label: '阶段标记',
@@ -369,6 +373,7 @@ export const HANDLE_TYPES = {
   FLOW: 'flow',
   LIQUID: 'liquid',
   HARDWARE: 'hardware',
+  LOOP_BODY: 'loopBody',  // 循环体连接
 } as const;
 
 // 连接规则定义
@@ -383,6 +388,10 @@ export interface ConnectionRule {
   liquidSources?: NodeType[];
   // 该节点类型可以连接到哪些目标节点类型的硬件连接
   hardwareTargets?: NodeType[];
+  // 循环体可以连接到哪些目标节点类型 (Loop 节点专用)
+  loopBodyTargets?: NodeType[];
+  // 可以作为循环体源连接回 Loop 节点的节点类型
+  loopBodySources?: NodeType[];
   // 最大流程输入连接数
   maxFlowIn?: number;
   // 最大流程输出连接数
@@ -393,6 +402,10 @@ export interface ConnectionRule {
   maxLiquidOut?: number;
   // 最大硬件输出连接数
   maxHardwareOut?: number;
+  // 最大循环体输出连接数
+  maxLoopBodyOut?: number;
+  // 最大循环体输入连接数
+  maxLoopBodyIn?: number;
 }
 
 // 流程节点（可参与流程连接的节点）
@@ -421,8 +434,13 @@ export const CONNECTION_RULES: Record<NodeType, ConnectionRule> = {
   [NodeType.LOOP]: {
     flowTargets: FLOW_NODES.filter(n => n !== NodeType.START),
     flowSources: FLOW_NODES.filter(n => n !== NodeType.END),
+    // 循环体可以连接到除 START/END/LOOP 外的所有流程节点
+    loopBodyTargets: FLOW_NODES.filter(n => n !== NodeType.START && n !== NodeType.END && n !== NodeType.LOOP),
+    loopBodySources: FLOW_NODES.filter(n => n !== NodeType.START && n !== NodeType.END && n !== NodeType.LOOP),
     maxFlowIn: 1,
     maxFlowOut: 1,
+    maxLoopBodyOut: 1,  // 只能有一个循环体起点
+    maxLoopBodyIn: 1,   // 只能有一个循环体终点
   },
   [NodeType.PHASE_MARKER]: {
     flowTargets: FLOW_NODES.filter(n => n !== NodeType.START),
@@ -612,6 +630,32 @@ export function isConnectionValid(
     ).length;
     if (sourceRule.maxHardwareOut && sourceHardwareOutCount >= sourceRule.maxHardwareOut) {
       return { valid: false, reason: `${NODE_META[sourceType].label} 已达最大硬件输出数` };
+    }
+  } else if (handleType === HANDLE_TYPES.LOOP_BODY) {
+    // 循环体连接验证
+    // 源必须是 LOOP 节点 (loopBody 输出)
+    if (!NODE_META[sourceType].hasLoopBodyOut) {
+      return { valid: false, reason: `${NODE_META[sourceType].label} 没有循环体输出` };
+    }
+    
+    // 目标必须能作为循环体的一部分
+    if (sourceRule.loopBodyTargets && !sourceRule.loopBodyTargets.includes(targetType)) {
+      return { valid: false, reason: `${NODE_META[targetType].label} 不能作为循环体节点` };
+    }
+    
+    // 检查现有循环体连接数
+    const sourceLoopBodyOutCount = existingEdges.filter(
+      e => e.source === sourceId && e.sourceHandle === HANDLE_TYPES.LOOP_BODY
+    ).length;
+    if (sourceRule.maxLoopBodyOut && sourceLoopBodyOutCount >= sourceRule.maxLoopBodyOut) {
+      return { valid: false, reason: `${NODE_META[sourceType].label} 已连接循环体` };
+    }
+    
+    const targetLoopBodyInCount = existingEdges.filter(
+      e => e.target === targetId && e.targetHandle === HANDLE_TYPES.LOOP_BODY
+    ).length;
+    if (targetRule.maxLoopBodyIn && targetLoopBodyInCount >= targetRule.maxLoopBodyIn) {
+      return { valid: false, reason: `${NODE_META[targetType].label} 已被其他循环体连接` };
     }
   }
   
