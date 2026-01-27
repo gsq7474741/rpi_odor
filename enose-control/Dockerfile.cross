@@ -244,6 +244,10 @@ RUN git clone --depth 1 --branch v1.76.0 https://github.com/grpc/grpc.git grpc-1
     make -j$(nproc) && make install && \
     cd /tmp && rm -rf grpc*
 
+# 安装 buf
+RUN curl -sSL https://github.com/bufbuild/buf/releases/latest/download/buf-$(uname -s)-$(uname -m) -o /usr/local/bin/buf && \
+    chmod +x /usr/local/bin/buf
+
 # 创建 CMake 工具链文件 (修正版: 解决 Boost 找不到的问题)
 RUN echo 'set(CMAKE_SYSTEM_NAME Linux)\n\
 set(CMAKE_SYSTEM_PROCESSOR aarch64)\n\

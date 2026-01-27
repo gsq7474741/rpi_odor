@@ -11,6 +11,7 @@
 #include "../workflows/experiment_validator.hpp"
 #include "../workflows/system_state.hpp"
 #include "../hal/load_cell_driver.hpp"
+#include "../db/consumable_repository.hpp"
 
 namespace grpc_service {
 
@@ -23,7 +24,8 @@ class ExperimentServiceImpl final : public ::enose::experiment::ExperimentServic
 public:
     ExperimentServiceImpl(
         std::shared_ptr<workflows::SystemState> system_state,
-        std::shared_ptr<hal::LoadCellDriver> load_cell);
+        std::shared_ptr<hal::LoadCellDriver> load_cell,
+        std::shared_ptr<db::ConsumableRepository> consumable_repo = nullptr);
     
     ~ExperimentServiceImpl();
     
@@ -72,6 +74,7 @@ private:
     // 依赖
     std::shared_ptr<workflows::SystemState> system_state_;
     std::shared_ptr<hal::LoadCellDriver> load_cell_;
+    std::shared_ptr<db::ConsumableRepository> consumable_repo_;
     enose::workflows::ExperimentValidator validator_;
     
     // 状态
@@ -128,6 +131,10 @@ private:
     
     // 转换系统状态
     workflows::SystemState::State convert_state(::enose::experiment::SystemState state);
+    
+    // 气泵运行时间跟踪
+    std::chrono::steady_clock::time_point gas_pump_start_time_;
+    bool gas_pump_running_{false};
 };
 
 } // namespace grpc_service

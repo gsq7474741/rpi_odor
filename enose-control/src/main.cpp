@@ -14,6 +14,7 @@
 #include "grpc/grpc_server.hpp"
 #include "db/connection_pool.hpp"
 #include "db/test_run_repository.hpp"
+#include "db/consumable_repository.hpp"
 
 // Global io_context to allow signal handling
 boost::asio::io_context io_context;
@@ -63,6 +64,7 @@ int main(int argc, char* argv[]) {
 
         // 初始化数据库连接池
         std::shared_ptr<db::TestRunRepository> repository;
+        std::shared_ptr<db::ConsumableRepository> consumable_repo;
         if (config.local.timescaledb.enabled) {
             std::string conn_str = config.local.timescaledb.connection_string();
             spdlog::info("Initializing database connection pool: host={}, db={}",
@@ -70,6 +72,7 @@ int main(int argc, char* argv[]) {
             
             if (db::ConnectionPool::instance().initialize(conn_str, config.local.timescaledb.pool_size)) {
                 repository = std::make_shared<db::TestRunRepository>();
+                consumable_repo = std::make_shared<db::ConsumableRepository>();
                 spdlog::info("Database connection pool initialized successfully");
             } else {
                 spdlog::warn("Failed to initialize database connection pool, test persistence disabled");
@@ -94,7 +97,7 @@ int main(int argc, char* argv[]) {
         auto system_state = std::make_shared<workflows::SystemState>(actuator_driver);
 
         // gRPC Server (包含传感器服务和称重服务)
-        enose_grpc::GrpcServer grpc_srv(actuator_driver, system_state, sensor_driver, load_cell_driver, repository);
+        enose_grpc::GrpcServer grpc_srv(actuator_driver, system_state, sensor_driver, load_cell_driver, repository, consumable_repo);
         grpc_srv.start(grpc_address);
 
         // Sensor Signals (调试用)

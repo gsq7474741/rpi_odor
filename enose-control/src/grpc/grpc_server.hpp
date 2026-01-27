@@ -17,6 +17,7 @@ class SystemState;
 
 namespace db {
 class TestRunRepository;
+class ConsumableRepository;
 }
 
 namespace enose_grpc {
@@ -33,7 +34,8 @@ public:
         std::shared_ptr<workflows::SystemState> system_state,
         std::shared_ptr<hal::SensorDriver> sensor = nullptr,
         std::shared_ptr<hal::LoadCellDriver> load_cell = nullptr,
-        std::shared_ptr<db::TestRunRepository> repository = nullptr
+        std::shared_ptr<db::TestRunRepository> repository = nullptr,
+        std::shared_ptr<db::ConsumableRepository> consumable_repo = nullptr
     );
     ~GrpcServer();
 
@@ -59,6 +61,7 @@ private:
     std::shared_ptr<hal::SensorDriver> sensor_;
     std::shared_ptr<hal::LoadCellDriver> load_cell_;
     std::shared_ptr<db::TestRunRepository> repository_;
+    std::shared_ptr<db::ConsumableRepository> consumable_repo_;
     std::unique_ptr<::grpc::Server> server_;
     std::thread server_thread_;
     bool running_{false};

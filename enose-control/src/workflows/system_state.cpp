@@ -266,6 +266,9 @@ void SystemState::apply_peripheral_state(const PeripheralState& state) {
     
     if (state.valve_pinch != current_peripheral_state_.valve_pinch) {
         actuator_->send_gcode(std::format("SET_PIN PIN=valve_pinch VALUE={}", state.valve_pinch));
+        // 风扇与夹管阀联动：夹管阀通电(1)时风扇转，断电(0)时风扇停
+        actuator_->send_gcode(std::format("SET_PIN PIN=inject_fan VALUE={}", state.valve_pinch));
+        actuator_->send_gcode(std::format("SET_PIN PIN=inject_fan_2 VALUE={}", state.valve_pinch));
     }
     
     if (state.valve_waste != current_peripheral_state_.valve_waste) {

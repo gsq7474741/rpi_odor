@@ -6,7 +6,7 @@ hardware:
   bottle_capacity_ml: 150
   max_fill_ml: 100
   liquids:
-    - id: apple_juice
+    - id: 3
       name: 苹果汁
       pump_index: 2
       type: LIQUID_SAMPLE

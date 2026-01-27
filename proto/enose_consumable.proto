@@ -1,0 +1,256 @@
+syntax = "proto3";
+
+package enose.consumable;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+// ============================================================
+// 耗材服务
+// ============================================================
+service ConsumableService {
+  // 液体管理
+  rpc ListLiquids(ListLiquidsRequest) returns (LiquidListResponse);
+  rpc GetLiquid(GetLiquidRequest) returns (Liquid);
+  rpc CreateLiquid(CreateLiquidRequest) returns (Liquid);
+  rpc UpdateLiquid(UpdateLiquidRequest) returns (Liquid);
+  rpc DeleteLiquid(DeleteLiquidRequest) returns (google.protobuf.Empty);
+  
+  // 泵配置
+  rpc GetPumpAssignments(google.protobuf.Empty) returns (PumpAssignmentsResponse);
+  rpc SetPumpAssignment(SetPumpAssignmentRequest) returns (PumpAssignment);
+  rpc SetPumpVolume(SetPumpVolumeRequest) returns (PumpAssignment);
+  rpc AddPumpConsumption(AddPumpConsumptionRequest) returns (PumpAssignment);
+  
+  // 耗材状态
+  rpc GetConsumableStatus(google.protobuf.Empty) returns (ConsumableStatusResponse);
+  rpc ResetConsumable(ResetConsumableRequest) returns (Consumable);
+  rpc UpdateConsumableLifetime(UpdateLifetimeRequest) returns (Consumable);
+  
+  // 元数据字段管理
+  rpc ListMetadataFields(ListMetadataFieldsRequest) returns (MetadataFieldListResponse);
+  rpc CreateMetadataField(CreateMetadataFieldRequest) returns (MetadataField);
+  rpc UpdateMetadataField(UpdateMetadataFieldRequest) returns (MetadataField);
+  rpc DeleteMetadataField(DeleteMetadataFieldRequest) returns (google.protobuf.Empty);
+}
+
+// ============================================================
+// 液体相关消息
+// ============================================================
+
+enum LiquidType {
+  LIQUID_TYPE_UNSPECIFIED = 0;
+  LIQUID_TYPE_SAMPLE = 1;
+  LIQUID_TYPE_RINSE = 2;
+  LIQUID_TYPE_OTHER = 3;
+}
+
+message Liquid {
+  int32 id = 1;
+  string name = 2;
+  LiquidType type = 3;
+  string description = 4;
+  float density = 5;
+  string metadata_json = 6;  // JSON 格式的动态元数据
+  bool is_active = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message ListLiquidsRequest {
+  LiquidType type_filter = 1;  // 可选：按类型过滤
+  bool include_inactive = 2;   // 是否包含已禁用的
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message LiquidListResponse {
+  repeated Liquid liquids = 1;
+  int32 total_count = 2;
+}
+
+message GetLiquidRequest {
+  int32 id = 1;
+}
+
+message CreateLiquidRequest {
+  string name = 1;
+  LiquidType type = 2;
+  string description = 3;
+  float density = 4;
+  string metadata_json = 5;
+}
+
+message UpdateLiquidRequest {
+  int32 id = 1;
+  string name = 2;
+  LiquidType type = 3;
+  string description = 4;
+  float density = 5;
+  string metadata_json = 6;
+  bool is_active = 7;
+}
+
+message DeleteLiquidRequest {
+  int32 id = 1;
+}
+
+// ============================================================
+// 泵配置相关消息
+// ============================================================
+
+message PumpAssignment {
+  int32 pump_index = 1;       // 0-7
+  optional int32 liquid_id = 2;
+  optional Liquid liquid = 3;  // 关联的液体信息
+  string notes = 4;
+  google.protobuf.Timestamp updated_at = 5;
+  // 容量相关字段
+  double initial_volume_ml = 6;        // 初始容量 (ml)
+  double consumed_volume_ml = 7;       // 已消耗量 (ml)
+  double remaining_volume_ml = 8;      // 剩余量 (ml) - 计算值
+  double low_volume_threshold_ml = 9;  // 低量预警阈值 (ml)
+  bool is_low_volume = 10;             // 是否低量
+}
+
+message PumpAssignmentsResponse {
+  repeated PumpAssignment assignments = 1;
+}
+
+message SetPumpAssignmentRequest {
+  int32 pump_index = 1;
+  optional int32 liquid_id = 2;  // null 表示清空
+  string notes = 3;
+  optional double initial_volume_ml = 4;        // 初始容量
+  optional double low_volume_threshold_ml = 5;  // 低量阈值
+}
+
+message SetPumpVolumeRequest {
+  int32 pump_index = 1;
+  double initial_volume_ml = 2;        // 新的初始容量
+  optional double low_volume_threshold_ml = 3;  // 低量阈值
+  bool reset_consumed = 4;             // 是否重置已消耗量
+}
+
+message AddPumpConsumptionRequest {
+  int32 pump_index = 1;
+  double volume_ml = 2;                // 消耗量
+  optional int32 experiment_id = 3;    // 关联实验ID
+}
+
+// ============================================================
+// 耗材相关消息
+// ============================================================
+
+enum ConsumableType {
+  CONSUMABLE_TYPE_UNSPECIFIED = 0;
+  CONSUMABLE_TYPE_PUMP_TUBE = 1;
+  CONSUMABLE_TYPE_CARBON_FILTER = 2;
+  CONSUMABLE_TYPE_VACUUM_FILTER = 3;
+}
+
+enum ConsumableStatus {
+  CONSUMABLE_STATUS_OK = 0;
+  CONSUMABLE_STATUS_WARNING = 1;
+  CONSUMABLE_STATUS_CRITICAL = 2;
+}
+
+message Consumable {
+  string id = 1;
+  string name = 2;
+  ConsumableType type = 3;
+  int64 accumulated_seconds = 4;
+  int64 lifetime_seconds = 5;
+  float warning_threshold = 6;
+  float critical_threshold = 7;
+  ConsumableStatus status = 8;
+  float remaining_ratio = 9;     // 剩余比例 (0-1)
+  int64 remaining_seconds = 10;  // 剩余秒数
+  google.protobuf.Timestamp last_reset_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+}
+
+message ConsumableStatusResponse {
+  repeated Consumable consumables = 1;
+  // 汇总信息
+  int32 warning_count = 2;
+  int32 critical_count = 3;
+}
+
+message ResetConsumableRequest {
+  string consumable_id = 1;
+  string notes = 2;
+}
+
+message UpdateLifetimeRequest {
+  string consumable_id = 1;
+  int64 lifetime_seconds = 2;
+}
+
+// ============================================================
+// 元数据字段相关消息
+// ============================================================
+
+enum FieldType {
+  FIELD_TYPE_UNSPECIFIED = 0;
+  FIELD_TYPE_STRING = 1;
+  FIELD_TYPE_NUMBER = 2;
+  FIELD_TYPE_BOOLEAN = 3;
+  FIELD_TYPE_SELECT = 4;
+  FIELD_TYPE_MULTI_SELECT = 5;
+  FIELD_TYPE_TAGS = 6;
+  FIELD_TYPE_RICH_TEXT = 7;
+  FIELD_TYPE_IMAGE = 8;
+  FIELD_TYPE_IMAGE_GALLERY = 9;
+  FIELD_TYPE_DATE = 10;
+}
+
+message MetadataField {
+  int32 id = 1;
+  string entity_type = 2;
+  string field_key = 3;
+  string field_name = 4;
+  FieldType field_type = 5;
+  string description = 6;
+  bool is_required = 7;
+  string default_value = 8;
+  string options_json = 9;
+  int32 display_order = 10;
+  bool is_active = 11;
+}
+
+message ListMetadataFieldsRequest {
+  string entity_type = 1;
+  bool include_inactive = 2;
+}
+
+message MetadataFieldListResponse {
+  repeated MetadataField fields = 1;
+}
+
+message CreateMetadataFieldRequest {
+  string entity_type = 1;
+  string field_key = 2;
+  string field_name = 3;
+  FieldType field_type = 4;
+  string description = 5;
+  bool is_required = 6;
+  string default_value = 7;
+  string options_json = 8;
+  int32 display_order = 9;
+}
+
+message UpdateMetadataFieldRequest {
+  int32 id = 1;
+  string field_name = 2;
+  string description = 3;
+  bool is_required = 4;
+  string default_value = 5;
+  string options_json = 6;
+  int32 display_order = 7;
+  bool is_active = 8;
+}
+
+message DeleteMetadataFieldRequest {
+  int32 id = 1;
+}

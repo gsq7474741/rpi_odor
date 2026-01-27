@@ -4,7 +4,9 @@
 #include "grpc/load_cell_service_impl.hpp"
 #include "grpc/test_service_impl.hpp"
 #include "grpc/experiment_service_impl.hpp"
+#include "grpc/consumable_service_impl.hpp"
 #include "hal/load_cell_driver.hpp"
+#include "db/consumable_repository.hpp"
 #include <spdlog/spdlog.h>
 
 namespace enose_grpc {
@@ -14,12 +16,14 @@ GrpcServer::GrpcServer(
     std::shared_ptr<workflows::SystemState> system_state,
     std::shared_ptr<hal::SensorDriver> sensor,
     std::shared_ptr<hal::LoadCellDriver> load_cell,
-    std::shared_ptr<db::TestRunRepository> repository
+    std::shared_ptr<db::TestRunRepository> repository,
+    std::shared_ptr<db::ConsumableRepository> consumable_repo
 ) : actuator_(std::move(actuator))
   , system_state_(std::move(system_state))
   , sensor_(std::move(sensor))
   , load_cell_(std::move(load_cell))
-  , repository_(std::move(repository)) {}
+  , repository_(std::move(repository))
+  , consumable_repo_(std::move(consumable_repo)) {}
 
 GrpcServer::~GrpcServer() {
     stop();
@@ -38,6 +42,7 @@ void GrpcServer::start(const std::string& address) {
         std::unique_ptr<LoadCellServiceImpl> load_cell_service;
         std::unique_ptr<grpc_service::TestServiceImpl> test_service;
         std::unique_ptr<grpc_service::ExperimentServiceImpl> experiment_service;
+        std::unique_ptr<grpc_service::ConsumableServiceImpl> consumable_service;
         
         if (sensor_) {
             sensor_service = std::make_unique<SensorServiceImpl>(sensor_);
@@ -46,9 +51,12 @@ void GrpcServer::start(const std::string& address) {
             load_cell_service = std::make_unique<LoadCellServiceImpl>(load_cell_);
             // TestService 需要 system_state, load_cell 和 repository
             test_service = std::make_unique<grpc_service::TestServiceImpl>(system_state_, load_cell_, repository_);
-            // ExperimentService 需要 system_state 和 load_cell
-            experiment_service = std::make_unique<grpc_service::ExperimentServiceImpl>(system_state_, load_cell_);
+            // ExperimentService 需要 system_state, load_cell 和 consumable_repo
+            experiment_service = std::make_unique<grpc_service::ExperimentServiceImpl>(system_state_, load_cell_, consumable_repo_);
         }
+        
+        // ConsumableService 不需要外部依赖
+        consumable_service = std::make_unique<grpc_service::ConsumableServiceImpl>();
         
         // 构建服务器
         ::grpc::ServerBuilder builder;
@@ -65,6 +73,9 @@ void GrpcServer::start(const std::string& address) {
         }
         if (experiment_service) {
             builder.RegisterService(experiment_service.get());
+        }
+        if (consumable_service) {
+            builder.RegisterService(consumable_service.get());
         }
         
         server_ = builder.BuildAndStart();

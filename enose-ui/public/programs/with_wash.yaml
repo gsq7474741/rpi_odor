@@ -1,0 +1,153 @@
+id: with_wash
+name: 带清洗流程
+description: 包含清洗步骤的实验流程
+version: 1.0.0
+hardware:
+  bottle_capacity_ml: 150
+  max_fill_ml: 100
+  liquids:
+    - id: sample
+      name: 样品
+      pump_index: 0
+      type: LIQUID_SAMPLE
+    - id: liquid_liquid_wash
+      name: 未命名
+      pump_index: 0
+      type: LIQUID_SAMPLE
+steps:
+  - name: 进样
+    inject:
+      components:
+        - liquid_id: sample
+          ratio: 1
+      tolerance: 0.5
+      flow_rate_ml_min: 5
+      target_volume_ml: 5
+  - name: 等待
+    wait:
+      duration_s: 24
+      timeout_s: 120
+  - name: 数据采集
+    acquire:
+      gas_pump_pwm: 50
+      max_duration_s: 300
+  - name: 排废
+    drain:
+      gas_pump_pwm: 80
+      timeout_s: 60
+_editor_layout:
+  nodes:
+    - id: start
+      type: start
+      position:
+        x: 240
+        'y': 45
+      data:
+        programId: with_wash
+        programName: 带清洗流程
+        description: 包含清洗步骤的实验流程
+        version: 1.0.0
+    - id: liquid_sample
+      type: liquidSource
+      position:
+        x: 50
+        'y': 196
+      data:
+        liquidId: sample
+        liquidName: 样品
+        ratio: 1
+    - id: liquid_wash
+      type: liquidSource
+      position:
+        x: 50
+        'y': 825
+      data:
+        liquidId: ''
+        liquidName: ''
+        ratio: 1
+    - id: inject_1
+      type: inject
+      position:
+        x: 250
+        'y': 185
+      data:
+        name: 进样
+        targetWeightG: 5
+        targetType: volume
+        targetVolumeMl: 5
+    - id: wait_1
+      type: waitTime
+      position:
+        x: 250
+        'y': 349
+      data:
+        name: 等待
+        durationS: 24
+    - id: acquire_1
+      type: acquire
+      position:
+        x: 250
+        'y': 491
+      data:
+        name: 数据采集
+    - id: drain_1
+      type: drain
+      position:
+        x: 250
+        'y': 653
+      data:
+        name: 排废
+    - id: wash_1
+      type: wash
+      position:
+        x: 250
+        'y': 815
+      data:
+        name: 清洗
+    - id: end
+      type: end
+      position:
+        x: 250
+        'y': 977
+      data: {}
+  edges:
+    - id: e1
+      source: start
+      target: inject_1
+      sourceHandle: flow
+      targetHandle: flow
+    - id: e_liq1
+      source: liquid_sample
+      target: inject_1
+      sourceHandle: liquid
+      targetHandle: liquid
+    - id: e2
+      source: inject_1
+      target: wait_1
+      sourceHandle: flow
+      targetHandle: flow
+    - id: e3
+      source: wait_1
+      target: acquire_1
+      sourceHandle: flow
+      targetHandle: flow
+    - id: e4
+      source: acquire_1
+      target: drain_1
+      sourceHandle: flow
+      targetHandle: flow
+    - id: e5
+      source: drain_1
+      target: wash_1
+      sourceHandle: flow
+      targetHandle: flow
+    - id: e_liq2
+      source: liquid_wash
+      target: wash_1
+      sourceHandle: liquid
+      targetHandle: liquid
+    - id: e6
+      source: wash_1
+      target: end
+      sourceHandle: flow
+      targetHandle: flow

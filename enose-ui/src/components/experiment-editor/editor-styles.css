@@ -1,0 +1,39 @@
+/* 边选择高亮样式 */
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #3b82f6 !important;
+  stroke-width: 3px !important;
+}
+
+.react-flow__edge.selected {
+  filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.5));
+}
+
+/* 边悬停样式 */
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: #60a5fa !important;
+  stroke-width: 2.5px !important;
+}
+
+/* 液体连接线样式 */
+.react-flow__edge[data-handletype="liquid"] .react-flow__edge-path {
+  stroke: #22c55e;
+}
+
+/* 硬件连接线样式 */
+.react-flow__edge[data-handletype="hardware"] .react-flow__edge-path {
+  stroke: #6366f1;
+}
+
+/* 选中边的动画效果 */
+.react-flow__edge.selected .react-flow__edge-path {
+  animation: edge-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes edge-pulse {
+  0%, 100% {
+    stroke-opacity: 1;
+  }
+  50% {
+    stroke-opacity: 0.6;
+  }
+}

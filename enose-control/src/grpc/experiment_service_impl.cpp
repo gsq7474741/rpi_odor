@@ -9,9 +9,11 @@ namespace experiment = ::enose::experiment;
 
 ExperimentServiceImpl::ExperimentServiceImpl(
     std::shared_ptr<workflows::SystemState> system_state,
-    std::shared_ptr<hal::LoadCellDriver> load_cell)
+    std::shared_ptr<hal::LoadCellDriver> load_cell,
+    std::shared_ptr<db::ConsumableRepository> consumable_repo)
     : system_state_(std::move(system_state))
-    , load_cell_(std::move(load_cell)) {
+    , load_cell_(std::move(load_cell))
+    , consumable_repo_(std::move(consumable_repo)) {
     spdlog::info("ExperimentService 初始化完成");
 }
 
@@ -142,11 +144,20 @@ ExperimentServiceImpl::~ExperimentServiceImpl() {
     
     std::lock_guard<std::mutex> lock(mutex_);
     
-    // 如果是已加载状态，直接卸载程序
-    if (state_ == experiment::EXP_LOADED) {
-        spdlog::info("卸载程序");
+    // 如果是已加载状态或终态（已完成/错误/已中止），卸载程序
+    if (state_ == experiment::EXP_LOADED ||
+        state_ == experiment::EXP_COMPLETED ||
+        state_ == experiment::EXP_ERROR ||
+        state_ == experiment::EXP_ABORTED) {
+        spdlog::info("卸载程序 (当前状态: {})", static_cast<int>(state_));
         loaded_program_.reset();
         state_ = experiment::EXP_IDLE;
+        // 重置执行状态
+        current_step_index_ = 0;
+        current_step_name_.clear();
+        loop_iteration_ = 0;
+        loop_total_ = 0;
+        error_message_.clear();
         // 注意: 不能在持有 mutex_ 的情况下调用 add_log (会死锁)
         // 直接添加日志
         auto now = std::chrono::system_clock::now();
@@ -160,18 +171,20 @@ ExperimentServiceImpl::~ExperimentServiceImpl() {
         return ::grpc::Status::OK;
     }
     
-    if (state_ != experiment::EXP_RUNNING && state_ != experiment::EXP_PAUSED) {
+    // 如果是空闲状态，直接返回
+    if (state_ == experiment::EXP_IDLE) {
         fill_status_response(response);
         return ::grpc::Status::OK;
     }
     
-    spdlog::info("停止实验");
-    
-    stop_requested_ = true;
-    pause_cv_.notify_all();
-    state_ = experiment::EXP_ABORTING;
-    
-    emit_event(experiment::ExperimentEvent::EXPERIMENT_STOPPED, "实验已停止");
+    // 如果是运行中/暂停状态，请求停止
+    if (state_ == experiment::EXP_RUNNING || state_ == experiment::EXP_PAUSED) {
+        spdlog::info("停止实验");
+        stop_requested_ = true;
+        pause_cv_.notify_all();
+        state_ = experiment::EXP_ABORTING;
+        emit_event(experiment::ExperimentEvent::EXPERIMENT_STOPPED, "实验已停止");
+    }
     
     fill_status_response(response);
     return ::grpc::Status::OK;
@@ -279,24 +292,35 @@ void ExperimentServiceImpl::execution_thread_func() {
         execute_steps(loaded_program_->steps());
         
         // 检查是否被中止
+        // 注意: 不能在持有 mutex_ 的情况下调用 add_log (会死锁)
+        bool was_stopped = false;
         {
             std::lock_guard<std::mutex> lock(mutex_);
-            if (stop_requested_) {
+            was_stopped = stop_requested_;
+            if (was_stopped) {
                 state_ = experiment::EXP_ABORTED;
-                add_log("实验已中止");
             } else {
                 state_ = experiment::EXP_COMPLETED;
-                add_log("实验完成");
-                emit_event(experiment::ExperimentEvent::EXPERIMENT_COMPLETED, "实验已完成");
             }
         }
+        // 在 mutex_ 释放后调用 add_log 和 emit_event
+        if (was_stopped) {
+            add_log("实验已中止");
+        } else {
+            add_log("实验完成");
+            emit_event(experiment::ExperimentEvent::EXPERIMENT_COMPLETED, "实验已完成");
+        }
     } catch (const std::exception& e) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        state_ = experiment::EXP_ERROR;
-        error_message_ = e.what();
-        add_log("实验错误: " + error_message_);
-        emit_event(experiment::ExperimentEvent::EXPERIMENT_ERROR, error_message_);
-        spdlog::error("实验执行错误: {}", e.what());
+        std::string err_msg = e.what();
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            state_ = experiment::EXP_ERROR;
+            error_message_ = err_msg;
+        }
+        // 在 mutex_ 释放后调用
+        add_log("实验错误: " + err_msg);
+        emit_event(experiment::ExperimentEvent::EXPERIMENT_ERROR, err_msg);
+        spdlog::error("实验执行错误: {}", err_msg);
     }
     
     // 恢复系统状态
@@ -412,6 +436,34 @@ void ExperimentServiceImpl::execute_inject(const experiment::InjectAction& actio
         }
         
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+    
+    // 计算进样时间并更新耗材统计
+    auto inject_duration = std::chrono::steady_clock::now() - start;
+    int64_t inject_seconds = std::chrono::duration_cast<std::chrono::seconds>(inject_duration).count();
+    
+    if (consumable_repo_ && inject_seconds > 0) {
+        // 记录每个使用的泵的运行时间
+        if (params.pump_0_volume > 0) consumable_repo_->add_runtime("pump_tube_0", inject_seconds);
+        if (params.pump_1_volume > 0) consumable_repo_->add_runtime("pump_tube_1", inject_seconds);
+        if (params.pump_2_volume > 0) consumable_repo_->add_runtime("pump_tube_2", inject_seconds);
+        if (params.pump_3_volume > 0) consumable_repo_->add_runtime("pump_tube_3", inject_seconds);
+        if (params.pump_4_volume > 0) consumable_repo_->add_runtime("pump_tube_4", inject_seconds);
+        if (params.pump_5_volume > 0) consumable_repo_->add_runtime("pump_tube_5", inject_seconds);
+        if (params.pump_6_volume > 0) consumable_repo_->add_runtime("pump_tube_6", inject_seconds);
+        if (params.pump_7_volume > 0) consumable_repo_->add_runtime("pump_tube_7", inject_seconds);
+        spdlog::debug("记录泵运行时间: {}秒", inject_seconds);
+        
+        // 记录液体消耗量 (pump volume 单位是 mm，转换为 ml: 约 0.1 ml/mm，可根据实际泵管校准)
+        constexpr double MM_TO_ML = 0.1;  // 1mm 进样距离 ≈ 0.1ml 液体
+        if (params.pump_0_volume > 0) consumable_repo_->add_pump_consumption(0, params.pump_0_volume * MM_TO_ML);
+        if (params.pump_1_volume > 0) consumable_repo_->add_pump_consumption(1, params.pump_1_volume * MM_TO_ML);
+        if (params.pump_2_volume > 0) consumable_repo_->add_pump_consumption(2, params.pump_2_volume * MM_TO_ML);
+        if (params.pump_3_volume > 0) consumable_repo_->add_pump_consumption(3, params.pump_3_volume * MM_TO_ML);
+        if (params.pump_4_volume > 0) consumable_repo_->add_pump_consumption(4, params.pump_4_volume * MM_TO_ML);
+        if (params.pump_5_volume > 0) consumable_repo_->add_pump_consumption(5, params.pump_5_volume * MM_TO_ML);
+        if (params.pump_6_volume > 0) consumable_repo_->add_pump_consumption(6, params.pump_6_volume * MM_TO_ML);
+        if (params.pump_7_volume > 0) consumable_repo_->add_pump_consumption(7, params.pump_7_volume * MM_TO_ML);
     }
     
     // 停止进样
@@ -531,7 +583,29 @@ void ExperimentServiceImpl::execute_set_state(const experiment::SetStateAction& 
 
 void ExperimentServiceImpl::execute_set_gas_pump(const experiment::SetGasPumpAction& action) {
     add_log("设置气泵PWM: " + std::to_string(action.pwm_percent()) + "%");
-    // TODO: 实现气泵PWM控制
+    
+    float pwm = action.pwm_percent() / 100.0f;
+    
+    // 记录气泵运行时间
+    if (pwm > 0 && !gas_pump_running_) {
+        // 气泵开始运行
+        gas_pump_start_time_ = std::chrono::steady_clock::now();
+        gas_pump_running_ = true;
+    } else if (pwm == 0 && gas_pump_running_) {
+        // 气泵停止，记录运行时间
+        auto duration = std::chrono::steady_clock::now() - gas_pump_start_time_;
+        int64_t seconds = std::chrono::duration_cast<std::chrono::seconds>(duration).count();
+        
+        if (consumable_repo_ && seconds > 0) {
+            // 记录活性炭管和真空过滤器的运行时间
+            consumable_repo_->add_runtime("carbon_filter", seconds);
+            consumable_repo_->add_runtime("vacuum_filter", seconds);
+            spdlog::debug("记录气泵运行时间: {}秒 (活性炭管+真空过滤器)", seconds);
+        }
+        gas_pump_running_ = false;
+    }
+    
+    // TODO: 实际发送 PWM 控制命令到硬件
 }
 
 void ExperimentServiceImpl::execute_loop(const experiment::LoopAction& action) {

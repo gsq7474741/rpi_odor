@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Settings, FlaskConical, ChevronLeft, ChevronRight, ScrollText } from "lucide-react";
+import { Settings, FlaskConical, ChevronLeft, ChevronRight, ScrollText, Package, Workflow } from "lucide-react";
 import { useState } from "react";
 
 interface NavItem {
@@ -22,6 +22,16 @@ const navItems: NavItem[] = [
     title: "实验管理",
     href: "/experiment",
     icon: FlaskConical,
+  },
+  {
+    title: "实验编程",
+    href: "/experiment-editor",
+    icon: Workflow,
+  },
+  {
+    title: "耗材管理",
+    href: "/consumables",
+    icon: Package,
   },
   {
     title: "服务日志",
@@ -60,7 +70,8 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 p-2 space-y-1">
         {navItems.map((item) => {
-          const isActive = pathname.startsWith(item.href);
+          const isActive = pathname === item.href || 
+            (item.href !== '/' && pathname.startsWith(item.href + '/'));
           const Icon = item.icon;
 
           return (

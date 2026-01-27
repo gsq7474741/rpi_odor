@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -128,6 +128,9 @@ export default function ExperimentPage() {
     setLogs(prev => [...prev.slice(-50), `[${timestamp}] ${message}`]);
   }, []);
 
+  // 追踪上一次状态，用于检测状态变化
+  const lastStatusRef = useRef<ExperimentStatus>("idle");
+  
   // 轮询后端状态
   const pollStatus = useCallback(async () => {
     try {
@@ -145,24 +148,42 @@ export default function ExperimentPage() {
         // 计算总步骤数（从已加载的程序获取，或使用后端返回的值）
         const totalSteps = loadedProgram?.steps.length || prev.totalSteps;
         
+        // 计算当前步骤显示值
+        let currentStep = status.currentStepIndex || 0;
+        if (backendState === "completed" && totalSteps > 0) {
+          // 完成时显示完整步骤数
+          currentStep = totalSteps;
+        } else if (backendState === "running" || backendState === "paused") {
+          // 运行中/暂停时，后端返回的是 0-indexed，显示时 +1 更直观
+          currentStep = currentStep + 1;
+        } else {
+          // idle/loaded/error 状态显示 0
+          currentStep = 0;
+        }
+        
+        // 保留 programName（后端不返回，需要从前端状态保留）
+        const programName = status.programId || prev.programName;
+        
         return {
           ...prev,
           status: backendState,
-          currentStep: status.currentStepIndex || 0,
+          programName: programName,
+          currentStep: currentStep,
           totalSteps: totalSteps,
           elapsedTime: Math.round(status.elapsedS || 0),
           message: status.currentStepName || prev.message,
         };
       });
       
-      // 如果实验完成，显示完成消息
-      if (backendState === "completed") {
+      // 只在状态从非完成变为完成时添加日志（避免重复）
+      if (backendState === "completed" && lastStatusRef.current !== "completed") {
         addLog("实验已完成");
       }
+      lastStatusRef.current = backendState;
     } catch {
       setConnected(false);
     }
-  }, []);
+  }, [addLog, loadedProgram]);
 
   // 轮询定时器
   useEffect(() => {
@@ -427,7 +448,7 @@ export default function ExperimentPage() {
                   onClick={handleUnload}
                   variant="outline"
                   className="w-full mt-4"
-                  disabled={experiment.status === "running"}
+                  disabled={experiment.status === "running" || experiment.status === "paused"}
                 >
                   <X className="mr-2 h-4 w-4" />
                   卸载程序
