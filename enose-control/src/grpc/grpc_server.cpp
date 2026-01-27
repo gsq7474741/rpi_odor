@@ -51,8 +51,8 @@ void GrpcServer::start(const std::string& address) {
             load_cell_service = std::make_unique<LoadCellServiceImpl>(load_cell_);
             // TestService 需要 system_state, load_cell 和 repository
             test_service = std::make_unique<grpc_service::TestServiceImpl>(system_state_, load_cell_, repository_);
-            // ExperimentService 需要 system_state, load_cell 和 consumable_repo
-            experiment_service = std::make_unique<grpc_service::ExperimentServiceImpl>(system_state_, load_cell_, consumable_repo_);
+            // ExperimentService 需要 system_state, load_cell, sensor 和 consumable_repo
+            experiment_service = std::make_unique<grpc_service::ExperimentServiceImpl>(system_state_, load_cell_, sensor_, consumable_repo_);
         }
         
         // ConsumableService 不需要外部依赖

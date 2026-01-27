@@ -1,5 +1,7 @@
 #include "experiment_service_impl.hpp"
 #include "../workflows/yaml_parser.hpp"
+#include "../workflows/transaction_guard.hpp"
+#include "../workflows/executors/executors.hpp"
 #include <spdlog/spdlog.h>
 #include <google/protobuf/util/time_util.h>
 
@@ -16,6 +18,10 @@ ExperimentServiceImpl::ExperimentServiceImpl(
     , load_cell_(std::move(load_cell))
     , sensor_driver_(std::move(sensor_driver))
     , consumable_repo_(std::move(consumable_repo)) {
+    
+    // Phase 3: 初始化 Action Executors
+    init_executors();
+    
     spdlog::info("ExperimentService 初始化完成");
 }
 
@@ -390,8 +396,12 @@ void ExperimentServiceImpl::execute_step(const experiment::Step& step) {
 void ExperimentServiceImpl::execute_inject(const experiment::InjectAction& action) {
     add_log("进样: 目标量=" + std::to_string(action.target_volume_ml()) + "ml");
     
-    // 切换到进样状态
-    system_state_->transition_to(workflows::SystemState::State::INJECT);
+    // 使用事务守卫保证状态一致性 (Phase 1.3)
+    workflows::StateTransactionGuard guard(
+        system_state_.get(),
+        workflows::SystemState::State::INJECT,
+        "inject"
+    );
     
     // 计算每个泵的进样量
     double total_volume = action.target_volume_ml();
@@ -471,8 +481,8 @@ void ExperimentServiceImpl::execute_inject(const experiment::InjectAction& actio
         if (params.pump_7_volume > 0) consumable_repo_->add_pump_consumption(7, params.pump_7_volume * MM_TO_ML);
     }
     
-    // 停止进样
-    system_state_->transition_to(workflows::SystemState::State::INITIAL);
+    // 提交事务并恢复到初始状态 (Phase 1.3)
+    guard.commit_and_restore();
 }
 
 void ExperimentServiceImpl::execute_wait(const experiment::WaitAction& action) {
@@ -526,8 +536,12 @@ void ExperimentServiceImpl::execute_wait(const experiment::WaitAction& action) {
 void ExperimentServiceImpl::execute_drain(const experiment::DrainAction& action) {
     add_log("排废");
     
-    // 切换到排废状态
-    system_state_->transition_to(workflows::SystemState::State::DRAIN);
+    // 使用事务守卫保证状态一致性 (Phase 1.3)
+    workflows::StateTransactionGuard guard(
+        system_state_.get(),
+        workflows::SystemState::State::DRAIN,
+        "drain"
+    );
     
     // 设置气泵PWM
     // TODO: 实现气泵PWM控制
@@ -545,15 +559,19 @@ void ExperimentServiceImpl::execute_drain(const experiment::DrainAction& action)
         add_log("排废超时");
     }
     
-    // 恢复初始状态
-    system_state_->transition_to(workflows::SystemState::State::INITIAL);
+    // 提交事务并恢复到初始状态 (Phase 1.3)
+    guard.commit_and_restore();
 }
 
 void ExperimentServiceImpl::execute_acquire(const experiment::AcquireAction& action) {
     add_log("采集: 气泵PWM=" + std::to_string(action.gas_pump_pwm()) + "%");
     
-    // 切换到采样状态
-    system_state_->transition_to(workflows::SystemState::State::SAMPLE);
+    // 使用事务守卫保证状态一致性 (Phase 1.3)
+    workflows::StateTransactionGuard guard(
+        system_state_.get(),
+        workflows::SystemState::State::SAMPLE,
+        "acquire"
+    );
     
     // TODO: 设置气泵PWM到指定值
     
@@ -565,7 +583,7 @@ void ExperimentServiceImpl::execute_acquire(const experiment::AcquireAction& act
             auto end = std::chrono::steady_clock::now() + 
                       std::chrono::milliseconds(static_cast<int>(action.duration_s() * 1000));
             while (std::chrono::steady_clock::now() < end) {
-                if (check_stop_or_pause()) return;
+                if (check_stop_or_pause()) return;  // guard 析构时会自动回滚
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
             break;
@@ -595,7 +613,7 @@ void ExperimentServiceImpl::execute_acquire(const experiment::AcquireAction& act
             auto end = std::chrono::steady_clock::now() + 
                       std::chrono::milliseconds(static_cast<int>(action.max_duration_s() * 1000));
             while (std::chrono::steady_clock::now() < end) {
-                if (check_stop_or_pause()) return;
+                if (check_stop_or_pause()) return;  // guard 析构时会自动回滚
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
             break;
@@ -603,6 +621,9 @@ void ExperimentServiceImpl::execute_acquire(const experiment::AcquireAction& act
     }
     
     add_log("采集完成");
+    
+    // 提交事务并恢复到初始状态 (Phase 1.3)
+    guard.commit_and_restore();
 }
 
 void ExperimentServiceImpl::execute_set_state(const experiment::SetStateAction& action) {
@@ -684,8 +705,16 @@ void ExperimentServiceImpl::execute_wash(const experiment::WashAction& action) {
     add_log("清洗: 目标重量变化=" + std::to_string(action.target_weight_g()) + 
             "g, 重复" + std::to_string(action.repeat_count()) + "次");
     
+    // 使用事务守卫保证状态一致性 (Phase 1.3)
+    // 注意: wash 是复合操作，内部有多次状态转换，guard 只保证最终恢复到 INITIAL
+    workflows::StateTransactionGuard guard(
+        system_state_.get(),
+        std::nullopt,  // 不自动切换，内部手动管理
+        "wash"
+    );
+    
     for (int i = 0; i < action.repeat_count(); ++i) {
-        if (check_stop_or_pause()) return;
+        if (check_stop_or_pause()) return;  // guard 析构时会自动回滚到 INITIAL
         
         add_log("清洗循环 " + std::to_string(i + 1) + "/" + std::to_string(action.repeat_count()));
         
@@ -754,8 +783,8 @@ void ExperimentServiceImpl::execute_wash(const experiment::WashAction& action) {
         }
     }
     
-    // 恢复初始状态
-    system_state_->transition_to(workflows::SystemState::State::INITIAL);
+    // 提交事务并恢复到初始状态 (Phase 1.3)
+    guard.commit_and_restore();
     add_log("清洗完成");
 }
 
@@ -1025,6 +1054,75 @@ workflows::SystemState::State ExperimentServiceImpl::convert_state(experiment::S
         case experiment::STATE_INJECT: return workflows::SystemState::State::INJECT;
         default: return workflows::SystemState::State::INITIAL;
     }
+}
+
+// ============== Phase 3: Action Executor Integration ==============
+
+void ExperimentServiceImpl::init_executors() {
+    // Phase 3 修复: 实例化 HardwareStateMachine (解决 Gemini 评估指出的"僵尸代码"问题)
+    hardware_state_machine_ = std::make_shared<workflows::HardwareStateMachine>(system_state_);
+    spdlog::info("HardwareStateMachine 初始化完成");
+    
+    // 创建并注册各原语执行器，注入 HardwareStateMachine
+    auto inject_exec = std::make_shared<workflows::InjectExecutor>(
+        system_state_, load_cell_, hardware_state_machine_);
+    auto drain_exec = std::make_shared<workflows::DrainExecutor>(
+        system_state_, load_cell_, hardware_state_machine_);
+    auto acquire_exec = std::make_shared<workflows::AcquireExecutor>(
+        system_state_, load_cell_, sensor_driver_, hardware_state_machine_);
+    auto wash_exec = std::make_shared<workflows::WashExecutor>(
+        system_state_, load_cell_, hardware_state_machine_);
+    
+    // 注册到 map
+    executors_["inject"] = inject_exec;
+    executors_["drain"] = drain_exec;
+    executors_["acquire"] = acquire_exec;
+    executors_["wash"] = wash_exec;
+    
+    spdlog::info("Action Executors 初始化完成: {} 个执行器 (已注入 HardwareStateMachine)", executors_.size());
+}
+
+bool ExperimentServiceImpl::try_execute_with_executor(const experiment::Step& step) {
+    std::string action_type;
+    
+    switch (step.action_case()) {
+        case experiment::Step::kInject: action_type = "inject"; break;
+        case experiment::Step::kDrain: action_type = "drain"; break;
+        case experiment::Step::kAcquire: action_type = "acquire"; break;
+        case experiment::Step::kWash: action_type = "wash"; break;
+        default: return false;  // 未支持的动作类型
+    }
+    
+    auto it = executors_.find(action_type);
+    if (it == executors_.end()) {
+        return false;  // 没有对应的执行器
+    }
+    
+    auto& executor = it->second;
+    
+    // 检查前置条件
+    auto precond = executor->check_preconditions(step);
+    if (!precond) {
+        std::string errors;
+        for (const auto& e : precond.failed_conditions) {
+            errors += e + "; ";
+        }
+        add_log("前置条件检查失败: " + errors);
+        // 降级到原有实现
+        return false;
+    }
+    
+    // 执行
+    auto result = executor->execute(step);
+    
+    if (!result.success) {
+        add_log("Executor 执行失败: " + result.error_message);
+        // 可以选择降级或报错
+        return false;
+    }
+    
+    add_log("Executor 执行成功 (耗时 " + std::to_string(result.duration_s) + "s)");
+    return true;
 }
 
 } // namespace grpc_service

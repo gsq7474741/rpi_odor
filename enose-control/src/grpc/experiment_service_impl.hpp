@@ -10,6 +10,8 @@
 #include "enose_experiment.grpc.pb.h"
 #include "../workflows/experiment_validator.hpp"
 #include "../workflows/system_state.hpp"
+#include "../workflows/hardware_state_machine.hpp"
+#include "../workflows/action_executor.hpp"
 #include "../hal/load_cell_driver.hpp"
 #include "../hal/sensor_driver.hpp"
 #include "../db/consumable_repository.hpp"
@@ -143,6 +145,12 @@ private:
     // 气泵运行时间跟踪
     std::chrono::steady_clock::time_point gas_pump_start_time_;
     bool gas_pump_running_{false};
+    
+    // Action Executors (Phase 3)
+    std::shared_ptr<workflows::HardwareStateMachine> hardware_state_machine_;
+    std::unordered_map<std::string, std::shared_ptr<workflows::IActionExecutor>> executors_;
+    void init_executors();
+    bool try_execute_with_executor(const ::enose::experiment::Step& step);
 };
 
 } // namespace grpc_service

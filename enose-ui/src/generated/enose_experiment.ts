@@ -222,6 +222,12 @@ export interface Step {
          */
         phaseMarker: PhaseMarkerAction;
     } | {
+        oneofKind: "wash";
+        /**
+         * @generated from protobuf field: enose.experiment.WashAction wash = 18
+         */
+        wash: WashAction;
+    } | {
         oneofKind: undefined;
     };
 }
@@ -530,6 +536,56 @@ export interface PhaseMarkerAction {
      * @generated from protobuf field: bool is_start = 2
      */
     isStart: boolean;
+}
+/**
+ * 清洗动作 - 使用清洗泵冲洗反应瓶
+ * 流程: 排废确认空瓶 → CLEAN状态(清洗泵开) → 监测重量变化 → 排废
+ *
+ * @generated from protobuf message enose.experiment.WashAction
+ */
+export interface WashAction {
+    /**
+     * 目标清洗量 (g) - 重量变化阈值，达到后立即切换到排废
+     *
+     * @generated from protobuf field: double target_weight_g = 1
+     */
+    targetWeightG: number;
+    /**
+     * 重复次数
+     *
+     * @generated from protobuf field: int32 repeat_count = 2
+     */
+    repeatCount: number;
+    /**
+     * 清洗泵注入超时 (秒)
+     *
+     * @generated from protobuf field: double fill_timeout_s = 3
+     */
+    fillTimeoutS: number;
+    /**
+     * 排废超时 (秒)
+     *
+     * @generated from protobuf field: double drain_timeout_s = 4
+     */
+    drainTimeoutS: number;
+    /**
+     * 排废气泵 PWM (%)
+     *
+     * @generated from protobuf field: int32 drain_gas_pump_pwm = 5
+     */
+    drainGasPumpPwm: number;
+    /**
+     * 空瓶检测容差 (g)
+     *
+     * @generated from protobuf field: double empty_tolerance_g = 6
+     */
+    emptyToleranceG: number;
+    /**
+     * 空瓶稳定窗口 (秒)
+     *
+     * @generated from protobuf field: double empty_stability_window_s = 7
+     */
+    emptyStabilityWindowS: number;
 }
 /**
  * ============================================================
@@ -1365,7 +1421,8 @@ class Step$Type extends MessageType<Step> {
             { no: 14, name: "set_state", kind: "message", oneof: "action", T: () => SetStateAction },
             { no: 15, name: "set_gas_pump", kind: "message", oneof: "action", T: () => SetGasPumpAction },
             { no: 16, name: "loop", kind: "message", oneof: "action", T: () => LoopAction },
-            { no: 17, name: "phase_marker", kind: "message", oneof: "action", T: () => PhaseMarkerAction }
+            { no: 17, name: "phase_marker", kind: "message", oneof: "action", T: () => PhaseMarkerAction },
+            { no: 18, name: "wash", kind: "message", oneof: "action", T: () => WashAction }
         ]);
     }
     create(value?: PartialMessage<Step>): Step {
@@ -1432,6 +1489,12 @@ class Step$Type extends MessageType<Step> {
                         phaseMarker: PhaseMarkerAction.internalBinaryRead(reader, reader.uint32(), options, (message.action as any).phaseMarker)
                     };
                     break;
+                case /* enose.experiment.WashAction wash */ 18:
+                    message.action = {
+                        oneofKind: "wash",
+                        wash: WashAction.internalBinaryRead(reader, reader.uint32(), options, (message.action as any).wash)
+                    };
+                    break;
                 default:
                     let u = options.readUnknownField;
                     if (u === "throw")
@@ -1471,6 +1534,9 @@ class Step$Type extends MessageType<Step> {
         /* enose.experiment.PhaseMarkerAction phase_marker = 17; */
         if (message.action.oneofKind === "phaseMarker")
             PhaseMarkerAction.internalBinaryWrite(message.action.phaseMarker, writer.tag(17, WireType.LengthDelimited).fork(), options).join();
+        /* enose.experiment.WashAction wash = 18; */
+        if (message.action.oneofKind === "wash")
+            WashAction.internalBinaryWrite(message.action.wash, writer.tag(18, WireType.LengthDelimited).fork(), options).join();
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -2252,6 +2318,101 @@ class PhaseMarkerAction$Type extends MessageType<PhaseMarkerAction> {
  * @generated MessageType for protobuf message enose.experiment.PhaseMarkerAction
  */
 export const PhaseMarkerAction = new PhaseMarkerAction$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class WashAction$Type extends MessageType<WashAction> {
+    constructor() {
+        super("enose.experiment.WashAction", [
+            { no: 1, name: "target_weight_g", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 200, gte: 5 } } } },
+            { no: 2, name: "repeat_count", kind: "scalar", T: 5 /*ScalarType.INT32*/, options: { "buf.validate.field": { int32: { lte: 10, gte: 1 } } } },
+            { no: 3, name: "fill_timeout_s", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 120, gt: 0 } } } },
+            { no: 4, name: "drain_timeout_s", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 120, gt: 0 } } } },
+            { no: 5, name: "drain_gas_pump_pwm", kind: "scalar", T: 5 /*ScalarType.INT32*/, options: { "buf.validate.field": { int32: { lte: 100, gte: 0 } } } },
+            { no: 6, name: "empty_tolerance_g", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 50, gt: 0 } } } },
+            { no: 7, name: "empty_stability_window_s", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 30, gte: 1 } } } }
+        ]);
+    }
+    create(value?: PartialMessage<WashAction>): WashAction {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.targetWeightG = 0;
+        message.repeatCount = 0;
+        message.fillTimeoutS = 0;
+        message.drainTimeoutS = 0;
+        message.drainGasPumpPwm = 0;
+        message.emptyToleranceG = 0;
+        message.emptyStabilityWindowS = 0;
+        if (value !== undefined)
+            reflectionMergePartial<WashAction>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: WashAction): WashAction {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* double target_weight_g */ 1:
+                    message.targetWeightG = reader.double();
+                    break;
+                case /* int32 repeat_count */ 2:
+                    message.repeatCount = reader.int32();
+                    break;
+                case /* double fill_timeout_s */ 3:
+                    message.fillTimeoutS = reader.double();
+                    break;
+                case /* double drain_timeout_s */ 4:
+                    message.drainTimeoutS = reader.double();
+                    break;
+                case /* int32 drain_gas_pump_pwm */ 5:
+                    message.drainGasPumpPwm = reader.int32();
+                    break;
+                case /* double empty_tolerance_g */ 6:
+                    message.emptyToleranceG = reader.double();
+                    break;
+                case /* double empty_stability_window_s */ 7:
+                    message.emptyStabilityWindowS = reader.double();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: WashAction, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* double target_weight_g = 1; */
+        if (message.targetWeightG !== 0)
+            writer.tag(1, WireType.Bit64).double(message.targetWeightG);
+        /* int32 repeat_count = 2; */
+        if (message.repeatCount !== 0)
+            writer.tag(2, WireType.Varint).int32(message.repeatCount);
+        /* double fill_timeout_s = 3; */
+        if (message.fillTimeoutS !== 0)
+            writer.tag(3, WireType.Bit64).double(message.fillTimeoutS);
+        /* double drain_timeout_s = 4; */
+        if (message.drainTimeoutS !== 0)
+            writer.tag(4, WireType.Bit64).double(message.drainTimeoutS);
+        /* int32 drain_gas_pump_pwm = 5; */
+        if (message.drainGasPumpPwm !== 0)
+            writer.tag(5, WireType.Varint).int32(message.drainGasPumpPwm);
+        /* double empty_tolerance_g = 6; */
+        if (message.emptyToleranceG !== 0)
+            writer.tag(6, WireType.Bit64).double(message.emptyToleranceG);
+        /* double empty_stability_window_s = 7; */
+        if (message.emptyStabilityWindowS !== 0)
+            writer.tag(7, WireType.Bit64).double(message.emptyStabilityWindowS);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.experiment.WashAction
+ */
+export const WashAction = new WashAction$Type();
 // @generated message type with reflection information, may provide speed optimized methods
 class Metadata$Type extends MessageType<Metadata> {
     constructor() {
