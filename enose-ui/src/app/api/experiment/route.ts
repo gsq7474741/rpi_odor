@@ -3,6 +3,8 @@ import * as grpc from "@grpc/grpc-js";
 import { ExperimentServiceClient } from "@/generated/enose_experiment.grpc-client";
 import { LoadProgramRequest, ValidateProgramRequest } from "@/generated/enose_experiment";
 import { Empty } from "@/generated/google/protobuf/empty";
+import fs from "fs";
+import path from "path";
 
 const GRPC_HOST = process.env.GRPC_HOST || "rpi5.local";
 const GRPC_PORT = process.env.GRPC_PORT || "50051";
@@ -111,12 +113,27 @@ export async function POST(request: Request) {
         break;
         
       case "load":
-        if (body.yaml_content) {
+        let yamlContent: string | null = null;
+        
+        // 优先通过文件名加载
+        if (body.filename) {
+          const programsDir = path.join(process.cwd(), "public", "programs");
+          const filePath = path.join(programsDir, body.filename);
+          if (!fs.existsSync(filePath)) {
+            return NextResponse.json({ error: `文件不存在: ${body.filename}` }, { status: 404 });
+          }
+          yamlContent = fs.readFileSync(filePath, "utf-8");
+          console.log("Loading program from file:", body.filename);
+        } else if (body.yaml_content) {
+          yamlContent = body.yaml_content;
           console.log("Loading program from YAML, length:", body.yaml_content.length);
+        }
+        
+        if (yamlContent) {
           result = await promisifyWithTimeout(
             client.loadProgram.bind(client),
             LoadProgramRequest.create({ 
-              source: { oneofKind: "yamlContent", yamlContent: body.yaml_content } 
+              source: { oneofKind: "yamlContent", yamlContent } 
             }),
             5000
           );
@@ -130,7 +147,7 @@ export async function POST(request: Request) {
             5000
           );
         } else {
-          return NextResponse.json({ error: "Missing yaml_content or program" }, { status: 400 });
+          return NextResponse.json({ error: "Missing filename, yaml_content or program" }, { status: 400 });
         }
         break;
         

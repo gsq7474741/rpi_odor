@@ -19,16 +19,29 @@ import './editor-styles.css';
 
 import { useEditorStore } from './store';
 import { nodeTypes } from './nodes';
+import { edgeTypes } from './edges';
 import { NodePalette } from './panels/NodePalette';
 import { PropertyPanel } from './panels/PropertyPanel';
 import { SelectionToolbar } from './panels/SelectionToolbar';
+import { CompilerPanel } from './panels/CompilerPanel';
+import { StatusBar } from './panels/StatusBar';
 import { NodeType, NODE_CATEGORIES, validateDAG } from './types';
 import { graphToYaml, yamlToGraph } from './yaml-converter';
 import { templates } from './templates';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Save, FileDown, Trash2, Play, Upload, CheckCircle, LayoutTemplate, Undo2, Redo2, FolderOpen, HardDrive } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+  DropdownMenuCheckboxItem,
+} from '@/components/ui/dropdown-menu';
+import { Save, FileDown, Trash2, Play, Upload, CheckCircle, LayoutTemplate, Undo2, Redo2, FolderOpen, HardDrive, ChevronDown, FilePlus, ZoomIn, ZoomOut, Maximize2, Focus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { ConfirmDialog, UnsavedChangesDialog } from './ConfirmDialog';
+import { EditorContextMenu } from './panels/ContextMenu';
 
 function getCategoryColor(nodeType: string): string {
   for (const [, category] of Object.entries(NODE_CATEGORIES)) {
@@ -182,56 +195,140 @@ function EditorCanvas() {
         }
       }
       
-      // Tab: 切换到下一个连接的节点
-      if (e.key === 'Tab') {
+      // Ctrl+0: 适应画布
+      if (isCtrl && e.key === '0') {
         e.preventDefault();
-        const currentNodes = getNodes();
-        const currentEdges = getEdges();
-        const selectedNode = currentNodes.find(n => n.selected);
+        fitView({ padding: 0.2, duration: 300 });
+      }
+      
+      // Ctrl++: 放大
+      if (isCtrl && (e.key === '+' || e.key === '=')) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('editor:zoomIn'));
+      }
+      
+      // Ctrl+-: 缩小
+      if (isCtrl && e.key === '-') {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('editor:zoomOut'));
+      }
+      
+      // F: 居中选中节点
+      if (e.key === 'f' || e.key === 'F') {
+        if (!isCtrl) {
+          e.preventDefault();
+          const selectedNodesList = getNodes().filter(n => n.selected);
+          if (selectedNodesList.length > 0) {
+            fitView({ 
+              nodes: selectedNodesList, 
+              padding: 0.5, 
+              duration: 300,
+              maxZoom: 1.5,
+            });
+          }
+        }
+      }
+      
+    };
+    
+    // 监听来自工具栏的视图操作事件
+    const handleFitView = () => {
+      fitView({ padding: 0.2, duration: 300 });
+    };
+    
+    const handleFocusSelected = () => {
+      const selectedNodesList = getNodes().filter(n => n.selected);
+      if (selectedNodesList.length > 0) {
+        fitView({ 
+          nodes: selectedNodesList, 
+          padding: 0.5, 
+          duration: 300,
+          maxZoom: 1.5,
+        });
+      }
+    };
+    
+    const handleZoomIn = () => {
+      // 使用 zoomIn 事件触发
+      const event = new WheelEvent('wheel', { deltaY: -100, ctrlKey: true });
+      document.querySelector('.react-flow')?.dispatchEvent(event);
+    };
+    
+    const handleZoomOut = () => {
+      // 使用 zoomOut 事件触发
+      const event = new WheelEvent('wheel', { deltaY: 100, ctrlKey: true });
+      document.querySelector('.react-flow')?.dispatchEvent(event);
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('editor:fitView', handleFitView);
+    window.addEventListener('editor:focusSelected', handleFocusSelected);
+    window.addEventListener('editor:zoomIn', handleZoomIn);
+    window.addEventListener('editor:zoomOut', handleZoomOut);
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('editor:fitView', handleFitView);
+      window.removeEventListener('editor:focusSelected', handleFocusSelected);
+      window.removeEventListener('editor:zoomIn', handleZoomIn);
+      window.removeEventListener('editor:zoomOut', handleZoomOut);
+    };
+  }, [nodes, edges, clipboard, setNodes, setEdges, getNodes, getEdges, saveToHistory, undo, redo, fitView, setSelectedNodeId]);
+
+  // Tab 键导航逻辑
+  useEffect(() => {
+    const handleTabKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      if ((e.target as HTMLElement).tagName === 'INPUT' || 
+          (e.target as HTMLElement).tagName === 'TEXTAREA') return;
+      
+      e.preventDefault();
+      const currentNodes = getNodes();
+      const currentEdges = getEdges();
+      const selectedNode = currentNodes.find(n => n.selected);
+      
+      if (selectedNode) {
+        // 找到下一个连接的节点（优先 flow 边）
+        const direction = e.shiftKey ? 'prev' : 'next';
+        let nextNodeId: string | null = null;
         
-        if (selectedNode) {
-          // 找到下一个连接的节点（优先 flow 边）
-          const direction = e.shiftKey ? 'prev' : 'next';
-          let nextNodeId: string | null = null;
-          
-          if (direction === 'next') {
-            const outEdge = currentEdges.find(edge => 
-              edge.source === selectedNode.id && 
-              (!edge.sourceHandle || edge.sourceHandle === 'flow')
-            );
-            nextNodeId = outEdge?.target || null;
-          } else {
-            const inEdge = currentEdges.find(edge => 
-              edge.target === selectedNode.id && 
-              (!edge.targetHandle || edge.targetHandle === 'flow')
-            );
-            nextNodeId = inEdge?.source || null;
-          }
-          
-          if (nextNodeId) {
-            setNodes(nodes => nodes.map(n => ({
-              ...n,
-              selected: n.id === nextNodeId,
-            })));
-            setSelectedNodeId(nextNodeId);
-          }
+        if (direction === 'next') {
+          const outEdge = currentEdges.find(edge => 
+            edge.source === selectedNode.id && 
+            (!edge.sourceHandle || edge.sourceHandle === 'flow')
+          );
+          nextNodeId = outEdge?.target || null;
         } else {
-          // 没有选中节点，选中第一个节点
-          const startNode = currentNodes.find(n => n.type === 'start');
-          if (startNode) {
-            setNodes(nodes => nodes.map(n => ({
-              ...n,
-              selected: n.id === startNode.id,
-            })));
-            setSelectedNodeId(startNode.id);
-          }
+          const inEdge = currentEdges.find(edge => 
+            edge.target === selectedNode.id && 
+            (!edge.targetHandle || edge.targetHandle === 'flow')
+          );
+          nextNodeId = inEdge?.source || null;
+        }
+        
+        if (nextNodeId) {
+          setNodes(nodes => nodes.map(n => ({
+            ...n,
+            selected: n.id === nextNodeId,
+          })));
+          setSelectedNodeId(nextNodeId);
+        }
+      } else {
+        // 没有选中节点，选中第一个节点
+        const startNode = currentNodes.find(n => n.type === 'start');
+        if (startNode) {
+          setNodes(nodes => nodes.map(n => ({
+            ...n,
+            selected: n.id === startNode.id,
+          })));
+          setSelectedNodeId(startNode.id);
         }
       }
     };
     
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [clipboard, getNodes, getEdges, setNodes, setEdges, saveToHistory, undo, redo, setSelectedNodeId]);
+    window.addEventListener('keydown', handleTabKey);
+    return () => window.removeEventListener('keydown', handleTabKey);
+  }, [getNodes, getEdges, setNodes, setSelectedNodeId]);
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -266,46 +363,141 @@ function EditorCanvas() {
     setSelectedNodeId(null);
   }, [setSelectedNodeId]);
 
+  // 右键菜单操作
+  const handleContextCopy = useCallback(() => {
+    const selectedNodesList = getNodes().filter(n => n.selected);
+    if (selectedNodesList.length > 0) {
+      const selectedIds = new Set(selectedNodesList.map(n => n.id));
+      const selectedEdgesList = getEdges().filter(
+        edge => selectedIds.has(edge.source) && selectedIds.has(edge.target)
+      );
+      setClipboard({ nodes: selectedNodesList, edges: selectedEdgesList });
+    }
+  }, [getNodes, getEdges]);
+
+  const handleContextCut = useCallback(() => {
+    const selectedNodesList = getNodes().filter(n => n.selected);
+    if (selectedNodesList.length > 0) {
+      saveToHistory();
+      const selectedIds = new Set(selectedNodesList.map(n => n.id));
+      const selectedEdgesList = getEdges().filter(
+        edge => selectedIds.has(edge.source) && selectedIds.has(edge.target)
+      );
+      setClipboard({ nodes: selectedNodesList, edges: selectedEdgesList });
+      setNodes(nodes => nodes.filter(n => !selectedIds.has(n.id)));
+      setEdges(edges => edges.filter(e => !selectedIds.has(e.source) && !selectedIds.has(e.target)));
+    }
+  }, [getNodes, getEdges, saveToHistory, setNodes, setEdges]);
+
+  const handleContextPaste = useCallback(() => {
+    if (clipboard.nodes.length > 0) {
+      saveToHistory();
+      const allNodes = getNodes();
+      let maxId = 0;
+      for (const node of allNodes) {
+        const match = node.id.match(/node_(\d+)/);
+        if (match) maxId = Math.max(maxId, parseInt(match[1]));
+      }
+      
+      const idMap = new Map<string, string>();
+      const newNodes: Node[] = [];
+      
+      for (const node of clipboard.nodes) {
+        const newId = `node_${++maxId}`;
+        idMap.set(node.id, newId);
+        newNodes.push({
+          ...node,
+          id: newId,
+          position: { x: node.position.x + 50, y: node.position.y + 50 },
+          selected: true,
+        });
+      }
+      
+      const newEdges = clipboard.edges.map(edge => ({
+        ...edge,
+        id: `edge_${edge.source}_${edge.target}_${Date.now()}`,
+        source: idMap.get(edge.source) || edge.source,
+        target: idMap.get(edge.target) || edge.target,
+      }));
+      
+      setNodes(nodes => [...nodes.map(n => ({ ...n, selected: false })), ...newNodes]);
+      setEdges(edges => [...edges, ...newEdges]);
+    }
+  }, [clipboard, getNodes, saveToHistory, setNodes, setEdges]);
+
+  const handleContextDelete = useCallback(() => {
+    const selectedNodesList = getNodes().filter(n => n.selected);
+    if (selectedNodesList.length > 0) {
+      saveToHistory();
+      const selectedIds = new Set(selectedNodesList.map(n => n.id));
+      setNodes(nodes => nodes.filter(n => !selectedIds.has(n.id)));
+      setEdges(edges => edges.filter(e => !selectedIds.has(e.source) && !selectedIds.has(e.target)));
+    }
+  }, [getNodes, saveToHistory, setNodes, setEdges]);
+
+  const handleContextSelectAll = useCallback(() => {
+    setNodes(nodes => nodes.map(n => ({ ...n, selected: true })));
+  }, [setNodes]);
+
+  const handleContextFitView = useCallback(() => {
+    fitView({ padding: 0.2, duration: 300 });
+  }, [fitView]);
+
+  const hasSelection = selectedNodes.length > 0;
+  const hasClipboard = clipboard.nodes.length > 0;
+
   return (
-    <div ref={reactFlowWrapper} className="flex-1 h-full relative">
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onDrop={onDrop}
-        onDragOver={onDragOver}
-        onNodeClick={onNodeClick}
-        onPaneClick={onPaneClick}
-        nodeTypes={nodeTypes}
-        fitView
-        snapToGrid
-        snapGrid={[15, 15]}
-        selectionOnDrag
-        selectionMode={SelectionMode.Partial}
-        panOnDrag={[1, 2]}
-        zoomOnScroll
-        zoomOnPinch
-        deleteKeyCode="Delete"
-        defaultEdgeOptions={{
-          type: 'smoothstep',
-          style: { strokeWidth: 2 },
-          deletable: true,
-          selectable: true,
-          focusable: true,
-        }}
-        edgesFocusable
-      >
-        <Background gap={15} size={1} />
-        <Controls />
-        <MiniMap
-          nodeColor={(node) => getCategoryColor(node.type || '')}
-          maskColor="rgba(0, 0, 0, 0.1)"
-        />
-        <SelectionToolbar selectedNodes={selectedNodes} />
-      </ReactFlow>
-    </div>
+    <EditorContextMenu
+      onCopy={handleContextCopy}
+      onCut={handleContextCut}
+      onPaste={handleContextPaste}
+      onDelete={handleContextDelete}
+      onSelectAll={handleContextSelectAll}
+      onFitView={handleContextFitView}
+      hasSelection={hasSelection}
+      hasClipboard={hasClipboard}
+    >
+      <div ref={reactFlowWrapper} className="flex-1 h-full relative">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onDrop={onDrop}
+          onDragOver={onDragOver}
+          onNodeClick={onNodeClick}
+          onPaneClick={onPaneClick}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          fitView
+          snapToGrid
+          snapGrid={[15, 15]}
+          selectionOnDrag
+          selectionMode={SelectionMode.Partial}
+          panOnDrag={[1, 2]}
+          zoomOnScroll
+          zoomOnPinch
+          deleteKeyCode="Delete"
+          defaultEdgeOptions={{
+            type: 'smart',
+            style: { strokeWidth: 2 },
+            deletable: true,
+            selectable: true,
+            focusable: true,
+          }}
+          edgesFocusable
+        >
+          <Background gap={15} size={1} />
+          <Controls />
+          <MiniMap
+            nodeColor={(node) => getCategoryColor(node.type || '')}
+            maskColor="rgba(0, 0, 0, 0.1)"
+          />
+          <SelectionToolbar selectedNodes={selectedNodes} />
+        </ReactFlow>
+      </div>
+    </EditorContextMenu>
   );
 }
 
@@ -328,7 +520,23 @@ function EditorToolbar() {
     canRedo,
   } = useEditorStore();
   
-  // 快捷键支持
+  // 面板可见性状态（监听变化以触发重渲染）
+  const [panelState, setPanelState] = useState({ ...panelVisibility });
+  
+  useEffect(() => {
+    const handlePanelChange = () => {
+      // 延迟读取以确保全局状态已更新
+      setTimeout(() => setPanelState({ ...panelVisibility }), 0);
+    };
+    window.addEventListener('editor:togglePanel', handlePanelChange);
+    return () => window.removeEventListener('editor:togglePanel', handlePanelChange);
+  }, []);
+  
+  
+  // 快捷键支持 - 在组件外定义 ref 来保存回调
+  const handleSaveRef = useRef<() => void>(() => {});
+  const handleNewRef = useRef<() => void>(() => {});
+  
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ctrl+Z 或 Ctrl+Shift+Z（Windows下Shift会使key变成大写Z）
@@ -346,10 +554,22 @@ function EditorToolbar() {
         e.preventDefault();
         redo();
       }
+      // Ctrl+S 保存
+      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        handleSaveRef.current();
+      }
+      // Ctrl+N 新建
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'n' || e.key === 'N')) {
+        e.preventDefault();
+        handleNewRef.current();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [undo, redo]);
+  
+  const { isDirty, setDirty } = useEditorStore();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [yamlPreview, setYamlPreview] = useState<string | null>(null);
@@ -366,6 +586,115 @@ function EditorToolbar() {
     filename: string;
     updatedAt: string;
   }>>([]);
+  
+  // 确认对话框状态
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
+  const [pendingSaveFilename, setPendingSaveFilename] = useState<string | null>(null);
+  
+  // 加载到实验对话框状态
+  const [showLoadResultDialog, setShowLoadResultDialog] = useState(false);
+  const [loadResultDialogType, setLoadResultDialogType] = useState<'needSave' | 'confirmSave' | 'success' | 'error'>('needSave');
+  const [loadResultMessage, setLoadResultMessage] = useState('');
+  const [pendingLoadAfterSave, setPendingLoadAfterSave] = useState(false);
+  
+  // 最近文件列表
+  const [recentFiles, setRecentFiles] = useState<string[]>([]);
+  
+  // 加载最近文件列表
+  useEffect(() => {
+    const stored = localStorage.getItem('experiment-editor-recent-files');
+    if (stored) {
+      try {
+        setRecentFiles(JSON.parse(stored));
+      } catch {
+        setRecentFiles([]);
+      }
+    }
+  }, []);
+  
+  // 添加文件到最近列表
+  const addToRecentFiles = (filename: string) => {
+    setRecentFiles(prev => {
+      const filtered = prev.filter(f => f !== filename);
+      const updated = [filename, ...filtered].slice(0, 5); // 保留最近5个
+      localStorage.setItem('experiment-editor-recent-files', JSON.stringify(updated));
+      return updated;
+    });
+  };
+  
+  // 监听从 URL 参数加载文件事件
+  useEffect(() => {
+    const handleLoadFile = async (e: Event) => {
+      const { filename } = (e as CustomEvent).detail;
+      if (filename) {
+        try {
+          const res = await fetch(`/api/experiment/programs?filename=${encodeURIComponent(filename)}`);
+          const data = await res.json();
+          if (data.content) {
+            const { nodes: newNodes, edges: newEdges, programMeta } = yamlToGraph(data.content);
+            loadGraph(newNodes, newEdges);
+            setProgramMeta(programMeta);
+            setCurrentFilename(filename);
+            setDirty(false);
+            addToRecentFiles(filename);
+          }
+        } catch (error) {
+          console.error('加载文件失败:', error);
+        }
+      }
+    };
+    window.addEventListener('editor:loadFile', handleLoadFile);
+    return () => window.removeEventListener('editor:loadFile', handleLoadFile);
+  }, [loadGraph, setProgramMeta]);
+  
+  // 自动保存草稿到 localStorage
+  useEffect(() => {
+    if (!isDirty) return;
+    
+    const autoSaveInterval = setInterval(() => {
+      try {
+        const draft = {
+          nodes,
+          edges,
+          programMeta: { programId, programName, programDescription, programVersion, bottleCapacityMl, maxFillMl },
+          savedAt: Date.now(),
+        };
+        localStorage.setItem('experiment-editor-draft', JSON.stringify(draft));
+      } catch (e) {
+        console.warn('自动保存草稿失败:', e);
+      }
+    }, 30000); // 每30秒保存一次
+    
+    return () => clearInterval(autoSaveInterval);
+  }, [isDirty, nodes, edges, programId, programName, programDescription, programVersion, bottleCapacityMl, maxFillMl]);
+  
+  // 启动时检查是否有草稿
+  useEffect(() => {
+    const stored = localStorage.getItem('experiment-editor-draft');
+    if (stored && nodes.length <= 2) { // 只在初始状态时恢复
+      try {
+        const draft = JSON.parse(stored);
+        const savedTime = new Date(draft.savedAt).toLocaleString();
+        // 只有草稿比较新（1小时内）才提示恢复
+        if (Date.now() - draft.savedAt < 3600000) {
+          // 延迟显示提示，避免与初始渲染冲突
+          setTimeout(() => {
+            if (window.confirm(`发现自动保存的草稿（${savedTime}），是否恢复？`)) {
+              loadGraph(draft.nodes, draft.edges);
+              setProgramMeta(draft.programMeta);
+              setDirty(true);
+            }
+            localStorage.removeItem('experiment-editor-draft');
+          }, 500);
+        }
+      } catch {
+        localStorage.removeItem('experiment-editor-draft');
+      }
+    }
+  }, []); // 只在组件挂载时运行一次
 
   const handleExportYaml = () => {
     try {
@@ -447,6 +776,27 @@ function EditorToolbar() {
     setShowSaveDialog(true);
   };
 
+  // 新建文档
+  const handleNew = () => {
+    checkUnsavedChanges(() => {
+      clearGraph();
+      setProgramMeta({
+        programId: 'new_experiment',
+        programName: '新实验',
+        programDescription: '',
+        programVersion: '1.0.0',
+      });
+      setCurrentFilename(null);
+      setDirty(false);
+    });
+  };
+  
+  // 更新快捷键回调 ref
+  useEffect(() => {
+    handleSaveRef.current = handleSave;
+    handleNewRef.current = handleNew;
+  });
+
   // 执行保存
   const doSave = async (filename: string) => {
     try {
@@ -470,6 +820,7 @@ function EditorToolbar() {
         setCurrentFilename(data.filename);
         setShowSaveDialog(false);
         setSaveFilename('');
+        setDirty(false); // 保存后清除未保存状态
         // 显示保存成功提示
         const toast = document.createElement('div');
         toast.className = 'fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-in fade-in slide-in-from-bottom-2';
@@ -484,10 +835,51 @@ function EditorToolbar() {
     }
   };
 
+  // 检查文件是否存在
+  const checkFileExists = async (filename: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/experiment/programs?checkExists=${encodeURIComponent(filename)}`);
+      const data = await res.json();
+      return data.exists === true;
+    } catch {
+      return false;
+    }
+  };
+
   // 保存对话框确认
   const handleSaveDialogConfirm = async () => {
     const filename = saveFilename || programId || 'experiment';
+    
+    // 如果是新文件（不是当前打开的文件），检查是否存在
+    if (!currentFilename || currentFilename.replace(/\.yaml$/, '') !== filename) {
+      const exists = await checkFileExists(filename);
+      if (exists) {
+        setPendingSaveFilename(filename);
+        setShowOverwriteConfirm(true);
+        return;
+      }
+    }
+    
     await doSave(filename);
+  };
+  
+  // 确认覆盖后保存
+  const handleConfirmOverwrite = async () => {
+    if (pendingSaveFilename) {
+      await doSave(pendingSaveFilename);
+      setPendingSaveFilename(null);
+    }
+    setShowOverwriteConfirm(false);
+  };
+
+  // 检查未保存更改，如果有则显示对话框
+  const checkUnsavedChanges = (action: () => void) => {
+    if (isDirty) {
+      setPendingAction(() => action);
+      setShowUnsavedDialog(true);
+    } else {
+      action();
+    }
   };
 
   // 从系统加载
@@ -501,7 +893,9 @@ function EditorToolbar() {
         loadGraph(newNodes, newEdges);
         setProgramMeta(programMeta);
         setCurrentFilename(filename); // 记录当前文件名
+        setDirty(false); // 加载后重置未保存状态
         setShowLoadDialog(false);
+        addToRecentFiles(filename); // 添加到最近文件
       } else {
         alert(`加载失败: ${data.error || '未知错误'}`);
       }
@@ -612,6 +1006,82 @@ function EditorToolbar() {
     }
   };
 
+  const handleLoadToExperiment = async () => {
+    // 必须先保存才能加载
+    if (!currentFilename) {
+      setLoadResultDialogType('needSave');
+      setLoadResultMessage('请先保存文件后再加载到实验。\n\n点击"文件 → 保存"或使用 Ctrl+S。');
+      setShowLoadResultDialog(true);
+      return;
+    }
+    
+    // 如果有未保存的更改，提示保存
+    if (isDirty) {
+      setLoadResultDialogType('confirmSave');
+      setLoadResultMessage('有未保存的更改，是否先保存后再跳转到实验管理？');
+      setPendingLoadAfterSave(true);
+      setShowLoadResultDialog(true);
+      return;
+    }
+    
+    // 跳转到实验管理页面，带上文件名参数让用户在那里加载
+    doLoadToExperiment();
+  };
+  
+  const doLoadToExperiment = () => {
+    if (!currentFilename) return;
+    
+    // 跳转到实验管理页面，带上文件名参数，由用户在实验管理页面点击加载
+    setLoadResultDialogType('success');
+    setLoadResultMessage(`文件已保存！\n\n点击确定跳转到实验管理页面，在那里选择 "${currentFilename}" 并点击加载按钮。`);
+    setShowLoadResultDialog(true);
+  };
+  
+  
+  const handleLoadResultDialogConfirm = async () => {
+    if (loadResultDialogType === 'confirmSave') {
+      // 用户确认保存，执行保存后加载
+      const yaml = graphToYaml(nodes, edges, {
+        programId,
+        programName,
+        programDescription,
+        programVersion,
+        bottleCapacityMl,
+        maxFillMl,
+      });
+      
+      try {
+        const saveRes = await fetch('/api/experiment/programs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: currentFilename, content: yaml }),
+        });
+        
+        const saveData = await saveRes.json();
+        if (!saveData.success) {
+          setLoadResultDialogType('error');
+          setLoadResultMessage(`保存失败: ${saveData.error || '未知错误'}`);
+          return;
+        }
+        setDirty(false);
+        setShowLoadResultDialog(false);
+        // 保存成功后执行加载
+        await doLoadToExperiment();
+      } catch (error) {
+        setLoadResultDialogType('error');
+        setLoadResultMessage(`保存失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      }
+    } else if (loadResultDialogType === 'success') {
+      // 加载成功，跳转到实验管理页面
+      setShowLoadResultDialog(false);
+      window.location.href = '/experiment';
+    } else {
+      // 其他情况直接关闭
+      setShowLoadResultDialog(false);
+    }
+    setPendingLoadAfterSave(false);
+  };
+
   const handleRun = async () => {
     try {
       const yaml = graphToYaml(nodes, edges, {
@@ -657,35 +1127,16 @@ function EditorToolbar() {
     <>
       <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
         <div className="flex items-center gap-3">
-          <h2 className="font-semibold">{programName || '实验编程器'}</h2>
+          <h2 className="font-semibold">
+            {programName || '实验编程器'}
+            {isDirty && <span className="text-orange-500 ml-1">*</span>}
+          </h2>
           {currentFilename && (
             <span className="text-xs text-muted-foreground font-mono bg-muted px-2 py-0.5 rounded">
               {currentFilename}
+              {isDirty && <span className="text-orange-500 ml-0.5">*</span>}
             </span>
           )}
-          <Select
-            onValueChange={(templateId) => {
-              const template = templates.find((t) => t.id === templateId);
-              if (template) {
-                loadGraph(template.nodes, template.edges);
-                setProgramMeta(template.programMeta);
-              }
-            }}
-          >
-            <SelectTrigger className="w-40 h-8">
-              <LayoutTemplate className="w-4 h-4 mr-1" />
-              <SelectValue placeholder="选择模板" />
-            </SelectTrigger>
-            <SelectContent>
-              {templates.map((t) => (
-                <SelectItem key={t.id} value={t.id}>
-                  <div className="flex flex-col">
-                    <span>{t.name}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center border-r pr-2 mr-1">
@@ -715,48 +1166,173 @@ function EditorToolbar() {
             onChange={handleImportYaml}
             className="hidden"
           />
-          <Button variant="outline" size="sm" onClick={() => {
-            loadSavedPrograms();
-            setShowLoadDialog(true);
-          }}>
-            <FolderOpen className="w-4 h-4 mr-1" />
-            打开
+          
+          {/* 新建按钮 */}
+          <Button variant="outline" size="sm" onClick={handleNew} title="新建 (Ctrl+N)">
+            <FilePlus className="w-4 h-4 mr-1" />
+            新建
           </Button>
-          <Button variant="outline" size="sm" onClick={handleSave} title={currentFilename ? `保存到 ${currentFilename}` : '保存'}>
-            <HardDrive className="w-4 h-4 mr-1" />
-            保存
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleSaveAs}>
-            <Save className="w-4 h-4 mr-1" />
-            另存为
-          </Button>
+          
+          {/* 打开按钮（含模板和已保存程序） */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <FolderOpen className="w-4 h-4 mr-1" />
+                打开
+                <ChevronDown className="w-3 h-3 ml-1" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              {recentFiles.length > 0 && (
+                <>
+                  <DropdownMenuLabel>最近打开</DropdownMenuLabel>
+                  {recentFiles.map((filename, index) => (
+                    <DropdownMenuItem
+                      key={`recent-${filename}-${index}`}
+                      onClick={() => {
+                        checkUnsavedChanges(() => {
+                          handleLoadFromSystem(filename);
+                        });
+                      }}
+                    >
+                      <HardDrive className="w-4 h-4 mr-2" />
+                      <span className="truncate">{filename}</span>
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              <DropdownMenuLabel>模板</DropdownMenuLabel>
+              {templates.map((t, index) => (
+                <DropdownMenuItem
+                  key={`template-${t.id}-${index}`}
+                  onClick={() => {
+                    checkUnsavedChanges(() => {
+                      loadGraph(t.nodes, t.edges);
+                      setProgramMeta(t.programMeta);
+                      setCurrentFilename(null);
+                      setDirty(false);
+                    });
+                  }}
+                >
+                  <LayoutTemplate className="w-4 h-4 mr-2" />
+                  {t.name}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => {
+                checkUnsavedChanges(() => {
+                  loadSavedPrograms();
+                  setShowLoadDialog(true);
+                });
+              }}>
+                <FolderOpen className="w-4 h-4 mr-2" />
+                打开已保存...
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                checkUnsavedChanges(() => {
+                  fileInputRef.current?.click();
+                });
+              }}>
+                <Upload className="w-4 h-4 mr-2" />
+                导入文件...
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
+          {/* 保存按钮（含另存为） */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Save className="w-4 h-4 mr-1" />
+                保存
+                <ChevronDown className="w-3 h-3 ml-1" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={handleSave}>
+                <HardDrive className="w-4 h-4 mr-2" />
+                {currentFilename ? `保存到 ${currentFilename}` : '保存'}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSaveAs}>
+                <Save className="w-4 h-4 mr-2" />
+                另存为...
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handlePreviewYaml}>
+                <FileDown className="w-4 h-4 mr-2" />
+                预览 YAML
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportYaml}>
+                <FileDown className="w-4 h-4 mr-2" />
+                导出文件
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
           <div className="border-l mx-1 h-6" />
-          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-            <Upload className="w-4 h-4 mr-1" />
-            导入
-          </Button>
-          <Button variant="outline" size="sm" onClick={handlePreviewYaml}>
-            <Save className="w-4 h-4 mr-1" />
-            预览
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleExportYaml}>
-            <FileDown className="w-4 h-4 mr-1" />
-            导出
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => {
-            clearGraph();
-            setCurrentFilename(null);
-          }}>
+          
+          {/* 视图操作 */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Maximize2 className="w-4 h-4 mr-1" />
+                视图
+                <ChevronDown className="w-3 h-3 ml-1" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={() => {
+                window.dispatchEvent(new CustomEvent('editor:fitView'));
+              }}>
+                <Maximize2 className="w-4 h-4 mr-2" />
+                适应画布
+                <span className="ml-auto text-xs text-muted-foreground">Ctrl+0</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                window.dispatchEvent(new CustomEvent('editor:focusSelected'));
+              }}>
+                <Focus className="w-4 h-4 mr-2" />
+                居中选中
+                <span className="ml-auto text-xs text-muted-foreground">F</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>面板</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem 
+                checked={panelState.nodePalette}
+                onCheckedChange={() => {
+                  window.dispatchEvent(new CustomEvent('editor:togglePanel', { detail: { panel: 'nodePalette' } }));
+                }}
+              >
+                节点面板
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem 
+                checked={panelState.propertyPanel}
+                onCheckedChange={() => {
+                  window.dispatchEvent(new CustomEvent('editor:togglePanel', { detail: { panel: 'propertyPanel' } }));
+                }}
+              >
+                属性面板
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem 
+                checked={panelState.compilerPanel}
+                onCheckedChange={() => {
+                  window.dispatchEvent(new CustomEvent('editor:togglePanel', { detail: { panel: 'compilerPanel' } }));
+                }}
+              >
+                编译面板
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
+          <div className="border-l mx-1 h-6" />
+          <Button variant="outline" size="sm" onClick={() => setShowClearConfirm(true)}>
             <Trash2 className="w-4 h-4 mr-1" />
             清空
           </Button>
-          <Button variant="outline" size="sm" onClick={handleValidate}>
-            <CheckCircle className="w-4 h-4 mr-1" />
-            验证
-          </Button>
-          <Button size="sm" onClick={handleRun}>
-            <Play className="w-4 h-4 mr-1" />
-            运行
+          <Button size="sm" onClick={handleLoadToExperiment}>
+            <Upload className="w-4 h-4 mr-1" />
+            加载到实验
           </Button>
         </div>
       </div>
@@ -886,20 +1462,141 @@ function EditorToolbar() {
           </div>
         </div>
       )}
+      
+      {/* 清空确认对话框 */}
+      <ConfirmDialog
+        open={showClearConfirm}
+        onOpenChange={setShowClearConfirm}
+        title="清空画布"
+        description="确定要清空当前画布吗？所有节点和连接都将被删除，此操作无法撤销。"
+        confirmText="清空"
+        variant="destructive"
+        onConfirm={() => {
+          clearGraph();
+          setCurrentFilename(null);
+          setDirty(false);
+          setShowClearConfirm(false);
+        }}
+      />
+      
+      {/* 未保存更改对话框 */}
+      <UnsavedChangesDialog
+        open={showUnsavedDialog}
+        onOpenChange={setShowUnsavedDialog}
+        onSave={async () => {
+          await handleSave();
+          setShowUnsavedDialog(false);
+          if (pendingAction) {
+            pendingAction();
+            setPendingAction(null);
+          }
+        }}
+        onDiscard={() => {
+          setDirty(false);
+          setShowUnsavedDialog(false);
+          if (pendingAction) {
+            pendingAction();
+            setPendingAction(null);
+          }
+        }}
+        onCancel={() => {
+          setShowUnsavedDialog(false);
+          setPendingAction(null);
+        }}
+      />
+      
+      {/* 覆盖确认对话框 */}
+      <ConfirmDialog
+        open={showOverwriteConfirm}
+        onOpenChange={setShowOverwriteConfirm}
+        title="文件已存在"
+        description={`文件 "${pendingSaveFilename}.yaml" 已存在。是否要覆盖？`}
+        confirmText="覆盖"
+        variant="destructive"
+        onConfirm={handleConfirmOverwrite}
+        onCancel={() => {
+          setShowOverwriteConfirm(false);
+          setPendingSaveFilename(null);
+        }}
+      />
+      
+      {/* 加载到实验结果对话框 */}
+      <ConfirmDialog
+        open={showLoadResultDialog}
+        onOpenChange={setShowLoadResultDialog}
+        title={
+          loadResultDialogType === 'needSave' ? '需要先保存' :
+          loadResultDialogType === 'confirmSave' ? '保存并加载' :
+          loadResultDialogType === 'success' ? '加载成功' : '加载失败'
+        }
+        description={loadResultMessage}
+        confirmText={
+          loadResultDialogType === 'confirmSave' ? '保存并加载' :
+          loadResultDialogType === 'success' ? '跳转到实验管理' : '确定'
+        }
+        cancelText={loadResultDialogType === 'confirmSave' ? '取消' : undefined}
+        variant={loadResultDialogType === 'error' ? 'destructive' : 'default'}
+        onConfirm={handleLoadResultDialogConfirm}
+        onCancel={() => {
+          setShowLoadResultDialog(false);
+          setPendingLoadAfterSave(false);
+        }}
+      />
     </>
   );
 }
 
+// 面板可见性全局状态
+const panelVisibility = {
+  nodePalette: true,
+  propertyPanel: true,
+  compilerPanel: true,
+};
+
+// 获取面板可见性的函数（供 EditorToolbar 使用）
+export function getPanelVisibility() {
+  return { ...panelVisibility };
+}
+
 export function ExperimentEditor() {
+  const [showNodePalette, setShowNodePalette] = useState(true);
+  const [showPropertyPanel, setShowPropertyPanel] = useState(true);
+  const [showCompilerPanel, setShowCompilerPanel] = useState(true);
+  
+  // 同步全局状态
+  useEffect(() => {
+    panelVisibility.nodePalette = showNodePalette;
+    panelVisibility.propertyPanel = showPropertyPanel;
+    panelVisibility.compilerPanel = showCompilerPanel;
+  }, [showNodePalette, showPropertyPanel, showCompilerPanel]);
+  
+  // 监听面板切换事件
+  useEffect(() => {
+    const handleToggle = (e: Event) => {
+      const { panel } = (e as CustomEvent).detail;
+      if (panel === 'nodePalette') setShowNodePalette(v => !v);
+      if (panel === 'propertyPanel') setShowPropertyPanel(v => !v);
+      if (panel === 'compilerPanel') setShowCompilerPanel(v => !v);
+    };
+    window.addEventListener('editor:togglePanel', handleToggle);
+    return () => window.removeEventListener('editor:togglePanel', handleToggle);
+  }, []);
+  
   return (
     <ReactFlowProvider>
       <div className="flex flex-col h-full">
         <EditorToolbar />
         <div className="flex flex-1 overflow-hidden">
-          <NodePalette />
+          {showNodePalette && <NodePalette />}
           <EditorCanvas />
-          <PropertyPanel />
+          {showPropertyPanel && <PropertyPanel />}
+          {showCompilerPanel && (
+            <div className="w-64 shrink-0">
+              <CompilerPanel />
+            </div>
+          )}
         </div>
+        <StatusBar />
       </div>
     </ReactFlowProvider>
   );

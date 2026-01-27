@@ -258,16 +258,48 @@ function nodeToStep(
         },
       };
 
+    case NodeType.WASH: {
+      // 获取连接的清洗液源
+      const washLiquidNodeIds = liquidConnections.get(node.id) || [];
+      const washLiquid = washLiquidNodeIds.length > 0
+        ? allNodes.find(n => n.id === washLiquidNodeIds[0])
+        : null;
+      const washLiquidData = washLiquid?.data as Record<string, unknown> | undefined;
+      
+      return {
+        name,
+        wash: {
+          wash_liquid_id: String(washLiquidData?.liquidId || data.washLiquidId || 'distilled_water'),
+          wash_volume_ml: Number(data.washVolumeMl || 20),
+          repeat_count: Number(data.repeatCount || 2),
+          gas_pump_pwm: Number(data.gasPumpPwm || 50),
+          drain_after: Boolean(data.drainAfter ?? true),
+        },
+      };
+    }
+
     case NodeType.ACQUIRE: {
       const acquire: Record<string, unknown> = {
         gas_pump_pwm: Number(data.gasPumpPwm || 50),
-        max_duration_s: Number(data.maxDurationS || 300),
       };
 
       if (data.terminationType === 'duration') {
+        // 持续时间模式：只需要 duration_s，不需要 max_duration_s
         acquire.duration_s = Number(data.durationS || 60);
       } else if (data.terminationType === 'cycles') {
+        // 加热周期模式：需要 heater_cycles 和 max_duration_s 作为超时
         acquire.heater_cycles = Number(data.heaterCycles || 10);
+        acquire.max_duration_s = Number(data.maxDurationS || 300);
+      } else if (data.terminationType === 'stability') {
+        // 稳定性模式：需要 stability 和 max_duration_s 作为超时
+        acquire.stability = {
+          window_s: Number(data.stabilityWindowS || 30),
+          threshold_percent: Number(data.stabilityThresholdPercent || 5),
+        };
+        acquire.max_duration_s = Number(data.maxDurationS || 300);
+      } else {
+        // 默认使用 max_duration_s
+        acquire.max_duration_s = Number(data.maxDurationS || 300);
       }
 
       return { name, acquire };
@@ -580,6 +612,21 @@ function stepToNodeData(step: YamlStep): { type: NodeType; data: Record<string, 
     };
   }
 
+  if ((step as Record<string, unknown>).wash) {
+    const wash = (step as Record<string, unknown>).wash as Record<string, unknown>;
+    return {
+      type: NodeType.WASH,
+      data: {
+        name: step.name,
+        washLiquidId: wash.wash_liquid_id,
+        washVolumeMl: wash.wash_volume_ml,
+        repeatCount: wash.repeat_count,
+        gasPumpPwm: wash.gas_pump_pwm,
+        drainAfter: wash.drain_after ?? true,
+      },
+    };
+  }
+
   if (step.acquire) {
     let terminationType = 'cycles';
     if (step.acquire.duration_s) terminationType = 'duration';
@@ -593,6 +640,8 @@ function stepToNodeData(step: YamlStep): { type: NodeType; data: Record<string, 
         terminationType,
         durationS: step.acquire.duration_s,
         heaterCycles: step.acquire.heater_cycles,
+        stabilityWindowS: step.acquire.stability?.window_s,
+        stabilityThresholdPercent: step.acquire.stability?.threshold_percent,
         maxDurationS: step.acquire.max_duration_s,
       },
     };

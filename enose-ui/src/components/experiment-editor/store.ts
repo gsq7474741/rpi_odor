@@ -11,6 +11,7 @@ import {
   Connection,
 } from '@xyflow/react';
 import { NodeType, ExperimentNode, ExperimentEdge, isConnectionValid, HANDLE_TYPES } from './types';
+import { compile, CompilationResult } from './compiler';
 
 interface HistoryState {
   nodes: ExperimentNode[];
@@ -25,7 +26,7 @@ interface EditorState {
   // 撤销/重做历史
   history: HistoryState[];
   historyIndex: number;
-  lastHistorySaveTime: number; // 上次保存历史的时间戳
+  isRecordingHistory: boolean; // 防止重复记录历史的标志
   
   // 程序元数据
   programId: string;
@@ -36,6 +37,14 @@ interface EditorState {
   // 硬件配置
   bottleCapacityMl: number;
   maxFillMl: number;
+  
+  // 实时编译结果
+  compilationResult: CompilationResult | null;
+  isCompiling: boolean;
+  autoCompile: boolean; // 是否自动编译
+  
+  // 未保存更改跟踪
+  isDirty: boolean;
   
   // Actions
   onNodesChange: OnNodesChange<ExperimentNode>;
@@ -69,6 +78,13 @@ interface EditorState {
   canUndo: () => boolean;
   canRedo: () => boolean;
   saveToHistory: () => void;
+  
+  // 实时编译
+  recompile: () => void;
+  setAutoCompile: (enabled: boolean) => void;
+  
+  // 未保存更改
+  setDirty: (dirty: boolean) => void;
   
   // 获取默认节点数据
   getDefaultNodeData: (type: NodeType) => Record<string, unknown>;
@@ -209,7 +225,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   
   history: [{ nodes: initialNodes, edges: initialEdges }],
   historyIndex: 0,
-  lastHistorySaveTime: 0,
+  isRecordingHistory: false,
   
   programId: 'new_experiment',
   programName: '新实验',
@@ -219,6 +235,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   bottleCapacityMl: 150,
   maxFillMl: 100,
   
+  // 实时编译状态
+  compilationResult: null,
+  isCompiling: false,
+  autoCompile: true,
+  
+  // 未保存更改状态
+  isDirty: false,
+  setDirty: (dirty: boolean) => set({ isDirty: dirty }),
+  
   saveToHistory: () => {
     const { nodes, edges, history, historyIndex } = get();
     const newHistory = history.slice(0, historyIndex + 1);
@@ -226,7 +251,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     if (newHistory.length > MAX_HISTORY) {
       newHistory.shift();
     }
-    set({ history: newHistory, historyIndex: newHistory.length - 1 });
+    set({ history: newHistory, historyIndex: newHistory.length - 1, isDirty: true });
   },
   
   undo: () => {
@@ -259,12 +284,32 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   canRedo: () => get().historyIndex < get().history.length - 1,
   
   onNodesChange: (changes) => {
+    // 只在删除节点时记录历史（添加节点由 addNode 处理）
+    const removeChanges = changes.filter(c => c.type === 'remove');
+    if (removeChanges.length > 0) {
+      get().saveToHistory();
+    }
+    
+    // 检测拖拽结束（dragging 从 true 变为 false）
+    const dragEndChanges = changes.filter(
+      c => c.type === 'position' && c.dragging === false
+    );
+    if (dragEndChanges.length > 0) {
+      get().saveToHistory();
+    }
+    
     set({
       nodes: applyNodeChanges(changes, get().nodes),
     });
   },
   
   onEdgesChange: (changes) => {
+    // 只在删除边时记录历史（添加边由 onConnect 处理）
+    const removeChanges = changes.filter(c => c.type === 'remove');
+    if (removeChanges.length > 0) {
+      get().saveToHistory();
+    }
+    
     set({
       edges: applyEdgeChanges(changes, get().edges),
     });
@@ -281,7 +326,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     
     const sourceType = sourceNode.type as NodeType;
     const targetType = targetNode.type as NodeType;
-    const handleType = connection.sourceHandle || HANDLE_TYPES.FLOW;
+    
+    // 确定连接类型：优先检查 targetHandle（用于循环体返回连接）
+    let handleType = connection.sourceHandle || HANDLE_TYPES.FLOW;
+    if (connection.targetHandle === HANDLE_TYPES.LOOP_BODY) {
+      handleType = HANDLE_TYPES.LOOP_BODY;
+    }
     
     // 验证连接是否允许
     const validation = isConnectionValid(
@@ -302,15 +352,27 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }
     
     get().saveToHistory();
+    
+    // 根据连接类型设置边的样式
+    let edgeStyle: React.CSSProperties = { stroke: '#64748b' };
+    let animated = false;
+    
+    if (connection.sourceHandle === HANDLE_TYPES.LIQUID) {
+      edgeStyle = { stroke: '#22c55e', strokeDasharray: '5,5' };
+      animated = true;
+    } else if (connection.sourceHandle === HANDLE_TYPES.LOOP_BODY || 
+               connection.targetHandle === HANDLE_TYPES.LOOP_BODY) {
+      edgeStyle = { stroke: '#f59e0b', strokeWidth: 2 };
+      animated = true;
+    }
+    
     set({
       edges: addEdge(
         {
           ...connection,
-          type: 'smoothstep',
-          animated: connection.sourceHandle === 'liquid',
-          style: connection.sourceHandle === 'liquid' 
-            ? { stroke: '#22c55e', strokeDasharray: '5,5' }
-            : { stroke: '#64748b' },
+          type: 'smart',
+          animated,
+          style: edgeStyle,
         },
         edges
       ),
@@ -331,13 +393,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
   
   updateNodeData: (nodeId, data) => {
-    // 使用防抖：500ms 内的连续编辑只保存一次历史
-    const now = Date.now();
-    const lastSave = get().lastHistorySaveTime;
-    if (now - lastSave > 500) {
-      get().saveToHistory();
-      set({ lastHistorySaveTime: now });
-    }
+    // 属性编辑时保存历史（每次编辑都记录）
+    get().saveToHistory();
     set({
       nodes: get().nodes.map((node) =>
         node.id === nodeId
@@ -394,6 +451,29 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       edges: initialEdges,
       selectedNodeId: null,
     });
+  },
+  
+  // 实时编译
+  recompile: () => {
+    const { nodes, edges, bottleCapacityMl, maxFillMl } = get();
+    set({ isCompiling: true });
+    
+    // 使用 setTimeout 确保 UI 更新
+    setTimeout(() => {
+      const result = compile(nodes, edges, {
+        bottleCapacityMl,
+        maxFillMl,
+        expandLoops: true,  // 展开循环显示真实编译产物
+      });
+      set({ compilationResult: result, isCompiling: false });
+    }, 0);
+  },
+  
+  setAutoCompile: (enabled) => {
+    set({ autoCompile: enabled });
+    if (enabled) {
+      get().recompile();
+    }
   },
   
   getDefaultNodeData,

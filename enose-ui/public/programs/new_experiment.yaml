@@ -1,0 +1,32 @@
+id: new_experiment
+name: 新实验
+description: ''
+version: 1.0.0
+hardware:
+  bottle_capacity_ml: 150
+  max_fill_ml: 100
+  liquids:
+    - id: default
+      name: 默认液体
+      pump_index: 2
+      type: LIQUID_SAMPLE
+steps: []
+_editor_layout:
+  nodes:
+    - id: start
+      type: start
+      position:
+        x: 250
+        'y': 50
+      data:
+        programId: new_experiment
+        programName: 新实验
+        description: ''
+        version: 1.0.0
+    - id: end
+      type: end
+      position:
+        x: 250
+        'y': 400
+      data: {}
+  edges: []

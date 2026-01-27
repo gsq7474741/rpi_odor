@@ -308,6 +308,8 @@ export interface AcquireNodeData {
   terminationType: 'duration' | 'cycles' | 'stability';
   durationS?: number;
   heaterCycles?: number;
+  stabilityWindowS?: number;
+  stabilityThresholdPercent?: number;
   maxDurationS: number;
 }
 
@@ -632,30 +634,40 @@ export function isConnectionValid(
       return { valid: false, reason: `${NODE_META[sourceType].label} 已达最大硬件输出数` };
     }
   } else if (handleType === HANDLE_TYPES.LOOP_BODY) {
-    // 循环体连接验证
-    // 源必须是 LOOP 节点 (loopBody 输出)
-    if (!NODE_META[sourceType].hasLoopBodyOut) {
-      return { valid: false, reason: `${NODE_META[sourceType].label} 没有循环体输出` };
+    // 循环体连接验证 - 两种情况：
+    // 1. Loop节点输出 → 循环体第一个节点 (sourceHandle=loopBody, targetHandle=flow)
+    // 2. 循环体最后一个节点 → Loop节点输入 (sourceHandle=flow, targetHandle=loopBody)
+    
+    // 情况1: Loop 节点作为源，连接到循环体第一个节点
+    if (NODE_META[sourceType].hasLoopBodyOut && sourceHandle === HANDLE_TYPES.LOOP_BODY) {
+      // 目标必须能作为循环体的一部分
+      if (sourceRule.loopBodyTargets && !sourceRule.loopBodyTargets.includes(targetType)) {
+        return { valid: false, reason: `${NODE_META[targetType].label} 不能作为循环体起始节点` };
+      }
+      
+      // 检查 Loop 节点已有的循环体输出连接数
+      const sourceLoopBodyOutCount = existingEdges.filter(
+        e => e.source === sourceId && e.sourceHandle === HANDLE_TYPES.LOOP_BODY
+      ).length;
+      if (sourceRule.maxLoopBodyOut && sourceLoopBodyOutCount >= sourceRule.maxLoopBodyOut) {
+        return { valid: false, reason: `${NODE_META[sourceType].label} 已连接循环体起点` };
+      }
     }
     
-    // 目标必须能作为循环体的一部分
-    if (sourceRule.loopBodyTargets && !sourceRule.loopBodyTargets.includes(targetType)) {
-      return { valid: false, reason: `${NODE_META[targetType].label} 不能作为循环体节点` };
-    }
-    
-    // 检查现有循环体连接数
-    const sourceLoopBodyOutCount = existingEdges.filter(
-      e => e.source === sourceId && e.sourceHandle === HANDLE_TYPES.LOOP_BODY
-    ).length;
-    if (sourceRule.maxLoopBodyOut && sourceLoopBodyOutCount >= sourceRule.maxLoopBodyOut) {
-      return { valid: false, reason: `${NODE_META[sourceType].label} 已连接循环体` };
-    }
-    
-    const targetLoopBodyInCount = existingEdges.filter(
-      e => e.target === targetId && e.targetHandle === HANDLE_TYPES.LOOP_BODY
-    ).length;
-    if (targetRule.maxLoopBodyIn && targetLoopBodyInCount >= targetRule.maxLoopBodyIn) {
-      return { valid: false, reason: `${NODE_META[targetType].label} 已被其他循环体连接` };
+    // 情况2: 循环体最后一个节点连回 Loop 节点
+    if (NODE_META[targetType].hasLoopBodyIn && targetHandle === HANDLE_TYPES.LOOP_BODY) {
+      // 源必须能作为循环体的一部分
+      if (targetRule.loopBodySources && !targetRule.loopBodySources.includes(sourceType)) {
+        return { valid: false, reason: `${NODE_META[sourceType].label} 不能作为循环体返回节点` };
+      }
+      
+      // 检查 Loop 节点已有的循环体输入连接数
+      const targetLoopBodyInCount = existingEdges.filter(
+        e => e.target === targetId && e.targetHandle === HANDLE_TYPES.LOOP_BODY
+      ).length;
+      if (targetRule.maxLoopBodyIn && targetLoopBodyInCount >= targetRule.maxLoopBodyIn) {
+        return { valid: false, reason: `${NODE_META[targetType].label} 已连接循环体返回` };
+      }
     }
   }
   

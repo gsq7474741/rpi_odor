@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Play, Square, Pause, RotateCcw, Upload, CheckCircle, AlertCircle, Clock, X, Wifi, WifiOff, FileUp } from "lucide-react";
+import { Play, Square, Pause, RotateCcw, Upload, CheckCircle, AlertCircle, Clock, X, Wifi, WifiOff, FileUp, Edit } from "lucide-react";
+import Link from "next/link";
 import { ExperimentFlow, ExperimentProgram, parseYamlString } from "@/components/experiment-flow";
 
 // API 调用函数
@@ -215,11 +216,12 @@ export default function ExperimentPage() {
       yamlContent = uploadedYaml;
       programName = "上传的程序";
     } else if (selectedProgram) {
-      const program = programs.find(p => p.id === selectedProgram);
+      // selectedProgram 现在是 filename
+      const program = programs.find(p => p.filename === selectedProgram);
       if (!program) return;
       programName = program.name;
       try {
-        yamlContent = await fetchProgramYaml(program.filename);
+        yamlContent = await fetchProgramYaml(selectedProgram);
       } catch (e: any) {
         addLog(`获取程序文件失败: ${e.message}`);
         return;
@@ -237,42 +239,44 @@ export default function ExperimentPage() {
     try {
       const result = await experimentApi("load", { yaml_content: yamlContent });
       
-      if (result.error) {
-        addLog(`后端加载失败: ${result.error}`);
-      } else {
-        addLog("后端加载成功");
+      // 检查后端是否真正加载成功
+      const loadSuccess = result.success === true && !result.error && !result.errorMessage;
+      
+      if (!loadSuccess) {
+        const errorMsg = result.error || result.errorMessage || "未知错误";
+        addLog(`❌ 后端加载失败: ${errorMsg}`);
         
-        // 显示验证结果
-        if (result.validation) {
-          const { errors, warnings } = result.validation;
-          
-          // 显示错误
-          if (errors && errors.length > 0) {
-            for (const err of errors) {
-              addLog(`❌ 错误 [${err.path}]: ${err.message}`);
-            }
-          }
-          
-          // 显示警告
-          if (warnings && warnings.length > 0) {
-            for (const warn of warnings) {
-              addLog(`⚠️ 警告 [${warn.path}]: ${warn.message}`);
-            }
+        // 显示验证错误
+        if (result.validation?.errors?.length > 0) {
+          for (const err of result.validation.errors) {
+            addLog(`  错误 [${err.path}]: ${err.message}`);
           }
         }
+        return; // 加载失败，不继续
       }
+      
+      addLog("✅ 后端加载成功");
+      
+      // 显示验证警告
+      if (result.validation?.warnings?.length > 0) {
+        for (const warn of result.validation.warnings) {
+          addLog(`⚠️ 警告 [${warn.path}]: ${warn.message}`);
+        }
+      }
+      
+      // 只有成功时才设置实验状态
+      setExperiment({
+        status: "loaded",
+        programName: programName,
+        currentStep: 0,
+        totalSteps: programData.steps.length,
+        elapsedTime: 0,
+        message: `已加载: ${programName}`,
+      });
     } catch (e: any) {
-      addLog(`后端通信失败: ${e.message}`);
+      addLog(`❌ 后端通信失败: ${e.message}`);
+      return; // 通信失败，不继续
     }
-
-    setExperiment({
-      status: "loaded",
-      programName: programName,
-      currentStep: 0,
-      totalSteps: programData.steps.length,
-      elapsedTime: 0,
-      message: `已加载: ${programName}`,
-    });
     
     // 清除上传的文件
     setUploadedYaml(null);
@@ -390,15 +394,15 @@ export default function ExperimentPage() {
               ) : (
                 programs.map((program) => (
                   <div
-                    key={program.id}
+                    key={program.filename}
                     onClick={() => {
                       if (experiment.status === "idle") {
-                        setSelectedProgram(program.id);
+                        setSelectedProgram(program.filename);
                         setUploadedYaml(null);
                       }
                     }}
                     className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                      selectedProgram === program.id && !uploadedYaml
+                      selectedProgram === program.filename && !uploadedYaml
                         ? "border-primary bg-primary/5"
                         : "border-border hover:border-primary/50"
                     } ${experiment.status !== "idle" ? "opacity-50 cursor-not-allowed" : ""}`}
@@ -407,7 +411,10 @@ export default function ExperimentPage() {
                       <div className="font-medium">{program.name}</div>
                       <div className="text-xs text-muted-foreground">v{program.version}</div>
                     </div>
-                    <div className="text-sm text-muted-foreground">{program.description}</div>
+                    <div className="text-xs text-muted-foreground/70 font-mono">{program.filename}</div>
+                    {program.description && (
+                      <div className="text-sm text-muted-foreground mt-1">{program.description}</div>
+                    )}
                   </div>
                 ))
               )}
@@ -435,14 +442,23 @@ export default function ExperimentPage() {
               )}
               
               {experiment.status === "idle" ? (
-                <Button
-                  onClick={handleLoadProgram}
-                  disabled={!selectedProgram && !uploadedYaml}
-                  className="w-full mt-4"
-                >
-                  <Upload className="mr-2 h-4 w-4" />
-                  加载程序
-                </Button>
+                <div className="flex gap-2 mt-4">
+                  <Button
+                    onClick={handleLoadProgram}
+                    disabled={!selectedProgram && !uploadedYaml}
+                    className="flex-1"
+                  >
+                    <Upload className="mr-2 h-4 w-4" />
+                    加载程序
+                  </Button>
+                  {selectedProgram && !uploadedYaml && (
+                    <Link href={`/experiment-editor?file=${selectedProgram}`}>
+                      <Button variant="outline" title="在编辑器中打开">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                  )}
+                </div>
               ) : (
                 <Button
                   onClick={handleUnload}

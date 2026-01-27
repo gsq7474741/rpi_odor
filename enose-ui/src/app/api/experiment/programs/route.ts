@@ -18,6 +18,15 @@ export async function GET(request: NextRequest) {
     
     const { searchParams } = new URL(request.url);
     const filename = searchParams.get("filename");
+    const checkExists = searchParams.get("checkExists");
+    
+    // 检查文件是否存在
+    if (checkExists) {
+      const safeName = checkExists.replace(/[^a-zA-Z0-9_\-\.]/g, "_");
+      const finalName = safeName.endsWith(".yaml") ? safeName : `${safeName}.yaml`;
+      const filePath = path.join(PROGRAMS_DIR, finalName);
+      return NextResponse.json({ exists: fs.existsSync(filePath) });
+    }
     
     // 如果指定了文件名，返回文件内容
     if (filename) {

@@ -1,10 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Settings, FlaskConical, ChevronLeft, ChevronRight, ScrollText, Package, Workflow } from "lucide-react";
-import { useState } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { useEditorStore } from "./experiment-editor/store";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface NavItem {
   title: string;
@@ -40,16 +51,86 @@ const navItems: NavItem[] = [
   },
 ];
 
+const MIN_WIDTH = 56;
+const MAX_WIDTH = 320;
+const DEFAULT_WIDTH = 224;
+
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+  const [width, setWidth] = useState(DEFAULT_WIDTH);
+  const [isResizing, setIsResizing] = useState(false);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const { isDirty, setDirty } = useEditorStore();
+  
+  // 未保存更改对话框状态
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  const handleNavigation = (href: string, e: React.MouseEvent) => {
+    // 如果当前在实验编辑器页面且有未保存更改
+    if (pathname.startsWith('/experiment-editor') && isDirty && href !== pathname) {
+      e.preventDefault();
+      setPendingHref(href);
+      setShowUnsavedDialog(true);
+    }
+  };
+  
+  const handleDiscardAndNavigate = () => {
+    setDirty(false);
+    setShowUnsavedDialog(false);
+    if (pendingHref) {
+      router.push(pendingHref);
+      setPendingHref(null);
+    }
+  };
+
+  const startResizing = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  const resize = useCallback((e: MouseEvent) => {
+    if (isResizing && sidebarRef.current) {
+      const newWidth = e.clientX - sidebarRef.current.getBoundingClientRect().left;
+      if (newWidth >= MIN_WIDTH && newWidth <= MAX_WIDTH) {
+        setWidth(newWidth);
+        // 如果宽度小于阈值，自动折叠
+        if (newWidth < 100) {
+          setCollapsed(true);
+        } else {
+          setCollapsed(false);
+        }
+      }
+    }
+  }, [isResizing]);
+
+  useEffect(() => {
+    if (isResizing) {
+      window.addEventListener('mousemove', resize);
+      window.addEventListener('mouseup', stopResizing);
+    }
+    return () => {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    };
+  }, [isResizing, resize, stopResizing]);
+
+  const actualWidth = collapsed ? MIN_WIDTH : width;
 
   return (
     <aside
+      ref={sidebarRef}
       className={cn(
-        "relative flex flex-col h-full bg-card border-r border-border transition-all duration-300",
-        collapsed ? "w-16" : "w-56"
+        "relative flex flex-col h-full bg-card border-r border-border",
+        isResizing ? "" : "transition-all duration-300"
       )}
+      style={{ width: actualWidth }}
     >
       {/* Header */}
       <div className={cn(
@@ -78,6 +159,7 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={(e) => handleNavigation(item.href, e)}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
                 isActive
@@ -101,6 +183,41 @@ export function Sidebar() {
       )}>
         {collapsed ? "v0.1" : "版本 0.1.0"}
       </div>
+      
+      {/* 拖拽调整宽度的手柄 */}
+      <div
+        className={cn(
+          "absolute top-0 right-0 w-1 h-full cursor-ew-resize hover:bg-primary/20 active:bg-primary/40 transition-colors",
+          isResizing && "bg-primary/40"
+        )}
+        onMouseDown={startResizing}
+      />
+      
+      {/* 未保存更改对话框 */}
+      <AlertDialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>未保存的更改</AlertDialogTitle>
+            <AlertDialogDescription>
+              当前实验有未保存的更改。您想要离开吗？未保存的更改将会丢失。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowUnsavedDialog(false);
+              setPendingHref(null);
+            }}>
+              取消
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDiscardAndNavigate}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              不保存，离开
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </aside>
   );
 }

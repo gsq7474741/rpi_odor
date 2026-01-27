@@ -778,13 +778,33 @@ export function PropertyPanel() {
                 />
               </Field>
             )}
-            <Field label="最大时长 (秒)">
-              <Input
-                type="number"
-                value={Number(data.maxDurationS || 300)}
-                onChange={(e) => handleChange('maxDurationS', parseInt(e.target.value) || 300)}
-              />
-            </Field>
+            {data.terminationType === 'stability' && (
+              <>
+                <Field label="稳定窗口 (秒)">
+                  <Input
+                    type="number"
+                    value={Number(data.stabilityWindowS || 30)}
+                    onChange={(e) => handleChange('stabilityWindowS', parseInt(e.target.value) || 30)}
+                  />
+                </Field>
+                <Field label="稳定阈值 (%)">
+                  <Input
+                    type="number"
+                    value={Number(data.stabilityThresholdPercent || 5)}
+                    onChange={(e) => handleChange('stabilityThresholdPercent', parseInt(e.target.value) || 5)}
+                  />
+                </Field>
+              </>
+            )}
+            {data.terminationType !== 'duration' && (
+              <Field label="最大时长 (秒)">
+                <Input
+                  type="number"
+                  value={Number(data.maxDurationS || 300)}
+                  onChange={(e) => handleChange('maxDurationS', parseInt(e.target.value) || 300)}
+                />
+              </Field>
+            )}
           </>
         );
         

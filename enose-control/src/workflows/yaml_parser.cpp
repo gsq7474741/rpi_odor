@@ -28,7 +28,6 @@ static bool parse_step(const YAML::Node& node, experiment::Step* step, std::stri
         auto* action = step->mutable_inject();
         auto inject = node["inject"];
         
-        // 简化版：单液体进样
         if (inject["target_volume_ml"]) {
             action->set_target_volume_ml(inject["target_volume_ml"].as<double>());
         }
@@ -48,10 +47,27 @@ static bool parse_step(const YAML::Node& node, experiment::Step* step, std::stri
             action->set_stable_timeout_s(30.0);
         }
         
-        // 添加默认液体成分
-        auto* comp = action->add_components();
-        comp->set_liquid_id("default");
-        comp->set_ratio(1.0);
+        // 解析液体成分列表
+        if (inject["components"] && inject["components"].IsSequence()) {
+            for (const auto& comp_node : inject["components"]) {
+                auto* comp = action->add_components();
+                if (comp_node["liquid_id"]) {
+                    comp->set_liquid_id(comp_node["liquid_id"].as<std::string>());
+                }
+                if (comp_node["ratio"]) {
+                    comp->set_ratio(comp_node["ratio"].as<double>());
+                } else {
+                    comp->set_ratio(1.0);
+                }
+            }
+        }
+        
+        // 如果没有定义成分，添加默认液体成分
+        if (action->components_size() == 0) {
+            auto* comp = action->add_components();
+            comp->set_liquid_id("default");
+            comp->set_ratio(1.0);
+        }
     }
     else if (node["wait"]) {
         auto* action = step->mutable_wait();
@@ -86,9 +102,31 @@ static bool parse_step(const YAML::Node& node, experiment::Step* step, std::stri
         if (acquire["gas_pump_pwm"]) {
             action->set_gas_pump_pwm(acquire["gas_pump_pwm"].as<int>());
         }
+        
+        // 终止条件1：固定时间
+        if (acquire["duration_s"]) {
+            action->set_duration_s(acquire["duration_s"].as<double>());
+        }
+        // 终止条件2：加热周期数
         if (acquire["heater_cycles"]) {
             action->set_heater_cycles(acquire["heater_cycles"].as<int>());
         }
+        // 终止条件3：稳定性检测
+        if (acquire["stability"]) {
+            auto stability = acquire["stability"];
+            auto* stab = action->mutable_stability();
+            if (stability["window_s"]) {
+                stab->set_window_s(stability["window_s"].as<double>());
+            } else {
+                stab->set_window_s(30.0);  // 默认30秒窗口
+            }
+            if (stability["threshold_percent"]) {
+                stab->set_threshold_percent(stability["threshold_percent"].as<double>());
+            } else {
+                stab->set_threshold_percent(5.0);  // 默认5%阈值
+            }
+        }
+        // 最大时长（超时保护）
         if (acquire["max_duration_s"]) {
             action->set_max_duration_s(acquire["max_duration_s"].as<double>());
         }
@@ -139,6 +177,61 @@ static bool parse_step(const YAML::Node& node, experiment::Step* step, std::stri
                     return false;
                 }
             }
+        }
+    }
+    else if (node["wash"]) {
+        auto* action = step->mutable_wash();
+        auto wash = node["wash"];
+        
+        // 支持两种格式：
+        // 1. 体积格式 (wash_volume_ml) - 转换为重量 (假设密度=1 g/ml)
+        // 2. 重量格式 (target_weight_g) - 直接使用
+        if (wash["wash_volume_ml"]) {
+            // 体积转重量 (密度=1 g/ml)
+            action->set_target_weight_g(wash["wash_volume_ml"].as<double>());
+        } else if (wash["target_weight_g"]) {
+            action->set_target_weight_g(wash["target_weight_g"].as<double>());
+        } else {
+            action->set_target_weight_g(20.0); // 默认 20g
+        }
+        
+        if (wash["repeat_count"]) {
+            action->set_repeat_count(wash["repeat_count"].as<int>());
+        } else {
+            action->set_repeat_count(1);
+        }
+        
+        if (wash["fill_timeout_s"]) {
+            action->set_fill_timeout_s(wash["fill_timeout_s"].as<double>());
+        } else {
+            action->set_fill_timeout_s(60.0);
+        }
+        
+        if (wash["drain_timeout_s"]) {
+            action->set_drain_timeout_s(wash["drain_timeout_s"].as<double>());
+        } else {
+            action->set_drain_timeout_s(60.0);
+        }
+        
+        // 支持 gas_pump_pwm 或 drain_gas_pump_pwm
+        if (wash["drain_gas_pump_pwm"]) {
+            action->set_drain_gas_pump_pwm(wash["drain_gas_pump_pwm"].as<int>());
+        } else if (wash["gas_pump_pwm"]) {
+            action->set_drain_gas_pump_pwm(wash["gas_pump_pwm"].as<int>());
+        } else {
+            action->set_drain_gas_pump_pwm(50);
+        }
+        
+        if (wash["empty_tolerance_g"]) {
+            action->set_empty_tolerance_g(wash["empty_tolerance_g"].as<double>());
+        } else {
+            action->set_empty_tolerance_g(10.0);
+        }
+        
+        if (wash["empty_stability_window_s"]) {
+            action->set_empty_stability_window_s(wash["empty_stability_window_s"].as<double>());
+        } else {
+            action->set_empty_stability_window_s(2.0);
         }
     }
     else {

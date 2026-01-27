@@ -177,36 +177,78 @@ export const SelectionToolbar = memo(function SelectionToolbar({ selectedNodes }
     }));
   };
 
-  // 智能自动布局 - 考虑旁路节点
+  // 智能自动布局 - 考虑旁路节点和循环体
   const handleAutoLayout = () => {
     saveToHistory();
     const allNodes = getNodes();
     const allEdges = getEdges();
     
-    // 分离主流程节点和旁路节点
+    // 分离节点类型
     const sideNodeTypes = [NodeType.LIQUID_SOURCE, NodeType.HARDWARE_CONFIG];
     const mainNodes: Node[] = [];
     const sideNodes: Node[] = [];
+    const loopNodes: Node[] = [];
     
     for (const node of selectedNodes) {
       if (sideNodeTypes.includes(node.type as NodeType)) {
         sideNodes.push(node);
+      } else if (node.type === NodeType.LOOP) {
+        loopNodes.push(node);
+        mainNodes.push(node);
       } else {
         mainNodes.push(node);
       }
     }
     
+    // 识别循环体节点
+    const loopBodyNodes = new Map<string, Set<string>>(); // loopId -> Set<bodyNodeId>
+    for (const loopNode of loopNodes) {
+      const bodyNodeIds = new Set<string>();
+      // 找到循环体出口边
+      const loopBodyOutEdge = allEdges.find(
+        e => e.source === loopNode.id && e.sourceHandle === HANDLE_TYPES.LOOP_BODY
+      );
+      if (loopBodyOutEdge) {
+        // 从循环体第一个节点遍历到返回点
+        let currentId: string | undefined = loopBodyOutEdge.target;
+        const visited = new Set<string>();
+        while (currentId && !visited.has(currentId)) {
+          visited.add(currentId);
+          bodyNodeIds.add(currentId);
+          // 检查是否返回到循环节点
+          const returnEdge = allEdges.find(
+            e => e.source === currentId && e.target === loopNode.id && e.targetHandle === HANDLE_TYPES.LOOP_BODY
+          );
+          if (returnEdge) break;
+          // 继续沿 flow 边遍历
+          const nextEdge = allEdges.find(
+            e => e.source === currentId && (!e.sourceHandle || e.sourceHandle === HANDLE_TYPES.FLOW)
+          );
+          currentId = nextEdge?.target;
+        }
+      }
+      loopBodyNodes.set(loopNode.id, bodyNodeIds);
+    }
+    
+    // 所有循环体节点集合
+    const allLoopBodyNodeIds = new Set<string>();
+    for (const bodyIds of loopBodyNodes.values()) {
+      for (const id of bodyIds) allLoopBodyNodeIds.add(id);
+    }
+    
+    // 主流程节点（排除循环体节点）
+    const mainFlowNodes = mainNodes.filter(n => !allLoopBodyNodeIds.has(n.id));
+    
     // 构建主流程的拓扑排序
-    const mainNodeIds = new Set(mainNodes.map(n => n.id));
+    const mainNodeIds = new Set(mainFlowNodes.map(n => n.id));
     const inDegree = new Map<string, number>();
     const outEdges = new Map<string, string[]>();
     
-    for (const node of mainNodes) {
+    for (const node of mainFlowNodes) {
       inDegree.set(node.id, 0);
       outEdges.set(node.id, []);
     }
     
-    // 只考虑 flow 类型的边
     for (const edge of allEdges) {
       if (mainNodeIds.has(edge.source) && mainNodeIds.has(edge.target)) {
         if (!edge.sourceHandle || edge.sourceHandle === HANDLE_TYPES.FLOW) {
@@ -226,7 +268,7 @@ export const SelectionToolbar = memo(function SelectionToolbar({ selectedNodes }
     
     while (queue.length > 0) {
       const id = queue.shift()!;
-      const node = mainNodes.find(n => n.id === id);
+      const node = mainFlowNodes.find(n => n.id === id);
       if (node) sorted.push(node);
       
       for (const next of outEdges.get(id) || []) {
@@ -236,16 +278,16 @@ export const SelectionToolbar = memo(function SelectionToolbar({ selectedNodes }
       }
     }
     
-    // 添加未排序的节点（可能有环或断开）
-    for (const node of mainNodes) {
+    // 添加未排序的节点
+    for (const node of mainFlowNodes) {
       if (!sorted.find(n => n.id === node.id)) {
         sorted.push(node);
       }
     }
     
     // 布局主流程节点
-    const mainX = bounds.minX + 200; // 主流程居右，为旁路节点留空间
-    const gap = 50; // 增大间距
+    const mainX = bounds.minX + 200;
+    const gap = 50;
     let currentY = bounds.minY;
     const newPositions = new Map<string, { x: number; y: number }>();
     const nodeYPositions = new Map<string, number>();
@@ -259,13 +301,47 @@ export const SelectionToolbar = memo(function SelectionToolbar({ selectedNodes }
       currentY += height + gap;
     }
     
+    // 布局循环体节点（放在循环节点右侧，水平排列）
+    const loopBodyX = mainX + 250; // 循环体在主流程右侧
+    const loopBodyGap = 40;
+    
+    for (const [loopId, bodyIds] of loopBodyNodes) {
+      const loopY = nodeYPositions.get(loopId) ?? bounds.minY;
+      let bodyX = loopBodyX;
+      
+      // 按顺序获取循环体节点
+      const bodyNodesOrdered: Node[] = [];
+      const loopBodyOutEdge = allEdges.find(
+        e => e.source === loopId && e.sourceHandle === HANDLE_TYPES.LOOP_BODY
+      );
+      if (loopBodyOutEdge) {
+        let currentId: string | undefined = loopBodyOutEdge.target;
+        const visited = new Set<string>();
+        while (currentId && !visited.has(currentId) && bodyIds.has(currentId)) {
+          visited.add(currentId);
+          const node = allNodes.find(n => n.id === currentId);
+          if (node) bodyNodesOrdered.push(node);
+          const nextEdge = allEdges.find(
+            e => e.source === currentId && (!e.sourceHandle || e.sourceHandle === HANDLE_TYPES.FLOW)
+          );
+          currentId = nextEdge?.target;
+          if (currentId === loopId) break;
+        }
+      }
+      
+      for (const node of bodyNodesOrdered) {
+        const width = node.measured?.width || 160;
+        newPositions.set(node.id, { x: bodyX, y: loopY });
+        bodyX += width + loopBodyGap;
+      }
+    }
+    
     // 布局旁路节点（放在其连接目标的左侧）
-    const sideX = bounds.minX; // 旁路在左侧
-    const sideGap = 30; // 旁路节点间距
+    const sideX = bounds.minX;
+    const sideGap = 30;
     const sideNodesByTarget = new Map<string, Node[]>();
     
     for (const node of sideNodes) {
-      // 找到这个旁路节点连接的目标
       const targetEdge = allEdges.find((e: Edge) => e.source === node.id);
       const targetId = targetEdge?.target || '';
       if (!sideNodesByTarget.has(targetId)) {
@@ -274,19 +350,16 @@ export const SelectionToolbar = memo(function SelectionToolbar({ selectedNodes }
       sideNodesByTarget.get(targetId)!.push(node);
     }
     
-    // 计算每个目标节点的旁路节点总高度，居中对齐
     for (const [targetId, nodes] of sideNodesByTarget) {
       const targetY = nodeYPositions.get(targetId) ?? bounds.minY;
       const targetHeight = nodeHeights.get(targetId) ?? 100;
       
-      // 计算旁路节点总高度
       let totalHeight = 0;
       for (const node of nodes) {
         totalHeight += (node.measured?.height || 80);
       }
       totalHeight += (nodes.length - 1) * sideGap;
       
-      // 垂直居中对齐到目标节点
       let offsetY = targetY + (targetHeight - totalHeight) / 2;
       
       for (const node of nodes) {
