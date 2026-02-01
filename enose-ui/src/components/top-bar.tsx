@@ -20,19 +20,33 @@ import {
   Square,
   Sun,
   Monitor,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useStatusStream } from "@/hooks/use-status-stream";
+import { useLatency } from "@/hooks/use-latency";
 
 export function TopBar() {
   // 使用 SSE 获取状态（与 ControlPanel 共享同一连接）
   const { status } = useStatusStream();
+  // 端到端延迟测量
+  const { rtt, avg, jitter, connected: latencyConnected } = useLatency();
   const [firmwareReady, setFirmwareReady] = useState(true);
   const [estopLoading, setEstopLoading] = useState(false);
   const [restartLoading, setRestartLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  
+  // 延迟等级颜色
+  const getLatencyColor = (ms: number | null) => {
+    if (ms === null) return "text-zinc-400";
+    if (ms < 50) return "text-green-500";
+    if (ms < 100) return "text-yellow-500";
+    if (ms < 200) return "text-orange-500";
+    return "text-red-500";
+  };
 
   // 避免SSR hydration mismatch
   useEffect(() => {
@@ -89,9 +103,21 @@ export function TopBar() {
 
   return (
     <div className="h-12 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4 shrink-0">
-      {/* 左侧：标题 */}
+      {/* 左侧：标题 + 延迟指示器 */}
       <div className="flex items-center gap-3">
         <span className="text-zinc-700 dark:text-zinc-200 text-sm font-medium">Proj RPi Enose 电子鼻实验系统</span>
+        
+        {/* 端到端延迟指示器 (类似CS) */}
+        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800" title={`RTT: ${rtt ?? '-'}ms | Avg: ${avg ?? '-'}ms | Jitter: ${jitter ?? '-'}ms`}>
+          {latencyConnected ? (
+            <Wifi className={`w-3.5 h-3.5 ${getLatencyColor(rtt)}`} />
+          ) : (
+            <WifiOff className="w-3.5 h-3.5 text-red-500" />
+          )}
+          <span className={`text-xs font-mono ${getLatencyColor(rtt)}`}>
+            {rtt !== null ? `${rtt}ms` : '--'}
+          </span>
+        </div>
       </div>
 
       {/* 右侧：急停 + 系统控制 */}

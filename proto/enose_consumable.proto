@@ -16,11 +16,17 @@ service ConsumableService {
   rpc UpdateLiquid(UpdateLiquidRequest) returns (Liquid);
   rpc DeleteLiquid(DeleteLiquidRequest) returns (google.protobuf.Empty);
   
-  // 泵配置
+  // 样品泵配置
   rpc GetPumpAssignments(google.protobuf.Empty) returns (PumpAssignmentsResponse);
   rpc SetPumpAssignment(SetPumpAssignmentRequest) returns (PumpAssignment);
   rpc SetPumpVolume(SetPumpVolumeRequest) returns (PumpAssignment);
   rpc AddPumpConsumption(AddPumpConsumptionRequest) returns (PumpAssignment);
+  
+  // 清洗泵配置
+  rpc GetWashPumpAssignments(google.protobuf.Empty) returns (WashPumpAssignmentsResponse);
+  rpc SetWashPumpAssignment(SetWashPumpAssignmentRequest) returns (WashPumpAssignment);
+  rpc SetWashPumpVolume(SetWashPumpVolumeRequest) returns (WashPumpAssignment);
+  rpc AddWashPumpConsumption(AddWashPumpConsumptionRequest) returns (WashPumpAssignment);
   
   // 耗材状态
   rpc GetConsumableStatus(google.protobuf.Empty) returns (ConsumableStatusResponse);
@@ -133,6 +139,50 @@ message SetPumpVolumeRequest {
 }
 
 message AddPumpConsumptionRequest {
+  int32 pump_index = 1;
+  double volume_ml = 2;                // 消耗量
+  optional int32 experiment_id = 3;    // 关联实验ID
+}
+
+// ============================================================
+// 清洗泵配置相关消息
+// ============================================================
+
+message WashPumpAssignment {
+  int32 pump_index = 1;       // 清洗泵索引
+  optional int32 liquid_id = 2;
+  optional Liquid liquid = 3;  // 关联的液体信息 (必须为 rinse 类型)
+  string notes = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+  // 容量相关字段
+  double initial_volume_ml = 7;        // 初始容量 (ml)
+  double consumed_volume_ml = 8;       // 已消耗量 (ml)
+  double remaining_volume_ml = 9;      // 剩余量 (ml) - 计算值
+  double low_volume_threshold_ml = 10; // 低量预警阈值 (ml)
+  bool is_low_volume = 11;             // 是否低量
+}
+
+message WashPumpAssignmentsResponse {
+  repeated WashPumpAssignment assignments = 1;
+}
+
+message SetWashPumpAssignmentRequest {
+  int32 pump_index = 1;
+  optional int32 liquid_id = 2;  // null 表示清空，必须为 rinse 类型液体
+  string notes = 3;
+  optional double initial_volume_ml = 4;        // 初始容量
+  optional double low_volume_threshold_ml = 5;  // 低量阈值
+}
+
+message SetWashPumpVolumeRequest {
+  int32 pump_index = 1;
+  double initial_volume_ml = 2;        // 新的初始容量
+  optional double low_volume_threshold_ml = 3;  // 低量阈值
+  bool reset_consumed = 4;             // 是否重置已消耗量
+}
+
+message AddWashPumpConsumptionRequest {
   int32 pump_index = 1;
   double volume_ml = 2;                // 消耗量
   optional int32 experiment_id = 3;    // 关联实验ID

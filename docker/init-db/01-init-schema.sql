@@ -17,8 +17,8 @@ CREATE TABLE IF NOT EXISTS runs (
     metadata        JSONB                             -- 其他元数据
 );
 
-CREATE INDEX idx_runs_state ON runs(state);
-CREATE INDEX idx_runs_created_at ON runs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_runs_state ON runs(state);
+CREATE INDEX IF NOT EXISTS idx_runs_created_at ON runs(created_at DESC);
 
 -- ============================================================
 -- 进样测试结果表
@@ -46,8 +46,8 @@ CREATE TABLE IF NOT EXISTS test_results (
     total_duration_ms       BIGINT
 );
 
-CREATE INDEX idx_test_results_run_id ON test_results(run_id);
-CREATE INDEX idx_test_results_time ON test_results(time DESC);
+CREATE INDEX IF NOT EXISTS idx_test_results_run_id ON test_results(run_id);
+CREATE INDEX IF NOT EXISTS idx_test_results_time ON test_results(time DESC);
 
 -- ============================================================
 -- 传感器原始数据表 (时序超表)
@@ -67,7 +67,7 @@ SELECT create_hypertable('sensor_readings', 'time',
 );
 
 -- 索引
-CREATE INDEX idx_sensor_readings_run_id ON sensor_readings(run_id, time DESC);
+CREATE INDEX IF NOT EXISTS idx_sensor_readings_run_id ON sensor_readings(run_id, time DESC);
 
 -- 压缩策略 (7天后压缩)
 ALTER TABLE sensor_readings SET (
@@ -175,8 +175,8 @@ SELECT create_hypertable('weight_samples', 'time',
     if_not_exists => TRUE
 );
 
-CREATE INDEX idx_weight_samples_run_id ON weight_samples(run_id, time DESC);
-CREATE INDEX idx_weight_samples_cycle ON weight_samples(run_id, cycle);
+CREATE INDEX IF NOT EXISTS idx_weight_samples_run_id ON weight_samples(run_id, time DESC);
+CREATE INDEX IF NOT EXISTS idx_weight_samples_cycle ON weight_samples(run_id, cycle);
 
 -- 压缩策略 (3天后压缩)
 ALTER TABLE weight_samples SET (

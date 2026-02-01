@@ -305,7 +305,7 @@ export function LoadCellPanel() {
   // 管路死区检测
   const [deadZoneResults, setDeadZoneResults] = useState<DeadZoneResult[]>([]);
   const [deadZoneConfig, setDeadZoneConfig] = useState({
-    pumpIds: [2, 3, 4, 5] as number[], // 要测试的泵
+    pumpIds: [0, 1, 2, 3, 4, 5, 6, 7] as number[], // 要测试的泵
     stepVolume: 10, // 每次进样步长 (mm)
     maxVolume: 200, // 最大测试量 (mm)
     cycles: 3, // 每个泵重复次数
@@ -2092,7 +2092,7 @@ export function LoadCellPanel() {
   } : null;
   
   // 死区按泵统计
-  const deadZoneByPump = [2, 3, 4, 5].map(pumpId => {
+  const deadZoneByPump = [0, 1, 2, 3, 4, 5, 6, 7].map(pumpId => {
     const results = deadZoneResults.filter(r => r.pumpId === pumpId);
     if (results.length === 0) return null;
     const volumes = results.map(r => r.deadZoneVolume);
@@ -3117,8 +3117,8 @@ export function LoadCellPanel() {
                   </div>
                   <div>
                     <Label className="text-xs">测试泵</Label>
-                    <div className="flex gap-1 mt-1">
-                      {[2, 3, 4, 5].map(id => (
+                    <div className="flex gap-1 mt-1 flex-wrap">
+                      {[0, 1, 2, 3, 4, 5, 6, 7].map(id => (
                         <button key={id}
                           onClick={() => setDeadZoneConfig(p => ({
                             ...p,
@@ -3190,8 +3190,8 @@ export function LoadCellPanel() {
                   {resolutionConfig.testMode === 'single' && (
                     <div>
                       <Label className="text-xs">测试泵</Label>
-                      <div className="flex gap-1 mt-1">
-                        {[2, 3, 4, 5].map(id => (
+                      <div className="flex gap-1 mt-1 flex-wrap">
+                        {[0, 1, 2, 3, 4, 5, 6, 7].map(id => (
                           <button key={id} onClick={() => setResolutionConfig(p => ({ ...p, pumpId: id }))}
                             className={`px-2 py-1 text-xs rounded ${resolutionConfig.pumpId === id ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                             {id}
@@ -3315,8 +3315,8 @@ export function LoadCellPanel() {
                   {linearityConfig.testMode === 'single' && (
                     <div>
                       <Label className="text-xs">测试泵</Label>
-                      <div className="flex gap-1 mt-1">
-                        {[2, 3, 4, 5].map(id => (
+                      <div className="flex gap-1 mt-1 flex-wrap">
+                        {[0, 1, 2, 3, 4, 5, 6, 7].map(id => (
                           <button key={id}
                             onClick={() => setLinearityConfig(p => ({ ...p, pumpId: id }))}
                             className={`px-2 py-1 text-xs rounded ${linearityConfig.pumpId === id ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}
@@ -3593,8 +3593,8 @@ export function LoadCellPanel() {
                   {weightCalibConfig.testMode === 'single' && (
                     <div>
                       <Label className="text-xs">测试泵</Label>
-                      <div className="flex gap-1 mt-1">
-                        {[2, 3, 4, 5].map(id => (
+                      <div className="flex gap-1 mt-1 flex-wrap">
+                        {[0, 1, 2, 3, 4, 5, 6, 7].map(id => (
                           <button key={id} onClick={() => setWeightCalibConfig(p => ({ ...p, pumpId: id }))}
                             className={`px-2 py-1 text-xs rounded ${weightCalibConfig.pumpId === id ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                             {id}

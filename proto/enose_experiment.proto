@@ -143,6 +143,8 @@ message Step {
     LoopAction loop = 16;
     PhaseMarkerAction phase_marker = 17;
     WashAction wash = 18;
+    PreheatAction preheat = 19;
+    ConfigureHeaterAction configure_heater = 20;
   }
 }
 
@@ -396,6 +398,53 @@ message WashAction {
     gte: 1,
     lte: 30
   }];
+}
+
+// 预热动作 - 等待传感器预热稳定
+// 恒温模式用秒数，温度扫描模式用周期数
+message PreheatAction {
+  // 预热模式
+  oneof mode {
+    int32 cycles = 1;           // 等待N个加热周期 (温度扫描模式)
+    double duration_s = 2;      // 等待N秒 (恒温模式)
+  }
+  
+  // 最大等待时间 (秒)
+  double max_duration_s = 3 [(buf.validate.field).double = {
+    gte: 10,
+    lte: 600
+  }];
+  
+  // 目标传感器 (空=全部)
+  repeated int32 sensor_indices = 4;
+  
+  // 是否记录预热数据到数据库
+  bool record_data = 5;
+  
+  // 气泵PWM (预热时通常需要通气)
+  int32 gas_pump_pwm = 6 [(buf.validate.field).int32 = {
+    gte: 0,
+    lte: 100
+  }];
+}
+
+// 配置加热器动作 - 为传感器设置加热曲线
+message ConfigureHeaterAction {
+  // 加热配置列表 (可以为不同传感器设置不同配置)
+  repeated HeaterConfig configs = 1 [(buf.validate.field).repeated.min_items = 1];
+}
+
+// 加热器配置
+message HeaterConfig {
+  // 加热曲线预设名称 (从数据库加载)
+  string profile_name = 1;
+  
+  // 或自定义曲线 (优先级高于 profile_name)
+  repeated int32 temps = 2;   // 温度序列 (°C)
+  repeated int32 durs = 3;    // 持续时间 (×140ms)
+  
+  // 目标传感器索引 (空=全部)
+  repeated int32 sensor_indices = 4;
 }
 
 // ============================================================

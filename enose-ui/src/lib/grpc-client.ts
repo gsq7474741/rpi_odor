@@ -17,6 +17,19 @@ import type {
   LoadCellConfig
 } from "../generated/enose_service";
 
+// 加热器预设类型 (等待 proto 生成后替换)
+export interface HeaterProfile {
+  id: number;
+  name: string;
+  description: string;
+  temps: number[];
+  durs: number[];
+  preheatMode: string;
+  preheatCycles: number;
+  preheatDurationS: number;
+  isBuiltin: boolean;
+}
+
 // gRPC 服务器地址 (从环境变量读取)
 const GRPC_HOST = process.env.GRPC_HOST || "rpi5.local";
 const GRPC_PORT = process.env.GRPC_PORT || "50051";
@@ -245,6 +258,56 @@ export async function configureHeater(temps: number[], durs: number[], sensors?:
   return sensorPromisify(
     getSensorClient().configureHeater.bind(getSensorClient()),
     { temps, durs, sensors: sensors || [] }
+  );
+}
+
+// ============================================================
+// 加热器预设管理 API
+// ============================================================
+
+export async function listHeaterProfiles(): Promise<HeaterProfile[]> {
+  const response = await sensorPromisify<object, { profiles: HeaterProfile[] }>(
+    getSensorClient().listHeaterProfiles.bind(getSensorClient()),
+    Empty.create()
+  );
+  return response.profiles || [];
+}
+
+export async function getHeaterProfile(idOrName: number | string): Promise<HeaterProfile | null> {
+  try {
+    const request = typeof idOrName === 'number' 
+      ? { identifier: { oneofKind: 'id' as const, id: idOrName } }
+      : { identifier: { oneofKind: 'name' as const, name: idOrName } };
+    const response = await sensorPromisify<object, { profile: HeaterProfile }>(
+      getSensorClient().getHeaterProfile.bind(getSensorClient()),
+      request
+    );
+    return response.profile || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function createHeaterProfile(profile: Omit<HeaterProfile, 'id'>): Promise<HeaterProfile> {
+  const response = await sensorPromisify<object, { profile: HeaterProfile }>(
+    getSensorClient().createHeaterProfile.bind(getSensorClient()),
+    { profile: { ...profile, id: 0 } }
+  );
+  return response.profile;
+}
+
+export async function updateHeaterProfile(profile: HeaterProfile): Promise<HeaterProfile> {
+  const response = await sensorPromisify<object, { profile: HeaterProfile }>(
+    getSensorClient().updateHeaterProfile.bind(getSensorClient()),
+    { profile }
+  );
+  return response.profile;
+}
+
+export async function deleteHeaterProfile(id: number): Promise<void> {
+  await sensorPromisify(
+    getSensorClient().deleteHeaterProfile.bind(getSensorClient()),
+    { id }
   );
 }
 

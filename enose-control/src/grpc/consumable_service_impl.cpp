@@ -398,6 +398,174 @@ std::string ConsumableServiceImpl::field_type_to_string(consumable::FieldType ty
 }
 
 // ============================================================
+// 清洗泵配置
+// ============================================================
+
+::grpc::Status ConsumableServiceImpl::GetWashPumpAssignments(
+    ::grpc::ServerContext* context,
+    const ::google::protobuf::Empty* request,
+    consumable::WashPumpAssignmentsResponse* response) {
+    
+    auto assignments = repo_.get_wash_pump_assignments();
+    
+    for (const auto& a : assignments) {
+        auto* pa = response->add_assignments();
+        pa->set_pump_index(a.pump_index);
+        if (a.liquid_id) {
+            pa->set_liquid_id(*a.liquid_id);
+            auto liquid = repo_.get_liquid(*a.liquid_id);
+            if (liquid) {
+                fill_liquid(pa->mutable_liquid(), *liquid);
+            }
+        }
+        pa->set_notes(a.notes);
+        *pa->mutable_created_at() = google::protobuf::util::TimeUtil::TimeTToTimestamp(
+            std::chrono::system_clock::to_time_t(a.created_at));
+        *pa->mutable_updated_at() = google::protobuf::util::TimeUtil::TimeTToTimestamp(
+            std::chrono::system_clock::to_time_t(a.updated_at));
+        pa->set_initial_volume_ml(a.initial_volume_ml);
+        pa->set_consumed_volume_ml(a.consumed_volume_ml);
+        pa->set_remaining_volume_ml(a.remaining_volume_ml());
+        pa->set_low_volume_threshold_ml(a.low_volume_threshold_ml);
+        pa->set_is_low_volume(a.is_low_volume());
+    }
+    
+    return ::grpc::Status::OK;
+}
+
+::grpc::Status ConsumableServiceImpl::SetWashPumpAssignment(
+    ::grpc::ServerContext* context,
+    const consumable::SetWashPumpAssignmentRequest* request,
+    consumable::WashPumpAssignment* response) {
+    
+    std::optional<int> liquid_id;
+    if (request->has_liquid_id()) {
+        liquid_id = request->liquid_id();
+    }
+    
+    std::optional<double> initial_volume_ml;
+    std::optional<double> low_volume_threshold_ml;
+    if (request->has_initial_volume_ml()) {
+        initial_volume_ml = request->initial_volume_ml();
+    }
+    if (request->has_low_volume_threshold_ml()) {
+        low_volume_threshold_ml = request->low_volume_threshold_ml();
+    }
+    
+    bool success = repo_.set_wash_pump_assignment(
+        request->pump_index(),
+        liquid_id,
+        request->notes(),
+        initial_volume_ml,
+        low_volume_threshold_ml);
+    
+    if (!success) {
+        return ::grpc::Status(::grpc::INTERNAL, "Failed to set wash pump assignment");
+    }
+    
+    auto record = repo_.get_wash_pump_assignment(request->pump_index());
+    if (record) {
+        response->set_pump_index(record->pump_index);
+        if (record->liquid_id) {
+            response->set_liquid_id(*record->liquid_id);
+            auto liquid = repo_.get_liquid(*record->liquid_id);
+            if (liquid) {
+                fill_liquid(response->mutable_liquid(), *liquid);
+            }
+        }
+        response->set_notes(record->notes);
+        response->set_initial_volume_ml(record->initial_volume_ml);
+        response->set_consumed_volume_ml(record->consumed_volume_ml);
+        response->set_remaining_volume_ml(record->remaining_volume_ml());
+        response->set_low_volume_threshold_ml(record->low_volume_threshold_ml);
+        response->set_is_low_volume(record->is_low_volume());
+    }
+    
+    return ::grpc::Status::OK;
+}
+
+::grpc::Status ConsumableServiceImpl::SetWashPumpVolume(
+    ::grpc::ServerContext* context,
+    const consumable::SetWashPumpVolumeRequest* request,
+    consumable::WashPumpAssignment* response) {
+    
+    std::optional<double> threshold;
+    if (request->has_low_volume_threshold_ml()) {
+        threshold = request->low_volume_threshold_ml();
+    }
+    
+    bool success = repo_.set_wash_pump_volume(
+        request->pump_index(),
+        request->initial_volume_ml(),
+        threshold,
+        request->reset_consumed());
+    
+    if (!success) {
+        return ::grpc::Status(::grpc::INTERNAL, "Failed to set wash pump volume");
+    }
+    
+    auto record = repo_.get_wash_pump_assignment(request->pump_index());
+    if (record) {
+        response->set_pump_index(record->pump_index);
+        if (record->liquid_id) {
+            response->set_liquid_id(*record->liquid_id);
+            auto liquid = repo_.get_liquid(*record->liquid_id);
+            if (liquid) {
+                fill_liquid(response->mutable_liquid(), *liquid);
+            }
+        }
+        response->set_notes(record->notes);
+        response->set_initial_volume_ml(record->initial_volume_ml);
+        response->set_consumed_volume_ml(record->consumed_volume_ml);
+        response->set_remaining_volume_ml(record->remaining_volume_ml());
+        response->set_low_volume_threshold_ml(record->low_volume_threshold_ml);
+        response->set_is_low_volume(record->is_low_volume());
+    }
+    
+    return ::grpc::Status::OK;
+}
+
+::grpc::Status ConsumableServiceImpl::AddWashPumpConsumption(
+    ::grpc::ServerContext* context,
+    const consumable::AddWashPumpConsumptionRequest* request,
+    consumable::WashPumpAssignment* response) {
+    
+    std::optional<int> experiment_id;
+    if (request->has_experiment_id()) {
+        experiment_id = request->experiment_id();
+    }
+    
+    bool success = repo_.add_wash_pump_consumption(
+        request->pump_index(),
+        request->volume_ml(),
+        experiment_id);
+    
+    if (!success) {
+        return ::grpc::Status(::grpc::INTERNAL, "Failed to add wash pump consumption");
+    }
+    
+    auto record = repo_.get_wash_pump_assignment(request->pump_index());
+    if (record) {
+        response->set_pump_index(record->pump_index);
+        if (record->liquid_id) {
+            response->set_liquid_id(*record->liquid_id);
+            auto liquid = repo_.get_liquid(*record->liquid_id);
+            if (liquid) {
+                fill_liquid(response->mutable_liquid(), *liquid);
+            }
+        }
+        response->set_notes(record->notes);
+        response->set_initial_volume_ml(record->initial_volume_ml);
+        response->set_consumed_volume_ml(record->consumed_volume_ml);
+        response->set_remaining_volume_ml(record->remaining_volume_ml());
+        response->set_low_volume_threshold_ml(record->low_volume_threshold_ml);
+        response->set_is_low_volume(record->is_low_volume());
+    }
+    
+    return ::grpc::Status::OK;
+}
+
+// ============================================================
 // 耗材状态
 // ============================================================
 

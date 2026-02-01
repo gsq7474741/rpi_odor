@@ -15,6 +15,29 @@ export async function GET(request: NextRequest) {
 
   const stream = new ReadableStream({
     start(controller) {
+      let closed = false;
+      
+      const safeEnqueue = (data: Uint8Array) => {
+        if (!closed) {
+          try {
+            controller.enqueue(data);
+          } catch {
+            closed = true;
+          }
+        }
+      };
+      
+      const safeClose = () => {
+        if (!closed) {
+          closed = true;
+          try {
+            controller.close();
+          } catch {
+            // Already closed
+          }
+        }
+      };
+
       const sshProcess = spawn("ssh", [
         `${sshUser}@${sshHost}`,
         `journalctl -u enose-control -n ${lines} -f --no-pager`,
@@ -22,29 +45,26 @@ export async function GET(request: NextRequest) {
 
       sshProcess.stdout.on("data", (data: Buffer) => {
         const text = data.toString();
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ log: text })}\n\n`));
+        safeEnqueue(encoder.encode(`data: ${JSON.stringify({ log: text })}\n\n`));
       });
 
       sshProcess.stderr.on("data", (data: Buffer) => {
         const text = data.toString();
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: text })}\n\n`));
+        safeEnqueue(encoder.encode(`data: ${JSON.stringify({ error: text })}\n\n`));
       });
 
       sshProcess.on("close", (code) => {
-        controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify({ closed: true, code })}\n\n`)
-        );
-        controller.close();
+        safeEnqueue(encoder.encode(`data: ${JSON.stringify({ closed: true, code })}\n\n`));
+        safeClose();
       });
 
       sshProcess.on("error", (err) => {
-        controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify({ error: err.message })}\n\n`)
-        );
-        controller.close();
+        safeEnqueue(encoder.encode(`data: ${JSON.stringify({ error: err.message })}\n\n`));
+        safeClose();
       });
 
       request.signal.addEventListener("abort", () => {
+        closed = true;
         sshProcess.kill();
       });
     },

@@ -412,6 +412,198 @@ std::optional<PumpAssignmentRecord> ConsumableRepository::get_pump_assignment(in
 }
 
 // ============================================================
+// 清洗泵配置管理
+// ============================================================
+
+std::vector<WashPumpAssignmentRecord> ConsumableRepository::get_wash_pump_assignments() {
+    std::vector<WashPumpAssignmentRecord> results;
+    
+    try {
+        auto conn = ConnectionPool::instance().acquire();
+        if (!conn.valid()) {
+            spdlog::error("ConsumableRepository: Failed to acquire connection");
+            return results;
+        }
+        
+        pqxx::work txn(conn.get());
+        pqxx::result res = txn.exec(
+            "SELECT pump_index, liquid_id, notes, created_at, updated_at, "
+            "COALESCE(initial_volume_ml, 0), COALESCE(consumed_volume_ml, 0), "
+            "COALESCE(low_volume_threshold_ml, 10) "
+            "FROM wash_pump_assignments ORDER BY pump_index");
+        
+        for (const auto& row : res) {
+            WashPumpAssignmentRecord record;
+            record.pump_index = row[0].as<int>();
+            record.liquid_id = row[1].is_null() ? std::nullopt : std::optional<int>(row[1].as<int>());
+            record.notes = row[2].is_null() ? "" : row[2].as<std::string>();
+            record.created_at = parse_timestamp(row[3].as<std::string>());
+            record.updated_at = parse_timestamp(row[4].as<std::string>());
+            record.initial_volume_ml = row[5].as<double>();
+            record.consumed_volume_ml = row[6].as<double>();
+            record.low_volume_threshold_ml = row[7].as<double>();
+            results.push_back(record);
+        }
+        
+        txn.commit();
+    } catch (const std::exception& e) {
+        spdlog::error("ConsumableRepository::get_wash_pump_assignments error: {}", e.what());
+    }
+    
+    return results;
+}
+
+bool ConsumableRepository::set_wash_pump_assignment(int pump_index, std::optional<int> liquid_id, 
+                                                     const std::string& notes,
+                                                     std::optional<double> initial_volume_ml,
+                                                     std::optional<double> low_volume_threshold_ml) {
+    if (pump_index < 0) {
+        spdlog::error("Invalid wash pump_index: {}", pump_index);
+        return false;
+    }
+    
+    try {
+        auto conn = ConnectionPool::instance().acquire();
+        if (!conn.valid()) return false;
+        
+        std::string liquid_id_str = liquid_id.has_value() ? std::to_string(*liquid_id) : "NULL";
+        
+        // 使用 UPSERT 处理不存在的情况
+        std::string sql = "INSERT INTO wash_pump_assignments (pump_index, liquid_id, notes";
+        std::string values = ") VALUES (" + std::to_string(pump_index) + ", " + liquid_id_str + 
+                             ", " + conn->quote(notes);
+        std::string on_conflict = ") ON CONFLICT (pump_index) DO UPDATE SET liquid_id = " + 
+                                  liquid_id_str + ", notes = " + conn->quote(notes);
+        
+        if (initial_volume_ml.has_value()) {
+            sql += ", initial_volume_ml, consumed_volume_ml";
+            values += ", " + std::to_string(*initial_volume_ml) + ", 0";
+            on_conflict += ", initial_volume_ml = " + std::to_string(*initial_volume_ml) + 
+                           ", consumed_volume_ml = 0";
+        }
+        if (low_volume_threshold_ml.has_value()) {
+            sql += ", low_volume_threshold_ml";
+            values += ", " + std::to_string(*low_volume_threshold_ml);
+            on_conflict += ", low_volume_threshold_ml = " + std::to_string(*low_volume_threshold_ml);
+        }
+        
+        pqxx::work txn(conn.get());
+        txn.exec(sql + values + on_conflict);
+        txn.commit();
+        
+        spdlog::info("Set wash pump {} assignment to liquid_id={}", pump_index, 
+                     liquid_id.has_value() ? std::to_string(*liquid_id) : "NULL");
+        return true;
+    } catch (const std::exception& e) {
+        spdlog::error("ConsumableRepository::set_wash_pump_assignment error: {}", e.what());
+        return false;
+    }
+}
+
+bool ConsumableRepository::set_wash_pump_volume(int pump_index, double initial_volume_ml,
+                                                 std::optional<double> low_volume_threshold_ml,
+                                                 bool reset_consumed) {
+    if (pump_index < 0) {
+        spdlog::error("Invalid wash pump_index: {}", pump_index);
+        return false;
+    }
+    
+    try {
+        auto conn = ConnectionPool::instance().acquire();
+        if (!conn.valid()) return false;
+        
+        std::string sql = "UPDATE wash_pump_assignments SET initial_volume_ml = " + 
+                          std::to_string(initial_volume_ml);
+        
+        if (reset_consumed) {
+            sql += ", consumed_volume_ml = 0";
+        }
+        if (low_volume_threshold_ml.has_value()) {
+            sql += ", low_volume_threshold_ml = " + std::to_string(*low_volume_threshold_ml);
+        }
+        
+        sql += " WHERE pump_index = " + std::to_string(pump_index);
+        
+        pqxx::work txn(conn.get());
+        txn.exec(sql);
+        txn.commit();
+        
+        spdlog::info("Set wash pump {} volume to {} ml (reset_consumed={})", 
+                     pump_index, initial_volume_ml, reset_consumed);
+        return true;
+    } catch (const std::exception& e) {
+        spdlog::error("ConsumableRepository::set_wash_pump_volume error: {}", e.what());
+        return false;
+    }
+}
+
+bool ConsumableRepository::add_wash_pump_consumption(int pump_index, double volume_ml, 
+                                                      std::optional<int> experiment_id) {
+    if (pump_index < 0) {
+        spdlog::error("Invalid wash pump_index: {}", pump_index);
+        return false;
+    }
+    
+    try {
+        auto conn = ConnectionPool::instance().acquire();
+        if (!conn.valid()) return false;
+        
+        pqxx::work txn(conn.get());
+        
+        // 更新消耗量
+        txn.exec(
+            "UPDATE wash_pump_assignments SET consumed_volume_ml = "
+            "COALESCE(consumed_volume_ml, 0) + " + std::to_string(volume_ml) +
+            " WHERE pump_index = " + std::to_string(pump_index));
+        
+        txn.commit();
+        
+        spdlog::debug("Added {} ml consumption to wash pump {}", volume_ml, pump_index);
+        return true;
+    } catch (const std::exception& e) {
+        spdlog::error("ConsumableRepository::add_wash_pump_consumption error: {}", e.what());
+        return false;
+    }
+}
+
+std::optional<WashPumpAssignmentRecord> ConsumableRepository::get_wash_pump_assignment(int pump_index) {
+    if (pump_index < 0) {
+        return std::nullopt;
+    }
+    
+    try {
+        auto conn = ConnectionPool::instance().acquire();
+        if (!conn.valid()) return std::nullopt;
+        
+        pqxx::work txn(conn.get());
+        pqxx::result res = txn.exec(
+            "SELECT pump_index, liquid_id, notes, created_at, updated_at, "
+            "COALESCE(initial_volume_ml, 0), COALESCE(consumed_volume_ml, 0), "
+            "COALESCE(low_volume_threshold_ml, 10) "
+            "FROM wash_pump_assignments WHERE pump_index = " + std::to_string(pump_index));
+        
+        if (res.empty()) return std::nullopt;
+        
+        const auto& row = res[0];
+        WashPumpAssignmentRecord record;
+        record.pump_index = row[0].as<int>();
+        record.liquid_id = row[1].is_null() ? std::nullopt : std::optional<int>(row[1].as<int>());
+        record.notes = row[2].is_null() ? "" : row[2].as<std::string>();
+        record.created_at = parse_timestamp(row[3].as<std::string>());
+        record.updated_at = parse_timestamp(row[4].as<std::string>());
+        record.initial_volume_ml = row[5].as<double>();
+        record.consumed_volume_ml = row[6].as<double>();
+        record.low_volume_threshold_ml = row[7].as<double>();
+        
+        txn.commit();
+        return record;
+    } catch (const std::exception& e) {
+        spdlog::error("ConsumableRepository::get_wash_pump_assignment error: {}", e.what());
+        return std::nullopt;
+    }
+}
+
+// ============================================================
 // 耗材管理
 // ============================================================
 

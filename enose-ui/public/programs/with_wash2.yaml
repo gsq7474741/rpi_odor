@@ -6,19 +6,19 @@ hardware:
   bottle_capacity_ml: 150
   max_fill_ml: 100
   liquids:
-    - id: '3'
-      name: 苹果汁
+    - id: '4'
+      name: 橙汁
       pump_index: 0
       type: LIQUID_SAMPLE
-    - id: liquid_liquid_wash
-      name: 未命名
+    - id: '3'
+      name: 苹果汁
       pump_index: 0
       type: LIQUID_SAMPLE
 steps:
   - name: 进样
     inject:
       components:
-        - liquid_id: '3'
+        - liquid_id: '4'
           ratio: 1
       tolerance: 0.5
       flow_rate_ml_min: 5
@@ -40,7 +40,7 @@ steps:
       timeout_s: 60
   - name: 清洗
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '3'
       wash_volume_ml: 20
       repeat_count: 2
       gas_pump_pwm: 50
@@ -50,7 +50,7 @@ _editor_layout:
     - id: start
       type: start
       position:
-        x: 250
+        x: 50
         'y': 45
       data:
         programId: with_wash
@@ -61,24 +61,24 @@ _editor_layout:
       type: liquidSource
       position:
         x: -150
-        'y': 90
+        'y': 191
       data:
-        liquidId: 3
-        liquidName: 苹果汁
+        liquidId: 4
+        liquidName: 橙汁
         ratio: 1
     - id: liquid_wash
       type: liquidSource
       position:
-        x: 50
+        x: -150
         'y': 820
       data:
-        liquidId: ''
-        liquidName: ''
+        liquidId: 3
+        liquidName: 苹果汁
         ratio: 1
     - id: inject_1
       type: inject
       position:
-        x: 250
+        x: 50
         'y': 180
       data:
         name: 进样
@@ -87,7 +87,7 @@ _editor_layout:
     - id: wait_1
       type: waitTime
       position:
-        x: 250
+        x: 50
         'y': 344
       data:
         name: 等待
@@ -95,7 +95,7 @@ _editor_layout:
     - id: acquire_1
       type: acquire
       position:
-        x: 250
+        x: 50
         'y': 486
       data:
         name: 数据采集
@@ -103,14 +103,14 @@ _editor_layout:
     - id: drain_1
       type: drain
       position:
-        x: 250
+        x: 50
         'y': 648
       data:
         name: 排废
     - id: wash_1
       type: wash
       position:
-        x: 250
+        x: 50
         'y': 810
       data:
         name: 清洗
@@ -118,7 +118,7 @@ _editor_layout:
     - id: end
       type: end
       position:
-        x: 250
+        x: 50
         'y': 972
       data: {}
   edges:

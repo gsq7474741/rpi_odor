@@ -83,6 +83,22 @@ service SensorService {
   
   // 配置加热器
   rpc ConfigureHeater(HeaterConfigRequest) returns (HeaterConfigResponse);
+  
+  // ============ 加热器预设管理 ============
+  // 列出所有加热器预设
+  rpc ListHeaterProfiles(google.protobuf.Empty) returns (HeaterProfileListResponse);
+  
+  // 获取单个加热器预设
+  rpc GetHeaterProfile(GetHeaterProfileRequest) returns (HeaterProfileResponse);
+  
+  // 创建加热器预设
+  rpc CreateHeaterProfile(HeaterProfileRequest) returns (HeaterProfileResponse);
+  
+  // 更新加热器预设
+  rpc UpdateHeaterProfile(HeaterProfileRequest) returns (HeaterProfileResponse);
+  
+  // 删除加热器预设
+  rpc DeleteHeaterProfile(DeleteHeaterProfileRequest) returns (google.protobuf.Empty);
 }
 
 // ============================================================
@@ -326,6 +342,51 @@ message HeaterPreset {
   string description = 2;
   repeated uint32 temps = 3;
   repeated uint32 durs = 4;
+}
+
+// ============================================================
+// 加热器预设管理消息
+// ============================================================
+
+// 加热器预设详情 (数据库记录)
+message HeaterProfile {
+  int32 id = 1;
+  string name = 2;
+  string description = 3;
+  repeated int32 temps = 4;        // 温度序列 (°C)
+  repeated int32 durs = 5;         // 持续时间 (×140ms)
+  string preheat_mode = 6;         // "cycles" 或 "duration"
+  int32 preheat_cycles = 7;        // 预热周期数
+  int32 preheat_duration_s = 8;    // 预热时间秒
+  bool is_builtin = 9;             // 是否内置
+}
+
+// 列出预设响应
+message HeaterProfileListResponse {
+  repeated HeaterProfile profiles = 1;
+}
+
+// 获取单个预设请求
+message GetHeaterProfileRequest {
+  oneof identifier {
+    int32 id = 1;
+    string name = 2;
+  }
+}
+
+// 单个预设响应
+message HeaterProfileResponse {
+  HeaterProfile profile = 1;
+}
+
+// 创建/更新预设请求
+message HeaterProfileRequest {
+  HeaterProfile profile = 1;
+}
+
+// 删除预设请求
+message DeleteHeaterProfileRequest {
+  int32 id = 1;
 }
 
 // ============================================================

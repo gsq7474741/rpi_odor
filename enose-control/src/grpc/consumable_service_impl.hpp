@@ -61,6 +61,27 @@ public:
         const consumable::AddPumpConsumptionRequest* request,
         consumable::PumpAssignment* response) override;
 
+    // 清洗泵配置
+    ::grpc::Status GetWashPumpAssignments(
+        ::grpc::ServerContext* context,
+        const ::google::protobuf::Empty* request,
+        consumable::WashPumpAssignmentsResponse* response) override;
+
+    ::grpc::Status SetWashPumpAssignment(
+        ::grpc::ServerContext* context,
+        const consumable::SetWashPumpAssignmentRequest* request,
+        consumable::WashPumpAssignment* response) override;
+
+    ::grpc::Status SetWashPumpVolume(
+        ::grpc::ServerContext* context,
+        const consumable::SetWashPumpVolumeRequest* request,
+        consumable::WashPumpAssignment* response) override;
+
+    ::grpc::Status AddWashPumpConsumption(
+        ::grpc::ServerContext* context,
+        const consumable::AddWashPumpConsumptionRequest* request,
+        consumable::WashPumpAssignment* response) override;
+
     // 耗材状态
     ::grpc::Status GetConsumableStatus(
         ::grpc::ServerContext* context,

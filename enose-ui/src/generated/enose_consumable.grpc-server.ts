@@ -11,6 +11,11 @@ import { UpdateLifetimeRequest } from "./enose_consumable";
 import { Consumable } from "./enose_consumable";
 import { ResetConsumableRequest } from "./enose_consumable";
 import { ConsumableStatusResponse } from "./enose_consumable";
+import { AddWashPumpConsumptionRequest } from "./enose_consumable";
+import { SetWashPumpVolumeRequest } from "./enose_consumable";
+import { WashPumpAssignment } from "./enose_consumable";
+import { SetWashPumpAssignmentRequest } from "./enose_consumable";
+import { WashPumpAssignmentsResponse } from "./enose_consumable";
 import { AddPumpConsumptionRequest } from "./enose_consumable";
 import { SetPumpVolumeRequest } from "./enose_consumable";
 import { PumpAssignment } from "./enose_consumable";
@@ -56,7 +61,7 @@ export interface IConsumableService extends grpc.UntypedServiceImplementation {
      */
     deleteLiquid: grpc.handleUnaryCall<DeleteLiquidRequest, Empty>;
     /**
-     * 泵配置
+     * 样品泵配置
      *
      * @generated from protobuf rpc: GetPumpAssignments
      */
@@ -73,6 +78,24 @@ export interface IConsumableService extends grpc.UntypedServiceImplementation {
      * @generated from protobuf rpc: AddPumpConsumption
      */
     addPumpConsumption: grpc.handleUnaryCall<AddPumpConsumptionRequest, PumpAssignment>;
+    /**
+     * 清洗泵配置
+     *
+     * @generated from protobuf rpc: GetWashPumpAssignments
+     */
+    getWashPumpAssignments: grpc.handleUnaryCall<Empty, WashPumpAssignmentsResponse>;
+    /**
+     * @generated from protobuf rpc: SetWashPumpAssignment
+     */
+    setWashPumpAssignment: grpc.handleUnaryCall<SetWashPumpAssignmentRequest, WashPumpAssignment>;
+    /**
+     * @generated from protobuf rpc: SetWashPumpVolume
+     */
+    setWashPumpVolume: grpc.handleUnaryCall<SetWashPumpVolumeRequest, WashPumpAssignment>;
+    /**
+     * @generated from protobuf rpc: AddWashPumpConsumption
+     */
+    addWashPumpConsumption: grpc.handleUnaryCall<AddWashPumpConsumptionRequest, WashPumpAssignment>;
     /**
      * 耗材状态
      *
@@ -207,6 +230,46 @@ export const consumableServiceDefinition: grpc.ServiceDefinition<IConsumableServ
         requestDeserialize: bytes => AddPumpConsumptionRequest.fromBinary(bytes),
         responseSerialize: value => Buffer.from(PumpAssignment.toBinary(value)),
         requestSerialize: value => Buffer.from(AddPumpConsumptionRequest.toBinary(value))
+    },
+    getWashPumpAssignments: {
+        path: "/enose.consumable.ConsumableService/GetWashPumpAssignments",
+        originalName: "GetWashPumpAssignments",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => WashPumpAssignmentsResponse.fromBinary(bytes),
+        requestDeserialize: bytes => Empty.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(WashPumpAssignmentsResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(Empty.toBinary(value))
+    },
+    setWashPumpAssignment: {
+        path: "/enose.consumable.ConsumableService/SetWashPumpAssignment",
+        originalName: "SetWashPumpAssignment",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => WashPumpAssignment.fromBinary(bytes),
+        requestDeserialize: bytes => SetWashPumpAssignmentRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(WashPumpAssignment.toBinary(value)),
+        requestSerialize: value => Buffer.from(SetWashPumpAssignmentRequest.toBinary(value))
+    },
+    setWashPumpVolume: {
+        path: "/enose.consumable.ConsumableService/SetWashPumpVolume",
+        originalName: "SetWashPumpVolume",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => WashPumpAssignment.fromBinary(bytes),
+        requestDeserialize: bytes => SetWashPumpVolumeRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(WashPumpAssignment.toBinary(value)),
+        requestSerialize: value => Buffer.from(SetWashPumpVolumeRequest.toBinary(value))
+    },
+    addWashPumpConsumption: {
+        path: "/enose.consumable.ConsumableService/AddWashPumpConsumption",
+        originalName: "AddWashPumpConsumption",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => WashPumpAssignment.fromBinary(bytes),
+        requestDeserialize: bytes => AddWashPumpConsumptionRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(WashPumpAssignment.toBinary(value)),
+        requestSerialize: value => Buffer.from(AddWashPumpConsumptionRequest.toBinary(value))
     },
     getConsumableStatus: {
         path: "/enose.consumable.ConsumableService/GetConsumableStatus",

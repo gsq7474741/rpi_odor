@@ -564,6 +564,114 @@ export interface HeaterPreset {
      */
     durs: number[];
 }
+// ============================================================// 加热器预设管理消息// ============================================================
+
+/**
+ * 加热器预设详情 (数据库记录)
+ *
+ * @generated from protobuf message enose.service.HeaterProfile
+ */
+export interface HeaterProfile {
+    /**
+     * @generated from protobuf field: int32 id = 1
+     */
+    id: number;
+    /**
+     * @generated from protobuf field: string name = 2
+     */
+    name: string;
+    /**
+     * @generated from protobuf field: string description = 3
+     */
+    description: string;
+    /**
+     * @generated from protobuf field: repeated int32 temps = 4
+     */
+    temps: number[]; // 温度序列 (°C)    /**
+     * @generated from protobuf field: repeated int32 durs = 5
+     */
+    durs: number[]; // 持续时间 (×140ms)    /**
+     * @generated from protobuf field: string preheat_mode = 6
+     */
+    preheatMode: string; // "cycles" 或 "duration"    /**
+     * @generated from protobuf field: int32 preheat_cycles = 7
+     */
+    preheatCycles: number; // 预热周期数    /**
+     * @generated from protobuf field: int32 preheat_duration_s = 8
+     */
+    preheatDurationS: number; // 预热时间秒    /**
+     * @generated from protobuf field: bool is_builtin = 9
+     */
+    isBuiltin: boolean; // 是否内置}
+/**
+ * 列出预设响应
+ *
+ * @generated from protobuf message enose.service.HeaterProfileListResponse
+ */
+export interface HeaterProfileListResponse {
+    /**
+     * @generated from protobuf field: repeated enose.service.HeaterProfile profiles = 1
+     */
+    profiles: HeaterProfile[];
+}
+/**
+ * 获取单个预设请求
+ *
+ * @generated from protobuf message enose.service.GetHeaterProfileRequest
+ */
+export interface GetHeaterProfileRequest {
+    /**
+     * @generated from protobuf oneof: identifier
+     */
+    identifier: {
+        oneofKind: "id";
+        /**
+         * @generated from protobuf field: int32 id = 1
+         */
+        id: number;
+    } | {
+        oneofKind: "name";
+        /**
+         * @generated from protobuf field: string name = 2
+         */
+        name: string;
+    } | {
+        oneofKind: undefined;
+    };
+}
+/**
+ * 单个预设响应
+ *
+ * @generated from protobuf message enose.service.HeaterProfileResponse
+ */
+export interface HeaterProfileResponse {
+    /**
+     * @generated from protobuf field: enose.service.HeaterProfile profile = 1
+     */
+    profile?: HeaterProfile;
+}
+/**
+ * 创建/更新预设请求
+ *
+ * @generated from protobuf message enose.service.HeaterProfileRequest
+ */
+export interface HeaterProfileRequest {
+    /**
+     * @generated from protobuf field: enose.service.HeaterProfile profile = 1
+     */
+    profile?: HeaterProfile;
+}
+/**
+ * 删除预设请求
+ *
+ * @generated from protobuf message enose.service.DeleteHeaterProfileRequest
+ */
+export interface DeleteHeaterProfileRequest {
+    /**
+     * @generated from protobuf field: int32 id = 1
+     */
+    id: number;
+}
 // ============================================================// 称重服务消息定义// ============================================================
 
 /**
@@ -2973,6 +3081,379 @@ class HeaterPreset$Type extends MessageType<HeaterPreset> {
  */
 export const HeaterPreset = new HeaterPreset$Type();
 // @generated message type with reflection information, may provide speed optimized methods
+class HeaterProfile$Type extends MessageType<HeaterProfile> {
+    constructor() {
+        super("enose.service.HeaterProfile", [
+            { no: 1, name: "id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "description", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "temps", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ },
+            { no: 5, name: "durs", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ },
+            { no: 6, name: "preheat_mode", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 7, name: "preheat_cycles", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 8, name: "preheat_duration_s", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 9, name: "is_builtin", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
+        ]);
+    }
+    create(value?: PartialMessage<HeaterProfile>): HeaterProfile {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.id = 0;
+        message.name = "";
+        message.description = "";
+        message.temps = [];
+        message.durs = [];
+        message.preheatMode = "";
+        message.preheatCycles = 0;
+        message.preheatDurationS = 0;
+        message.isBuiltin = false;
+        if (value !== undefined)
+            reflectionMergePartial<HeaterProfile>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: HeaterProfile): HeaterProfile {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 id */ 1:
+                    message.id = reader.int32();
+                    break;
+                case /* string name */ 2:
+                    message.name = reader.string();
+                    break;
+                case /* string description */ 3:
+                    message.description = reader.string();
+                    break;
+                case /* repeated int32 temps */ 4:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.temps.push(reader.int32());
+                    else
+                        message.temps.push(reader.int32());
+                    break;
+                case /* repeated int32 durs */ 5:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.durs.push(reader.int32());
+                    else
+                        message.durs.push(reader.int32());
+                    break;
+                case /* string preheat_mode */ 6:
+                    message.preheatMode = reader.string();
+                    break;
+                case /* int32 preheat_cycles */ 7:
+                    message.preheatCycles = reader.int32();
+                    break;
+                case /* int32 preheat_duration_s */ 8:
+                    message.preheatDurationS = reader.int32();
+                    break;
+                case /* bool is_builtin */ 9:
+                    message.isBuiltin = reader.bool();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: HeaterProfile, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 id = 1; */
+        if (message.id !== 0)
+            writer.tag(1, WireType.Varint).int32(message.id);
+        /* string name = 2; */
+        if (message.name !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.name);
+        /* string description = 3; */
+        if (message.description !== "")
+            writer.tag(3, WireType.LengthDelimited).string(message.description);
+        /* repeated int32 temps = 4; */
+        if (message.temps.length) {
+            writer.tag(4, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.temps.length; i++)
+                writer.int32(message.temps[i]);
+            writer.join();
+        }
+        /* repeated int32 durs = 5; */
+        if (message.durs.length) {
+            writer.tag(5, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.durs.length; i++)
+                writer.int32(message.durs[i]);
+            writer.join();
+        }
+        /* string preheat_mode = 6; */
+        if (message.preheatMode !== "")
+            writer.tag(6, WireType.LengthDelimited).string(message.preheatMode);
+        /* int32 preheat_cycles = 7; */
+        if (message.preheatCycles !== 0)
+            writer.tag(7, WireType.Varint).int32(message.preheatCycles);
+        /* int32 preheat_duration_s = 8; */
+        if (message.preheatDurationS !== 0)
+            writer.tag(8, WireType.Varint).int32(message.preheatDurationS);
+        /* bool is_builtin = 9; */
+        if (message.isBuiltin !== false)
+            writer.tag(9, WireType.Varint).bool(message.isBuiltin);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.HeaterProfile
+ */
+export const HeaterProfile = new HeaterProfile$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class HeaterProfileListResponse$Type extends MessageType<HeaterProfileListResponse> {
+    constructor() {
+        super("enose.service.HeaterProfileListResponse", [
+            { no: 1, name: "profiles", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => HeaterProfile }
+        ]);
+    }
+    create(value?: PartialMessage<HeaterProfileListResponse>): HeaterProfileListResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.profiles = [];
+        if (value !== undefined)
+            reflectionMergePartial<HeaterProfileListResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: HeaterProfileListResponse): HeaterProfileListResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated enose.service.HeaterProfile profiles */ 1:
+                    message.profiles.push(HeaterProfile.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: HeaterProfileListResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated enose.service.HeaterProfile profiles = 1; */
+        for (let i = 0; i < message.profiles.length; i++)
+            HeaterProfile.internalBinaryWrite(message.profiles[i], writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.HeaterProfileListResponse
+ */
+export const HeaterProfileListResponse = new HeaterProfileListResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetHeaterProfileRequest$Type extends MessageType<GetHeaterProfileRequest> {
+    constructor() {
+        super("enose.service.GetHeaterProfileRequest", [
+            { no: 1, name: "id", kind: "scalar", oneof: "identifier", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "name", kind: "scalar", oneof: "identifier", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GetHeaterProfileRequest>): GetHeaterProfileRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.identifier = { oneofKind: undefined };
+        if (value !== undefined)
+            reflectionMergePartial<GetHeaterProfileRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetHeaterProfileRequest): GetHeaterProfileRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 id */ 1:
+                    message.identifier = {
+                        oneofKind: "id",
+                        id: reader.int32()
+                    };
+                    break;
+                case /* string name */ 2:
+                    message.identifier = {
+                        oneofKind: "name",
+                        name: reader.string()
+                    };
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetHeaterProfileRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 id = 1; */
+        if (message.identifier.oneofKind === "id")
+            writer.tag(1, WireType.Varint).int32(message.identifier.id);
+        /* string name = 2; */
+        if (message.identifier.oneofKind === "name")
+            writer.tag(2, WireType.LengthDelimited).string(message.identifier.name);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.GetHeaterProfileRequest
+ */
+export const GetHeaterProfileRequest = new GetHeaterProfileRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class HeaterProfileResponse$Type extends MessageType<HeaterProfileResponse> {
+    constructor() {
+        super("enose.service.HeaterProfileResponse", [
+            { no: 1, name: "profile", kind: "message", T: () => HeaterProfile }
+        ]);
+    }
+    create(value?: PartialMessage<HeaterProfileResponse>): HeaterProfileResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        if (value !== undefined)
+            reflectionMergePartial<HeaterProfileResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: HeaterProfileResponse): HeaterProfileResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* enose.service.HeaterProfile profile */ 1:
+                    message.profile = HeaterProfile.internalBinaryRead(reader, reader.uint32(), options, message.profile);
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: HeaterProfileResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* enose.service.HeaterProfile profile = 1; */
+        if (message.profile)
+            HeaterProfile.internalBinaryWrite(message.profile, writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.HeaterProfileResponse
+ */
+export const HeaterProfileResponse = new HeaterProfileResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class HeaterProfileRequest$Type extends MessageType<HeaterProfileRequest> {
+    constructor() {
+        super("enose.service.HeaterProfileRequest", [
+            { no: 1, name: "profile", kind: "message", T: () => HeaterProfile }
+        ]);
+    }
+    create(value?: PartialMessage<HeaterProfileRequest>): HeaterProfileRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        if (value !== undefined)
+            reflectionMergePartial<HeaterProfileRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: HeaterProfileRequest): HeaterProfileRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* enose.service.HeaterProfile profile */ 1:
+                    message.profile = HeaterProfile.internalBinaryRead(reader, reader.uint32(), options, message.profile);
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: HeaterProfileRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* enose.service.HeaterProfile profile = 1; */
+        if (message.profile)
+            HeaterProfile.internalBinaryWrite(message.profile, writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.HeaterProfileRequest
+ */
+export const HeaterProfileRequest = new HeaterProfileRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class DeleteHeaterProfileRequest$Type extends MessageType<DeleteHeaterProfileRequest> {
+    constructor() {
+        super("enose.service.DeleteHeaterProfileRequest", [
+            { no: 1, name: "id", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<DeleteHeaterProfileRequest>): DeleteHeaterProfileRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.id = 0;
+        if (value !== undefined)
+            reflectionMergePartial<DeleteHeaterProfileRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: DeleteHeaterProfileRequest): DeleteHeaterProfileRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 id */ 1:
+                    message.id = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: DeleteHeaterProfileRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 id = 1; */
+        if (message.id !== 0)
+            writer.tag(1, WireType.Varint).int32(message.id);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.DeleteHeaterProfileRequest
+ */
+export const DeleteHeaterProfileRequest = new DeleteHeaterProfileRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
 class LoadCellReading$Type extends MessageType<LoadCellReading> {
     constructor() {
         super("enose.service.LoadCellReading", [
@@ -4882,7 +5363,12 @@ export const SensorService = new ServiceType("enose.service.SensorService", [
     { name: "SendCommand", options: {}, I: SensorCommandRequest, O: SensorCommandResponse },
     { name: "SubscribeSensorReadings", serverStreaming: true, options: {}, I: Empty, O: SensorReading },
     { name: "GetSensorStatus", options: {}, I: Empty, O: SensorBoardStatus },
-    { name: "ConfigureHeater", options: {}, I: HeaterConfigRequest, O: HeaterConfigResponse }
+    { name: "ConfigureHeater", options: {}, I: HeaterConfigRequest, O: HeaterConfigResponse },
+    { name: "ListHeaterProfiles", options: {}, I: Empty, O: HeaterProfileListResponse },
+    { name: "GetHeaterProfile", options: {}, I: GetHeaterProfileRequest, O: HeaterProfileResponse },
+    { name: "CreateHeaterProfile", options: {}, I: HeaterProfileRequest, O: HeaterProfileResponse },
+    { name: "UpdateHeaterProfile", options: {}, I: HeaterProfileRequest, O: HeaterProfileResponse },
+    { name: "DeleteHeaterProfile", options: {}, I: DeleteHeaterProfileRequest, O: Empty }
 ]);
 /**
  * @generated ServiceType for protobuf service enose.service.LoadCellService

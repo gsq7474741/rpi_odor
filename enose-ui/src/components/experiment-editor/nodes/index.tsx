@@ -393,6 +393,52 @@ export const HardwareConfigNode = memo(function HardwareConfigNode(props: NodePr
   );
 });
 
+// 预热节点
+export const PreheatNode = memo(function PreheatNode(props: NodeProps) {
+  const data = props.data as Record<string, unknown>;
+  const mode = data.preheatMode as string || 'duration';
+  return (
+    <BaseNode {...props}>
+      <div className="text-xs space-y-1">
+        <div className="font-medium">{data.name as string || '传感器预热'}</div>
+        {mode === 'duration' ? (
+          <div className="text-muted-foreground">
+            等待 {String(data.durationS ?? 60)} 秒
+          </div>
+        ) : (
+          <div className="text-muted-foreground">
+            等待 {String(data.cycles ?? 3)} 个周期
+          </div>
+        )}
+        <div className="text-[10px] text-muted-foreground">
+          气泵: {String(data.gasPumpPwm ?? 50)}%
+          {data.recordData ? ' | 记录数据' : ''}
+        </div>
+      </div>
+    </BaseNode>
+  );
+});
+
+// 加热配置节点
+export const ConfigureHeaterNode = memo(function ConfigureHeaterNode(props: NodeProps) {
+  const data = props.data as Record<string, unknown>;
+  const profileName = data.profileName as string || 'constant_320';
+  const sensorIndices = data.sensorIndices as number[] || [];
+  return (
+    <BaseNode {...props}>
+      <div className="text-xs space-y-1">
+        <div className="font-medium">{data.name as string || '配置加热器'}</div>
+        <div className="text-muted-foreground">
+          预设: {profileName}
+        </div>
+        <div className="text-[10px] text-muted-foreground">
+          传感器: {sensorIndices.length > 0 ? sensorIndices.join(', ') : '全部'}
+        </div>
+      </div>
+    </BaseNode>
+  );
+});
+
 // 导出节点类型映射
 export const nodeTypes = {
   [NodeType.START]: StartNode,
@@ -411,4 +457,6 @@ export const nodeTypes = {
   [NodeType.SET_STATE]: SetStateNode,
   [NodeType.SET_GAS_PUMP]: SetGasPumpNode,
   [NodeType.HARDWARE_CONFIG]: HardwareConfigNode,
+  [NodeType.PREHEAT]: PreheatNode,
+  [NodeType.CONFIGURE_HEATER]: ConfigureHeaterNode,
 };

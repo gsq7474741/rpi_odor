@@ -60,6 +60,11 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(response);
       }
       
+      case "wash-pumps": {
+        const response = await promisify(c.getWashPumpAssignments.bind(c), {});
+        return NextResponse.json(response);
+      }
+      
       case "consumables": {
         const response = await promisify(c.getConsumableStatus.bind(c), {});
         return NextResponse.json(response);
@@ -129,22 +134,59 @@ export async function POST(request: NextRequest) {
       }
       
       case "set-pump": {
-        const response = await promisify(
-          c.setPumpAssignment.bind(c),
-          {
-            pumpIndex: body.pumpIndex,
-            liquidId: body.liquidId,
-            notes: body.notes || "",
-            initialVolumeMl: body.initialVolumeMl,
-            lowVolumeThresholdMl: body.lowVolumeThresholdMl,
-          }
-        );
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const req: any = {
+          pumpIndex: body.pumpIndex,
+          notes: body.notes || "",
+        };
+        if (body.liquidId !== null && body.liquidId !== undefined) {
+          req.liquidId = body.liquidId;
+        }
+        if (body.initialVolumeMl !== undefined) {
+          req.initialVolumeMl = body.initialVolumeMl;
+        }
+        if (body.lowVolumeThresholdMl !== undefined) {
+          req.lowVolumeThresholdMl = body.lowVolumeThresholdMl;
+        }
+        const response = await promisify(c.setPumpAssignment.bind(c), req);
         return NextResponse.json(response);
       }
       
       case "set-pump-volume": {
         const response = await promisify(
           c.setPumpVolume.bind(c),
+          {
+            pumpIndex: body.pumpIndex,
+            initialVolumeMl: body.initialVolumeMl,
+            lowVolumeThresholdMl: body.lowVolumeThresholdMl,
+            resetConsumed: body.resetConsumed !== false,
+          }
+        );
+        return NextResponse.json(response);
+      }
+      
+      case "set-wash-pump": {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const req: any = {
+          pumpIndex: body.pumpIndex,
+          notes: body.notes || "",
+        };
+        if (body.liquidId !== null && body.liquidId !== undefined) {
+          req.liquidId = body.liquidId;
+        }
+        if (body.initialVolumeMl !== undefined) {
+          req.initialVolumeMl = body.initialVolumeMl;
+        }
+        if (body.lowVolumeThresholdMl !== undefined) {
+          req.lowVolumeThresholdMl = body.lowVolumeThresholdMl;
+        }
+        const response = await promisify(c.setWashPumpAssignment.bind(c), req);
+        return NextResponse.json(response);
+      }
+      
+      case "set-wash-pump-volume": {
+        const response = await promisify(
+          c.setWashPumpVolume.bind(c),
           {
             pumpIndex: body.pumpIndex,
             initialVolumeMl: body.initialVolumeMl,
@@ -175,6 +217,46 @@ export async function POST(request: NextRequest) {
           }
         );
         return NextResponse.json(response);
+      }
+      
+      case "create-field": {
+        const response = await promisify(
+          c.createMetadataField.bind(c),
+          {
+            entityType: body.entityType || "liquid",
+            fieldKey: body.fieldKey,
+            fieldName: body.fieldName,
+            fieldType: body.fieldType || 1,
+            description: body.description || "",
+            isRequired: body.isRequired || false,
+            defaultValue: body.defaultValue || "",
+            optionsJson: body.optionsJson || "[]",
+            displayOrder: body.displayOrder || 0,
+          }
+        );
+        return NextResponse.json(response);
+      }
+      
+      case "update-field": {
+        const response = await promisify(
+          c.updateMetadataField.bind(c),
+          {
+            id: body.id,
+            fieldName: body.fieldName,
+            description: body.description || "",
+            isRequired: body.isRequired || false,
+            defaultValue: body.defaultValue || "",
+            optionsJson: body.optionsJson || "[]",
+            displayOrder: body.displayOrder || 0,
+            isActive: body.isActive !== false,
+          }
+        );
+        return NextResponse.json(response);
+      }
+      
+      case "delete-field": {
+        await promisify(c.deleteMetadataField.bind(c), { id: body.id });
+        return NextResponse.json({ success: true });
       }
       
       default:

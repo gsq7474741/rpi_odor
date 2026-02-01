@@ -25,8 +25,8 @@ CREATE TABLE IF NOT EXISTS pump_consumption_history (
     created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_pump_consumption_history_pump ON pump_consumption_history(pump_index, created_at DESC);
-CREATE INDEX idx_pump_consumption_history_liquid ON pump_consumption_history(liquid_id);
+CREATE INDEX IF NOT EXISTS idx_pump_consumption_history_pump ON pump_consumption_history(pump_index, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_pump_consumption_history_liquid ON pump_consumption_history(liquid_id);
 
 COMMENT ON TABLE pump_consumption_history IS '泵液体消耗历史记录';
 

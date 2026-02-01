@@ -15,7 +15,7 @@ $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $EnoseControl = Join-Path $ProjectRoot "enose-control"
 $ProtoDir = Join-Path $ProjectRoot "proto"
 $DockerImage = "enose-cross-arm64"
-$RPI_HOST = "user@192.168.1.235"
+$RPI_HOST = "user@rpi5.local"
 $RPI_PASS = "123456"
 $REMOTE_DIR = "/home/user/rpi_odor/enose-control"
 

@@ -19,6 +19,8 @@ export enum NodeType {
   
   // 传感器
   ACQUIRE = 'acquire',
+  PREHEAT = 'preheat',
+  CONFIGURE_HEATER = 'configureHeater',
   
   // 等待
   WAIT_TIME = 'waitTime',
@@ -51,9 +53,9 @@ export const NODE_CATEGORIES = {
     nodes: [NodeType.PARAM_SWEEP],
   },
   sensor: {
-    label: '数据采集',
+    label: '传感器',
     color: '#a855f7',
-    nodes: [NodeType.ACQUIRE],
+    nodes: [NodeType.ACQUIRE, NodeType.PREHEAT, NodeType.CONFIGURE_HEATER],
   },
   wait: {
     label: '等待',
@@ -204,6 +206,20 @@ export const NODE_META: Record<NodeType, {
     hasFlowIn: false,
     hasFlowOut: false,
     hasHardwareOut: true,
+  },
+  [NodeType.PREHEAT]: {
+    label: '传感器预热',
+    description: '等待传感器预热稳定（恒温用秒数，温度扫描用周期数）',
+    icon: 'Flame',
+    hasFlowIn: true,
+    hasFlowOut: true,
+  },
+  [NodeType.CONFIGURE_HEATER]: {
+    label: '配置加热器',
+    description: '为传感器设置加热曲线（可为不同传感器配置不同曲线）',
+    icon: 'Thermometer',
+    hasFlowIn: true,
+    hasFlowOut: true,
   },
 };
 
@@ -416,6 +432,7 @@ const FLOW_NODES = [
   NodeType.INJECT, NodeType.DRAIN, NodeType.WASH, NodeType.ACQUIRE,
   NodeType.WAIT_TIME, NodeType.WAIT_CYCLES, NodeType.WAIT_STABILITY,
   NodeType.SET_STATE, NodeType.SET_GAS_PUMP, NodeType.PARAM_SWEEP,
+  NodeType.PREHEAT, NodeType.CONFIGURE_HEATER,
 ];
 
 // 可接收液体输入的节点
@@ -525,6 +542,18 @@ export const CONNECTION_RULES: Record<NodeType, ConnectionRule> = {
     maxFlowOut: 0,
     hardwareTargets: [NodeType.START], // 硬件配置只能连接到开始节点
     maxHardwareOut: 1,
+  },
+  [NodeType.PREHEAT]: {
+    flowTargets: FLOW_NODES.filter(n => n !== NodeType.START),
+    flowSources: FLOW_NODES.filter(n => n !== NodeType.END),
+    maxFlowIn: 1,
+    maxFlowOut: 1,
+  },
+  [NodeType.CONFIGURE_HEATER]: {
+    flowTargets: FLOW_NODES.filter(n => n !== NodeType.START),
+    flowSources: FLOW_NODES.filter(n => n !== NodeType.END),
+    maxFlowIn: 1,
+    maxFlowOut: 1,
   },
 };
 

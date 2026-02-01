@@ -7,21 +7,23 @@ managed:
   go_package_prefix:
     default: github.com/your-org/enose/gen/go
 plugins:
-  # C++ Protobuf 代码生成
-  - plugin: buf.build/protocolbuffers/cpp
+  # C++ Protobuf 代码生成 (使用本地 protoc, 与 Docker 中 v33.4 兼容)
+  - plugin: cpp
     out: ../gen/cpp
   
-  # C++ gRPC 代码生成
-  - plugin: buf.build/grpc/cpp
+  # C++ gRPC 代码生成 (使用本地 grpc_cpp_plugin)
+  - plugin: grpc_cpp
     out: ../gen/cpp
+    path: /usr/bin/grpc_cpp_plugin
   
   # Python Protobuf 代码生成
-  - plugin: buf.build/protocolbuffers/python
+  - plugin: python
     out: ../gen/python
   
   # Python gRPC 代码生成
-  - plugin: buf.build/grpc/python
+  - plugin: grpc_python
     out: ../gen/python
+    path: /usr/bin/grpc_python_plugin
   
   # TypeScript 代码生成 (使用 protobuf-ts, 支持 gRPC)
   - plugin: buf.build/community/timostamm-protobuf-ts

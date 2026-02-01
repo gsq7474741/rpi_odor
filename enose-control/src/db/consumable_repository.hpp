@@ -47,6 +47,30 @@ struct PumpAssignmentRecord {
 };
 
 // ============================================================
+// 清洗泵配置记录
+// ============================================================
+struct WashPumpAssignmentRecord {
+    int pump_index{0};
+    std::optional<int> liquid_id;
+    std::string notes;
+    std::chrono::system_clock::time_point created_at;
+    std::chrono::system_clock::time_point updated_at;
+    // 容量相关字段
+    double initial_volume_ml{0.0};
+    double consumed_volume_ml{0.0};
+    double low_volume_threshold_ml{10.0};
+    
+    // 计算属性
+    double remaining_volume_ml() const {
+        return std::max(0.0, initial_volume_ml - consumed_volume_ml);
+    }
+    
+    bool is_low_volume() const {
+        return initial_volume_ml > 0 && remaining_volume_ml() <= low_volume_threshold_ml;
+    }
+};
+
+// ============================================================
 // 耗材记录
 // ============================================================
 struct ConsumableRecord {
@@ -147,6 +171,21 @@ public:
     bool add_pump_consumption(int pump_index, double volume_ml, std::optional<int> experiment_id = std::nullopt);
     
     std::optional<PumpAssignmentRecord> get_pump_assignment(int pump_index);
+    
+    // === 清洗泵配置管理 ===
+    std::vector<WashPumpAssignmentRecord> get_wash_pump_assignments();
+    
+    bool set_wash_pump_assignment(int pump_index, std::optional<int> liquid_id, const std::string& notes,
+                                   std::optional<double> initial_volume_ml = std::nullopt,
+                                   std::optional<double> low_volume_threshold_ml = std::nullopt);
+    
+    bool set_wash_pump_volume(int pump_index, double initial_volume_ml,
+                               std::optional<double> low_volume_threshold_ml = std::nullopt,
+                               bool reset_consumed = true);
+    
+    bool add_wash_pump_consumption(int pump_index, double volume_ml, std::optional<int> experiment_id = std::nullopt);
+    
+    std::optional<WashPumpAssignmentRecord> get_wash_pump_assignment(int pump_index);
     
     // === 耗材管理 ===
     std::vector<ConsumableRecord> get_all_consumables();

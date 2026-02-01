@@ -1,15 +1,356 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useEditorStore } from '../store';
 import { NodeType, NODE_META, SYSTEM_STATES, EXPERIMENT_PHASES } from '../types';
+import { HeaterProfileDialog, HeaterProfile } from '../dialogs/HeaterProfileDialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { Trash2, RefreshCw, Wand2 } from 'lucide-react';
+import { Trash2, RefreshCw, Wand2, Settings2, Plus } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+// 加热器预设类型别名
+type HeaterProfileItem = HeaterProfile;
+
+// 提取基础预设名称（去除 __N 后缀）
+function getBaseProfileName(name: string): string {
+  return name.replace(/__\d+$/, '');
+}
+
+// 加热器预设选择器 - 纯下拉选择，不包含对话框
+function HeaterProfileSelector({ 
+  value, 
+  onChange,
+  profiles,
+  loading = false
+}: { 
+  value: string; 
+  onChange: (name: string) => void;
+  profiles: HeaterProfileItem[];
+  loading?: boolean;
+}) {
+  // 提取基础名称用于匹配预设列表
+  const baseValue = getBaseProfileName(value);
+  
+  // 处理预设选择，保留原始后缀
+  const handleProfileSelect = (newBaseName: string) => {
+    const suffix = value.match(/__\d+$/)?.[0] || '';
+    onChange(newBaseName + suffix);
+  };
+
+  return (
+    <Select value={baseValue} onValueChange={handleProfileSelect}>
+      <SelectTrigger className="flex-1 min-w-0">
+        <SelectValue placeholder={loading ? '加载中...' : '选择预设...'} className="truncate" />
+      </SelectTrigger>
+      <SelectContent>
+        {profiles?.map((p) => (
+          <SelectItem key={p.id} value={p.name}>
+            <div className="flex flex-col max-w-[200px]">
+              <span className="truncate">{p.name}</span>
+              {p.description && (
+                <span className="text-[10px] text-muted-foreground truncate">{p.description}</span>
+              )}
+            </div>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+// 配置加热器字段组件 - 包含预设管理
+function ConfigureHeaterFields({ 
+  data, 
+  handleChange 
+}: { 
+  data: Record<string, unknown>; 
+  handleChange: (key: string, value: unknown) => void;
+}) {
+  const [profiles, setProfiles] = useState<HeaterProfileItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  
+  const loadProfiles = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/heater-profiles');
+      if (res.ok) {
+        const data = await res.json();
+        setProfiles(data);
+      }
+    } catch (err) {
+      console.error('Failed to load heater profiles:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  useEffect(() => {
+    loadProfiles();
+  }, []);
+  
+  // 每个传感器的预设: { [sensorIdx]: profileName }
+  const sensorProfiles = (data.sensorProfiles || {}) as Record<number, string>;
+  
+  // 按预设名称分组传感器
+  const profileGroups: Record<string, number[]> = {};
+  for (let i = 0; i < 8; i++) {
+    const profile = sensorProfiles[i] || '';
+    if (!profileGroups[profile]) {
+      profileGroups[profile] = [];
+    }
+    profileGroups[profile].push(i);
+  }
+  // 处理虚拟传感器 (>=8) 用于创建空组
+  Object.keys(sensorProfiles).forEach(key => {
+    const idx = parseInt(key);
+    if (idx >= 8) {
+      const profile = sensorProfiles[idx];
+      if (profile && !profileGroups[profile]) {
+        profileGroups[profile] = [];
+      }
+    }
+  });
+  
+  // 添加新的配置组
+  const handleAddGroup = (profileName: string) => {
+    const existingVirtual = Object.keys(sensorProfiles)
+      .map(k => parseInt(k))
+      .filter(k => k >= 8);
+    const nextVirtualIdx = existingVirtual.length > 0 
+      ? Math.max(...existingVirtual) + 1 
+      : 8;
+    
+    let uniqueProfileName = profileName;
+    const existingProfiles = new Set(Object.values(sensorProfiles).filter(p => p));
+    if (existingProfiles.has(profileName)) {
+      let counter = 2;
+      while (existingProfiles.has(`${profileName}__${counter}`)) {
+        counter++;
+      }
+      uniqueProfileName = `${profileName}__${counter}`;
+    }
+    
+    handleChange('sensorProfiles', { ...sensorProfiles, [nextVirtualIdx]: uniqueProfileName });
+  };
+  
+  // 更新组的传感器
+  const handleGroupSensorsChange = (oldProfile: string, newSensors: number[]) => {
+    const newProfiles = { ...sensorProfiles };
+    Object.keys(newProfiles).forEach(key => {
+      const idx = parseInt(key);
+      if (newProfiles[idx] === oldProfile && !newSensors.includes(idx)) {
+        newProfiles[idx] = '';
+      }
+    });
+    newSensors.forEach(idx => {
+      newProfiles[idx] = oldProfile;
+    });
+    handleChange('sensorProfiles', newProfiles);
+  };
+  
+  // 更新组的预设
+  const handleGroupProfileChange = (oldProfile: string, newProfile: string) => {
+    const newProfiles = { ...sensorProfiles };
+    Object.keys(newProfiles).forEach(key => {
+      const idx = parseInt(key);
+      if (newProfiles[idx] === oldProfile) {
+        newProfiles[idx] = newProfile;
+      }
+    });
+    handleChange('sensorProfiles', newProfiles);
+  };
+  
+  // 删除配置组
+  const handleDeleteGroup = (profile: string) => {
+    const newProfiles = { ...sensorProfiles };
+    Object.keys(newProfiles).forEach(key => {
+      const idx = parseInt(key);
+      if (newProfiles[idx] === profile) {
+        if (idx >= 8) {
+          delete newProfiles[idx];
+        } else {
+          newProfiles[idx] = '';
+        }
+      }
+    });
+    handleChange('sensorProfiles', newProfiles);
+  };
+  
+  const activeGroups = Object.entries(profileGroups).filter(([profile]) => profile !== '');
+  const unassignedSensors = profileGroups[''] || [];
+  
+  return (
+    <>
+      <Field label="步骤名称">
+        <Input
+          value={String(data.name || '')}
+          onChange={(e) => handleChange('name', e.target.value)}
+        />
+      </Field>
+      
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-medium">传感器加热配置</Label>
+          <div className="flex gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 text-xs"
+              onClick={() => setDialogOpen(true)}
+              title="管理预设"
+            >
+              <Settings2 className="w-3 h-3" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 text-xs"
+              onClick={() => handleAddGroup('constant_320')}
+            >
+              <Plus className="w-3 h-3 mr-1" /> 添加配置
+            </Button>
+          </div>
+        </div>
+        
+        {/* 配置组列表 */}
+        <div className="space-y-2">
+          {activeGroups.map(([profile, sensors]) => (
+            <div key={profile} className="border rounded-lg p-2 space-y-2 bg-muted/30 overflow-hidden">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="flex-1 min-w-0">
+                  <HeaterProfileSelector
+                    value={profile}
+                    onChange={(newProfile) => handleGroupProfileChange(profile, newProfile)}
+                    profiles={profiles}
+                    loading={loading}
+                  />
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 shrink-0 flex-none"
+                  onClick={() => handleDeleteGroup(profile)}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              </div>
+              
+              {/* 传感器选择网格 */}
+              <div className="flex flex-wrap gap-1">
+                {[0, 1, 2, 3, 4, 5, 6, 7].map((idx) => {
+                  const isSelected = sensors.includes(idx);
+                  const isAssignedElsewhere = !isSelected && Boolean(sensorProfiles[idx]);
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      className={cn(
+                        "w-7 h-7 text-xs rounded border transition-colors",
+                        isSelected 
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : isAssignedElsewhere
+                            ? "bg-muted text-muted-foreground border-transparent cursor-not-allowed opacity-40"
+                            : "bg-background hover:bg-accent border-border"
+                      )}
+                      disabled={isAssignedElsewhere}
+                      onClick={() => {
+                        if (isSelected) {
+                          handleGroupSensorsChange(profile, sensors.filter(s => s !== idx));
+                        } else {
+                          handleGroupSensorsChange(profile, [...sensors, idx]);
+                        }
+                      }}
+                    >
+                      S{idx}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          
+          {activeGroups.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center py-4">
+              点击"添加配置"为传感器分配加热预设
+            </p>
+          )}
+        </div>
+        
+        {/* 未分配的传感器提示 */}
+        {unassignedSensors.length > 0 && activeGroups.length > 0 && (
+          <p className="text-xs text-amber-600">
+            未配置: {unassignedSensors.map(i => `S${i}`).join(', ')}
+          </p>
+        )}
+      </div>
+      
+      {/* 预设管理对话框 */}
+      <HeaterProfileDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onProfilesChange={loadProfiles}
+      />
+    </>
+  );
+}
+
+// 传感器网格选择器
+function SensorGrid({ 
+  selected, 
+  onChange 
+}: { 
+  selected: number[]; 
+  onChange: (indices: number[]) => void;
+}) {
+  const toggle = (idx: number) => {
+    onChange(
+      selected.includes(idx) 
+        ? selected.filter(i => i !== idx) 
+        : [...selected, idx].sort()
+    );
+  };
+  
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs">选择传感器</Label>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onChange([0, 1, 2, 3, 4, 5, 6, 7])}
+          className="h-5 text-[10px] px-1"
+        >
+          全选
+        </Button>
+      </div>
+      <div className="grid grid-cols-4 gap-1">
+        {[0, 1, 2, 3, 4, 5, 6, 7].map((idx) => (
+          <button
+            key={idx}
+            onClick={() => toggle(idx)}
+            className={cn(
+              "h-7 rounded border text-xs font-medium transition-colors",
+              selected.includes(idx)
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background hover:bg-muted border-input"
+            )}
+          >
+            S{idx}
+          </button>
+        ))}
+      </div>
+      <p className="text-[10px] text-muted-foreground">
+        已选: {selected.length === 0 ? '无' : selected.map(i => `S${i}`).join(', ')}
+      </p>
+    </div>
+  );
+}
 
 // 液体库类型
 interface LiquidItem {
@@ -962,6 +1303,82 @@ export function PropertyPanel() {
             </Field>
           </>
         );
+      
+      case NodeType.PREHEAT:
+        return (
+          <>
+            <Field label="步骤名称">
+              <Input
+                value={String(data.name || '')}
+                onChange={(e) => handleChange('name', e.target.value)}
+              />
+            </Field>
+            <Field label="预热模式">
+              <Select
+                value={String(data.preheatMode || 'duration')}
+                onValueChange={(v) => handleChange('preheatMode', v)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="duration">固定时间 (秒)</SelectItem>
+                  <SelectItem value="cycles">加热周期数</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            {data.preheatMode === 'cycles' ? (
+              <Field label="预热周期数">
+                <Input
+                  type="number"
+                  min={1}
+                  value={Number(data.cycles || 3)}
+                  onChange={(e) => handleChange('cycles', parseInt(e.target.value) || 3)}
+                />
+              </Field>
+            ) : (
+              <Field label="预热时间 (秒)">
+                <Input
+                  type="number"
+                  min={10}
+                  value={Number(data.durationS || 60)}
+                  onChange={(e) => handleChange('durationS', parseInt(e.target.value) || 60)}
+                />
+              </Field>
+            )}
+            <Field label="最大时长 (秒)">
+              <Input
+                type="number"
+                min={30}
+                value={Number(data.maxDurationS || 300)}
+                onChange={(e) => handleChange('maxDurationS', parseInt(e.target.value) || 300)}
+              />
+            </Field>
+            <Field label={`气泵 PWM (${data.gasPumpPwm || 50}%)`}>
+              <Slider
+                value={[Number(data.gasPumpPwm || 50)]}
+                min={0}
+                max={100}
+                step={5}
+                onValueChange={([v]) => handleChange('gasPumpPwm', v)}
+              />
+            </Field>
+            <Field label="记录预热数据">
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={Boolean(data.recordData)}
+                  onCheckedChange={(checked) => handleChange('recordData', checked)}
+                />
+                <span className="text-sm text-muted-foreground">
+                  {data.recordData ? '是 (phase=PREHEAT)' : '否'}
+                </span>
+              </div>
+            </Field>
+          </>
+        );
+      
+      case NodeType.CONFIGURE_HEATER:
+        return <ConfigureHeaterFields data={data} handleChange={handleChange} />;
       
       case NodeType.END:
         return <p className="text-sm text-muted-foreground">实验结束节点，无可编辑属性</p>;

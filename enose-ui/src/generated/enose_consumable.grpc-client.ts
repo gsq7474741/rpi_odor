@@ -14,6 +14,11 @@ import type { UpdateLifetimeRequest } from "./enose_consumable";
 import type { Consumable } from "./enose_consumable";
 import type { ResetConsumableRequest } from "./enose_consumable";
 import type { ConsumableStatusResponse } from "./enose_consumable";
+import type { AddWashPumpConsumptionRequest } from "./enose_consumable";
+import type { SetWashPumpVolumeRequest } from "./enose_consumable";
+import type { WashPumpAssignment } from "./enose_consumable";
+import type { SetWashPumpAssignmentRequest } from "./enose_consumable";
+import type { WashPumpAssignmentsResponse } from "./enose_consumable";
 import type { AddPumpConsumptionRequest } from "./enose_consumable";
 import type { SetPumpVolumeRequest } from "./enose_consumable";
 import type { PumpAssignment } from "./enose_consumable";
@@ -74,7 +79,7 @@ export interface IConsumableServiceClient {
     deleteLiquid(input: DeleteLiquidRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
     deleteLiquid(input: DeleteLiquidRequest, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
     /**
-     * 泵配置
+     * 样品泵配置
      *
      * @generated from protobuf rpc: GetPumpAssignments
      */
@@ -103,6 +108,36 @@ export interface IConsumableServiceClient {
     addPumpConsumption(input: AddPumpConsumptionRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: PumpAssignment) => void): grpc.ClientUnaryCall;
     addPumpConsumption(input: AddPumpConsumptionRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: PumpAssignment) => void): grpc.ClientUnaryCall;
     addPumpConsumption(input: AddPumpConsumptionRequest, callback: (err: grpc.ServiceError | null, value?: PumpAssignment) => void): grpc.ClientUnaryCall;
+    /**
+     * 清洗泵配置
+     *
+     * @generated from protobuf rpc: GetWashPumpAssignments
+     */
+    getWashPumpAssignments(input: Empty, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: WashPumpAssignmentsResponse) => void): grpc.ClientUnaryCall;
+    getWashPumpAssignments(input: Empty, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: WashPumpAssignmentsResponse) => void): grpc.ClientUnaryCall;
+    getWashPumpAssignments(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: WashPumpAssignmentsResponse) => void): grpc.ClientUnaryCall;
+    getWashPumpAssignments(input: Empty, callback: (err: grpc.ServiceError | null, value?: WashPumpAssignmentsResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * @generated from protobuf rpc: SetWashPumpAssignment
+     */
+    setWashPumpAssignment(input: SetWashPumpAssignmentRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: WashPumpAssignment) => void): grpc.ClientUnaryCall;
+    setWashPumpAssignment(input: SetWashPumpAssignmentRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: WashPumpAssignment) => void): grpc.ClientUnaryCall;
+    setWashPumpAssignment(input: SetWashPumpAssignmentRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: WashPumpAssignment) => void): grpc.ClientUnaryCall;
+    setWashPumpAssignment(input: SetWashPumpAssignmentRequest, callback: (err: grpc.ServiceError | null, value?: WashPumpAssignment) => void): grpc.ClientUnaryCall;
+    /**
+     * @generated from protobuf rpc: SetWashPumpVolume
+     */
+    setWashPumpVolume(input: SetWashPumpVolumeRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: WashPumpAssignment) => void): grpc.ClientUnaryCall;
+    setWashPumpVolume(input: SetWashPumpVolumeRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: WashPumpAssignment) => void): grpc.ClientUnaryCall;
+    setWashPumpVolume(input: SetWashPumpVolumeRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: WashPumpAssignment) => void): grpc.ClientUnaryCall;
+    setWashPumpVolume(input: SetWashPumpVolumeRequest, callback: (err: grpc.ServiceError | null, value?: WashPumpAssignment) => void): grpc.ClientUnaryCall;
+    /**
+     * @generated from protobuf rpc: AddWashPumpConsumption
+     */
+    addWashPumpConsumption(input: AddWashPumpConsumptionRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: WashPumpAssignment) => void): grpc.ClientUnaryCall;
+    addWashPumpConsumption(input: AddWashPumpConsumptionRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: WashPumpAssignment) => void): grpc.ClientUnaryCall;
+    addWashPumpConsumption(input: AddWashPumpConsumptionRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: WashPumpAssignment) => void): grpc.ClientUnaryCall;
+    addWashPumpConsumption(input: AddWashPumpConsumptionRequest, callback: (err: grpc.ServiceError | null, value?: WashPumpAssignment) => void): grpc.ClientUnaryCall;
     /**
      * 耗材状态
      *
@@ -208,7 +243,7 @@ export class ConsumableServiceClient extends grpc.Client implements IConsumableS
         return this.makeUnaryRequest<DeleteLiquidRequest, Empty>(`/${ConsumableService.typeName}/${method.name}`, (value: DeleteLiquidRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): Empty => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
-     * 泵配置
+     * 样品泵配置
      *
      * @generated from protobuf rpc: GetPumpAssignments
      */
@@ -238,26 +273,56 @@ export class ConsumableServiceClient extends grpc.Client implements IConsumableS
         return this.makeUnaryRequest<AddPumpConsumptionRequest, PumpAssignment>(`/${ConsumableService.typeName}/${method.name}`, (value: AddPumpConsumptionRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): PumpAssignment => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
+     * 清洗泵配置
+     *
+     * @generated from protobuf rpc: GetWashPumpAssignments
+     */
+    getWashPumpAssignments(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: WashPumpAssignmentsResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: WashPumpAssignmentsResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: WashPumpAssignmentsResponse) => void)): grpc.ClientUnaryCall {
+        const method = ConsumableService.methods[9];
+        return this.makeUnaryRequest<Empty, WashPumpAssignmentsResponse>(`/${ConsumableService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): WashPumpAssignmentsResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * @generated from protobuf rpc: SetWashPumpAssignment
+     */
+    setWashPumpAssignment(input: SetWashPumpAssignmentRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: WashPumpAssignment) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: WashPumpAssignment) => void), callback?: ((err: grpc.ServiceError | null, value?: WashPumpAssignment) => void)): grpc.ClientUnaryCall {
+        const method = ConsumableService.methods[10];
+        return this.makeUnaryRequest<SetWashPumpAssignmentRequest, WashPumpAssignment>(`/${ConsumableService.typeName}/${method.name}`, (value: SetWashPumpAssignmentRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): WashPumpAssignment => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * @generated from protobuf rpc: SetWashPumpVolume
+     */
+    setWashPumpVolume(input: SetWashPumpVolumeRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: WashPumpAssignment) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: WashPumpAssignment) => void), callback?: ((err: grpc.ServiceError | null, value?: WashPumpAssignment) => void)): grpc.ClientUnaryCall {
+        const method = ConsumableService.methods[11];
+        return this.makeUnaryRequest<SetWashPumpVolumeRequest, WashPumpAssignment>(`/${ConsumableService.typeName}/${method.name}`, (value: SetWashPumpVolumeRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): WashPumpAssignment => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * @generated from protobuf rpc: AddWashPumpConsumption
+     */
+    addWashPumpConsumption(input: AddWashPumpConsumptionRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: WashPumpAssignment) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: WashPumpAssignment) => void), callback?: ((err: grpc.ServiceError | null, value?: WashPumpAssignment) => void)): grpc.ClientUnaryCall {
+        const method = ConsumableService.methods[12];
+        return this.makeUnaryRequest<AddWashPumpConsumptionRequest, WashPumpAssignment>(`/${ConsumableService.typeName}/${method.name}`, (value: AddWashPumpConsumptionRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): WashPumpAssignment => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
      * 耗材状态
      *
      * @generated from protobuf rpc: GetConsumableStatus
      */
     getConsumableStatus(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: ConsumableStatusResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: ConsumableStatusResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: ConsumableStatusResponse) => void)): grpc.ClientUnaryCall {
-        const method = ConsumableService.methods[9];
+        const method = ConsumableService.methods[13];
         return this.makeUnaryRequest<Empty, ConsumableStatusResponse>(`/${ConsumableService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): ConsumableStatusResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
      * @generated from protobuf rpc: ResetConsumable
      */
     resetConsumable(input: ResetConsumableRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Consumable) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Consumable) => void), callback?: ((err: grpc.ServiceError | null, value?: Consumable) => void)): grpc.ClientUnaryCall {
-        const method = ConsumableService.methods[10];
+        const method = ConsumableService.methods[14];
         return this.makeUnaryRequest<ResetConsumableRequest, Consumable>(`/${ConsumableService.typeName}/${method.name}`, (value: ResetConsumableRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): Consumable => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
      * @generated from protobuf rpc: UpdateConsumableLifetime
      */
     updateConsumableLifetime(input: UpdateLifetimeRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Consumable) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Consumable) => void), callback?: ((err: grpc.ServiceError | null, value?: Consumable) => void)): grpc.ClientUnaryCall {
-        const method = ConsumableService.methods[11];
+        const method = ConsumableService.methods[15];
         return this.makeUnaryRequest<UpdateLifetimeRequest, Consumable>(`/${ConsumableService.typeName}/${method.name}`, (value: UpdateLifetimeRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): Consumable => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
@@ -266,28 +331,28 @@ export class ConsumableServiceClient extends grpc.Client implements IConsumableS
      * @generated from protobuf rpc: ListMetadataFields
      */
     listMetadataFields(input: ListMetadataFieldsRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: MetadataFieldListResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: MetadataFieldListResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: MetadataFieldListResponse) => void)): grpc.ClientUnaryCall {
-        const method = ConsumableService.methods[12];
+        const method = ConsumableService.methods[16];
         return this.makeUnaryRequest<ListMetadataFieldsRequest, MetadataFieldListResponse>(`/${ConsumableService.typeName}/${method.name}`, (value: ListMetadataFieldsRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): MetadataFieldListResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
      * @generated from protobuf rpc: CreateMetadataField
      */
     createMetadataField(input: CreateMetadataFieldRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: MetadataField) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: MetadataField) => void), callback?: ((err: grpc.ServiceError | null, value?: MetadataField) => void)): grpc.ClientUnaryCall {
-        const method = ConsumableService.methods[13];
+        const method = ConsumableService.methods[17];
         return this.makeUnaryRequest<CreateMetadataFieldRequest, MetadataField>(`/${ConsumableService.typeName}/${method.name}`, (value: CreateMetadataFieldRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): MetadataField => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
      * @generated from protobuf rpc: UpdateMetadataField
      */
     updateMetadataField(input: UpdateMetadataFieldRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: MetadataField) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: MetadataField) => void), callback?: ((err: grpc.ServiceError | null, value?: MetadataField) => void)): grpc.ClientUnaryCall {
-        const method = ConsumableService.methods[14];
+        const method = ConsumableService.methods[18];
         return this.makeUnaryRequest<UpdateMetadataFieldRequest, MetadataField>(`/${ConsumableService.typeName}/${method.name}`, (value: UpdateMetadataFieldRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): MetadataField => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
      * @generated from protobuf rpc: DeleteMetadataField
      */
     deleteMetadataField(input: DeleteMetadataFieldRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), callback?: ((err: grpc.ServiceError | null, value?: Empty) => void)): grpc.ClientUnaryCall {
-        const method = ConsumableService.methods[15];
+        const method = ConsumableService.methods[19];
         return this.makeUnaryRequest<DeleteMetadataFieldRequest, Empty>(`/${ConsumableService.typeName}/${method.name}`, (value: DeleteMetadataFieldRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): Empty => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
 }

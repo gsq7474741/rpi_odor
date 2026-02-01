@@ -287,6 +287,133 @@ export interface AddPumpConsumptionRequest {
      */
     experimentId?: number; // 关联实验ID
 }
+// ============================================================
+// 清洗泵配置相关消息
+// ============================================================
+
+/**
+ * @generated from protobuf message enose.consumable.WashPumpAssignment
+ */
+export interface WashPumpAssignment {
+    /**
+     * @generated from protobuf field: int32 pump_index = 1
+     */
+    pumpIndex: number; // 清洗泵索引
+    /**
+     * @generated from protobuf field: optional int32 liquid_id = 2
+     */
+    liquidId?: number;
+    /**
+     * @generated from protobuf field: optional enose.consumable.Liquid liquid = 3
+     */
+    liquid?: Liquid; // 关联的液体信息 (必须为 rinse 类型)
+    /**
+     * @generated from protobuf field: string notes = 4
+     */
+    notes: string;
+    /**
+     * @generated from protobuf field: google.protobuf.Timestamp created_at = 5
+     */
+    createdAt?: Timestamp;
+    /**
+     * @generated from protobuf field: google.protobuf.Timestamp updated_at = 6
+     */
+    updatedAt?: Timestamp;
+    /**
+     * 容量相关字段
+     *
+     * @generated from protobuf field: double initial_volume_ml = 7
+     */
+    initialVolumeMl: number; // 初始容量 (ml)
+    /**
+     * @generated from protobuf field: double consumed_volume_ml = 8
+     */
+    consumedVolumeMl: number; // 已消耗量 (ml)
+    /**
+     * @generated from protobuf field: double remaining_volume_ml = 9
+     */
+    remainingVolumeMl: number; // 剩余量 (ml) - 计算值
+    /**
+     * @generated from protobuf field: double low_volume_threshold_ml = 10
+     */
+    lowVolumeThresholdMl: number; // 低量预警阈值 (ml)
+    /**
+     * @generated from protobuf field: bool is_low_volume = 11
+     */
+    isLowVolume: boolean; // 是否低量
+}
+/**
+ * @generated from protobuf message enose.consumable.WashPumpAssignmentsResponse
+ */
+export interface WashPumpAssignmentsResponse {
+    /**
+     * @generated from protobuf field: repeated enose.consumable.WashPumpAssignment assignments = 1
+     */
+    assignments: WashPumpAssignment[];
+}
+/**
+ * @generated from protobuf message enose.consumable.SetWashPumpAssignmentRequest
+ */
+export interface SetWashPumpAssignmentRequest {
+    /**
+     * @generated from protobuf field: int32 pump_index = 1
+     */
+    pumpIndex: number;
+    /**
+     * @generated from protobuf field: optional int32 liquid_id = 2
+     */
+    liquidId?: number; // null 表示清空，必须为 rinse 类型液体
+    /**
+     * @generated from protobuf field: string notes = 3
+     */
+    notes: string;
+    /**
+     * @generated from protobuf field: optional double initial_volume_ml = 4
+     */
+    initialVolumeMl?: number; // 初始容量
+    /**
+     * @generated from protobuf field: optional double low_volume_threshold_ml = 5
+     */
+    lowVolumeThresholdMl?: number; // 低量阈值
+}
+/**
+ * @generated from protobuf message enose.consumable.SetWashPumpVolumeRequest
+ */
+export interface SetWashPumpVolumeRequest {
+    /**
+     * @generated from protobuf field: int32 pump_index = 1
+     */
+    pumpIndex: number;
+    /**
+     * @generated from protobuf field: double initial_volume_ml = 2
+     */
+    initialVolumeMl: number; // 新的初始容量
+    /**
+     * @generated from protobuf field: optional double low_volume_threshold_ml = 3
+     */
+    lowVolumeThresholdMl?: number; // 低量阈值
+    /**
+     * @generated from protobuf field: bool reset_consumed = 4
+     */
+    resetConsumed: boolean; // 是否重置已消耗量
+}
+/**
+ * @generated from protobuf message enose.consumable.AddWashPumpConsumptionRequest
+ */
+export interface AddWashPumpConsumptionRequest {
+    /**
+     * @generated from protobuf field: int32 pump_index = 1
+     */
+    pumpIndex: number;
+    /**
+     * @generated from protobuf field: double volume_ml = 2
+     */
+    volumeMl: number; // 消耗量
+    /**
+     * @generated from protobuf field: optional int32 experiment_id = 3
+     */
+    experimentId?: number; // 关联实验ID
+}
 /**
  * @generated from protobuf message enose.consumable.Consumable
  */
@@ -1538,6 +1665,384 @@ class AddPumpConsumptionRequest$Type extends MessageType<AddPumpConsumptionReque
  */
 export const AddPumpConsumptionRequest = new AddPumpConsumptionRequest$Type();
 // @generated message type with reflection information, may provide speed optimized methods
+class WashPumpAssignment$Type extends MessageType<WashPumpAssignment> {
+    constructor() {
+        super("enose.consumable.WashPumpAssignment", [
+            { no: 1, name: "pump_index", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "liquid_id", kind: "scalar", opt: true, T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "liquid", kind: "message", T: () => Liquid },
+            { no: 4, name: "notes", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 5, name: "created_at", kind: "message", T: () => Timestamp },
+            { no: 6, name: "updated_at", kind: "message", T: () => Timestamp },
+            { no: 7, name: "initial_volume_ml", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 8, name: "consumed_volume_ml", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 9, name: "remaining_volume_ml", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 10, name: "low_volume_threshold_ml", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 11, name: "is_low_volume", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
+        ]);
+    }
+    create(value?: PartialMessage<WashPumpAssignment>): WashPumpAssignment {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.pumpIndex = 0;
+        message.notes = "";
+        message.initialVolumeMl = 0;
+        message.consumedVolumeMl = 0;
+        message.remainingVolumeMl = 0;
+        message.lowVolumeThresholdMl = 0;
+        message.isLowVolume = false;
+        if (value !== undefined)
+            reflectionMergePartial<WashPumpAssignment>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: WashPumpAssignment): WashPumpAssignment {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 pump_index */ 1:
+                    message.pumpIndex = reader.int32();
+                    break;
+                case /* optional int32 liquid_id */ 2:
+                    message.liquidId = reader.int32();
+                    break;
+                case /* optional enose.consumable.Liquid liquid */ 3:
+                    message.liquid = Liquid.internalBinaryRead(reader, reader.uint32(), options, message.liquid);
+                    break;
+                case /* string notes */ 4:
+                    message.notes = reader.string();
+                    break;
+                case /* google.protobuf.Timestamp created_at */ 5:
+                    message.createdAt = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.createdAt);
+                    break;
+                case /* google.protobuf.Timestamp updated_at */ 6:
+                    message.updatedAt = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.updatedAt);
+                    break;
+                case /* double initial_volume_ml */ 7:
+                    message.initialVolumeMl = reader.double();
+                    break;
+                case /* double consumed_volume_ml */ 8:
+                    message.consumedVolumeMl = reader.double();
+                    break;
+                case /* double remaining_volume_ml */ 9:
+                    message.remainingVolumeMl = reader.double();
+                    break;
+                case /* double low_volume_threshold_ml */ 10:
+                    message.lowVolumeThresholdMl = reader.double();
+                    break;
+                case /* bool is_low_volume */ 11:
+                    message.isLowVolume = reader.bool();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: WashPumpAssignment, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 pump_index = 1; */
+        if (message.pumpIndex !== 0)
+            writer.tag(1, WireType.Varint).int32(message.pumpIndex);
+        /* optional int32 liquid_id = 2; */
+        if (message.liquidId !== undefined)
+            writer.tag(2, WireType.Varint).int32(message.liquidId);
+        /* optional enose.consumable.Liquid liquid = 3; */
+        if (message.liquid)
+            Liquid.internalBinaryWrite(message.liquid, writer.tag(3, WireType.LengthDelimited).fork(), options).join();
+        /* string notes = 4; */
+        if (message.notes !== "")
+            writer.tag(4, WireType.LengthDelimited).string(message.notes);
+        /* google.protobuf.Timestamp created_at = 5; */
+        if (message.createdAt)
+            Timestamp.internalBinaryWrite(message.createdAt, writer.tag(5, WireType.LengthDelimited).fork(), options).join();
+        /* google.protobuf.Timestamp updated_at = 6; */
+        if (message.updatedAt)
+            Timestamp.internalBinaryWrite(message.updatedAt, writer.tag(6, WireType.LengthDelimited).fork(), options).join();
+        /* double initial_volume_ml = 7; */
+        if (message.initialVolumeMl !== 0)
+            writer.tag(7, WireType.Bit64).double(message.initialVolumeMl);
+        /* double consumed_volume_ml = 8; */
+        if (message.consumedVolumeMl !== 0)
+            writer.tag(8, WireType.Bit64).double(message.consumedVolumeMl);
+        /* double remaining_volume_ml = 9; */
+        if (message.remainingVolumeMl !== 0)
+            writer.tag(9, WireType.Bit64).double(message.remainingVolumeMl);
+        /* double low_volume_threshold_ml = 10; */
+        if (message.lowVolumeThresholdMl !== 0)
+            writer.tag(10, WireType.Bit64).double(message.lowVolumeThresholdMl);
+        /* bool is_low_volume = 11; */
+        if (message.isLowVolume !== false)
+            writer.tag(11, WireType.Varint).bool(message.isLowVolume);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.consumable.WashPumpAssignment
+ */
+export const WashPumpAssignment = new WashPumpAssignment$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class WashPumpAssignmentsResponse$Type extends MessageType<WashPumpAssignmentsResponse> {
+    constructor() {
+        super("enose.consumable.WashPumpAssignmentsResponse", [
+            { no: 1, name: "assignments", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => WashPumpAssignment }
+        ]);
+    }
+    create(value?: PartialMessage<WashPumpAssignmentsResponse>): WashPumpAssignmentsResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.assignments = [];
+        if (value !== undefined)
+            reflectionMergePartial<WashPumpAssignmentsResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: WashPumpAssignmentsResponse): WashPumpAssignmentsResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated enose.consumable.WashPumpAssignment assignments */ 1:
+                    message.assignments.push(WashPumpAssignment.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: WashPumpAssignmentsResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated enose.consumable.WashPumpAssignment assignments = 1; */
+        for (let i = 0; i < message.assignments.length; i++)
+            WashPumpAssignment.internalBinaryWrite(message.assignments[i], writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.consumable.WashPumpAssignmentsResponse
+ */
+export const WashPumpAssignmentsResponse = new WashPumpAssignmentsResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class SetWashPumpAssignmentRequest$Type extends MessageType<SetWashPumpAssignmentRequest> {
+    constructor() {
+        super("enose.consumable.SetWashPumpAssignmentRequest", [
+            { no: 1, name: "pump_index", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "liquid_id", kind: "scalar", opt: true, T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "notes", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "initial_volume_ml", kind: "scalar", opt: true, T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 5, name: "low_volume_threshold_ml", kind: "scalar", opt: true, T: 1 /*ScalarType.DOUBLE*/ }
+        ]);
+    }
+    create(value?: PartialMessage<SetWashPumpAssignmentRequest>): SetWashPumpAssignmentRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.pumpIndex = 0;
+        message.notes = "";
+        if (value !== undefined)
+            reflectionMergePartial<SetWashPumpAssignmentRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: SetWashPumpAssignmentRequest): SetWashPumpAssignmentRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 pump_index */ 1:
+                    message.pumpIndex = reader.int32();
+                    break;
+                case /* optional int32 liquid_id */ 2:
+                    message.liquidId = reader.int32();
+                    break;
+                case /* string notes */ 3:
+                    message.notes = reader.string();
+                    break;
+                case /* optional double initial_volume_ml */ 4:
+                    message.initialVolumeMl = reader.double();
+                    break;
+                case /* optional double low_volume_threshold_ml */ 5:
+                    message.lowVolumeThresholdMl = reader.double();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: SetWashPumpAssignmentRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 pump_index = 1; */
+        if (message.pumpIndex !== 0)
+            writer.tag(1, WireType.Varint).int32(message.pumpIndex);
+        /* optional int32 liquid_id = 2; */
+        if (message.liquidId !== undefined)
+            writer.tag(2, WireType.Varint).int32(message.liquidId);
+        /* string notes = 3; */
+        if (message.notes !== "")
+            writer.tag(3, WireType.LengthDelimited).string(message.notes);
+        /* optional double initial_volume_ml = 4; */
+        if (message.initialVolumeMl !== undefined)
+            writer.tag(4, WireType.Bit64).double(message.initialVolumeMl);
+        /* optional double low_volume_threshold_ml = 5; */
+        if (message.lowVolumeThresholdMl !== undefined)
+            writer.tag(5, WireType.Bit64).double(message.lowVolumeThresholdMl);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.consumable.SetWashPumpAssignmentRequest
+ */
+export const SetWashPumpAssignmentRequest = new SetWashPumpAssignmentRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class SetWashPumpVolumeRequest$Type extends MessageType<SetWashPumpVolumeRequest> {
+    constructor() {
+        super("enose.consumable.SetWashPumpVolumeRequest", [
+            { no: 1, name: "pump_index", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "initial_volume_ml", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 3, name: "low_volume_threshold_ml", kind: "scalar", opt: true, T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 4, name: "reset_consumed", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
+        ]);
+    }
+    create(value?: PartialMessage<SetWashPumpVolumeRequest>): SetWashPumpVolumeRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.pumpIndex = 0;
+        message.initialVolumeMl = 0;
+        message.resetConsumed = false;
+        if (value !== undefined)
+            reflectionMergePartial<SetWashPumpVolumeRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: SetWashPumpVolumeRequest): SetWashPumpVolumeRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 pump_index */ 1:
+                    message.pumpIndex = reader.int32();
+                    break;
+                case /* double initial_volume_ml */ 2:
+                    message.initialVolumeMl = reader.double();
+                    break;
+                case /* optional double low_volume_threshold_ml */ 3:
+                    message.lowVolumeThresholdMl = reader.double();
+                    break;
+                case /* bool reset_consumed */ 4:
+                    message.resetConsumed = reader.bool();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: SetWashPumpVolumeRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 pump_index = 1; */
+        if (message.pumpIndex !== 0)
+            writer.tag(1, WireType.Varint).int32(message.pumpIndex);
+        /* double initial_volume_ml = 2; */
+        if (message.initialVolumeMl !== 0)
+            writer.tag(2, WireType.Bit64).double(message.initialVolumeMl);
+        /* optional double low_volume_threshold_ml = 3; */
+        if (message.lowVolumeThresholdMl !== undefined)
+            writer.tag(3, WireType.Bit64).double(message.lowVolumeThresholdMl);
+        /* bool reset_consumed = 4; */
+        if (message.resetConsumed !== false)
+            writer.tag(4, WireType.Varint).bool(message.resetConsumed);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.consumable.SetWashPumpVolumeRequest
+ */
+export const SetWashPumpVolumeRequest = new SetWashPumpVolumeRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class AddWashPumpConsumptionRequest$Type extends MessageType<AddWashPumpConsumptionRequest> {
+    constructor() {
+        super("enose.consumable.AddWashPumpConsumptionRequest", [
+            { no: 1, name: "pump_index", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "volume_ml", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 3, name: "experiment_id", kind: "scalar", opt: true, T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<AddWashPumpConsumptionRequest>): AddWashPumpConsumptionRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.pumpIndex = 0;
+        message.volumeMl = 0;
+        if (value !== undefined)
+            reflectionMergePartial<AddWashPumpConsumptionRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: AddWashPumpConsumptionRequest): AddWashPumpConsumptionRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 pump_index */ 1:
+                    message.pumpIndex = reader.int32();
+                    break;
+                case /* double volume_ml */ 2:
+                    message.volumeMl = reader.double();
+                    break;
+                case /* optional int32 experiment_id */ 3:
+                    message.experimentId = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: AddWashPumpConsumptionRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 pump_index = 1; */
+        if (message.pumpIndex !== 0)
+            writer.tag(1, WireType.Varint).int32(message.pumpIndex);
+        /* double volume_ml = 2; */
+        if (message.volumeMl !== 0)
+            writer.tag(2, WireType.Bit64).double(message.volumeMl);
+        /* optional int32 experiment_id = 3; */
+        if (message.experimentId !== undefined)
+            writer.tag(3, WireType.Varint).int32(message.experimentId);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.consumable.AddWashPumpConsumptionRequest
+ */
+export const AddWashPumpConsumptionRequest = new AddWashPumpConsumptionRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
 class Consumable$Type extends MessageType<Consumable> {
     constructor() {
         super("enose.consumable.Consumable", [
@@ -2346,6 +2851,10 @@ export const ConsumableService = new ServiceType("enose.consumable.ConsumableSer
     { name: "SetPumpAssignment", options: {}, I: SetPumpAssignmentRequest, O: PumpAssignment },
     { name: "SetPumpVolume", options: {}, I: SetPumpVolumeRequest, O: PumpAssignment },
     { name: "AddPumpConsumption", options: {}, I: AddPumpConsumptionRequest, O: PumpAssignment },
+    { name: "GetWashPumpAssignments", options: {}, I: Empty, O: WashPumpAssignmentsResponse },
+    { name: "SetWashPumpAssignment", options: {}, I: SetWashPumpAssignmentRequest, O: WashPumpAssignment },
+    { name: "SetWashPumpVolume", options: {}, I: SetWashPumpVolumeRequest, O: WashPumpAssignment },
+    { name: "AddWashPumpConsumption", options: {}, I: AddWashPumpConsumptionRequest, O: WashPumpAssignment },
     { name: "GetConsumableStatus", options: {}, I: Empty, O: ConsumableStatusResponse },
     { name: "ResetConsumable", options: {}, I: ResetConsumableRequest, O: Consumable },
     { name: "UpdateConsumableLifetime", options: {}, I: UpdateLifetimeRequest, O: Consumable },

@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS metadata_fields (
     UNIQUE(entity_type, field_key)
 );
 
-CREATE INDEX idx_metadata_fields_entity ON metadata_fields(entity_type, is_active);
+CREATE INDEX IF NOT EXISTS idx_metadata_fields_entity ON metadata_fields(entity_type, is_active);
 
 COMMENT ON TABLE metadata_fields IS '元数据字段定义，支持动态扩展实体属性';
 
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS liquids (
     updated_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_liquids_type ON liquids(type, is_active);
+CREATE INDEX IF NOT EXISTS idx_liquids_type ON liquids(type, is_active);
 
 COMMENT ON TABLE liquids IS '样品和液体库，支持可配置元数据';
 
@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS liquid_attachments (
     created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_liquid_attachments_liquid ON liquid_attachments(liquid_id);
+CREATE INDEX IF NOT EXISTS idx_liquid_attachments_liquid ON liquid_attachments(liquid_id);
 
 COMMENT ON TABLE liquid_attachments IS '液体关联的附件（图片等）';
 
@@ -114,7 +114,7 @@ INSERT INTO consumables (id, name, type, lifetime_seconds) VALUES
     ('vacuum_filter', '真空过滤器', 'vacuum_filter', 1800000)
 ON CONFLICT (id) DO NOTHING;
 
-CREATE INDEX idx_consumables_type ON consumables(type);
+CREATE INDEX IF NOT EXISTS idx_consumables_type ON consumables(type);
 
 COMMENT ON TABLE consumables IS '耗材状态跟踪';
 
@@ -132,7 +132,7 @@ CREATE TABLE IF NOT EXISTS consumable_history (
     created_at              TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_consumable_history_consumable ON consumable_history(consumable_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_consumable_history_consumable ON consumable_history(consumable_id, created_at DESC);
 
 COMMENT ON TABLE consumable_history IS '耗材操作历史记录';
 

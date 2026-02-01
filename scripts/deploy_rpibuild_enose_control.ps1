@@ -11,7 +11,7 @@ $ErrorActionPreference = "Stop"
 # 配置
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $ProtoDir = Join-Path $ProjectRoot "proto"
-$RPI_HOST = "user@192.168.1.235"
+$RPI_HOST = "user@rpi5.local"
 $RPI_PASS = "123456"
 $REMOTE_DIR = "/home/user/rpi_odor"
 $PROJECT_DIR = "$REMOTE_DIR/enose-control"

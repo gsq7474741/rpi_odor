@@ -27,6 +27,11 @@ import type { CalibrationResult } from "./enose_service";
 import type { ReferenceWeightRequest } from "./enose_service";
 import type { CalibrationStatus } from "./enose_service";
 import { SensorService } from "./enose_service";
+import type { DeleteHeaterProfileRequest } from "./enose_service";
+import type { HeaterProfileRequest } from "./enose_service";
+import type { HeaterProfileResponse } from "./enose_service";
+import type { GetHeaterProfileRequest } from "./enose_service";
+import type { HeaterProfileListResponse } from "./enose_service";
 import type { HeaterConfigResponse } from "./enose_service";
 import type { HeaterConfigRequest } from "./enose_service";
 import type { SensorBoardStatus } from "./enose_service";
@@ -396,6 +401,52 @@ export interface ISensorServiceClient {
     configureHeater(input: HeaterConfigRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: HeaterConfigResponse) => void): grpc.ClientUnaryCall;
     configureHeater(input: HeaterConfigRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: HeaterConfigResponse) => void): grpc.ClientUnaryCall;
     configureHeater(input: HeaterConfigRequest, callback: (err: grpc.ServiceError | null, value?: HeaterConfigResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * ============ 加热器预设管理 ============
+     * 列出所有加热器预设
+     *
+     * @generated from protobuf rpc: ListHeaterProfiles
+     */
+    listHeaterProfiles(input: Empty, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: HeaterProfileListResponse) => void): grpc.ClientUnaryCall;
+    listHeaterProfiles(input: Empty, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: HeaterProfileListResponse) => void): grpc.ClientUnaryCall;
+    listHeaterProfiles(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: HeaterProfileListResponse) => void): grpc.ClientUnaryCall;
+    listHeaterProfiles(input: Empty, callback: (err: grpc.ServiceError | null, value?: HeaterProfileListResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 获取单个加热器预设
+     *
+     * @generated from protobuf rpc: GetHeaterProfile
+     */
+    getHeaterProfile(input: GetHeaterProfileRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: HeaterProfileResponse) => void): grpc.ClientUnaryCall;
+    getHeaterProfile(input: GetHeaterProfileRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: HeaterProfileResponse) => void): grpc.ClientUnaryCall;
+    getHeaterProfile(input: GetHeaterProfileRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: HeaterProfileResponse) => void): grpc.ClientUnaryCall;
+    getHeaterProfile(input: GetHeaterProfileRequest, callback: (err: grpc.ServiceError | null, value?: HeaterProfileResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 创建加热器预设
+     *
+     * @generated from protobuf rpc: CreateHeaterProfile
+     */
+    createHeaterProfile(input: HeaterProfileRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: HeaterProfileResponse) => void): grpc.ClientUnaryCall;
+    createHeaterProfile(input: HeaterProfileRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: HeaterProfileResponse) => void): grpc.ClientUnaryCall;
+    createHeaterProfile(input: HeaterProfileRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: HeaterProfileResponse) => void): grpc.ClientUnaryCall;
+    createHeaterProfile(input: HeaterProfileRequest, callback: (err: grpc.ServiceError | null, value?: HeaterProfileResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 更新加热器预设
+     *
+     * @generated from protobuf rpc: UpdateHeaterProfile
+     */
+    updateHeaterProfile(input: HeaterProfileRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: HeaterProfileResponse) => void): grpc.ClientUnaryCall;
+    updateHeaterProfile(input: HeaterProfileRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: HeaterProfileResponse) => void): grpc.ClientUnaryCall;
+    updateHeaterProfile(input: HeaterProfileRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: HeaterProfileResponse) => void): grpc.ClientUnaryCall;
+    updateHeaterProfile(input: HeaterProfileRequest, callback: (err: grpc.ServiceError | null, value?: HeaterProfileResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 删除加热器预设
+     *
+     * @generated from protobuf rpc: DeleteHeaterProfile
+     */
+    deleteHeaterProfile(input: DeleteHeaterProfileRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    deleteHeaterProfile(input: DeleteHeaterProfileRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    deleteHeaterProfile(input: DeleteHeaterProfileRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    deleteHeaterProfile(input: DeleteHeaterProfileRequest, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
 }
 /**
  * ============================================================
@@ -446,6 +497,52 @@ export class SensorServiceClient extends grpc.Client implements ISensorServiceCl
     configureHeater(input: HeaterConfigRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: HeaterConfigResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: HeaterConfigResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: HeaterConfigResponse) => void)): grpc.ClientUnaryCall {
         const method = SensorService.methods[3];
         return this.makeUnaryRequest<HeaterConfigRequest, HeaterConfigResponse>(`/${SensorService.typeName}/${method.name}`, (value: HeaterConfigRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): HeaterConfigResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * ============ 加热器预设管理 ============
+     * 列出所有加热器预设
+     *
+     * @generated from protobuf rpc: ListHeaterProfiles
+     */
+    listHeaterProfiles(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: HeaterProfileListResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: HeaterProfileListResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: HeaterProfileListResponse) => void)): grpc.ClientUnaryCall {
+        const method = SensorService.methods[4];
+        return this.makeUnaryRequest<Empty, HeaterProfileListResponse>(`/${SensorService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): HeaterProfileListResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 获取单个加热器预设
+     *
+     * @generated from protobuf rpc: GetHeaterProfile
+     */
+    getHeaterProfile(input: GetHeaterProfileRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: HeaterProfileResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: HeaterProfileResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: HeaterProfileResponse) => void)): grpc.ClientUnaryCall {
+        const method = SensorService.methods[5];
+        return this.makeUnaryRequest<GetHeaterProfileRequest, HeaterProfileResponse>(`/${SensorService.typeName}/${method.name}`, (value: GetHeaterProfileRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): HeaterProfileResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 创建加热器预设
+     *
+     * @generated from protobuf rpc: CreateHeaterProfile
+     */
+    createHeaterProfile(input: HeaterProfileRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: HeaterProfileResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: HeaterProfileResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: HeaterProfileResponse) => void)): grpc.ClientUnaryCall {
+        const method = SensorService.methods[6];
+        return this.makeUnaryRequest<HeaterProfileRequest, HeaterProfileResponse>(`/${SensorService.typeName}/${method.name}`, (value: HeaterProfileRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): HeaterProfileResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 更新加热器预设
+     *
+     * @generated from protobuf rpc: UpdateHeaterProfile
+     */
+    updateHeaterProfile(input: HeaterProfileRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: HeaterProfileResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: HeaterProfileResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: HeaterProfileResponse) => void)): grpc.ClientUnaryCall {
+        const method = SensorService.methods[7];
+        return this.makeUnaryRequest<HeaterProfileRequest, HeaterProfileResponse>(`/${SensorService.typeName}/${method.name}`, (value: HeaterProfileRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): HeaterProfileResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 删除加热器预设
+     *
+     * @generated from protobuf rpc: DeleteHeaterProfile
+     */
+    deleteHeaterProfile(input: DeleteHeaterProfileRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), callback?: ((err: grpc.ServiceError | null, value?: Empty) => void)): grpc.ClientUnaryCall {
+        const method = SensorService.methods[8];
+        return this.makeUnaryRequest<DeleteHeaterProfileRequest, Empty>(`/${SensorService.typeName}/${method.name}`, (value: DeleteHeaterProfileRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): Empty => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
 }
 /**

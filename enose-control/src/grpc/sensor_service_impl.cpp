@@ -1,11 +1,13 @@
 #include "grpc/sensor_service_impl.hpp"
 #include <spdlog/spdlog.h>
 #include <chrono>
+#include <cstdint>
 
 namespace enose_grpc {
 
 SensorServiceImpl::SensorServiceImpl(std::shared_ptr<hal::SensorDriver> sensor)
-    : sensor_(std::move(sensor)) {
+    : sensor_(std::move(sensor))
+    , sensor_repo_(std::make_unique<db::SensorRepository>()) {
     
     // 连接传感器数据包回调
     packet_connection_ = sensor_->on_packet.connect(
@@ -14,11 +16,19 @@ SensorServiceImpl::SensorServiceImpl(std::shared_ptr<hal::SensorDriver> sensor)
         }
     );
     
+    // 启动后台刷新线程
+    sensor_repo_->start_background_flush();
+    
     connected_ = true;
+    spdlog::info("SensorService: initialized with data persistence support");
 }
 
 SensorServiceImpl::~SensorServiceImpl() {
     packet_connection_.disconnect();
+    if (sensor_repo_) {
+        sensor_repo_->stop_background_flush();
+        sensor_repo_->flush();
+    }
 }
 
 void SensorServiceImpl::on_sensor_packet(const nlohmann::json& packet) {
@@ -46,13 +56,45 @@ void SensorServiceImpl::on_sensor_packet(const nlohmann::json& packet) {
         }
         
         // 广播给所有订阅者
-        std::lock_guard<std::mutex> lock(subscribers_mutex_);
-        for (auto it = subscribers_.begin(); it != subscribers_.end(); ) {
-            if (!(*it)->Write(reading)) {
-                it = subscribers_.erase(it);
-            } else {
-                ++it;
+        {
+            std::lock_guard<std::mutex> lock(subscribers_mutex_);
+            for (auto it = subscribers_.begin(); it != subscribers_.end(); ) {
+                if (!(*it)->Write(reading)) {
+                    it = subscribers_.erase(it);
+                } else {
+                    ++it;
+                }
             }
+        }
+        
+        // 数据持久化 (如果启用)
+        if (persistence_enabled_ && sensor_repo_) {
+            db::SensorReadingRecord record;
+            // 使用当前时间戳 (毫秒)
+            auto now = std::chrono::system_clock::now();
+            auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                now.time_since_epoch()).count();
+            record.time_ms = ms;
+            record.device_tick_ms = packet.value("tick", 0LL);
+            record.sensor_idx = static_cast<int16_t>(packet.value("s", 0));
+            record.sensor_id = static_cast<int32_t>(packet.value("id", 0));
+            record.value = packet.value("v", packet.value("R", 0.0));
+            
+            // 传感器类型
+            std::string st = packet.value("st", "mox_d");
+            if (st == "mox_d") record.sensor_type = 0;
+            else if (st == "mox_a") record.sensor_type = 1;
+            else if (st == "pid") record.sensor_type = 2;
+            else record.sensor_type = -1;
+            
+            // 可选字段
+            if (packet.contains("T")) record.temperature = packet["T"].get<float>();
+            if (packet.contains("H")) record.humidity = packet["H"].get<float>();
+            if (packet.contains("P")) record.pressure = packet["P"].get<float>();
+            if (packet.contains("gi")) record.heater_step = static_cast<int16_t>(packet["gi"].get<int>());
+            
+            // run_id 和 phase_name 由 SensorRepository 自动填充
+            sensor_repo_->buffer_insert(record);
         }
     }
     else if (msg_type == "ready") {
@@ -247,6 +289,201 @@ nlohmann::json SensorServiceImpl::send_command_and_wait(const std::string& cmd, 
     } catch (const std::exception& e) {
         response->set_success(false);
         response->set_message(std::string("Error: ") + e.what());
+    }
+    
+    return ::grpc::Status::OK;
+}
+
+// ============================================================
+// 数据持久化控制
+// ============================================================
+
+void SensorServiceImpl::enable_persistence(bool enable) {
+    persistence_enabled_ = enable;
+    spdlog::info("SensorService: data persistence {}", enable ? "enabled" : "disabled");
+}
+
+void SensorServiceImpl::set_run_context(int32_t run_id, const std::string& phase_name) {
+    if (sensor_repo_) {
+        sensor_repo_->set_run_context(run_id, phase_name);
+    }
+}
+
+void SensorServiceImpl::clear_run_context() {
+    if (sensor_repo_) {
+        sensor_repo_->clear_run_context();
+    }
+}
+
+// ============================================================
+// 加热器预设管理
+// ============================================================
+
+namespace {
+    void record_to_proto(const db::HeaterProfileRecord& rec, ::enose::service::HeaterProfile* proto) {
+        proto->set_id(rec.id);
+        proto->set_name(rec.name);
+        proto->set_description(rec.description);
+        for (auto t : rec.temps) proto->add_temps(t);
+        for (auto d : rec.durs) proto->add_durs(d);
+        proto->set_preheat_mode(rec.preheat_mode);
+        proto->set_preheat_cycles(rec.preheat_cycles.value_or(0));
+        proto->set_preheat_duration_s(rec.preheat_duration_s.value_or(0));
+        proto->set_is_builtin(rec.is_builtin);
+    }
+    
+    db::HeaterProfileRecord proto_to_record(const ::enose::service::HeaterProfile& proto) {
+        db::HeaterProfileRecord rec;
+        rec.id = proto.id();
+        rec.name = proto.name();
+        rec.description = proto.description();
+        for (int i = 0; i < proto.temps_size(); ++i) {
+            rec.temps.push_back(static_cast<int16_t>(proto.temps(i)));
+        }
+        for (int i = 0; i < proto.durs_size(); ++i) {
+            rec.durs.push_back(static_cast<int16_t>(proto.durs(i)));
+        }
+        rec.preheat_mode = proto.preheat_mode();
+        if (proto.preheat_cycles() > 0) rec.preheat_cycles = proto.preheat_cycles();
+        if (proto.preheat_duration_s() > 0) rec.preheat_duration_s = proto.preheat_duration_s();
+        rec.is_builtin = proto.is_builtin();
+        return rec;
+    }
+}
+
+::grpc::Status SensorServiceImpl::ListHeaterProfiles(
+    ::grpc::ServerContext* context,
+    const ::google::protobuf::Empty* request,
+    ::enose::service::HeaterProfileListResponse* response) {
+    
+    if (!sensor_repo_) {
+        return ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, "Database not available");
+    }
+    
+    try {
+        auto profiles = sensor_repo_->list_heater_profiles(true);
+        for (const auto& rec : profiles) {
+            record_to_proto(rec, response->add_profiles());
+        }
+    } catch (const std::exception& e) {
+        return ::grpc::Status(::grpc::StatusCode::INTERNAL, e.what());
+    }
+    
+    return ::grpc::Status::OK;
+}
+
+::grpc::Status SensorServiceImpl::GetHeaterProfile(
+    ::grpc::ServerContext* context,
+    const ::enose::service::GetHeaterProfileRequest* request,
+    ::enose::service::HeaterProfileResponse* response) {
+    
+    if (!sensor_repo_) {
+        return ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, "Database not available");
+    }
+    
+    try {
+        std::optional<db::HeaterProfileRecord> rec;
+        
+        if (request->has_id()) {
+            rec = sensor_repo_->get_heater_profile(request->id());
+        } else if (request->has_name()) {
+            rec = sensor_repo_->get_heater_profile_by_name(request->name());
+        } else {
+            return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, "Must specify id or name");
+        }
+        
+        if (!rec) {
+            return ::grpc::Status(::grpc::StatusCode::NOT_FOUND, "Profile not found");
+        }
+        
+        record_to_proto(*rec, response->mutable_profile());
+    } catch (const std::exception& e) {
+        return ::grpc::Status(::grpc::StatusCode::INTERNAL, e.what());
+    }
+    
+    return ::grpc::Status::OK;
+}
+
+::grpc::Status SensorServiceImpl::CreateHeaterProfile(
+    ::grpc::ServerContext* context,
+    const ::enose::service::HeaterProfileRequest* request,
+    ::enose::service::HeaterProfileResponse* response) {
+    
+    if (!sensor_repo_) {
+        return ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, "Database not available");
+    }
+    
+    try {
+        auto rec = proto_to_record(request->profile());
+        int32_t id = sensor_repo_->create_heater_profile(rec);
+        
+        auto created = sensor_repo_->get_heater_profile(id);
+        if (created) {
+            record_to_proto(*created, response->mutable_profile());
+        }
+    } catch (const std::exception& e) {
+        return ::grpc::Status(::grpc::StatusCode::INTERNAL, e.what());
+    }
+    
+    return ::grpc::Status::OK;
+}
+
+::grpc::Status SensorServiceImpl::UpdateHeaterProfile(
+    ::grpc::ServerContext* context,
+    const ::enose::service::HeaterProfileRequest* request,
+    ::enose::service::HeaterProfileResponse* response) {
+    
+    if (!sensor_repo_) {
+        return ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, "Database not available");
+    }
+    
+    try {
+        auto rec = proto_to_record(request->profile());
+        
+        // 不允许更新内置预设
+        auto existing = sensor_repo_->get_heater_profile(rec.id);
+        if (existing && existing->is_builtin) {
+            return ::grpc::Status(::grpc::StatusCode::PERMISSION_DENIED, "Cannot modify builtin profile");
+        }
+        
+        bool ok = sensor_repo_->update_heater_profile(rec);
+        if (!ok) {
+            return ::grpc::Status(::grpc::StatusCode::NOT_FOUND, "Profile not found");
+        }
+        
+        auto updated = sensor_repo_->get_heater_profile(rec.id);
+        if (updated) {
+            record_to_proto(*updated, response->mutable_profile());
+        }
+    } catch (const std::exception& e) {
+        return ::grpc::Status(::grpc::StatusCode::INTERNAL, e.what());
+    }
+    
+    return ::grpc::Status::OK;
+}
+
+::grpc::Status SensorServiceImpl::DeleteHeaterProfile(
+    ::grpc::ServerContext* context,
+    const ::enose::service::DeleteHeaterProfileRequest* request,
+    ::google::protobuf::Empty* response) {
+    
+    if (!sensor_repo_) {
+        return ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, "Database not available");
+    }
+    
+    try {
+        // 不允许删除内置预设
+        auto existing = sensor_repo_->get_heater_profile(request->id());
+        if (existing && existing->is_builtin) {
+            return ::grpc::Status(::grpc::StatusCode::PERMISSION_DENIED, "Cannot delete builtin profile");
+        }
+        
+        bool ok = sensor_repo_->delete_heater_profile(request->id());
+        if (!ok) {
+            return ::grpc::Status(::grpc::StatusCode::NOT_FOUND, "Profile not found");
+        }
+    } catch (const std::exception& e) {
+        return ::grpc::Status(::grpc::StatusCode::INTERNAL, e.what());
     }
     
     return ::grpc::Status::OK;

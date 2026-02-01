@@ -228,6 +228,18 @@ export interface Step {
          */
         wash: WashAction;
     } | {
+        oneofKind: "preheat";
+        /**
+         * @generated from protobuf field: enose.experiment.PreheatAction preheat = 19
+         */
+        preheat: PreheatAction;
+    } | {
+        oneofKind: "configureHeater";
+        /**
+         * @generated from protobuf field: enose.experiment.ConfigureHeaterAction configure_heater = 20
+         */
+        configureHeater: ConfigureHeaterAction;
+    } | {
         oneofKind: undefined;
     };
 }
@@ -586,6 +598,96 @@ export interface WashAction {
      * @generated from protobuf field: double empty_stability_window_s = 7
      */
     emptyStabilityWindowS: number;
+}
+/**
+ * 预热动作 - 等待传感器预热稳定
+ * 恒温模式用秒数，温度扫描模式用周期数
+ *
+ * @generated from protobuf message enose.experiment.PreheatAction
+ */
+export interface PreheatAction {
+    /**
+     * 预热模式
+     *
+     * @generated from protobuf oneof: mode
+     */
+    mode: {
+        oneofKind: "cycles";
+        /**
+         * @generated from protobuf field: int32 cycles = 1
+         */
+        cycles: number; // 等待N个加热周期 (温度扫描模式)    } | {
+        oneofKind: "durationS";
+        /**
+         * @generated from protobuf field: double duration_s = 2
+         */
+        durationS: number; // 等待N秒 (恒温模式)    } | {
+        oneofKind: undefined;
+    };
+    /**
+     * 最大等待时间 (秒)
+     *
+     * @generated from protobuf field: double max_duration_s = 3
+     */
+    maxDurationS: number;
+    /**
+     * 目标传感器 (空=全部)
+     *
+     * @generated from protobuf field: repeated int32 sensor_indices = 4
+     */
+    sensorIndices: number[];
+    /**
+     * 是否记录预热数据到数据库
+     *
+     * @generated from protobuf field: bool record_data = 5
+     */
+    recordData: boolean;
+    /**
+     * 气泵PWM (预热时通常需要通气)
+     *
+     * @generated from protobuf field: int32 gas_pump_pwm = 6
+     */
+    gasPumpPwm: number;
+}
+/**
+ * 配置加热器动作 - 为传感器设置加热曲线
+ *
+ * @generated from protobuf message enose.experiment.ConfigureHeaterAction
+ */
+export interface ConfigureHeaterAction {
+    /**
+     * 加热配置列表 (可以为不同传感器设置不同配置)
+     *
+     * @generated from protobuf field: repeated enose.experiment.HeaterConfig configs = 1
+     */
+    configs: HeaterConfig[];
+}
+/**
+ * 加热器配置
+ *
+ * @generated from protobuf message enose.experiment.HeaterConfig
+ */
+export interface HeaterConfig {
+    /**
+     * 加热曲线预设名称 (从数据库加载)
+     *
+     * @generated from protobuf field: string profile_name = 1
+     */
+    profileName: string;
+    /**
+     * 或自定义曲线 (优先级高于 profile_name)
+     *
+     * @generated from protobuf field: repeated int32 temps = 2
+     */
+    temps: number[]; // 温度序列 (°C)    /**
+     * @generated from protobuf field: repeated int32 durs = 3
+     */
+    durs: number[]; // 持续时间 (×140ms)    /**
+     * 目标传感器索引 (空=全部)
+     *
+     * @generated from protobuf field: repeated int32 sensor_indices = 4
+     */
+    sensorIndices: number[];
 }
 /**
  * ============================================================
@@ -1422,7 +1524,9 @@ class Step$Type extends MessageType<Step> {
             { no: 15, name: "set_gas_pump", kind: "message", oneof: "action", T: () => SetGasPumpAction },
             { no: 16, name: "loop", kind: "message", oneof: "action", T: () => LoopAction },
             { no: 17, name: "phase_marker", kind: "message", oneof: "action", T: () => PhaseMarkerAction },
-            { no: 18, name: "wash", kind: "message", oneof: "action", T: () => WashAction }
+            { no: 18, name: "wash", kind: "message", oneof: "action", T: () => WashAction },
+            { no: 19, name: "preheat", kind: "message", oneof: "action", T: () => PreheatAction },
+            { no: 20, name: "configure_heater", kind: "message", oneof: "action", T: () => ConfigureHeaterAction }
         ]);
     }
     create(value?: PartialMessage<Step>): Step {
@@ -1495,6 +1599,18 @@ class Step$Type extends MessageType<Step> {
                         wash: WashAction.internalBinaryRead(reader, reader.uint32(), options, (message.action as any).wash)
                     };
                     break;
+                case /* enose.experiment.PreheatAction preheat */ 19:
+                    message.action = {
+                        oneofKind: "preheat",
+                        preheat: PreheatAction.internalBinaryRead(reader, reader.uint32(), options, (message.action as any).preheat)
+                    };
+                    break;
+                case /* enose.experiment.ConfigureHeaterAction configure_heater */ 20:
+                    message.action = {
+                        oneofKind: "configureHeater",
+                        configureHeater: ConfigureHeaterAction.internalBinaryRead(reader, reader.uint32(), options, (message.action as any).configureHeater)
+                    };
+                    break;
                 default:
                     let u = options.readUnknownField;
                     if (u === "throw")
@@ -1537,6 +1653,12 @@ class Step$Type extends MessageType<Step> {
         /* enose.experiment.WashAction wash = 18; */
         if (message.action.oneofKind === "wash")
             WashAction.internalBinaryWrite(message.action.wash, writer.tag(18, WireType.LengthDelimited).fork(), options).join();
+        /* enose.experiment.PreheatAction preheat = 19; */
+        if (message.action.oneofKind === "preheat")
+            PreheatAction.internalBinaryWrite(message.action.preheat, writer.tag(19, WireType.LengthDelimited).fork(), options).join();
+        /* enose.experiment.ConfigureHeaterAction configure_heater = 20; */
+        if (message.action.oneofKind === "configureHeater")
+            ConfigureHeaterAction.internalBinaryWrite(message.action.configureHeater, writer.tag(20, WireType.LengthDelimited).fork(), options).join();
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -2413,6 +2535,248 @@ class WashAction$Type extends MessageType<WashAction> {
  * @generated MessageType for protobuf message enose.experiment.WashAction
  */
 export const WashAction = new WashAction$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class PreheatAction$Type extends MessageType<PreheatAction> {
+    constructor() {
+        super("enose.experiment.PreheatAction", [
+            { no: 1, name: "cycles", kind: "scalar", oneof: "mode", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "duration_s", kind: "scalar", oneof: "mode", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 3, name: "max_duration_s", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 600, gte: 10 } } } },
+            { no: 4, name: "sensor_indices", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ },
+            { no: 5, name: "record_data", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 6, name: "gas_pump_pwm", kind: "scalar", T: 5 /*ScalarType.INT32*/, options: { "buf.validate.field": { int32: { lte: 100, gte: 0 } } } }
+        ]);
+    }
+    create(value?: PartialMessage<PreheatAction>): PreheatAction {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.mode = { oneofKind: undefined };
+        message.maxDurationS = 0;
+        message.sensorIndices = [];
+        message.recordData = false;
+        message.gasPumpPwm = 0;
+        if (value !== undefined)
+            reflectionMergePartial<PreheatAction>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: PreheatAction): PreheatAction {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 cycles */ 1:
+                    message.mode = {
+                        oneofKind: "cycles",
+                        cycles: reader.int32()
+                    };
+                    break;
+                case /* double duration_s */ 2:
+                    message.mode = {
+                        oneofKind: "durationS",
+                        durationS: reader.double()
+                    };
+                    break;
+                case /* double max_duration_s */ 3:
+                    message.maxDurationS = reader.double();
+                    break;
+                case /* repeated int32 sensor_indices */ 4:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.sensorIndices.push(reader.int32());
+                    else
+                        message.sensorIndices.push(reader.int32());
+                    break;
+                case /* bool record_data */ 5:
+                    message.recordData = reader.bool();
+                    break;
+                case /* int32 gas_pump_pwm */ 6:
+                    message.gasPumpPwm = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: PreheatAction, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 cycles = 1; */
+        if (message.mode.oneofKind === "cycles")
+            writer.tag(1, WireType.Varint).int32(message.mode.cycles);
+        /* double duration_s = 2; */
+        if (message.mode.oneofKind === "durationS")
+            writer.tag(2, WireType.Bit64).double(message.mode.durationS);
+        /* double max_duration_s = 3; */
+        if (message.maxDurationS !== 0)
+            writer.tag(3, WireType.Bit64).double(message.maxDurationS);
+        /* repeated int32 sensor_indices = 4; */
+        if (message.sensorIndices.length) {
+            writer.tag(4, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.sensorIndices.length; i++)
+                writer.int32(message.sensorIndices[i]);
+            writer.join();
+        }
+        /* bool record_data = 5; */
+        if (message.recordData !== false)
+            writer.tag(5, WireType.Varint).bool(message.recordData);
+        /* int32 gas_pump_pwm = 6; */
+        if (message.gasPumpPwm !== 0)
+            writer.tag(6, WireType.Varint).int32(message.gasPumpPwm);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.experiment.PreheatAction
+ */
+export const PreheatAction = new PreheatAction$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class ConfigureHeaterAction$Type extends MessageType<ConfigureHeaterAction> {
+    constructor() {
+        super("enose.experiment.ConfigureHeaterAction", [
+            { no: 1, name: "configs", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => HeaterConfig, options: { "buf.validate.field": { repeated: { minItems: "1" } } } }
+        ]);
+    }
+    create(value?: PartialMessage<ConfigureHeaterAction>): ConfigureHeaterAction {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.configs = [];
+        if (value !== undefined)
+            reflectionMergePartial<ConfigureHeaterAction>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ConfigureHeaterAction): ConfigureHeaterAction {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated enose.experiment.HeaterConfig configs */ 1:
+                    message.configs.push(HeaterConfig.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: ConfigureHeaterAction, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated enose.experiment.HeaterConfig configs = 1; */
+        for (let i = 0; i < message.configs.length; i++)
+            HeaterConfig.internalBinaryWrite(message.configs[i], writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.experiment.ConfigureHeaterAction
+ */
+export const ConfigureHeaterAction = new ConfigureHeaterAction$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class HeaterConfig$Type extends MessageType<HeaterConfig> {
+    constructor() {
+        super("enose.experiment.HeaterConfig", [
+            { no: 1, name: "profile_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "temps", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "durs", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "sensor_indices", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<HeaterConfig>): HeaterConfig {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.profileName = "";
+        message.temps = [];
+        message.durs = [];
+        message.sensorIndices = [];
+        if (value !== undefined)
+            reflectionMergePartial<HeaterConfig>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: HeaterConfig): HeaterConfig {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string profile_name */ 1:
+                    message.profileName = reader.string();
+                    break;
+                case /* repeated int32 temps */ 2:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.temps.push(reader.int32());
+                    else
+                        message.temps.push(reader.int32());
+                    break;
+                case /* repeated int32 durs */ 3:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.durs.push(reader.int32());
+                    else
+                        message.durs.push(reader.int32());
+                    break;
+                case /* repeated int32 sensor_indices */ 4:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.sensorIndices.push(reader.int32());
+                    else
+                        message.sensorIndices.push(reader.int32());
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: HeaterConfig, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string profile_name = 1; */
+        if (message.profileName !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.profileName);
+        /* repeated int32 temps = 2; */
+        if (message.temps.length) {
+            writer.tag(2, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.temps.length; i++)
+                writer.int32(message.temps[i]);
+            writer.join();
+        }
+        /* repeated int32 durs = 3; */
+        if (message.durs.length) {
+            writer.tag(3, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.durs.length; i++)
+                writer.int32(message.durs[i]);
+            writer.join();
+        }
+        /* repeated int32 sensor_indices = 4; */
+        if (message.sensorIndices.length) {
+            writer.tag(4, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.sensorIndices.length; i++)
+                writer.int32(message.sensorIndices[i]);
+            writer.join();
+        }
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.experiment.HeaterConfig
+ */
+export const HeaterConfig = new HeaterConfig$Type();
 // @generated message type with reflection information, may provide speed optimized methods
 class Metadata$Type extends MessageType<Metadata> {
     constructor() {

@@ -24,6 +24,11 @@ import { WaitForEmptyBottleRequest } from "./enose_service";
 import { CalibrationResult } from "./enose_service";
 import { ReferenceWeightRequest } from "./enose_service";
 import { CalibrationStatus } from "./enose_service";
+import { DeleteHeaterProfileRequest } from "./enose_service";
+import { HeaterProfileRequest } from "./enose_service";
+import { HeaterProfileResponse } from "./enose_service";
+import { GetHeaterProfileRequest } from "./enose_service";
+import { HeaterProfileListResponse } from "./enose_service";
 import { HeaterConfigResponse } from "./enose_service";
 import { HeaterConfigRequest } from "./enose_service";
 import { SensorBoardStatus } from "./enose_service";
@@ -354,6 +359,37 @@ export interface ISensorService extends grpc.UntypedServiceImplementation {
      * @generated from protobuf rpc: ConfigureHeater
      */
     configureHeater: grpc.handleUnaryCall<HeaterConfigRequest, HeaterConfigResponse>;
+    /**
+     * ============ 加热器预设管理 ============
+     * 列出所有加热器预设
+     *
+     * @generated from protobuf rpc: ListHeaterProfiles
+     */
+    listHeaterProfiles: grpc.handleUnaryCall<Empty, HeaterProfileListResponse>;
+    /**
+     * 获取单个加热器预设
+     *
+     * @generated from protobuf rpc: GetHeaterProfile
+     */
+    getHeaterProfile: grpc.handleUnaryCall<GetHeaterProfileRequest, HeaterProfileResponse>;
+    /**
+     * 创建加热器预设
+     *
+     * @generated from protobuf rpc: CreateHeaterProfile
+     */
+    createHeaterProfile: grpc.handleUnaryCall<HeaterProfileRequest, HeaterProfileResponse>;
+    /**
+     * 更新加热器预设
+     *
+     * @generated from protobuf rpc: UpdateHeaterProfile
+     */
+    updateHeaterProfile: grpc.handleUnaryCall<HeaterProfileRequest, HeaterProfileResponse>;
+    /**
+     * 删除加热器预设
+     *
+     * @generated from protobuf rpc: DeleteHeaterProfile
+     */
+    deleteHeaterProfile: grpc.handleUnaryCall<DeleteHeaterProfileRequest, Empty>;
 }
 /**
  * @grpc/grpc-js definition for the protobuf service enose.service.SensorService.
@@ -406,6 +442,56 @@ export const sensorServiceDefinition: grpc.ServiceDefinition<ISensorService> = {
         requestDeserialize: bytes => HeaterConfigRequest.fromBinary(bytes),
         responseSerialize: value => Buffer.from(HeaterConfigResponse.toBinary(value)),
         requestSerialize: value => Buffer.from(HeaterConfigRequest.toBinary(value))
+    },
+    listHeaterProfiles: {
+        path: "/enose.service.SensorService/ListHeaterProfiles",
+        originalName: "ListHeaterProfiles",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => HeaterProfileListResponse.fromBinary(bytes),
+        requestDeserialize: bytes => Empty.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(HeaterProfileListResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(Empty.toBinary(value))
+    },
+    getHeaterProfile: {
+        path: "/enose.service.SensorService/GetHeaterProfile",
+        originalName: "GetHeaterProfile",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => HeaterProfileResponse.fromBinary(bytes),
+        requestDeserialize: bytes => GetHeaterProfileRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(HeaterProfileResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(GetHeaterProfileRequest.toBinary(value))
+    },
+    createHeaterProfile: {
+        path: "/enose.service.SensorService/CreateHeaterProfile",
+        originalName: "CreateHeaterProfile",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => HeaterProfileResponse.fromBinary(bytes),
+        requestDeserialize: bytes => HeaterProfileRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(HeaterProfileResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(HeaterProfileRequest.toBinary(value))
+    },
+    updateHeaterProfile: {
+        path: "/enose.service.SensorService/UpdateHeaterProfile",
+        originalName: "UpdateHeaterProfile",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => HeaterProfileResponse.fromBinary(bytes),
+        requestDeserialize: bytes => HeaterProfileRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(HeaterProfileResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(HeaterProfileRequest.toBinary(value))
+    },
+    deleteHeaterProfile: {
+        path: "/enose.service.SensorService/DeleteHeaterProfile",
+        originalName: "DeleteHeaterProfile",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => Empty.fromBinary(bytes),
+        requestDeserialize: bytes => DeleteHeaterProfileRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(Empty.toBinary(value)),
+        requestSerialize: value => Buffer.from(DeleteHeaterProfileRequest.toBinary(value))
     }
 };
 /**
