@@ -13,11 +13,14 @@
     查看服务状态
 .PARAMETER Reset
     重置数据 (删除所有数据卷)
+.PARAMETER InitMinio
+    初始化 MinIO bucket (创建 attachments, models, datasets)
 .EXAMPLE
     .\deploy_docker_services.ps1
     .\deploy_docker_services.ps1 -Dev
     .\deploy_docker_services.ps1 -Logs
     .\deploy_docker_services.ps1 -Down
+    .\deploy_docker_services.ps1 -InitMinio
 #>
 
 param(
@@ -26,6 +29,7 @@ param(
     [switch]$Logs,
     [switch]$Status,
     [switch]$Reset,
+    [switch]$InitMinio,
     [string]$TargetHost = "rpi5.local",
     [string]$User = "user",
     [string]$SshPassword = "123456"  
@@ -157,6 +161,21 @@ function Reset-Data {
     Write-Host "数据已重置" -ForegroundColor Green
 }
 
+# 初始化 MinIO bucket
+function Initialize-Minio {
+    Write-Host "初始化 MinIO bucket..." -ForegroundColor Yellow
+    Write-Host "  创建 bucket: attachments, models, datasets" -ForegroundColor Cyan
+    
+    # 使用 --profile init 运行 minio-init 容器
+    ssh "${User}@${TargetHost}" "cd ${RemoteDir} && echo ${SshPassword} | sudo -S docker compose --profile init up minio-init"
+    
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "  MinIO bucket 初始化完成" -ForegroundColor Green
+    } else {
+        Write-Host "  MinIO 初始化失败，请检查 MinIO 服务是否运行" -ForegroundColor Red
+    }
+}
+
 # 主逻辑
 if ($Down) {
     Stop-Services
@@ -178,6 +197,11 @@ if ($Reset) {
     exit 0
 }
 
+if ($InitMinio) {
+    Initialize-Minio
+    exit 0
+}
+
 # 正常部署流程
 Test-SSHConnection
 Test-DockerEnvironment
@@ -194,6 +218,7 @@ Write-Host "  查看状态:   .\deploy_docker_services.ps1 -Status"
 Write-Host "  停止服务:   .\deploy_docker_services.ps1 -Down"
 Write-Host "  开发模式:   .\deploy_docker_services.ps1 -Dev"
 Write-Host "  重置数据:   .\deploy_docker_services.ps1 -Reset"
+Write-Host "  初始MinIO:  .\deploy_docker_services.ps1 -InitMinio"
 Write-Host ""
 Write-Host "连接数据库:" -ForegroundColor Cyan
 Write-Host "  psql postgresql://enose:enose_secure_password@${TargetHost}:5432/enose"
@@ -202,3 +227,4 @@ Write-Host ""
 Write-Host "开发模式前端界面:" -ForegroundColor Cyan
 Write-Host "  pgAdmin:      http://${TargetHost}:8082 (admin@example.com / admin)"
 Write-Host "  RedisInsight: http://${TargetHost}:5540"
+Write-Host "  MinIO:        http://${TargetHost}:9001"

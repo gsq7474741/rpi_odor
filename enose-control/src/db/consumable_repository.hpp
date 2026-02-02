@@ -122,6 +122,34 @@ struct MetadataFieldRecord {
 };
 
 // ============================================================
+// 标签记录
+// ============================================================
+struct TagRecord {
+    int id{0};
+    std::string name;
+    std::string category;  // aroma, flavor, intensity
+    std::string color;
+    int usage_count{0};
+    std::chrono::system_clock::time_point created_at;
+    std::chrono::system_clock::time_point updated_at;
+};
+
+// ============================================================
+// 附件记录（图片等）
+// ============================================================
+struct AttachmentRecord {
+    int id{0};
+    int liquid_id{0};
+    std::string field_key;      // 对应 metadata_fields.field_key
+    std::string file_type;      // 'image', 'document'
+    std::string file_name;      // 原始文件名
+    std::string file_path;      // 存储路径
+    int64_t file_size{0};       // 文件大小 (bytes)
+    std::string mime_type;      // MIME 类型
+    std::chrono::system_clock::time_point created_at;
+};
+
+// ============================================================
 // 耗材仓库
 // ============================================================
 class ConsumableRepository {
@@ -194,7 +222,7 @@ public:
     
     bool add_runtime(const std::string& id, int64_t seconds);
     
-    bool reset_consumable(const std::string& id, const std::string& notes);
+    bool reset_consumable(const std::string& id, const std::string& notes, int64_t new_lifetime_seconds = 0);
     
     bool update_lifetime(const std::string& id, int64_t lifetime_seconds);
     
@@ -225,6 +253,52 @@ public:
         bool is_active);
     
     bool delete_metadata_field(int id);
+    
+    // === 标签管理 ===
+    std::vector<TagRecord> list_tags(
+        const std::string& category = "",
+        const std::string& search = "",
+        int limit = 100,
+        bool order_by_usage = false);
+    
+    std::optional<int> create_tag(
+        const std::string& name,
+        const std::string& category,
+        const std::string& color = "");
+    
+    bool delete_tag(int id);
+    
+    std::vector<TagRecord> get_tag_suggestions(
+        const std::string& prefix,
+        const std::string& category = "",
+        int limit = 10);
+    
+    // === 液体标签关系 ===
+    std::vector<TagRecord> get_liquid_tags(int liquid_id, const std::string& field_key = "aroma_notes");
+    
+    bool set_liquid_tags(int liquid_id, const std::vector<std::string>& tag_names, 
+                         const std::string& field_key = "aroma_notes");
+    
+    std::vector<LiquidRecord> list_liquids_by_tags(
+        const std::vector<std::string>& tag_names,
+        const std::string& field_key = "aroma_notes",
+        const std::string& type_filter = "",
+        int limit = 100,
+        int offset = 0);
+    
+    // === 附件管理 ===
+    std::vector<AttachmentRecord> get_liquid_attachments(int liquid_id, const std::string& field_key = "");
+    
+    std::optional<int> create_liquid_attachment(
+        int liquid_id,
+        const std::string& field_key,
+        const std::string& file_type,
+        const std::string& file_name,
+        const std::string& file_path,
+        int64_t file_size,
+        const std::string& mime_type);
+    
+    bool delete_liquid_attachment(int attachment_id);
 
 private:
     std::string format_timestamp(const std::chrono::system_clock::time_point& tp);

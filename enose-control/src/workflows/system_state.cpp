@@ -1,4 +1,5 @@
 #include "workflows/system_state.hpp"
+#include "workflows/runtime_tracker.hpp"
 #include "hal/actuator_driver.hpp"
 #include <spdlog/spdlog.h>
 #include <format>
@@ -163,15 +164,22 @@ void SystemState::start_inject(const InjectionParams& params) {
     
     actuator_->send_gcode(g1_cmd);
     
-    // 更新泵状态
-    if (params.pump_0_volume > 0) current_peripheral_state_.pump_0 = PumpState::RUNNING;
-    if (params.pump_1_volume > 0) current_peripheral_state_.pump_1 = PumpState::RUNNING;
-    if (params.pump_2_volume > 0) current_peripheral_state_.pump_2 = PumpState::RUNNING;
-    if (params.pump_3_volume > 0) current_peripheral_state_.pump_3 = PumpState::RUNNING;
-    if (params.pump_4_volume > 0) current_peripheral_state_.pump_4 = PumpState::RUNNING;
-    if (params.pump_5_volume > 0) current_peripheral_state_.pump_5 = PumpState::RUNNING;
-    if (params.pump_6_volume > 0) current_peripheral_state_.pump_6 = PumpState::RUNNING;
-    if (params.pump_7_volume > 0) current_peripheral_state_.pump_7 = PumpState::RUNNING;
+    // 更新泵状态并通知 RuntimeTracker
+    PeripheralState new_state = current_peripheral_state_;
+    if (params.pump_0_volume > 0) new_state.pump_0 = PumpState::RUNNING;
+    if (params.pump_1_volume > 0) new_state.pump_1 = PumpState::RUNNING;
+    if (params.pump_2_volume > 0) new_state.pump_2 = PumpState::RUNNING;
+    if (params.pump_3_volume > 0) new_state.pump_3 = PumpState::RUNNING;
+    if (params.pump_4_volume > 0) new_state.pump_4 = PumpState::RUNNING;
+    if (params.pump_5_volume > 0) new_state.pump_5 = PumpState::RUNNING;
+    if (params.pump_6_volume > 0) new_state.pump_6 = PumpState::RUNNING;
+    if (params.pump_7_volume > 0) new_state.pump_7 = PumpState::RUNNING;
+    
+    // 通知 RuntimeTracker 泵开始运行（只有非零行程的泵）
+    if (runtime_tracker_) {
+        runtime_tracker_->on_peripheral_state_change(current_peripheral_state_, new_state);
+    }
+    current_peripheral_state_ = new_state;
     
     spdlog::info("SystemState: Parallel inject G1 A{:.3f} B{:.3f} C{:.3f} D{:.3f} H{:.3f} I{:.3f} J{:.3f} K{:.3f} F{:.1f}",
         params.pump_0_volume, params.pump_1_volume,
@@ -192,14 +200,21 @@ void SystemState::stop_inject() {
     
     spdlog::info("SystemState: ENOSE_ASYNC_STOP sent, pumps will stop in ~1s");
     
-    current_peripheral_state_.pump_0 = PumpState::STOPPED;
-    current_peripheral_state_.pump_1 = PumpState::STOPPED;
-    current_peripheral_state_.pump_2 = PumpState::STOPPED;
-    current_peripheral_state_.pump_3 = PumpState::STOPPED;
-    current_peripheral_state_.pump_4 = PumpState::STOPPED;
-    current_peripheral_state_.pump_5 = PumpState::STOPPED;
-    current_peripheral_state_.pump_6 = PumpState::STOPPED;
-    current_peripheral_state_.pump_7 = PumpState::STOPPED;
+    // 通知 RuntimeTracker 泵停止运行（在状态更新前通知，这样可以计算运行时间）
+    PeripheralState new_state = current_peripheral_state_;
+    new_state.pump_0 = PumpState::STOPPED;
+    new_state.pump_1 = PumpState::STOPPED;
+    new_state.pump_2 = PumpState::STOPPED;
+    new_state.pump_3 = PumpState::STOPPED;
+    new_state.pump_4 = PumpState::STOPPED;
+    new_state.pump_5 = PumpState::STOPPED;
+    new_state.pump_6 = PumpState::STOPPED;
+    new_state.pump_7 = PumpState::STOPPED;
+    
+    if (runtime_tracker_) {
+        runtime_tracker_->on_peripheral_state_change(current_peripheral_state_, new_state);
+    }
+    current_peripheral_state_ = new_state;
     
     transition_to(State::INITIAL);
 }
@@ -226,15 +241,22 @@ void SystemState::transition_to(State target_state) {
         spdlog::info("SystemState: Pumps running, auto-stopping before state transition");
         // 发送异步停止命令
         actuator_->send_gcode("ENOSE_ASYNC_STOP");
-        // 更新泵状态
-        current_peripheral_state_.pump_0 = PumpState::STOPPED;
-        current_peripheral_state_.pump_1 = PumpState::STOPPED;
-        current_peripheral_state_.pump_2 = PumpState::STOPPED;
-        current_peripheral_state_.pump_3 = PumpState::STOPPED;
-        current_peripheral_state_.pump_4 = PumpState::STOPPED;
-        current_peripheral_state_.pump_5 = PumpState::STOPPED;
-        current_peripheral_state_.pump_6 = PumpState::STOPPED;
-        current_peripheral_state_.pump_7 = PumpState::STOPPED;
+        
+        // 通知 RuntimeTracker 泵停止运行
+        PeripheralState stopped_state = current_peripheral_state_;
+        stopped_state.pump_0 = PumpState::STOPPED;
+        stopped_state.pump_1 = PumpState::STOPPED;
+        stopped_state.pump_2 = PumpState::STOPPED;
+        stopped_state.pump_3 = PumpState::STOPPED;
+        stopped_state.pump_4 = PumpState::STOPPED;
+        stopped_state.pump_5 = PumpState::STOPPED;
+        stopped_state.pump_6 = PumpState::STOPPED;
+        stopped_state.pump_7 = PumpState::STOPPED;
+        
+        if (runtime_tracker_) {
+            runtime_tracker_->on_peripheral_state_change(current_peripheral_state_, stopped_state);
+        }
+        current_peripheral_state_ = stopped_state;
     }
 
     State old_state = current_state_;
@@ -336,7 +358,30 @@ void SystemState::apply_peripheral_state(const PeripheralState& state) {
     //     actuator_->send_gcode(std::format("SET_HEATER_TEMPERATURE HEATER=heater_chamber TARGET={}", state.heater_chamber * 100));
     // }
 
+    // 通知运行时间跟踪器 (在更新状态之前，这样它可以比较新旧状态)
+    if (runtime_tracker_) {
+        runtime_tracker_->on_peripheral_state_change(current_peripheral_state_, state);
+    }
+
     current_peripheral_state_ = state;
+}
+
+void SystemState::set_air_pump_pwm(float pwm) {
+    PeripheralState new_state = current_peripheral_state_;
+    new_state.air_pump_pwm = pwm;
+    
+    // 发送命令
+    if (actuator_) {
+        actuator_->send_gcode(std::format("SET_PIN PIN=air_pump_pwm VALUE={}", pwm));
+    }
+    
+    // 通知运行时间跟踪器
+    if (runtime_tracker_) {
+        runtime_tracker_->on_peripheral_state_change(current_peripheral_state_, new_state);
+    }
+    
+    current_peripheral_state_.air_pump_pwm = pwm;
+    spdlog::debug("SystemState: Air pump PWM set to {:.0f}%", pwm * 100);
 }
 
 const PeripheralState& SystemState::get_state_definition(State state) {

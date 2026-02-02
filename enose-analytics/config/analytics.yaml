@@ -1,0 +1,83 @@
+# enose-analytics 配置文件
+
+# gRPC 服务配置
+grpc:
+  host: "0.0.0.0"
+  port: 50052
+  max_workers: 4
+
+# enose-control gRPC 连接 (用于推送通知)
+control_service:
+  host: "enose-control"
+  port: 50051
+
+# 数据库配置
+database:
+  host: "timescaledb"
+  port: 5432
+  database: "enose"
+  user: "enose"
+  password: "enose_secure_password_change_me"
+  pool_size: 5
+
+# MinIO 配置
+minio:
+  endpoint: "minio:9000"
+  access_key: "minioadmin"
+  secret_key: "minioadmin123"
+  secure: false
+  buckets:
+    models: "models"
+    datasets: "datasets"
+
+# 质量检测配置 (所有阈值可调)
+quality:
+  # 基线稳定性
+  baseline_cv_threshold: 0.05        # 基线变异系数阈值
+  baseline_slope_threshold: 0.01     # 基线斜率阈值
+  baseline_window_size: 60           # 基线检测窗口大小 (秒)
+  
+  # 传感器范围
+  min_resistance: 100                # 最小电阻值 (欧姆)
+  max_resistance: 1000000            # 最大电阻值 (欧姆)
+  
+  # 噪声检测
+  noise_std_threshold: 0.1           # 噪声标准差阈值 (相对值)
+  noise_window_size: 10              # 噪声检测窗口大小 (采样点)
+  
+  # 环境参数
+  min_humidity: 20                   # 最小湿度 (%)
+  max_humidity: 80                   # 最大湿度 (%)
+  min_temperature: 15                # 最小温度 (°C)
+  max_temperature: 40                # 最大温度 (°C)
+  
+  # 漂移检测
+  drift_threshold: 0.1               # 漂移阈值 (相对值)
+  drift_window_size: 300             # 漂移检测窗口大小 (秒)
+  
+  # 告警控制
+  enable_notifications: true         # 是否启用推送通知
+  disabled_flags: []                 # 禁用的告警类型
+
+# MLP 模型默认配置
+model:
+  default_hidden_layers: [64, 32]
+  default_activation: "relu"
+  default_dropout: 0.2
+  default_epochs: 100
+  default_batch_size: 32
+  default_learning_rate: 0.001
+  default_validation_split: 0.2
+
+# 可视化配置
+visualization:
+  default_n_components: 2            # 默认降维维度
+  default_perplexity: 30             # t-SNE perplexity
+  default_n_clusters: 5              # 默认聚类数
+  default_max_points: 1000           # 最大可视化点数
+  update_interval_ms: 1000           # 实时更新间隔 (毫秒)
+
+# 日志配置
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

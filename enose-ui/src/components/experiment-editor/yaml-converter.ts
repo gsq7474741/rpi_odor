@@ -1,5 +1,135 @@
 import YAML from 'js-yaml';
-import { ExperimentNode, ExperimentEdge, NodeType, HANDLE_TYPES } from './types';
+import { ExperimentNode, ExperimentEdge, NodeType, HANDLE_TYPES, PARAM_TYPE_BINDABLE_FIELDS } from './types';
+
+// =============== 编译警告系统 ===============
+
+export interface CompileWarning {
+  code: string;
+  level: 'info' | 'warning' | 'error';
+  message: string;
+  nodeId?: string;
+  nodeName?: string;
+}
+
+// 验证参数扫描节点的变量绑定
+function validateParamSweepBindings(
+  sweepNode: ExperimentNode,
+  allNodes: ExperimentNode[],
+  allEdges: ExperimentEdge[]
+): CompileWarning[] {
+  const warnings: CompileWarning[] = [];
+  const data = sweepNode.data as Record<string, unknown>;
+  const sweepName = String(data.name || '参数扫描');
+  const paramType = data.paramType as keyof typeof PARAM_TYPE_BINDABLE_FIELDS;
+  const targetNodeId = data.targetNodeId as string | undefined;
+  
+  // 收集扫描体节点
+  const bodyNodes = collectLoopBodyNodesFlat(sweepNode.id, allNodes, allEdges);
+  
+  if (bodyNodes.length === 0) {
+    warnings.push({
+      code: 'E001',
+      level: 'error',
+      message: `参数扫描节点 [${sweepName}] 没有连接扫描体`,
+      nodeId: sweepNode.id,
+      nodeName: sweepName,
+    });
+    return warnings;
+  }
+  
+  // 获取可绑定此参数类型的节点类型
+  const bindableInfo = PARAM_TYPE_BINDABLE_FIELDS[paramType];
+  if (!bindableInfo) {
+    warnings.push({
+      code: 'E002',
+      level: 'error',
+      message: `参数扫描节点 [${sweepName}] 的参数类型 "${paramType}" 无效`,
+      nodeId: sweepNode.id,
+      nodeName: sweepName,
+    });
+    return warnings;
+  }
+  
+  // 查找扫描体内可绑定的节点
+  const bindableNodes = bodyNodes.filter(n => 
+    bindableInfo.nodeTypes.includes(n.type as NodeType)
+  );
+  
+  if (bindableNodes.length === 0) {
+    warnings.push({
+      code: 'W001',
+      level: 'warning',
+      message: `参数扫描节点 [${sweepName}] 的扫描体内没有可绑定 "${bindableInfo.label}" 的节点`,
+      nodeId: sweepNode.id,
+      nodeName: sweepName,
+    });
+  } else if (bindableNodes.length > 1 && !targetNodeId) {
+    // 多个可绑定节点但未指定目标
+    const nodeNames = bindableNodes.map(n => {
+      const d = n.data as Record<string, unknown>;
+      return String(d.name || n.type);
+    }).join(', ');
+    
+    warnings.push({
+      code: 'W002',
+      level: 'warning',
+      message: `参数扫描节点 [${sweepName}] 的扫描体内有 ${bindableNodes.length} 个可绑定节点 (${nodeNames})，将全部应用参数`,
+      nodeId: sweepNode.id,
+      nodeName: sweepName,
+    });
+  } else if (targetNodeId) {
+    // 检查指定的目标节点是否在扫描体内
+    const targetInBody = bindableNodes.some(n => n.id === targetNodeId);
+    if (!targetInBody) {
+      warnings.push({
+        code: 'E003',
+        level: 'error',
+        message: `参数扫描节点 [${sweepName}] 指定的目标节点不在扫描体内`,
+        nodeId: sweepNode.id,
+        nodeName: sweepName,
+      });
+    }
+  }
+  
+  return warnings;
+}
+
+// 递归收集扫描体内的所有节点（包括嵌套循环内的）
+function collectLoopBodyNodesFlat(
+  loopNodeId: string,
+  allNodes: ExperimentNode[],
+  allEdges: ExperimentEdge[]
+): ExperimentNode[] {
+  const result: ExperimentNode[] = [];
+  const directBody = collectLoopBodyNodes(loopNodeId, allNodes, allEdges);
+  
+  for (const node of directBody) {
+    result.push(node);
+    // 递归收集嵌套循环内的节点
+    if (node.type === NodeType.PARAM_SWEEP || node.type === NodeType.LOOP) {
+      const nested = collectLoopBodyNodesFlat(node.id, allNodes, allEdges);
+      result.push(...nested);
+    }
+  }
+  
+  return result;
+}
+
+// 验证所有参数扫描节点
+export function validateAllParamSweeps(
+  nodes: ExperimentNode[],
+  edges: ExperimentEdge[]
+): CompileWarning[] {
+  const warnings: CompileWarning[] = [];
+  
+  const sweepNodes = nodes.filter(n => n.type === NodeType.PARAM_SWEEP);
+  for (const sweepNode of sweepNodes) {
+    const nodeWarnings = validateParamSweepBindings(sweepNode, nodes, edges);
+    warnings.push(...nodeWarnings);
+  }
+  
+  return warnings;
+}
 
 interface YamlStep {
   name: string;
@@ -147,6 +277,15 @@ export function graphToYaml(
 
     // 跳过开始和结束节点
     if (node.type !== NodeType.START && node.type !== NodeType.END) {
+      // 参数扫描节点需要特殊处理：编译期展开
+      if (node.type === NodeType.PARAM_SWEEP) {
+        const sweepSteps = expandParamSweep(node, adjacency, liquidConnections, nodes, edges, visited);
+        steps.push(...sweepSteps);
+        // 跳过已处理的扫描体节点，继续从扫描体末尾后的节点
+        currentId = adjacency.get(currentId);
+        continue;
+      }
+      
       const step = nodeToStep(node, liquidConnections, nodes, edges);
       if (step) {
         steps.push(step);
@@ -195,6 +334,369 @@ export function graphToYaml(
     lineWidth: 120,
     noRefs: true,
   });
+}
+
+// 生成参数扫描的值序列
+function generateSweepValues(data: Record<string, unknown>): number[] {
+  const paramType = data.paramType as string;
+  
+  if (paramType === 'ratio') {
+    // 比例扫描使用预定义的扫描点
+    const ratioPoints = data.ratioSweepPoints as Array<{ ratios: Record<string, number> }> || [];
+    return ratioPoints.map((_, i) => i); // 返回索引作为值
+  }
+  
+  // 其他类型使用 start/end/step
+  const start = Number(data.startValue ?? 0);
+  const end = Number(data.endValue ?? 100);
+  const step = Number(data.stepValue ?? 10);
+  const seqMode = (data.seqMode as string) || 'linear';
+  
+  // 预生成的序列优先
+  if (data.generatedSequence && Array.isArray(data.generatedSequence)) {
+    return data.generatedSequence as number[];
+  }
+  
+  // 根据模式生成序列
+  const values: number[] = [];
+  if (seqMode === 'linear') {
+    for (let v = start; v <= end; v += step) {
+      values.push(v);
+    }
+  } else if (seqMode === 'log') {
+    // 对数序列
+    const logStart = Math.log10(Math.max(start, 0.001));
+    const logEnd = Math.log10(Math.max(end, 0.001));
+    const count = Math.max(2, Math.floor((end - start) / step) + 1);
+    for (let i = 0; i < count; i++) {
+      const logVal = logStart + (logEnd - logStart) * i / (count - 1);
+      values.push(Math.pow(10, logVal));
+    }
+  } else {
+    // 默认线性
+    for (let v = start; v <= end; v += step) {
+      values.push(v);
+    }
+  }
+  
+  return values.length > 0 ? values : [start];
+}
+
+// =============== 变量上下文系统 ===============
+
+// 变量上下文：记录当前作用域内的扫描变量值
+interface VariableContext {
+  // variableId -> { value, label }
+  [variableId: string]: {
+    value: number;
+    label: string;        // 如 "[外层扫描 #1/5]"
+    paramType: string;
+    ratioConfig?: Record<string, number>;  // 比例扫描时的比例配置
+  };
+}
+
+// 收集扫描体/循环体节点 (从 loopBody 输出边开始，沿 flow 边遍历)
+// 注意：遇到嵌套的 PARAM_SWEEP/LOOP 时，只收集该节点本身，不深入其内部
+function collectLoopBodyNodes(
+  loopNodeId: string,
+  allNodes: ExperimentNode[],
+  allEdges: ExperimentEdge[]
+): ExperimentNode[] {
+  const bodyNodes: ExperimentNode[] = [];
+  
+  // 找到循环体输出边 (从节点的 loopBody handle 出发)
+  const loopBodyOutEdge = allEdges.find(
+    e => e.source === loopNodeId && e.sourceHandle === HANDLE_TYPES.LOOP_BODY
+  );
+  
+  if (!loopBodyOutEdge) {
+    return bodyNodes;
+  }
+  
+  // 从循环体第一个节点开始，沿着 flow 边遍历
+  let currentId: string | undefined = loopBodyOutEdge.target;
+  const visitedInLoop = new Set<string>();
+  
+  // 构建 flow 邻接表
+  const flowAdjacency = new Map<string, string>();
+  for (const edge of allEdges) {
+    if (edge.sourceHandle === HANDLE_TYPES.FLOW || !edge.sourceHandle) {
+      flowAdjacency.set(edge.source, edge.target);
+    }
+  }
+  
+  while (currentId && !visitedInLoop.has(currentId)) {
+    visitedInLoop.add(currentId);
+    const bodyNode = allNodes.find(n => n.id === currentId);
+    if (!bodyNode) break;
+    
+    bodyNodes.push(bodyNode);
+    
+    // 检查是否是循环体返回边的源节点
+    const isLoopBodyReturn = allEdges.some(
+      e => e.source === currentId && 
+           e.target === loopNodeId && 
+           e.targetHandle === HANDLE_TYPES.LOOP_BODY
+    );
+    
+    if (isLoopBodyReturn) break;
+    
+    // 如果是嵌套的 LOOP/PARAM_SWEEP，跳过其内部，从其 flow 输出继续
+    // 嵌套节点的 flow 输出会连接到父级循环体的返回点或下一个节点
+    currentId = flowAdjacency.get(currentId);
+  }
+  
+  return bodyNodes;
+}
+
+// 递归展开扫描体节点（支持嵌套）
+function expandBodyNodes(
+  bodyNodes: ExperimentNode[],
+  varContext: VariableContext,
+  liquidConnections: Map<string, string[]>,
+  allNodes: ExperimentNode[],
+  allEdges: ExperimentEdge[]
+): YamlStep[] {
+  const steps: YamlStep[] = [];
+  
+  // 生成当前上下文的标签前缀
+  const contextLabels = Object.values(varContext).map(v => v.label).join(' ');
+  
+  for (const node of bodyNodes) {
+    if (node.type === NodeType.PARAM_SWEEP) {
+      // 递归展开嵌套的参数扫描
+      const nestedSteps = expandParamSweepRecursive(
+        node, varContext, liquidConnections, allNodes, allEdges
+      );
+      steps.push(...nestedSteps);
+    } else if (node.type === NodeType.LOOP) {
+      // 递归展开循环节点
+      const loopData = node.data as Record<string, unknown>;
+      const loopCount = Number(loopData.iterations || 1);
+      const loopName = String(loopData.name || '循环');
+      const loopBodyNodes = collectLoopBodyNodes(node.id, allNodes, allEdges);
+      
+      for (let i = 0; i < loopCount; i++) {
+        const loopLabel = `[${loopName} #${i + 1}/${loopCount}]`;
+        const loopContext: VariableContext = {
+          ...varContext,
+          [`loop_${node.id}`]: { value: i, label: loopLabel, paramType: 'loop' }
+        };
+        const loopSteps = expandBodyNodes(
+          loopBodyNodes, loopContext, liquidConnections, allNodes, allEdges
+        );
+        steps.push(...loopSteps);
+      }
+    } else {
+      // 普通节点：应用变量上下文并转换
+      const step = applyContextAndConvert(
+        node, varContext, contextLabels, liquidConnections, allNodes, allEdges
+      );
+      if (step) {
+        steps.push(step);
+      }
+    }
+  }
+  
+  return steps;
+}
+
+// 应用变量上下文到节点并转换为步骤
+function applyContextAndConvert(
+  node: ExperimentNode,
+  varContext: VariableContext,
+  contextLabels: string,
+  liquidConnections: Map<string, string[]>,
+  allNodes: ExperimentNode[],
+  allEdges: ExperimentEdge[]
+): YamlStep | null {
+  // 克隆节点数据
+  const clonedNode = JSON.parse(JSON.stringify(node)) as ExperimentNode;
+  const clonedData = clonedNode.data as Record<string, unknown>;
+  
+  // 收集应用的参数信息
+  const appliedParams: string[] = [];
+  
+  // 遍历变量上下文，应用匹配的变量
+  for (const [varId, varInfo] of Object.entries(varContext)) {
+    if (varInfo.paramType === 'loop') continue; // 跳过循环计数器
+    
+    const { value, paramType, ratioConfig } = varInfo;
+    
+    switch (paramType) {
+      case 'volume':
+        if (node.type === NodeType.INJECT) {
+          clonedData.targetVolumeMl = value;
+          appliedParams.push(`${value}ml`);
+        }
+        break;
+      case 'gasPumpPwm':
+        if ([NodeType.ACQUIRE, NodeType.DRAIN, NodeType.PREHEAT, NodeType.WASH].includes(node.type as NodeType)) {
+          clonedData.gasPumpPwm = value;
+          appliedParams.push(`PWM${value}%`);
+        }
+        break;
+      case 'duration':
+        if (node.type === NodeType.ACQUIRE || node.type === NodeType.PREHEAT) {
+          clonedData.durationS = value;
+          if (node.type === NodeType.ACQUIRE) {
+            clonedData.terminationType = 'duration';
+          }
+          appliedParams.push(`${value}s`);
+        }
+        break;
+      case 'cycles':
+        if (node.type === NodeType.ACQUIRE) {
+          clonedData.heaterCycles = value;
+          clonedData.terminationType = 'cycles';
+          appliedParams.push(`${value}周期`);
+        }
+        break;
+      case 'ratio':
+        if (node.type === NodeType.INJECT && ratioConfig) {
+          // 比例扫描需要特殊处理
+          const liquidSourceIds = liquidConnections.get(node.id) || [];
+          const components: { liquid_id: string; ratio: number }[] = [];
+          
+          for (const sourceId of liquidSourceIds) {
+            const sourceNode = allNodes.find(n => n.id === sourceId);
+            if (sourceNode?.type === NodeType.LIQUID_SOURCE) {
+              const sourceData = sourceNode.data as Record<string, unknown>;
+              const liquidId = String(sourceData.liquidId || `liquid_${sourceId}`);
+              const ratio = ratioConfig[liquidId] ?? 0;
+              if (ratio > 0) {
+                components.push({ liquid_id: liquidId, ratio });
+              }
+            }
+          }
+          
+          if (components.length > 0) {
+            const ratioLabel = Object.values(ratioConfig)
+              .map(r => `${r.toFixed(0)}%`)
+              .join(':');
+            appliedParams.push(ratioLabel);
+            
+            // 直接返回注入步骤
+            return {
+              name: `${contextLabels} ${clonedData.name || '进样'} (${ratioLabel})`.trim(),
+              inject: {
+                components,
+                target_volume_ml: Number(clonedData.targetVolumeMl ?? 10),
+                tolerance: Number(clonedData.tolerance ?? 0.5),
+                flow_rate_ml_min: Number(clonedData.flowRateMlMin ?? 2),
+              },
+            };
+          }
+        }
+        break;
+    }
+  }
+  
+  // 转换节点为步骤
+  clonedNode.data = clonedData;
+  const step = nodeToStep(clonedNode, liquidConnections, allNodes, allEdges);
+  
+  if (step) {
+    // 添加上下文标签和应用的参数
+    const paramStr = appliedParams.length > 0 ? ` (${appliedParams.join(', ')})` : '';
+    step.name = `${contextLabels} ${step.name}${paramStr}`.trim();
+  }
+  
+  return step;
+}
+
+// 递归展开参数扫描节点
+function expandParamSweepRecursive(
+  sweepNode: ExperimentNode,
+  parentContext: VariableContext,
+  liquidConnections: Map<string, string[]>,
+  allNodes: ExperimentNode[],
+  allEdges: ExperimentEdge[]
+): YamlStep[] {
+  const data = sweepNode.data as Record<string, unknown>;
+  const sweepName = String(data.name || '参数扫描');
+  const paramType = data.paramType as string || 'volume';
+  const sweepValues = generateSweepValues(data);
+  const ratioPoints = (data.ratioSweepPoints as Array<{ ratios: Record<string, number> }>) || [];
+  
+  if (sweepValues.length === 0) {
+    console.warn(`参数扫描节点 [${sweepName}] 没有生成扫描值`);
+    return [];
+  }
+  
+  // 收集扫描体节点
+  const bodyNodes = collectLoopBodyNodes(sweepNode.id, allNodes, allEdges);
+  
+  if (bodyNodes.length === 0) {
+    console.warn(`参数扫描节点 [${sweepName}] 没有连接扫描体`);
+    return [];
+  }
+  
+  const expandedSteps: YamlStep[] = [];
+  const variableId = `sweep_${sweepNode.id}_${paramType}`;
+  
+  for (let i = 0; i < sweepValues.length; i++) {
+    const value = sweepValues[i];
+    const iterLabel = `[${sweepName} #${i + 1}/${sweepValues.length}]`;
+    
+    // 创建当前迭代的变量上下文
+    const currentContext: VariableContext = {
+      ...parentContext,
+      [variableId]: {
+        value,
+        label: iterLabel,
+        paramType,
+        ratioConfig: paramType === 'ratio' ? ratioPoints[i]?.ratios : undefined,
+      },
+    };
+    
+    // 递归展开扫描体
+    const bodySteps = expandBodyNodes(
+      bodyNodes, currentContext, liquidConnections, allNodes, allEdges
+    );
+    expandedSteps.push(...bodySteps);
+  }
+  
+  return expandedSteps;
+}
+
+// 展开参数扫描节点（入口函数，向后兼容）
+function expandParamSweep(
+  sweepNode: ExperimentNode,
+  adjacency: Map<string, string>,
+  liquidConnections: Map<string, string[]>,
+  allNodes: ExperimentNode[],
+  allEdges: ExperimentEdge[],
+  visited: Set<string>
+): YamlStep[] {
+  // 收集并标记扫描体节点
+  const bodyNodes = collectLoopBodyNodes(sweepNode.id, allNodes, allEdges);
+  for (const bodyNode of bodyNodes) {
+    visited.add(bodyNode.id);
+    // 如果扫描体内有嵌套的循环/扫描，也标记其内部节点
+    if (bodyNode.type === NodeType.PARAM_SWEEP || bodyNode.type === NodeType.LOOP) {
+      markNestedNodesAsVisited(bodyNode.id, allNodes, allEdges, visited);
+    }
+  }
+  
+  // 使用递归展开
+  return expandParamSweepRecursive(sweepNode, {}, liquidConnections, allNodes, allEdges);
+}
+
+// 递归标记嵌套节点为已访问
+function markNestedNodesAsVisited(
+  loopNodeId: string,
+  allNodes: ExperimentNode[],
+  allEdges: ExperimentEdge[],
+  visited: Set<string>
+): void {
+  const bodyNodes = collectLoopBodyNodes(loopNodeId, allNodes, allEdges);
+  for (const node of bodyNodes) {
+    visited.add(node.id);
+    if (node.type === NodeType.PARAM_SWEEP || node.type === NodeType.LOOP) {
+      markNestedNodesAsVisited(node.id, allNodes, allEdges, visited);
+    }
+  }
 }
 
 function nodeToStep(
@@ -409,6 +911,55 @@ function nodeToStep(
       };
     }
 
+    case NodeType.PREHEAT: {
+      const preheat: Record<string, unknown> = {
+        max_duration_s: Number(data.maxDurationS || 120),
+        record_data: Boolean(data.recordData ?? false),
+        gas_pump_pwm: Number(data.gasPumpPwm || 50),
+      };
+      
+      // 预热模式
+      if (data.mode === 'cycles') {
+        preheat.cycles = Number(data.cycles || 5);
+      } else {
+        preheat.duration_s = Number(data.durationS || 60);
+      }
+      
+      // 目标传感器
+      const sensorIndices = data.sensorIndices as number[] | undefined;
+      if (sensorIndices && sensorIndices.length > 0) {
+        preheat.sensor_indices = sensorIndices;
+      }
+      
+      return { name, preheat };
+    }
+
+    case NodeType.CONFIGURE_HEATER: {
+      const configs = (data.configs as Array<{
+        profileName?: string;
+        temps?: number[];
+        durs?: number[];
+        sensorIndices?: number[];
+      }>) || [];
+      
+      return {
+        name,
+        configure_heater: {
+          configs: configs.map(c => ({
+            profile_name: c.profileName || '',
+            temps: c.temps || [],
+            durs: c.durs || [],
+            sensor_indices: c.sensorIndices || [],
+          })),
+        },
+      };
+    }
+
+    case NodeType.PARAM_SWEEP:
+      // 参数扫描在 graphToYaml 中已展开，这里返回 null
+      // 如果在 LOOP 循环体中遇到，则不支持（需要嵌套展开，暂不实现）
+      return null;
+
     default:
       return null;
   }
@@ -432,6 +983,8 @@ function getDefaultName(nodeType: NodeType): string {
     [NodeType.SET_STATE]: '设置状态',
     [NodeType.SET_GAS_PUMP]: '设置气泵',
     [NodeType.HARDWARE_CONFIG]: '硬件配置',
+    [NodeType.PREHEAT]: '传感器预热',
+    [NodeType.CONFIGURE_HEATER]: '配置加热器',
   };
   return names[nodeType] || '未知步骤';
 }
@@ -705,6 +1258,42 @@ function stepToNodeData(step: YamlStep): { type: NodeType; data: Record<string, 
       data: {
         name: step.name,
         count: step.loop.count,
+      },
+    };
+  }
+
+  // 预热动作
+  const preheat = (step as Record<string, unknown>).preheat as Record<string, unknown> | undefined;
+  if (preheat) {
+    return {
+      type: NodeType.PREHEAT,
+      data: {
+        name: step.name,
+        mode: preheat.cycles ? 'cycles' : 'duration',
+        cycles: preheat.cycles,
+        durationS: preheat.duration_s,
+        maxDurationS: preheat.max_duration_s || 120,
+        sensorIndices: preheat.sensor_indices || [],
+        recordData: preheat.record_data ?? false,
+        gasPumpPwm: preheat.gas_pump_pwm || 50,
+      },
+    };
+  }
+
+  // 配置加热器动作
+  const configureHeater = (step as Record<string, unknown>).configure_heater as Record<string, unknown> | undefined;
+  if (configureHeater) {
+    const configs = (configureHeater.configs as Array<Record<string, unknown>>) || [];
+    return {
+      type: NodeType.CONFIGURE_HEATER,
+      data: {
+        name: step.name,
+        configs: configs.map(c => ({
+          profileName: c.profile_name || '',
+          temps: c.temps || [],
+          durs: c.durs || [],
+          sensorIndices: c.sensor_indices || [],
+        })),
       },
     };
   }

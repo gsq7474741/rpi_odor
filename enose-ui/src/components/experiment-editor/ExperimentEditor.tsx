@@ -40,8 +40,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Save, FileDown, Trash2, Play, Upload, CheckCircle, LayoutTemplate, Undo2, Redo2, FolderOpen, HardDrive, ChevronDown, FilePlus, ZoomIn, ZoomOut, Maximize2, Focus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ConfirmDialog, UnsavedChangesDialog } from './ConfirmDialog';
 import { EditorContextMenu } from './panels/ContextMenu';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 
 function getCategoryColor(nodeType: string): string {
   for (const [, category] of Object.entries(NODE_CATEGORIES)) {
@@ -1140,24 +1142,32 @@ function EditorToolbar() {
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center border-r pr-2 mr-1">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={undo} 
-              disabled={!canUndo()}
-              title="撤销 (Ctrl+Z)"
-            >
-              <Undo2 className="w-4 h-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={redo} 
-              disabled={!canRedo()}
-              title="重做 (Ctrl+Shift+Z)"
-            >
-              <Redo2 className="w-4 h-4" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={undo} 
+                  disabled={!canUndo()}
+                >
+                  <Undo2 className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>撤销 (Ctrl+Z)</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={redo} 
+                  disabled={!canRedo()}
+                >
+                  <Redo2 className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>重做 (Ctrl+Shift+Z)</TooltipContent>
+            </Tooltip>
           </div>
           <input
             ref={fileInputRef}
@@ -1168,10 +1178,15 @@ function EditorToolbar() {
           />
           
           {/* 新建按钮 */}
-          <Button variant="outline" size="sm" onClick={handleNew} title="新建 (Ctrl+N)">
-            <FilePlus className="w-4 h-4 mr-1" />
-            新建
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" size="sm" onClick={handleNew}>
+                <FilePlus className="w-4 h-4 mr-1" />
+                新建
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>新建 (Ctrl+N)</TooltipContent>
+          </Tooltip>
           
           {/* 打开按钮（含模板和已保存程序） */}
           <DropdownMenu>
@@ -1586,16 +1601,42 @@ export function ExperimentEditor() {
     <ReactFlowProvider>
       <div className="flex flex-col h-full">
         <EditorToolbar />
-        <div className="flex flex-1 overflow-hidden">
-          {showNodePalette && <NodePalette />}
-          <EditorCanvas />
-          {showPropertyPanel && <PropertyPanel />}
-          {showCompilerPanel && (
-            <div className="w-64 shrink-0">
-              <CompilerPanel />
-            </div>
+        <ResizablePanelGroup direction="horizontal" className="flex-1">
+          {/* 左侧节点面板 */}
+          {showNodePalette && (
+            <>
+              <ResizablePanel defaultSize={12} minSize={8} maxSize={20}>
+                <NodePalette />
+              </ResizablePanel>
+              <ResizableHandle withHandle />
+            </>
           )}
-        </div>
+          
+          {/* 中间画布 */}
+          <ResizablePanel defaultSize={showPropertyPanel && showCompilerPanel ? 52 : showPropertyPanel || showCompilerPanel ? 68 : 88}>
+            <EditorCanvas />
+          </ResizablePanel>
+          
+          {/* 右侧属性面板 */}
+          {showPropertyPanel && (
+            <>
+              <ResizableHandle withHandle />
+              <ResizablePanel defaultSize={18} minSize={12} maxSize={30}>
+                <PropertyPanel />
+              </ResizablePanel>
+            </>
+          )}
+          
+          {/* 最右侧编译器面板 */}
+          {showCompilerPanel && (
+            <>
+              <ResizableHandle withHandle />
+              <ResizablePanel defaultSize={18} minSize={12} maxSize={35}>
+                <CompilerPanel />
+              </ResizablePanel>
+            </>
+          )}
+        </ResizablePanelGroup>
         <StatusBar />
       </div>
     </ReactFlowProvider>

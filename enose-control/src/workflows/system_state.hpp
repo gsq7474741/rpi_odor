@@ -9,7 +9,13 @@ namespace hal {
 class ActuatorDriver;
 }
 
+namespace db {
+class ConsumableRepository;
+}
+
 namespace workflows {
+
+class RuntimeTracker;
 
 /**
  * @brief 泵运行状态
@@ -98,8 +104,8 @@ public:
         float pump_5_volume = 0;  // 蠕动泵5 进样量
         float pump_6_volume = 0;  // 蠕动泵6 进样量
         float pump_7_volume = 0;  // 蠕动泵7 进样量
-        float speed = 10.0f;      // 进样速度 (mm/s)
-        float accel = 100.0f;     // 加速度 (mm/s²)
+        float speed = 5.0f;       // 进样速度 (ml/s, 200 RPM)
+        float accel = 1.0f;       // 加速度 (ml/s²)
     };
 
     using StateCallback = std::function<void(State, State)>;  // (old_state, new_state)
@@ -173,6 +179,27 @@ public:
      */
     bool is_any_pump_running() const;
 
+    /**
+     * @brief 设置气泵 PWM (0.0 - 1.0)
+     * 
+     * 这会触发 RuntimeTracker 自动统计运行时间
+     */
+    void set_air_pump_pwm(float pwm);
+
+    /**
+     * @brief 设置运行时间跟踪器
+     * 
+     * 注入后，所有硬件运行时间会自动统计到数据库
+     */
+    void set_runtime_tracker(std::shared_ptr<RuntimeTracker> tracker) {
+        runtime_tracker_ = std::move(tracker);
+    }
+
+    /**
+     * @brief 获取运行时间跟踪器
+     */
+    std::shared_ptr<RuntimeTracker> get_runtime_tracker() const { return runtime_tracker_; }
+
 private:
     void apply_peripheral_state(const PeripheralState& state);
 
@@ -183,6 +210,9 @@ private:
 
     // 状态定义表
     static const PeripheralState STATE_DEFINITIONS[];
+
+    // 运行时间跟踪器 (可选)
+    std::shared_ptr<RuntimeTracker> runtime_tracker_;
 };
 
 } // namespace workflows

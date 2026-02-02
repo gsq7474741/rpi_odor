@@ -7,12 +7,16 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertTriangle, Beaker, Droplets, Filter, RotateCcw, Plus, Trash2, RefreshCw, CheckCircle2, XCircle, Wind, MoreHorizontal, Pencil, Copy, Settings2, ChevronDown, ChevronRight, GripVertical } from "lucide-react";
+import { AlertTriangle, Beaker, Droplets, Filter, RotateCcw, Plus, Trash2, RefreshCw, CheckCircle2, XCircle, Wind, MoreHorizontal, Pencil, Copy, Settings2, ChevronDown, ChevronRight, GripVertical, Search, Eye } from "lucide-react";
+import { TagInput } from "@/components/ui/tag-input";
+import { ImageInput, ImagePreviewButton } from "@/components/ui/image-input";
 import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable, DataTableColumnHeader } from "@/components/ui/data-table";
 import {
@@ -23,6 +27,34 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  ContextMenuItem,
+  ContextMenuSeparator,
+} from "@/components/ui/context-menu";
+
+// 构造代理 URL（通过 Next.js API 代理访问 MinIO，不直接暴露 MinIO 地址）
+function buildProxyUrl(filePath: string): string {
+  if (!filePath) return "";
+  // 如果已经是代理 URL，直接返回
+  if (filePath.startsWith("/api/uploads/")) {
+    return filePath;
+  }
+  // 如果是完整 URL（旧数据），提取路径部分
+  if (filePath.startsWith("http://") || filePath.startsWith("https://")) {
+    try {
+      const url = new URL(filePath);
+      // 移除 bucket 前缀 (如 /attachments/)
+      const pathParts = url.pathname.split("/").filter(Boolean);
+      if (pathParts.length > 1 && pathParts[0] === "attachments") {
+        return `/api/uploads/${pathParts.slice(1).join("/")}`;
+      }
+      return `/api/uploads${url.pathname}`;
+    } catch {
+      return filePath;
+    }
+  }
+  return `/api/uploads/${filePath}`;
+}
 
 interface Liquid {
   id: number;
@@ -73,6 +105,18 @@ interface MetadataField {
   isActive: boolean;
 }
 
+interface Attachment {
+  id: number;
+  liquidId: number;
+  fieldKey: string;
+  fileType: string;
+  fileName: string;
+  filePath: string;
+  fileUrl: string;
+  fileSize: number;
+  mimeType: string;
+}
+
 const FIELD_TYPES = [
   { value: 1, label: "文本", icon: "Aa" },
   { value: 2, label: "数字", icon: "#" },
@@ -80,6 +124,7 @@ const FIELD_TYPES = [
   { value: 4, label: "单选", icon: "○" },
   { value: 5, label: "多选", icon: "☐" },
   { value: 6, label: "标签", icon: "🏷" },
+  { value: 8, label: "图片", icon: "🖼" },
   { value: 10, label: "日期", icon: "📅" },
 ];
 
@@ -91,11 +136,19 @@ export default function ConsumablesPage() {
   const [metadataFields, setMetadataFields] = useState<MetadataField[]>([]);
   const [loading, setLoading] = useState(true);
   const [newLiquid, setNewLiquid] = useState({ name: "", type: "sample", description: "", density: 1.0 });
-  const [liquidMetadata, setLiquidMetadata] = useState<Record<string, string>>({});
+  const [liquidMetadata, setLiquidMetadata] = useState<Record<string, string | string[]>>({});
   const [dialogOpen, setDialogOpen] = useState(false);
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const [fieldDialogOpen, setFieldDialogOpen] = useState(false);
   const [editingField, setEditingField] = useState<MetadataField | null>(null);
+  const [editingLiquid, setEditingLiquid] = useState<Liquid | null>(null);
+  const [editLiquidMetadata, setEditLiquidMetadata] = useState<Record<string, unknown>>({});
+  const [tagSuggestions, setTagSuggestions] = useState<{id: number; name: string; usageCount: number}[]>([]);
+  // 液体附件映射: liquidId -> fieldKey -> attachments[]
+  const [liquidAttachmentsMap, setLiquidAttachmentsMap] = useState<Record<number, Record<string, Attachment[]>>>({});
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetTarget, setResetTarget] = useState<Consumable | null>(null);
+  const [newLifetimeHours, setNewLifetimeHours] = useState<string>("");
   const [newField, setNewField] = useState({
     fieldKey: "",
     fieldName: "",
@@ -127,6 +180,35 @@ export default function ConsumablesPage() {
       setWashPumps(washPumpsData.assignments || []);
       setConsumables(consumablesData.consumables || []);
       setMetadataFields(fieldsData.fields || []);
+      
+      // 预加载所有液体的图片附件
+      const imageFields = (fieldsData.fields || []).filter((f: MetadataField) => f.fieldType === 8);
+      if (imageFields.length > 0 && liquidsData.liquids?.length > 0) {
+        const attachmentsMap: Record<number, Record<string, Attachment[]>> = {};
+        await Promise.all(
+          (liquidsData.liquids as Liquid[]).map(async (liquid) => {
+            attachmentsMap[liquid.id] = {};
+            await Promise.all(
+              imageFields.map(async (field: MetadataField) => {
+                try {
+                  const res = await fetch(`/api/consumables?type=attachments&liquidId=${liquid.id}&fieldKey=${field.fieldKey}`);
+                  if (res.ok) {
+                    const data = await res.json();
+                    const attachments = (data.attachments || []).map((att: { filePath: string; fileUrl?: string; [key: string]: unknown }) => ({
+                      ...att,
+                      fileUrl: att.fileUrl || buildProxyUrl(att.filePath),
+                    }));
+                    attachmentsMap[liquid.id][field.fieldKey] = attachments;
+                  }
+                } catch (e) {
+                  console.error('加载附件失败:', e);
+                }
+              })
+            );
+          })
+        );
+        setLiquidAttachmentsMap(attachmentsMap);
+      }
     } catch (error) {
       console.error("Failed to fetch data:", error);
     } finally {
@@ -243,6 +325,76 @@ export default function ConsumablesPage() {
     }
   };
 
+  const handleEditLiquid = async (liquid: Liquid) => {
+    setEditingLiquid(liquid);
+    try {
+      const metadata = JSON.parse(liquid.metadataJson || "{}");
+      
+      // 加载图片类型字段的附件
+      const imageFields = metadataFields.filter(f => f.fieldType === 8);
+      for (const field of imageFields) {
+        try {
+          const res = await fetch(`/api/consumables?type=attachments&liquidId=${liquid.id}&fieldKey=${field.fieldKey}`);
+          if (res.ok) {
+            const data = await res.json();
+            // 为每个附件构造完整的 OSS URL
+            const attachments = (data.attachments || []).map((att: { filePath: string; fileUrl?: string; [key: string]: unknown }) => ({
+              ...att,
+              fileUrl: att.fileUrl || buildProxyUrl(att.filePath),
+            }));
+            metadata[`_attachments_${field.fieldKey}`] = attachments;
+          }
+        } catch (e) {
+          console.error("加载附件失败:", e);
+        }
+      }
+      
+      setEditLiquidMetadata(metadata);
+    } catch {
+      setEditLiquidMetadata({});
+    }
+    // 加载标签建议
+    fetchTagSuggestions("");
+  };
+
+  const fetchTagSuggestions = async (prefix: string) => {
+    try {
+      const res = await fetch(`/api/consumables?type=tag-suggestions&prefix=${encodeURIComponent(prefix)}&limit=20`);
+      if (res.ok) {
+        const data = await res.json();
+        setTagSuggestions(data.suggestions || []);
+      }
+    } catch (error) {
+      console.error("获取标签建议失败:", error);
+    }
+  };
+
+  const handleUpdateLiquid = async () => {
+    if (!editingLiquid) return;
+    try {
+      const res = await fetch("/api/consumables?action=update-liquid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingLiquid.id,
+          name: editingLiquid.name,
+          type: editingLiquid.type,
+          description: editingLiquid.description,
+          density: editingLiquid.density,
+          metadataJson: JSON.stringify(editLiquidMetadata),
+          isActive: editingLiquid.isActive,
+        }),
+      });
+      if (res.ok) {
+        setEditingLiquid(null);
+        setEditLiquidMetadata({});
+        fetchData();
+      }
+    } catch (error) {
+      console.error("更新失败:", error);
+    }
+  };
+
   const handleSetPump = async (pumpIndex: number, liquidId: number | null) => {
     try {
       const res = await fetch("/api/consumables?action=set-pump", {
@@ -258,14 +410,30 @@ export default function ConsumablesPage() {
     }
   };
 
-  const handleResetConsumable = async (consumableId: string) => {
+  const openResetDialog = (consumable: Consumable) => {
+    setResetTarget(consumable);
+    // 默认使用当前总寿命（转换为小时）
+    const currentLifetimeHours = Math.round(parseInt(consumable.lifetimeSeconds) / 3600);
+    setNewLifetimeHours(String(currentLifetimeHours));
+    setResetDialogOpen(true);
+  };
+
+  const handleResetConsumable = async () => {
+    if (!resetTarget) return;
     try {
+      const newLifetimeSeconds = newLifetimeHours ? parseInt(newLifetimeHours) * 3600 : 0;
       const res = await fetch("/api/consumables?action=reset-consumable", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ consumableId, notes: "手动重置" }),
+        body: JSON.stringify({ 
+          consumableId: resetTarget.id, 
+          notes: "手动重置",
+          newLifetimeSeconds,
+        }),
       });
       if (res.ok) {
+        setResetDialogOpen(false);
+        setResetTarget(null);
         fetchData();
       }
     } catch (error) {
@@ -330,7 +498,68 @@ export default function ConsumablesPage() {
     const s = parseInt(seconds) || 0;
     const hours = Math.floor(s / 3600);
     const minutes = Math.floor((s % 3600) / 60);
-    return `${hours}小时${minutes}分钟`;
+    const secs = s % 60;
+    return `${hours}h ${minutes}m ${secs}s`;
+  };
+
+  // 图片上传处理
+  const handleImageUpload = async (file: File, liquidId: number, fieldKey: string) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("liquidId", String(liquidId));
+    formData.append("fieldKey", fieldKey);
+
+    const uploadRes = await fetch("/api/uploads", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!uploadRes.ok) {
+      throw new Error("上传失败");
+    }
+
+    const uploadData = await uploadRes.json();
+
+    // 创建附件记录
+    const attachRes = await fetch("/api/consumables?action=create-attachment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        liquidId,
+        fieldKey,
+        fileType: "image",
+        fileName: uploadData.fileName,
+        filePath: uploadData.filePath,
+        fileSize: uploadData.fileSize,
+        mimeType: uploadData.mimeType,
+      }),
+    });
+
+    if (!attachRes.ok) {
+      throw new Error("保存附件记录失败");
+    }
+
+    const attachment = await attachRes.json();
+    return {
+      id: attachment.id,
+      liquidId: attachment.liquidId,
+      fieldKey: attachment.fieldKey,
+      fileType: attachment.fileType,
+      fileName: attachment.fileName,
+      filePath: attachment.filePath,
+      fileUrl: uploadData.fileUrl,
+      fileSize: attachment.fileSize,
+      mimeType: attachment.mimeType,
+    };
+  };
+
+  const handleImageDelete = async (attachmentId: number) => {
+    const res = await fetch("/api/consumables?action=delete-attachment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ attachmentId }),
+    });
+    return res.ok;
   };
 
   const getStatusBadge = (status: number) => {
@@ -419,6 +648,53 @@ export default function ConsumablesPage() {
       id: `meta_${field.fieldKey}`,
       header: field.fieldName,
       cell: ({ row }) => {
+        // 图片类型字段特殊处理
+        if (field.fieldType === 8) {
+          const attachments = liquidAttachmentsMap[row.original.id]?.[field.fieldKey] || [];
+          if (attachments.length === 0) {
+            return <span className="text-muted-foreground">-</span>;
+          }
+          const firstAttachment = attachments[0];
+          return (
+            <HoverCard>
+              <HoverCardTrigger asChild>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" size="sm" className="gap-1 h-7 px-2">
+                      <Eye className="h-3.5 w-3.5" />
+                      <span className="text-xs">{attachments.length}</span>
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-3xl">
+                    <DialogHeader>
+                      <DialogTitle>{row.original.name} - {field.fieldName}</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 max-h-[70vh] overflow-y-auto">
+                      {attachments.map((att) => (
+                        <div key={att.id} className="space-y-2">
+                          <img
+                            src={att.fileUrl}
+                            alt={att.fileName}
+                            className="w-full h-auto rounded-md"
+                          />
+                          <p className="text-sm text-muted-foreground">{att.fileName}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </HoverCardTrigger>
+              <HoverCardContent className="w-48 p-2" side="right">
+                <img
+                  src={firstAttachment.fileUrl}
+                  alt={firstAttachment.fileName}
+                  className="w-full h-auto rounded-md"
+                />
+              </HoverCardContent>
+            </HoverCard>
+          );
+        }
+        
         try {
           const metadata = JSON.parse(row.original.metadataJson || "{}");
           const value = metadata[field.fieldKey];
@@ -482,7 +758,7 @@ export default function ConsumablesPage() {
                   复制 ID
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleEditLiquid(liquid)}>
                   <Pencil className="h-4 w-4 mr-2" />
                   编辑
                 </DropdownMenuItem>
@@ -592,7 +868,7 @@ export default function ConsumablesPage() {
                       variant="outline" 
                       size="sm" 
                       className="w-full"
-                      onClick={() => handleResetConsumable(c.id)}
+                      onClick={() => openResetDialog(c)}
                     >
                       <RotateCcw className="h-4 w-4 mr-2" />
                       重置（更换后）
@@ -639,7 +915,7 @@ export default function ConsumablesPage() {
                           variant="ghost" 
                           size="sm" 
                           className="w-full h-7 text-xs"
-                          onClick={() => handleResetConsumable(c.id)}
+                          onClick={() => openResetDialog(c)}
                         >
                           <RotateCcw className="h-3 w-3 mr-1" />
                           重置
@@ -883,6 +1159,28 @@ export default function ConsumablesPage() {
                 data={liquids}
                 searchKey="name"
                 searchPlaceholder="搜索液体名称..."
+                rowContextMenu={(liquid: Liquid) => (
+                  <>
+                    <ContextMenuItem
+                      onClick={() => navigator.clipboard.writeText(liquid.id.toString())}
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      复制 ID
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem onClick={() => handleEditLiquid(liquid)}>
+                      <Pencil className="h-4 w-4 mr-2" />
+                      编辑
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      className="text-red-600 focus:text-red-600"
+                      onClick={() => handleDeleteLiquid(liquid.id)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      删除
+                    </ContextMenuItem>
+                  </>
+                )}
                 toolbar={
                   <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                     <DialogTrigger asChild>
@@ -949,7 +1247,7 @@ export default function ConsumablesPage() {
                                 </Label>
                                 {field.fieldType === 1 && (
                                   <Input
-                                    value={liquidMetadata[field.fieldKey] || ""}
+                                    value={String(liquidMetadata[field.fieldKey] ?? "")}
                                     onChange={(e) => setLiquidMetadata({ ...liquidMetadata, [field.fieldKey]: e.target.value })}
                                     placeholder={field.description || field.fieldName}
                                   />
@@ -957,7 +1255,7 @@ export default function ConsumablesPage() {
                                 {field.fieldType === 2 && (
                                   <Input
                                     type="number"
-                                    value={liquidMetadata[field.fieldKey] || ""}
+                                    value={String(liquidMetadata[field.fieldKey] ?? "")}
                                     onChange={(e) => setLiquidMetadata({ ...liquidMetadata, [field.fieldKey]: e.target.value })}
                                     placeholder={field.description || field.fieldName}
                                   />
@@ -973,7 +1271,7 @@ export default function ConsumablesPage() {
                                 )}
                                 {field.fieldType === 4 && (
                                   <Select
-                                    value={liquidMetadata[field.fieldKey] || ""}
+                                    value={String(liquidMetadata[field.fieldKey] ?? "")}
                                     onValueChange={(value) => setLiquidMetadata({ ...liquidMetadata, [field.fieldKey]: value })}
                                   >
                                     <SelectTrigger>
@@ -991,12 +1289,34 @@ export default function ConsumablesPage() {
                                     </SelectContent>
                                   </Select>
                                 )}
+                                {field.fieldType === 6 && (
+                                  <TagInput
+                                    value={(() => {
+                                      const v = liquidMetadata[field.fieldKey];
+                                      if (Array.isArray(v)) return v as string[];
+                                      if (typeof v === "string" && v) {
+                                        try { const arr = JSON.parse(v); if (Array.isArray(arr)) return arr; } catch {}
+                                        return v.split(/[,，、]/).map(t => t.trim()).filter(Boolean);
+                                      }
+                                      return [];
+                                    })()}
+                                    onChange={(tags) => setLiquidMetadata({ ...liquidMetadata, [field.fieldKey]: tags })}
+                                    suggestions={tagSuggestions}
+                                    onInputChange={fetchTagSuggestions}
+                                    placeholder="输入标签，回车添加"
+                                  />
+                                )}
                                 {field.fieldType === 10 && (
                                   <Input
                                     type="date"
                                     value={liquidMetadata[field.fieldKey] || ""}
                                     onChange={(e) => setLiquidMetadata({ ...liquidMetadata, [field.fieldKey]: e.target.value })}
                                   />
+                                )}
+                                {field.fieldType === 8 && (
+                                  <div className="text-sm text-muted-foreground">
+                                    图片上传功能在创建液体后可用
+                                  </div>
                                 )}
                               </div>
                             ))}
@@ -1184,6 +1504,133 @@ export default function ConsumablesPage() {
             </Card>
           </Collapsible>
 
+          {/* 编辑液体对话框 */}
+          <Dialog open={!!editingLiquid} onOpenChange={(open) => !open && setEditingLiquid(null)}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>编辑液体</DialogTitle>
+                <DialogDescription>修改液体信息和元数据</DialogDescription>
+              </DialogHeader>
+              {editingLiquid && (
+                <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>名称</Label>
+                      <Input
+                        value={editingLiquid.name}
+                        onChange={(e) => setEditingLiquid({ ...editingLiquid, name: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>密度 (g/ml)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={editingLiquid.density}
+                        onChange={(e) => setEditingLiquid({ ...editingLiquid, density: parseFloat(e.target.value) || 1.0 })}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>描述</Label>
+                    <Textarea
+                      value={editingLiquid.description}
+                      onChange={(e) => setEditingLiquid({ ...editingLiquid, description: e.target.value })}
+                      className="h-20"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={editingLiquid.isActive}
+                      onCheckedChange={(checked) => setEditingLiquid({ ...editingLiquid, isActive: checked })}
+                    />
+                    <Label>启用</Label>
+                  </div>
+                  
+                  {metadataFields.length > 0 && (
+                    <div className="space-y-3 pt-2 border-t">
+                      <Label className="text-sm font-medium">元数据字段</Label>
+                      {metadataFields.map((field) => (
+                        <div key={field.id} className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">{field.fieldName}</Label>
+                          {field.fieldType === 1 ? (
+                            <Input
+                              value={String(editLiquidMetadata[field.fieldKey] || "")}
+                              onChange={(e) => setEditLiquidMetadata({ ...editLiquidMetadata, [field.fieldKey]: e.target.value })}
+                            />
+                          ) : field.fieldType === 6 ? (
+                            <TagInput
+                              value={(() => {
+                                const v = editLiquidMetadata[field.fieldKey];
+                                if (Array.isArray(v)) return v as string[];
+                                if (typeof v === "string") {
+                                  try { const arr = JSON.parse(v); if (Array.isArray(arr)) return arr; } catch {}
+                                  return v ? v.split(/[,，、]/).map(t => t.trim()).filter(Boolean) : [];
+                                }
+                                return [];
+                              })()}
+                              onChange={(tags) => setEditLiquidMetadata({ ...editLiquidMetadata, [field.fieldKey]: tags })}
+                              suggestions={tagSuggestions}
+                              onInputChange={fetchTagSuggestions}
+                              placeholder="输入标签，回车添加"
+                            />
+                          ) : field.fieldType === 2 ? (
+                            <Input
+                              type="number"
+                              value={String(editLiquidMetadata[field.fieldKey] ?? "")}
+                              onChange={(e) => setEditLiquidMetadata({ ...editLiquidMetadata, [field.fieldKey]: e.target.value })}
+                            />
+                          ) : field.fieldType === 4 ? (
+                            <Select
+                              value={String(editLiquidMetadata[field.fieldKey] ?? "")}
+                              onValueChange={(v) => setEditLiquidMetadata({ ...editLiquidMetadata, [field.fieldKey]: v })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="选择..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {(() => {
+                                  try {
+                                    const opts = JSON.parse(field.optionsJson || "{}");
+                                    const options = opts.options || [];
+                                    return options.map((opt: string) => (
+                                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                    ));
+                                  } catch { return null; }
+                                })()}
+                              </SelectContent>
+                            </Select>
+                          ) : field.fieldType === 8 && editingLiquid ? (
+                            <ImageInput
+                              liquidId={editingLiquid.id}
+                              fieldKey={field.fieldKey}
+                              value={(editLiquidMetadata[`_attachments_${field.fieldKey}`] as Array<{id: number; liquidId: number; fieldKey: string; fileType: string; fileName: string; filePath: string; fileUrl: string; fileSize: number; mimeType: string}>) || []}
+                              onChange={(attachments) => setEditLiquidMetadata({ 
+                                ...editLiquidMetadata, 
+                                [`_attachments_${field.fieldKey}`]: attachments 
+                              })}
+                              onUpload={(file) => handleImageUpload(file, editingLiquid.id, field.fieldKey)}
+                              onDelete={handleImageDelete}
+                            />
+                          ) : (
+                            <Input
+                              value={String(editLiquidMetadata[field.fieldKey] ?? "")}
+                              onChange={(e) => setEditLiquidMetadata({ ...editLiquidMetadata, [field.fieldKey]: e.target.value })}
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditingLiquid(null)}>取消</Button>
+                <Button onClick={handleUpdateLiquid}>保存</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
           {/* 编辑字段对话框 */}
           <Dialog open={!!editingField} onOpenChange={(open) => !open && setEditingField(null)}>
             <DialogContent>
@@ -1210,8 +1657,8 @@ export default function ConsumablesPage() {
                   {(editingField.fieldType === 4 || editingField.fieldType === 5) && (
                     <div className="space-y-2">
                       <Label>选项（每行一个）</Label>
-                      <textarea
-                        className="w-full h-24 p-2 border rounded-md text-sm"
+                      <Textarea
+                        className="h-24 text-sm"
                         value={(() => { try { const o = JSON.parse(editingField.optionsJson || "[]"); return Array.isArray(o) ? o.join("\n") : ""; } catch { return ""; } })()}
                         onChange={(e) => setEditingField({ 
                           ...editingField, 
@@ -1235,8 +1682,84 @@ export default function ConsumablesPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
         </TabsContent>
       </Tabs>
+
+      {/* 重置耗材对话框 - 放在 Tabs 外部以便在所有 Tab 下都能显示 */}
+      <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>重置耗材</DialogTitle>
+            <DialogDescription>
+              确认更换 {resetTarget?.name} 并重置使用时间
+            </DialogDescription>
+          </DialogHeader>
+          {resetTarget && (
+            <div className="space-y-4 py-4">
+              <div className="text-sm text-muted-foreground">
+                <p>当前已用: {formatDuration(resetTarget.accumulatedSeconds)}</p>
+                <p>当前总寿命: {Math.round(parseInt(resetTarget.lifetimeSeconds) / 3600)} 小时</p>
+              </div>
+              <div className="space-y-2">
+                <Label>新的总寿命（小时）</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    value={newLifetimeHours}
+                    onChange={(e) => setNewLifetimeHours(e.target.value)}
+                    placeholder="留空则保持原值"
+                    className="flex-1"
+                  />
+                  <Select onValueChange={(v) => setNewLifetimeHours(v)}>
+                    <SelectTrigger className="w-[160px]">
+                      <SelectValue placeholder="常用值" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {/* 泵管预置 (type=1) */}
+                      {resetTarget.type === 1 && (
+                        <>
+                          <SelectItem value="100">硅胶管 (100h)</SelectItem>
+                          <SelectItem value="200">BPT管 (200h)</SelectItem>
+                          <SelectItem value="150">Pharmed管 (150h)</SelectItem>
+                          <SelectItem value="300">Tygon管 (300h)</SelectItem>
+                        </>
+                      )}
+                      {/* 前置吸附管/活性炭预置 (type=2) */}
+                      {resetTarget.type === 2 && (
+                        <>
+                          <SelectItem value="200">活性炭管 (200h)</SelectItem>
+                          <SelectItem value="300">分子筛管 (300h)</SelectItem>
+                          <SelectItem value="150">硅胶干燥管 (150h)</SelectItem>
+                          <SelectItem value="400">复合吸附管 (400h)</SelectItem>
+                        </>
+                      )}
+                      {/* 真空过滤器预置 (type=3) */}
+                      {resetTarget.type === 3 && (
+                        <>
+                          <SelectItem value="500">PTFE滤膜 (500h)</SelectItem>
+                          <SelectItem value="300">玻璃纤维滤膜 (300h)</SelectItem>
+                          <SelectItem value="200">尼龙滤膜 (200h)</SelectItem>
+                          <SelectItem value="400">PVDF滤膜 (400h)</SelectItem>
+                        </>
+                      )}
+                      {/* 通用预置 */}
+                      <SelectItem value="1000">长寿命 (1000h)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  设置为 0 或留空将保持当前总寿命不变
+                </p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetDialogOpen(false)}>取消</Button>
+            <Button onClick={handleResetConsumable}>确认重置</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

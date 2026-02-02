@@ -4,6 +4,22 @@
 import { ConsumableService } from "./enose_consumable";
 import type { BinaryWriteOptions } from "@protobuf-ts/runtime";
 import type { BinaryReadOptions } from "@protobuf-ts/runtime";
+import type { DeleteLiquidAttachmentRequest } from "./enose_consumable";
+import type { LiquidAttachment } from "./enose_consumable";
+import type { CreateLiquidAttachmentRequest } from "./enose_consumable";
+import type { LiquidAttachmentsResponse } from "./enose_consumable";
+import type { GetLiquidAttachmentsRequest } from "./enose_consumable";
+import type { ListLiquidsByTagsRequest } from "./enose_consumable";
+import type { GetLiquidTagsRequest } from "./enose_consumable";
+import type { LiquidTagsResponse } from "./enose_consumable";
+import type { SetLiquidTagsRequest } from "./enose_consumable";
+import type { TagSuggestionsResponse } from "./enose_consumable";
+import type { GetTagSuggestionsRequest } from "./enose_consumable";
+import type { DeleteTagRequest } from "./enose_consumable";
+import type { Tag } from "./enose_consumable";
+import type { CreateTagRequest } from "./enose_consumable";
+import type { TagListResponse } from "./enose_consumable";
+import type { ListTagsRequest } from "./enose_consumable";
 import type { DeleteMetadataFieldRequest } from "./enose_consumable";
 import type { UpdateMetadataFieldRequest } from "./enose_consumable";
 import type { MetadataField } from "./enose_consumable";
@@ -191,6 +207,82 @@ export interface IConsumableServiceClient {
     deleteMetadataField(input: DeleteMetadataFieldRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
     deleteMetadataField(input: DeleteMetadataFieldRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
     deleteMetadataField(input: DeleteMetadataFieldRequest, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    /**
+     * 标签管理
+     *
+     * @generated from protobuf rpc: ListTags
+     */
+    listTags(input: ListTagsRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: TagListResponse) => void): grpc.ClientUnaryCall;
+    listTags(input: ListTagsRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: TagListResponse) => void): grpc.ClientUnaryCall;
+    listTags(input: ListTagsRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: TagListResponse) => void): grpc.ClientUnaryCall;
+    listTags(input: ListTagsRequest, callback: (err: grpc.ServiceError | null, value?: TagListResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * @generated from protobuf rpc: CreateTag
+     */
+    createTag(input: CreateTagRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: Tag) => void): grpc.ClientUnaryCall;
+    createTag(input: CreateTagRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: Tag) => void): grpc.ClientUnaryCall;
+    createTag(input: CreateTagRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: Tag) => void): grpc.ClientUnaryCall;
+    createTag(input: CreateTagRequest, callback: (err: grpc.ServiceError | null, value?: Tag) => void): grpc.ClientUnaryCall;
+    /**
+     * @generated from protobuf rpc: DeleteTag
+     */
+    deleteTag(input: DeleteTagRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    deleteTag(input: DeleteTagRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    deleteTag(input: DeleteTagRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    deleteTag(input: DeleteTagRequest, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    /**
+     * @generated from protobuf rpc: GetTagSuggestions
+     */
+    getTagSuggestions(input: GetTagSuggestionsRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: TagSuggestionsResponse) => void): grpc.ClientUnaryCall;
+    getTagSuggestions(input: GetTagSuggestionsRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: TagSuggestionsResponse) => void): grpc.ClientUnaryCall;
+    getTagSuggestions(input: GetTagSuggestionsRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: TagSuggestionsResponse) => void): grpc.ClientUnaryCall;
+    getTagSuggestions(input: GetTagSuggestionsRequest, callback: (err: grpc.ServiceError | null, value?: TagSuggestionsResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 液体标签关系
+     *
+     * @generated from protobuf rpc: SetLiquidTags
+     */
+    setLiquidTags(input: SetLiquidTagsRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: LiquidTagsResponse) => void): grpc.ClientUnaryCall;
+    setLiquidTags(input: SetLiquidTagsRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: LiquidTagsResponse) => void): grpc.ClientUnaryCall;
+    setLiquidTags(input: SetLiquidTagsRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: LiquidTagsResponse) => void): grpc.ClientUnaryCall;
+    setLiquidTags(input: SetLiquidTagsRequest, callback: (err: grpc.ServiceError | null, value?: LiquidTagsResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * @generated from protobuf rpc: GetLiquidTags
+     */
+    getLiquidTags(input: GetLiquidTagsRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: LiquidTagsResponse) => void): grpc.ClientUnaryCall;
+    getLiquidTags(input: GetLiquidTagsRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: LiquidTagsResponse) => void): grpc.ClientUnaryCall;
+    getLiquidTags(input: GetLiquidTagsRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: LiquidTagsResponse) => void): grpc.ClientUnaryCall;
+    getLiquidTags(input: GetLiquidTagsRequest, callback: (err: grpc.ServiceError | null, value?: LiquidTagsResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * @generated from protobuf rpc: ListLiquidsByTags
+     */
+    listLiquidsByTags(input: ListLiquidsByTagsRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: LiquidListResponse) => void): grpc.ClientUnaryCall;
+    listLiquidsByTags(input: ListLiquidsByTagsRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: LiquidListResponse) => void): grpc.ClientUnaryCall;
+    listLiquidsByTags(input: ListLiquidsByTagsRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: LiquidListResponse) => void): grpc.ClientUnaryCall;
+    listLiquidsByTags(input: ListLiquidsByTagsRequest, callback: (err: grpc.ServiceError | null, value?: LiquidListResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 附件管理（图片等）
+     *
+     * @generated from protobuf rpc: GetLiquidAttachments
+     */
+    getLiquidAttachments(input: GetLiquidAttachmentsRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: LiquidAttachmentsResponse) => void): grpc.ClientUnaryCall;
+    getLiquidAttachments(input: GetLiquidAttachmentsRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: LiquidAttachmentsResponse) => void): grpc.ClientUnaryCall;
+    getLiquidAttachments(input: GetLiquidAttachmentsRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: LiquidAttachmentsResponse) => void): grpc.ClientUnaryCall;
+    getLiquidAttachments(input: GetLiquidAttachmentsRequest, callback: (err: grpc.ServiceError | null, value?: LiquidAttachmentsResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * @generated from protobuf rpc: CreateLiquidAttachment
+     */
+    createLiquidAttachment(input: CreateLiquidAttachmentRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: LiquidAttachment) => void): grpc.ClientUnaryCall;
+    createLiquidAttachment(input: CreateLiquidAttachmentRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: LiquidAttachment) => void): grpc.ClientUnaryCall;
+    createLiquidAttachment(input: CreateLiquidAttachmentRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: LiquidAttachment) => void): grpc.ClientUnaryCall;
+    createLiquidAttachment(input: CreateLiquidAttachmentRequest, callback: (err: grpc.ServiceError | null, value?: LiquidAttachment) => void): grpc.ClientUnaryCall;
+    /**
+     * @generated from protobuf rpc: DeleteLiquidAttachment
+     */
+    deleteLiquidAttachment(input: DeleteLiquidAttachmentRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    deleteLiquidAttachment(input: DeleteLiquidAttachmentRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    deleteLiquidAttachment(input: DeleteLiquidAttachmentRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    deleteLiquidAttachment(input: DeleteLiquidAttachmentRequest, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
 }
 /**
  * ============================================================
@@ -354,5 +446,81 @@ export class ConsumableServiceClient extends grpc.Client implements IConsumableS
     deleteMetadataField(input: DeleteMetadataFieldRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), callback?: ((err: grpc.ServiceError | null, value?: Empty) => void)): grpc.ClientUnaryCall {
         const method = ConsumableService.methods[19];
         return this.makeUnaryRequest<DeleteMetadataFieldRequest, Empty>(`/${ConsumableService.typeName}/${method.name}`, (value: DeleteMetadataFieldRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): Empty => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 标签管理
+     *
+     * @generated from protobuf rpc: ListTags
+     */
+    listTags(input: ListTagsRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: TagListResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: TagListResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: TagListResponse) => void)): grpc.ClientUnaryCall {
+        const method = ConsumableService.methods[20];
+        return this.makeUnaryRequest<ListTagsRequest, TagListResponse>(`/${ConsumableService.typeName}/${method.name}`, (value: ListTagsRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): TagListResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * @generated from protobuf rpc: CreateTag
+     */
+    createTag(input: CreateTagRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Tag) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Tag) => void), callback?: ((err: grpc.ServiceError | null, value?: Tag) => void)): grpc.ClientUnaryCall {
+        const method = ConsumableService.methods[21];
+        return this.makeUnaryRequest<CreateTagRequest, Tag>(`/${ConsumableService.typeName}/${method.name}`, (value: CreateTagRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): Tag => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * @generated from protobuf rpc: DeleteTag
+     */
+    deleteTag(input: DeleteTagRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), callback?: ((err: grpc.ServiceError | null, value?: Empty) => void)): grpc.ClientUnaryCall {
+        const method = ConsumableService.methods[22];
+        return this.makeUnaryRequest<DeleteTagRequest, Empty>(`/${ConsumableService.typeName}/${method.name}`, (value: DeleteTagRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): Empty => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * @generated from protobuf rpc: GetTagSuggestions
+     */
+    getTagSuggestions(input: GetTagSuggestionsRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: TagSuggestionsResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: TagSuggestionsResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: TagSuggestionsResponse) => void)): grpc.ClientUnaryCall {
+        const method = ConsumableService.methods[23];
+        return this.makeUnaryRequest<GetTagSuggestionsRequest, TagSuggestionsResponse>(`/${ConsumableService.typeName}/${method.name}`, (value: GetTagSuggestionsRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): TagSuggestionsResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 液体标签关系
+     *
+     * @generated from protobuf rpc: SetLiquidTags
+     */
+    setLiquidTags(input: SetLiquidTagsRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LiquidTagsResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LiquidTagsResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: LiquidTagsResponse) => void)): grpc.ClientUnaryCall {
+        const method = ConsumableService.methods[24];
+        return this.makeUnaryRequest<SetLiquidTagsRequest, LiquidTagsResponse>(`/${ConsumableService.typeName}/${method.name}`, (value: SetLiquidTagsRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): LiquidTagsResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * @generated from protobuf rpc: GetLiquidTags
+     */
+    getLiquidTags(input: GetLiquidTagsRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LiquidTagsResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LiquidTagsResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: LiquidTagsResponse) => void)): grpc.ClientUnaryCall {
+        const method = ConsumableService.methods[25];
+        return this.makeUnaryRequest<GetLiquidTagsRequest, LiquidTagsResponse>(`/${ConsumableService.typeName}/${method.name}`, (value: GetLiquidTagsRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): LiquidTagsResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * @generated from protobuf rpc: ListLiquidsByTags
+     */
+    listLiquidsByTags(input: ListLiquidsByTagsRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LiquidListResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LiquidListResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: LiquidListResponse) => void)): grpc.ClientUnaryCall {
+        const method = ConsumableService.methods[26];
+        return this.makeUnaryRequest<ListLiquidsByTagsRequest, LiquidListResponse>(`/${ConsumableService.typeName}/${method.name}`, (value: ListLiquidsByTagsRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): LiquidListResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 附件管理（图片等）
+     *
+     * @generated from protobuf rpc: GetLiquidAttachments
+     */
+    getLiquidAttachments(input: GetLiquidAttachmentsRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LiquidAttachmentsResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LiquidAttachmentsResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: LiquidAttachmentsResponse) => void)): grpc.ClientUnaryCall {
+        const method = ConsumableService.methods[27];
+        return this.makeUnaryRequest<GetLiquidAttachmentsRequest, LiquidAttachmentsResponse>(`/${ConsumableService.typeName}/${method.name}`, (value: GetLiquidAttachmentsRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): LiquidAttachmentsResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * @generated from protobuf rpc: CreateLiquidAttachment
+     */
+    createLiquidAttachment(input: CreateLiquidAttachmentRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LiquidAttachment) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: LiquidAttachment) => void), callback?: ((err: grpc.ServiceError | null, value?: LiquidAttachment) => void)): grpc.ClientUnaryCall {
+        const method = ConsumableService.methods[28];
+        return this.makeUnaryRequest<CreateLiquidAttachmentRequest, LiquidAttachment>(`/${ConsumableService.typeName}/${method.name}`, (value: CreateLiquidAttachmentRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): LiquidAttachment => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * @generated from protobuf rpc: DeleteLiquidAttachment
+     */
+    deleteLiquidAttachment(input: DeleteLiquidAttachmentRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), callback?: ((err: grpc.ServiceError | null, value?: Empty) => void)): grpc.ClientUnaryCall {
+        const method = ConsumableService.methods[29];
+        return this.makeUnaryRequest<DeleteLiquidAttachmentRequest, Empty>(`/${ConsumableService.typeName}/${method.name}`, (value: DeleteLiquidAttachmentRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): Empty => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
 }

@@ -20,6 +20,19 @@ export interface CompiledStep {
   params: Record<string, unknown>;
   estimatedDurationS: number;
   liquidChangeMl: number; // 正数=注入，负数=排出
+  
+  // 层级信息（用于折叠显示）
+  depth: number;              // 嵌套深度，0=顶层
+  loopPath: LoopPathEntry[];  // 从外到内的循环/扫描路径
+  isAtomic: boolean;          // 是否原子步骤（非循环/扫描节点）
+}
+
+// 循环/扫描路径条目
+export interface LoopPathEntry {
+  loopId: string;       // 循环/扫描节点ID
+  loopName: string;     // 循环/扫描名称
+  iteration: number;    // 当前迭代（从1开始）
+  total: number;        // 总迭代次数
 }
 
 // 编译诊断信息
@@ -148,7 +161,9 @@ export function compile(
       if (compiledStep) {
         // 处理循环节点
         if (node.type === NodeType.LOOP) {
-          const loopCount = (node.data as Record<string, unknown>).count as number || 1;
+          const loopData = node.data as Record<string, unknown>;
+          const loopCount = (loopData.count as number) || 1;
+          const loopName = String(loopData.name || '循环');
           const loopBodySteps = compileLoopBody(
             node.id,
             nodes,
@@ -156,37 +171,53 @@ export function compile(
             flowAdjacency,
             liquidConnections,
             cfg,
-            diagnostics
+            diagnostics,
+            0,
+            []  // 初始空 loopPath
           );
           
           if (cfg.expandLoops && loopCount <= cfg.maxLoopExpansion) {
-            // 展开循环
+            // 展开循环，设置层级信息
             for (let i = 0; i < loopCount; i++) {
+              const currentLoopEntry: LoopPathEntry = {
+                loopId: node.id,
+                loopName: loopName,
+                iteration: i + 1,
+                total: loopCount,
+              };
+              
               for (const bodyStep of loopBodySteps) {
-                const expandedStep = {
+                const expandedStep: CompiledStep = {
                   ...bodyStep,
                   id: `${bodyStep.id}_iter${i}`,
-                  name: `${bodyStep.name} (迭代 ${i + 1})`,
+                  name: bodyStep.name,  // 保持原始名称，不添加前缀
+                  params: { ...bodyStep.params },
+                  loopPath: [currentLoopEntry, ...bodyStep.loopPath],
+                  depth: bodyStep.depth + 1,
                 };
                 steps.push(expandedStep);
-                totalDurationS += expandedStep.estimatedDurationS;
                 
-                // 更新液位
-                currentLiquidMl += expandedStep.liquidChangeMl;
-                peakLiquidLevelMl = Math.max(peakLiquidLevelMl, currentLiquidMl);
-                if (expandedStep.liquidChangeMl > 0) {
-                  totalInjectMl += expandedStep.liquidChangeMl;
-                } else {
-                  totalDrainMl += Math.abs(expandedStep.liquidChangeMl);
+                // 只累加原子步骤时间
+                if (expandedStep.isAtomic) {
+                  totalDurationS += expandedStep.estimatedDurationS;
+                  // 更新液位
+                  currentLiquidMl += expandedStep.liquidChangeMl;
+                  peakLiquidLevelMl = Math.max(peakLiquidLevelMl, currentLiquidMl);
+                  if (expandedStep.liquidChangeMl > 0) {
+                    totalInjectMl += expandedStep.liquidChangeMl;
+                  } else {
+                    totalDrainMl += Math.abs(expandedStep.liquidChangeMl);
+                  }
                 }
               }
               loopExpansionCount++;
             }
           } else {
             // 不展开，只计算一次迭代的估算
-            compiledStep.estimatedDurationS = loopBodySteps.reduce(
-              (sum, s) => sum + s.estimatedDurationS, 0
-            ) * loopCount;
+            const atomicDuration = loopBodySteps
+              .filter(s => s.isAtomic)
+              .reduce((sum, s) => sum + s.estimatedDurationS, 0);
+            compiledStep.estimatedDurationS = atomicDuration * loopCount;
             compiledStep.params = {
               ...compiledStep.params,
               loopSteps: loopBodySteps,
@@ -201,6 +232,96 @@ export function compile(
               currentLiquidMl += bodyLiquidChange;
               peakLiquidLevelMl = Math.max(peakLiquidLevelMl, currentLiquidMl);
             }
+          }
+        // 处理参数扫描节点（和循环类似，编译期展开）
+        } else if (node.type === NodeType.PARAM_SWEEP) {
+          const sweepData = node.data as Record<string, unknown>;
+          const sweepName = String(sweepData.name || '参数扫描');
+          const sweepValues = generateSweepValues(sweepData);
+          const sweepBodySteps = compileLoopBody(
+            node.id,
+            nodes,
+            loopBodyAdjacency,
+            flowAdjacency,
+            liquidConnections,
+            cfg,
+            diagnostics,
+            0,
+            []  // 初始空 loopPath
+          );
+          
+          if (sweepValues.length === 0) {
+            diagnostics.push({
+              level: 'warning',
+              nodeId: node.id,
+              message: `参数扫描节点 [${sweepName}] 没有生成扫描值`,
+              code: 'W006',
+            });
+          } else if (sweepBodySteps.length === 0) {
+            diagnostics.push({
+              level: 'warning',
+              nodeId: node.id,
+              message: `参数扫描节点 [${sweepName}] 没有连接扫描体`,
+              code: 'W007',
+            });
+          } else if (cfg.expandLoops && sweepValues.length <= cfg.maxLoopExpansion) {
+            // 展开参数扫描
+            const paramType = sweepData.paramType as string || 'volume';
+            
+            for (let i = 0; i < sweepValues.length; i++) {
+              const value = sweepValues[i];
+              const currentLoopEntry: LoopPathEntry = {
+                loopId: node.id,
+                loopName: sweepName,
+                iteration: i + 1,
+                total: sweepValues.length,
+              };
+              
+              for (const bodyStep of sweepBodySteps) {
+                // 克隆步骤并应用参数值
+                const expandedStep: CompiledStep = {
+                  ...bodyStep,
+                  id: `${bodyStep.id}_sweep${i}`,
+                  name: bodyStep.name,  // 保持原始名称
+                  params: { ...bodyStep.params },
+                  loopPath: [currentLoopEntry, ...bodyStep.loopPath],
+                  depth: bodyStep.depth + 1,
+                };
+                
+                // 根据参数类型修改对应字段
+                applySweptParameter(expandedStep, paramType, value);
+                
+                steps.push(expandedStep);
+                
+                // 只累加原子步骤时间
+                if (expandedStep.isAtomic) {
+                  totalDurationS += expandedStep.estimatedDurationS;
+                  // 更新液位
+                  currentLiquidMl += expandedStep.liquidChangeMl;
+                  peakLiquidLevelMl = Math.max(peakLiquidLevelMl, currentLiquidMl);
+                  if (expandedStep.liquidChangeMl > 0) {
+                    totalInjectMl += expandedStep.liquidChangeMl;
+                  } else {
+                    totalDrainMl += Math.abs(expandedStep.liquidChangeMl);
+                  }
+                }
+              }
+              loopExpansionCount++;
+            }
+          } else {
+            // 不展开，显示汇总
+            compiledStep.name = `${sweepName} (${sweepValues.length}次扫描)`;
+            const atomicDuration = sweepBodySteps
+              .filter(s => s.isAtomic)
+              .reduce((sum, s) => sum + s.estimatedDurationS, 0);
+            compiledStep.estimatedDurationS = atomicDuration * sweepValues.length;
+            compiledStep.params = {
+              ...compiledStep.params,
+              sweepSteps: sweepBodySteps,
+              sweepCount: sweepValues.length,
+            };
+            steps.push(compiledStep);
+            totalDurationS += compiledStep.estimatedDurationS;
           }
         } else {
           steps.push(compiledStep);
@@ -534,6 +655,7 @@ function compileNode(
   const data = node.data as Record<string, unknown>;
   const name = (data.name as string) || NODE_META[node.type as NodeType]?.label || '未知步骤';
   
+  const isLoopType = node.type === NodeType.LOOP || node.type === NodeType.PARAM_SWEEP;
   const baseStep: CompiledStep = {
     id: `step_${node.id}`,
     nodeId: node.id,
@@ -543,6 +665,9 @@ function compileNode(
     params: { ...data },
     estimatedDurationS: 0,
     liquidChangeMl: 0,
+    depth: 0,
+    loopPath: [],
+    isAtomic: !isLoopType,
   };
   
   switch (node.type) {
@@ -634,13 +759,8 @@ function compileNode(
     }
     
     case NodeType.PARAM_SWEEP: {
-      // 参数扫描需要特殊处理
-      diagnostics.push({
-        level: 'info',
-        nodeId: node.id,
-        message: '参数扫描节点将在运行时展开',
-        code: 'I002',
-      });
+      // 参数扫描节点本身不产生时间，由扫描体决定
+      baseStep.estimatedDurationS = 0;
       break;
     }
     
@@ -662,7 +782,8 @@ function compileLoopBody(
   liquidConnections: Map<string, string[]>,
   config: CompilerConfig,
   diagnostics: CompilerDiagnostic[],
-  depth: number = 0
+  depth: number = 0,
+  parentLoopPath: LoopPathEntry[] = []
 ): CompiledStep[] {
   const steps: CompiledStep[] = [];
   const loopInfo = loopBodyAdjacency.get(loopNodeId);
@@ -693,7 +814,9 @@ function compileLoopBody(
     
     // 处理嵌套循环
     if (node.type === NodeType.LOOP) {
-      const nestedLoopCount = (node.data as Record<string, unknown>).count as number || 1;
+      const loopData = node.data as Record<string, unknown>;
+      const nestedLoopCount = (loopData.count as number) || 1;
+      const nestedLoopName = String(loopData.name || '循环');
       const nestedBodySteps = compileLoopBody(
         node.id,
         allNodes,
@@ -702,17 +825,28 @@ function compileLoopBody(
         liquidConnections,
         config,
         diagnostics,
-        depth + 1
+        depth + 1,
+        parentLoopPath
       );
       
       if (config.expandLoops && nestedLoopCount <= config.maxLoopExpansion) {
-        // 展开嵌套循环
+        // 展开嵌套循环，设置层级信息
         for (let i = 0; i < nestedLoopCount; i++) {
+          const currentLoopEntry: LoopPathEntry = {
+            loopId: node.id,
+            loopName: nestedLoopName,
+            iteration: i + 1,
+            total: nestedLoopCount,
+          };
+          
           for (const bodyStep of nestedBodySteps) {
             steps.push({
               ...bodyStep,
               id: `${bodyStep.id}_nest${depth}_iter${i}`,
-              name: `${bodyStep.name} (嵌套${depth + 1}-迭代${i + 1})`,
+              name: bodyStep.name,
+              params: { ...bodyStep.params },
+              loopPath: [currentLoopEntry, ...bodyStep.loopPath],
+              depth: bodyStep.depth + 1,
             });
           }
         }
@@ -720,20 +854,83 @@ function compileLoopBody(
         // 不展开，创建一个汇总步骤
         const nestedStep = compileNode(node, allNodes, liquidConnections, config, diagnostics);
         if (nestedStep) {
-          nestedStep.estimatedDurationS = nestedBodySteps.reduce(
-            (sum, s) => sum + s.estimatedDurationS, 0
-          ) * nestedLoopCount;
+          const atomicDuration = nestedBodySteps
+            .filter(s => s.isAtomic)
+            .reduce((sum, s) => sum + s.estimatedDurationS, 0);
+          nestedStep.estimatedDurationS = atomicDuration * nestedLoopCount;
           nestedStep.params = {
             ...nestedStep.params,
             loopSteps: nestedBodySteps,
             iterations: nestedLoopCount,
           };
+          nestedStep.depth = depth;
+          nestedStep.loopPath = parentLoopPath;
+          steps.push(nestedStep);
+        }
+      }
+    // 处理嵌套参数扫描
+    } else if (node.type === NodeType.PARAM_SWEEP) {
+      const sweepData = node.data as Record<string, unknown>;
+      const sweepName = String(sweepData.name || '参数扫描');
+      const sweepValues = generateSweepValues(sweepData);
+      const nestedBodySteps = compileLoopBody(
+        node.id,
+        allNodes,
+        loopBodyAdjacency,
+        flowAdjacency,
+        liquidConnections,
+        config,
+        diagnostics,
+        depth + 1,
+        parentLoopPath
+      );
+      
+      if (config.expandLoops && sweepValues.length <= config.maxLoopExpansion && nestedBodySteps.length > 0) {
+        // 展开嵌套参数扫描
+        const paramType = sweepData.paramType as string || 'volume';
+        
+        for (let i = 0; i < sweepValues.length; i++) {
+          const value = sweepValues[i];
+          const currentLoopEntry: LoopPathEntry = {
+            loopId: node.id,
+            loopName: sweepName,
+            iteration: i + 1,
+            total: sweepValues.length,
+          };
+          
+          for (const bodyStep of nestedBodySteps) {
+            const expandedStep: CompiledStep = {
+              ...bodyStep,
+              id: `${bodyStep.id}_nest${depth}_sweep${i}`,
+              name: bodyStep.name,
+              params: { ...bodyStep.params },
+              loopPath: [currentLoopEntry, ...bodyStep.loopPath],
+              depth: bodyStep.depth + 1,
+            };
+            
+            applySweptParameter(expandedStep, paramType, value);
+            steps.push(expandedStep);
+          }
+        }
+      } else {
+        // 不展开，创建一个汇总步骤
+        const nestedStep = compileNode(node, allNodes, liquidConnections, config, diagnostics);
+        if (nestedStep) {
+          nestedStep.name = `${sweepName} (${sweepValues.length}次扫描)`;
+          const atomicDuration = nestedBodySteps
+            .filter(s => s.isAtomic)
+            .reduce((sum, s) => sum + s.estimatedDurationS, 0);
+          nestedStep.estimatedDurationS = atomicDuration * sweepValues.length;
+          nestedStep.depth = depth;
+          nestedStep.loopPath = parentLoopPath;
           steps.push(nestedStep);
         }
       }
     } else {
       const step = compileNode(node, allNodes, liquidConnections, config, diagnostics);
       if (step) {
+        step.depth = depth;
+        step.loopPath = parentLoopPath;
         steps.push(step);
       }
     }
@@ -774,5 +971,119 @@ export function getDiagnosticIcon(level: CompilerDiagnostic['level']): string {
     case 'error': return '❌';
     case 'warning': return '⚠️';
     case 'info': return 'ℹ️';
+  }
+}
+
+/**
+ * 生成参数扫描序列值
+ */
+function generateSweepValues(data: Record<string, unknown>): number[] {
+  const paramType = data.paramType as string;
+  
+  // 比例扫描使用自定义点列表
+  if (paramType === 'ratio') {
+    const ratioPoints = data.ratioSweepPoints as Array<{ ratios: Record<string, number> }>;
+    return ratioPoints?.map((_, i) => i) || [];
+  }
+  
+  // 其他类型使用数值序列
+  const start = Number(data.startValue ?? 1);
+  const end = Number(data.endValue ?? 10);
+  const step = Number(data.stepValue ?? 1);
+  const seqMode = (data.seqMode as string) || 'linear';
+  
+  if (step <= 0 || start > end) {
+    return [start];
+  }
+  
+  const values: number[] = [];
+  const count = Math.floor((end - start) / step) + 1;
+  
+  switch (seqMode) {
+    case 'log': {
+      // 对数序列
+      const logStart = Math.log10(Math.max(start, 0.001));
+      const logEnd = Math.log10(Math.max(end, 0.001));
+      const logStep = (logEnd - logStart) / Math.max(count - 1, 1);
+      for (let i = 0; i < count; i++) {
+        values.push(Math.pow(10, logStart + logStep * i));
+      }
+      break;
+    }
+    case 'exp': {
+      // 指数序列
+      for (let i = 0; i < count; i++) {
+        const t = i / Math.max(count - 1, 1);
+        values.push(start + (end - start) * (Math.exp(t * 2) - 1) / (Math.exp(2) - 1));
+      }
+      break;
+    }
+    case 'quadratic': {
+      // 二次序列
+      for (let i = 0; i < count; i++) {
+        const t = i / Math.max(count - 1, 1);
+        values.push(start + (end - start) * t * t);
+      }
+      break;
+    }
+    case 'sqrt': {
+      // 平方根序列
+      for (let i = 0; i < count; i++) {
+        const t = i / Math.max(count - 1, 1);
+        values.push(start + (end - start) * Math.sqrt(t));
+      }
+      break;
+    }
+    default: {
+      // 线性序列
+      for (let v = start; v <= end; v += step) {
+        values.push(v);
+      }
+      break;
+    }
+  }
+  
+  return values.length > 0 ? values : [start];
+}
+
+/**
+ * 应用扫描参数值到步骤
+ */
+function applySweptParameter(
+  step: CompiledStep,
+  paramType: string,
+  value: number
+): void {
+  switch (paramType) {
+    case 'volume':
+      if (step.type === NodeType.INJECT) {
+        step.params.targetVolumeMl = value;
+        step.liquidChangeMl = value;
+        step.name = `${step.name} (${value}ml)`;
+      }
+      break;
+    case 'gasPumpPwm':
+      if ([NodeType.ACQUIRE, NodeType.DRAIN, NodeType.PREHEAT, NodeType.WASH].includes(step.type)) {
+        step.params.gasPumpPwm = value;
+        step.name = `${step.name} (PWM${value}%)`;
+      }
+      break;
+    case 'duration':
+      if (step.type === NodeType.ACQUIRE || step.type === NodeType.PREHEAT) {
+        step.params.durationS = value;
+        step.estimatedDurationS = value;
+        step.name = `${step.name} (${value}s)`;
+      }
+      break;
+    case 'cycles':
+      if (step.type === NodeType.ACQUIRE) {
+        step.params.heaterCycles = value;
+        step.estimatedDurationS = value * 20; // 假设每周期 20s
+        step.name = `${step.name} (${value}周期)`;
+      }
+      break;
+    case 'ratio':
+      // 比例扫描在 yaml-converter 中特殊处理
+      break;
   }
 }

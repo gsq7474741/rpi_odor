@@ -128,10 +128,10 @@ export function ControlPanel() {
   };
 
   const [injectionParams, setInjectionParams] = useState({
-    pump0: 0, pump1: 0, pump2: 0, pump3: 0, pump4: 0, pump5: 0, pump6: 0, pump7: 0, speed: 10, accel: 100
+    pump0: 0, pump1: 0, pump2: 0, pump3: 0, pump4: 0, pump5: 0, pump6: 0, pump7: 0, speed: 3, accel: 1
   });
   const [injecting, setInjecting] = useState(false);
-  const [injectionUnit, setInjectionUnit] = useState<'mm' | 'g'>('mm');
+  const [injectionUnit, setInjectionUnit] = useState<'ml' | 'g'>('ml');
 
   const handleStateChange = async (targetState: "INITIAL" | "DRAIN" | "CLEAN" | "SAMPLE" | "INJECT") => {
     try {
@@ -145,7 +145,7 @@ export function ControlPanel() {
 
   const handleRunPump = async (pumpName: string) => {
     try {
-      await runPump(pumpName, 50, 100, 100);
+      await runPump(pumpName, 3, 10, 1);  // speed=3 ml/s, distance=10 ml, accel=1 ml/s²
     } catch (err: any) {
       setError(err.message);
     }
@@ -165,7 +165,7 @@ export function ControlPanel() {
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <Power className="w-5 h-5" />
-            外设控制
+            手动控制
           </CardTitle>
           <div className="flex items-center gap-2">
             <Badge variant={grpcConnected ? "default" : "destructive"} className="text-xs">
@@ -242,11 +242,11 @@ export function ControlPanel() {
             <div className="ml-auto flex items-center gap-1">
               <Button
                 size="sm"
-                variant={injectionUnit === 'mm' ? 'default' : 'outline'}
+                variant={injectionUnit === 'ml' ? 'default' : 'outline'}
                 className="h-6 px-2 text-xs"
-                onClick={() => setInjectionUnit('mm')}
+                onClick={() => setInjectionUnit('ml')}
               >
-                mm
+                ml
               </Button>
               <Button
                 size="sm"
@@ -294,12 +294,12 @@ export function ControlPanel() {
           </div>
           <div className="grid grid-cols-4 gap-2">
             <div>
-              <Label className="text-xs">速度 (mm/s)</Label>
-              <Input className="h-8" type="number" value={injectionParams.speed} onChange={e => setInjectionParams(p => ({...p, speed: Number(e.target.value)}))} />
+              <Label className="text-xs">速度 (ml/s)</Label>
+              <Input className="h-8" type="number" step="0.1" max="6" value={injectionParams.speed} onChange={e => setInjectionParams(p => ({...p, speed: Number(e.target.value)}))} />
             </div>
             <div>
               <Label className="text-xs">加速度</Label>
-              <Input className="h-8" type="number" value={injectionParams.accel} onChange={e => setInjectionParams(p => ({...p, accel: Number(e.target.value)}))} />
+              <Input className="h-8" type="number" step="0.1" value={injectionParams.accel} onChange={e => setInjectionParams(p => ({...p, accel: Number(e.target.value)}))} />
             </div>
             <div className="col-span-2 flex items-end gap-2">
               <Button
@@ -312,7 +312,7 @@ export function ControlPanel() {
                   }
                   setInjecting(true);
                   try {
-                    if (injectionUnit === 'mm') {
+                    if (injectionUnit === 'ml') {
                       await fetch('/api/injection/start', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },

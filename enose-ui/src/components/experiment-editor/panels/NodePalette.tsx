@@ -34,7 +34,7 @@ export function NodePalette() {
   };
 
   return (
-    <div className="w-56 bg-muted/30 border-r overflow-y-auto">
+    <div className="h-full bg-muted/30 border-r overflow-y-auto">
       <div className="p-3 border-b">
         <h3 className="font-semibold text-sm">节点库</h3>
         <p className="text-xs text-muted-foreground mt-1">

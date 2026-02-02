@@ -1,0 +1,86 @@
+id: new_experiment
+name: 新实验
+description: ''
+version: 1.0.0
+hardware:
+  bottle_capacity_ml: 150
+  max_fill_ml: 100
+  liquids:
+    - id: default
+      name: 默认液体
+      pump_index: 2
+      type: LIQUID_SAMPLE
+steps:
+  - name: 数据采集
+    acquire:
+      gas_pump_pwm: 50
+      heater_cycles: 10
+      max_duration_s: 300
+_editor_layout:
+  nodes:
+    - id: start
+      type: start
+      position:
+        x: 565
+        'y': 0
+      data:
+        programId: new_experiment
+        programName: 新实验
+        description: ''
+        version: 1.0.0
+    - id: end
+      type: end
+      position:
+        x: 565
+        'y': 615
+      data: {}
+    - id: node_1
+      type: configureHeater
+      position:
+        x: 565
+        'y': 135
+      data:
+        sensorProfiles:
+          '2': pulse_fast
+          '8': ''
+          '9': low_power
+          '10': constant_320__2
+          '11': temp_scan_100_350__3
+    - id: node_2
+      type: acquire
+      position:
+        x: 565
+        'y': 453
+      data:
+        name: 数据采集
+        gasPumpPwm: 50
+        terminationType: cycles
+        heaterCycles: 10
+        maxDurationS: 300
+    - id: node_3
+      type: preheat
+      position:
+        x: 565
+        'y': 294
+      data: {}
+  edges:
+    - id: xy-edge__startflow-node_1flow
+      source: start
+      target: node_1
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_2flow-endflow
+      source: node_2
+      target: end
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_1flow-node_3flow
+      source: node_1
+      target: node_3
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_3flow-node_2flow
+      source: node_3
+      target: node_2
+      sourceHandle: flow
+      targetHandle: flow

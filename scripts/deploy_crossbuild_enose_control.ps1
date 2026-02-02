@@ -188,9 +188,36 @@ $genTsPath = Join-Path $ProjectRoot "gen\typescript"
 $frontendGenPath = Join-Path $ProjectRoot "enose-ui\src\generated"
 
 if (Test-Path $genTsPath) {
-    Write-Host "`n[6/6] 复制 TypeScript 类型到前端..." -ForegroundColor Yellow
+    Write-Host "`n[6/7] 复制 TypeScript 类型到前端..." -ForegroundColor Yellow
     Copy-Item -Path "$genTsPath\*" -Destination $frontendGenPath -Recurse -Force
     Write-Host "  复制完成: $frontendGenPath" -ForegroundColor Green
 } else {
-    Write-Host "`n[6/6] 跳过: 未找到生成的 TypeScript 文件" -ForegroundColor Yellow
+    Write-Host "`n[6/7] 跳过: 未找到生成的 TypeScript 文件" -ForegroundColor Yellow
+}
+
+# ============================================
+# 步骤 7: 复制生成的 Python 类型到 enose-analytics
+# ============================================
+$genPyPath = Join-Path $ProjectRoot "gen\python"
+$analyticsGenPath = Join-Path $ProjectRoot "enose-analytics\src\generated"
+
+if (Test-Path $genPyPath) {
+    Write-Host "`n[7/7] 复制 Python 类型到 enose-analytics..." -ForegroundColor Yellow
+    
+    # 确保目标目录存在
+    if (-not (Test-Path $analyticsGenPath)) {
+        New-Item -ItemType Directory -Path $analyticsGenPath -Force | Out-Null
+    }
+    
+    Copy-Item -Path "$genPyPath\*" -Destination $analyticsGenPath -Recurse -Force
+    
+    # 创建 __init__.py 如果不存在
+    $initPyPath = Join-Path $analyticsGenPath "__init__.py"
+    if (-not (Test-Path $initPyPath)) {
+        '"""Generated protobuf modules"""' | Out-File -FilePath $initPyPath -Encoding utf8
+    }
+    
+    Write-Host "  复制完成: $analyticsGenPath" -ForegroundColor Green
+} else {
+    Write-Host "`n[7/7] 跳过: 未找到生成的 Python 文件" -ForegroundColor Yellow
 }

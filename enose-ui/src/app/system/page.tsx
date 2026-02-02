@@ -21,7 +21,7 @@ export default function SystemPage() {
         <h1 className="text-2xl font-bold mb-6">系统功能</h1>
         <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="control">外设控制</TabsTrigger>
+            <TabsTrigger value="control">手动控制</TabsTrigger>
             <TabsTrigger value="sensor">传感器</TabsTrigger>
             <TabsTrigger value="loadcell">称重</TabsTrigger>
           </TabsList>

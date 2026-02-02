@@ -11,6 +11,7 @@
 #include "hal/actuator_driver.hpp"
 #include "hal/load_cell_driver.hpp"
 #include "workflows/system_state.hpp"
+#include "workflows/runtime_tracker.hpp"
 #include "grpc/grpc_server.hpp"
 #include "db/connection_pool.hpp"
 #include "db/test_run_repository.hpp"
@@ -95,6 +96,13 @@ int main(int argc, char* argv[]) {
 
         // System State Machine
         auto system_state = std::make_shared<workflows::SystemState>(actuator_driver);
+
+        // Runtime Tracker (底层硬件运行时间跟踪)
+        if (consumable_repo) {
+            auto runtime_tracker = std::make_shared<workflows::RuntimeTracker>(consumable_repo);
+            system_state->set_runtime_tracker(runtime_tracker);
+            spdlog::info("RuntimeTracker initialized - hardware runtime will be tracked automatically");
+        }
 
         // gRPC Server (包含传感器服务和称重服务)
         enose_grpc::GrpcServer grpc_srv(actuator_driver, system_state, sensor_driver, load_cell_driver, repository, consumable_repo);

@@ -143,8 +143,8 @@ ControlServiceImpl::ControlServiceImpl(
             actuator_->send_gcode(gcode);
         } else {
             // 步进泵使用 MANUAL_STEPPER
-            float distance = request->has_distance() ? request->distance() : 100.0f;
-            float accel = request->has_accel() ? request->accel() : 100.0f;
+            float distance = request->has_distance() ? request->distance() : 10.0f;  // ml
+            float accel = request->has_accel() ? request->accel() : 1.0f;          // ml/s²
             
             // 先重置位置 (相对位置模式)
             actuator_->send_gcode(std::format("MANUAL_STEPPER STEPPER={} SET_POSITION=0", pump_name));

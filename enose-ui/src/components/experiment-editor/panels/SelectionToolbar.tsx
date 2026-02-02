@@ -4,6 +4,7 @@ import { memo, useMemo } from 'react';
 import { useReactFlow, Node, Edge } from '@xyflow/react';
 import { NodeType, HANDLE_TYPES } from '../types';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { 
   Trash2, 
   AlignLeft, 
@@ -479,25 +480,39 @@ export const SelectionToolbar = memo(function SelectionToolbar({ selectedNodes }
       </DropdownMenu>
 
       {/* 自动布局 */}
-      <Button variant="ghost" size="icon" onClick={handleAutoLayout} title="自动布局">
-        <LayoutGrid className="w-4 h-4" />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" onClick={handleAutoLayout}>
+            <LayoutGrid className="w-4 h-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>自动布局</TooltipContent>
+      </Tooltip>
 
       {/* 复制 */}
-      <Button variant="ghost" size="icon" onClick={handleCopy} title="复制选中节点">
-        <Copy className="w-4 h-4" />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" onClick={handleCopy}>
+            <Copy className="w-4 h-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>复制选中节点</TooltipContent>
+      </Tooltip>
 
       {/* 删除 */}
-      <Button 
-        variant="ghost" 
-        size="icon" 
-        onClick={handleDelete} 
-        className="text-destructive hover:text-destructive"
-        title="删除选中节点"
-      >
-        <Trash2 className="w-4 h-4" />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleDelete} 
+            className="text-destructive hover:text-destructive"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>删除选中节点</TooltipContent>
+      </Tooltip>
     </div>
   );
 });

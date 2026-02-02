@@ -119,6 +119,59 @@ public:
         const consumable::DeleteMetadataFieldRequest* request,
         ::google::protobuf::Empty* response) override;
 
+    // 标签管理
+    ::grpc::Status ListTags(
+        ::grpc::ServerContext* context,
+        const consumable::ListTagsRequest* request,
+        consumable::TagListResponse* response) override;
+
+    ::grpc::Status CreateTag(
+        ::grpc::ServerContext* context,
+        const consumable::CreateTagRequest* request,
+        consumable::Tag* response) override;
+
+    ::grpc::Status DeleteTag(
+        ::grpc::ServerContext* context,
+        const consumable::DeleteTagRequest* request,
+        ::google::protobuf::Empty* response) override;
+
+    ::grpc::Status GetTagSuggestions(
+        ::grpc::ServerContext* context,
+        const consumable::GetTagSuggestionsRequest* request,
+        consumable::TagSuggestionsResponse* response) override;
+
+    // 液体标签关系
+    ::grpc::Status SetLiquidTags(
+        ::grpc::ServerContext* context,
+        const consumable::SetLiquidTagsRequest* request,
+        consumable::LiquidTagsResponse* response) override;
+
+    ::grpc::Status GetLiquidTags(
+        ::grpc::ServerContext* context,
+        const consumable::GetLiquidTagsRequest* request,
+        consumable::LiquidTagsResponse* response) override;
+
+    ::grpc::Status ListLiquidsByTags(
+        ::grpc::ServerContext* context,
+        const consumable::ListLiquidsByTagsRequest* request,
+        consumable::LiquidListResponse* response) override;
+
+    // 附件管理
+    ::grpc::Status GetLiquidAttachments(
+        ::grpc::ServerContext* context,
+        const consumable::GetLiquidAttachmentsRequest* request,
+        consumable::LiquidAttachmentsResponse* response) override;
+
+    ::grpc::Status CreateLiquidAttachment(
+        ::grpc::ServerContext* context,
+        const consumable::CreateLiquidAttachmentRequest* request,
+        consumable::LiquidAttachment* response) override;
+
+    ::grpc::Status DeleteLiquidAttachment(
+        ::grpc::ServerContext* context,
+        const consumable::DeleteLiquidAttachmentRequest* request,
+        google::protobuf::Empty* response) override;
+
 private:
     db::ConsumableRepository repo_;
     
@@ -126,6 +179,7 @@ private:
     void fill_liquid(consumable::Liquid* proto, const db::LiquidRecord& record);
     void fill_consumable(consumable::Consumable* proto, const db::ConsumableRecord& record);
     void fill_metadata_field(consumable::MetadataField* proto, const db::MetadataFieldRecord& record);
+    void fill_tag(consumable::Tag* proto, const db::TagRecord& record);
     consumable::LiquidType string_to_liquid_type(const std::string& type);
     std::string liquid_type_to_string(consumable::LiquidType type);
     consumable::FieldType string_to_field_type(const std::string& type);

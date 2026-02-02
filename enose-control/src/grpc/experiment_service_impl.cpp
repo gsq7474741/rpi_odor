@@ -453,23 +453,9 @@ void ExperimentServiceImpl::execute_inject(const experiment::InjectAction& actio
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     
-    // 计算进样时间并更新耗材统计
-    auto inject_duration = std::chrono::steady_clock::now() - start;
-    int64_t inject_seconds = std::chrono::duration_cast<std::chrono::seconds>(inject_duration).count();
-    
-    if (consumable_repo_ && inject_seconds > 0) {
-        // 记录每个使用的泵的运行时间
-        if (params.pump_0_volume > 0) consumable_repo_->add_runtime("pump_tube_0", inject_seconds);
-        if (params.pump_1_volume > 0) consumable_repo_->add_runtime("pump_tube_1", inject_seconds);
-        if (params.pump_2_volume > 0) consumable_repo_->add_runtime("pump_tube_2", inject_seconds);
-        if (params.pump_3_volume > 0) consumable_repo_->add_runtime("pump_tube_3", inject_seconds);
-        if (params.pump_4_volume > 0) consumable_repo_->add_runtime("pump_tube_4", inject_seconds);
-        if (params.pump_5_volume > 0) consumable_repo_->add_runtime("pump_tube_5", inject_seconds);
-        if (params.pump_6_volume > 0) consumable_repo_->add_runtime("pump_tube_6", inject_seconds);
-        if (params.pump_7_volume > 0) consumable_repo_->add_runtime("pump_tube_7", inject_seconds);
-        spdlog::debug("记录泵运行时间: {}秒", inject_seconds);
-        
-        // 记录液体消耗量 (pump volume 单位是 mm，转换为 ml: 约 0.1 ml/mm，可根据实际泵管校准)
+    // 泵运行时间由 RuntimeTracker 在 SystemState 层自动统计
+    // 这里只记录液体消耗量 (用于泵容量余量跟踪)
+    if (consumable_repo_) {
         constexpr double MM_TO_ML = 0.1;  // 1mm 进样距离 ≈ 0.1ml 液体
         if (params.pump_0_volume > 0) consumable_repo_->add_pump_consumption(0, params.pump_0_volume * MM_TO_ML);
         if (params.pump_1_volume > 0) consumable_repo_->add_pump_consumption(1, params.pump_1_volume * MM_TO_ML);
@@ -634,28 +620,9 @@ void ExperimentServiceImpl::execute_set_state(const experiment::SetStateAction& 
 void ExperimentServiceImpl::execute_set_gas_pump(const experiment::SetGasPumpAction& action) {
     add_log("设置气泵PWM: " + std::to_string(action.pwm_percent()) + "%");
     
+    // 气泵运行时间由 RuntimeTracker 在 SystemState 层自动统计
     float pwm = action.pwm_percent() / 100.0f;
-    
-    // 记录气泵运行时间
-    if (pwm > 0 && !gas_pump_running_) {
-        // 气泵开始运行
-        gas_pump_start_time_ = std::chrono::steady_clock::now();
-        gas_pump_running_ = true;
-    } else if (pwm == 0 && gas_pump_running_) {
-        // 气泵停止，记录运行时间
-        auto duration = std::chrono::steady_clock::now() - gas_pump_start_time_;
-        int64_t seconds = std::chrono::duration_cast<std::chrono::seconds>(duration).count();
-        
-        if (consumable_repo_ && seconds > 0) {
-            // 记录活性炭管和真空过滤器的运行时间
-            consumable_repo_->add_runtime("carbon_filter", seconds);
-            consumable_repo_->add_runtime("vacuum_filter", seconds);
-            spdlog::debug("记录气泵运行时间: {}秒 (活性炭管+真空过滤器)", seconds);
-        }
-        gas_pump_running_ = false;
-    }
-    
-    // TODO: 实际发送 PWM 控制命令到硬件
+    system_state_->set_air_pump_pwm(pwm);
 }
 
 void ExperimentServiceImpl::execute_loop(const experiment::LoopAction& action) {

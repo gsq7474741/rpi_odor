@@ -1,7 +1,7 @@
 # 电子鼻气味采集系统 - 架构设计文档
 
-> 版本: 1.0.0  
-> 更新日期: 2026-01-13
+> 版本: 1.1.0  
+> 更新日期: 2026-02-03
 
 ---
 
@@ -326,15 +326,37 @@ sensor_board:
 
 ### 4.2 enose-analytics (Python)
 
-**职责**: 实时数据质量检测、在线统计、可选模型推理
+**职责**: 实时数据质量检测、在线统计、MLP 模型训练与推理、在线可视化
 
 | 模块 | 功能 |
 |------|------|
-| **Quality Checker** | 基线稳定性、漂移、饱和、噪声检测 |
+| **Quality Checker** | 基线稳定性、漂移、饱和、噪声检测（阈值可配置） |
 | **Statistics** | 在线均值/方差/趋势计算 |
-| **Model Inference** | 可选的在线模型打分 |
+| **ML Pipeline** | MLP 模型训练、推理、模型管理 |
+| **Visualization** | 在线 PCA/t-SNE/聚类可视化 |
+| **Notification Client** | 推送告警到 enose-control |
+| **MinIO Client** | 模型/数据集存储 |
 
-**技术栈**: Python 3.11+, gRPC, NumPy, Pandas, Matplotlib, scikit-learn
+**技术栈**: Python 3.11+, gRPC, NumPy, Pandas, PyTorch, scikit-learn, minio
+
+**gRPC 服务接口** (定义于 `proto/enose_analytics.proto`):
+
+| 服务 | 方法 | 描述 |
+|------|------|------|
+| **AnalyticsService** | `AnalyzeSensorData` | 实时质检分析 (双向流) |
+| | `GetVisualization` | 获取 PCA/t-SNE/聚类可视化数据 |
+| | `StreamVisualization` | 订阅实时可视化更新流 |
+| **ModelService** | `TrainModel` | 训练 MLP 模型 |
+| | `ListModels` | 列出已训练模型 |
+| | `LoadModel` | 加载模型到推理引擎 |
+| | `Predict` | 单次推理 |
+| | `DeleteModel` | 删除模型 |
+| **LabelService** | `CreateLabel` | 创建样品标签 |
+| | `ListLabels` | 列出标签 |
+| | `UpdateLabel` | 更新标签 |
+| | `DeleteLabel` | 删除标签 |
+
+**默认端口**: `50052`
 
 **质检指标**:
 
@@ -359,8 +381,19 @@ sensor_board:
 | **Monitor** | 实时曲线、传感器数据 |
 | **Alerts** | 告警列表、质检结果 |
 | **History** | 历史数据查询、导出 |
+| **Visualization** | 在线 PCA/t-SNE/聚类可视化 |
+| **Models** | 模型管理、训练、推理 |
+| **Labeling** | 样品标注、数据集管理 |
 
-**技术栈**: Next.js 14, TypeScript, TailwindCSS, Recharts, gRPC-Web
+**技术栈**: Next.js 14, TypeScript, TailwindCSS, Recharts, gRPC-Web, shadcn/ui
+
+**已实现特性**:
+- ✅ 实验配置 YAML 编辑器（Monaco Editor + 语法高亮）
+- ✅ 参数扫描展开（支持嵌套循环、变量上下文）
+- ✅ 编译警告系统（类型检查、范围验证）
+- ✅ 手动控制面板（泵/阀/气泵/加热器）
+- ✅ 实时传感器曲线（SSE 推送）
+- ✅ 耗材管理（液体配置、消耗追踪）
 
 ---
 
@@ -614,30 +647,43 @@ rpi_odor/
 
 ## 9. 开发路线图
 
-### Phase 1: 基础功能 (MVP)
-- [ ] ESP32 传感器板固件 (已完成 refactor/rpi-driver)
-- [ ] C++ 控制服务骨架
-- [ ] Klipper 配置文件
-- [ ] 基础 Protobuf 定义
-- [ ] 手动控制 API
+### Phase 1: 基础功能 (MVP) ✅
+- [x] ESP32 传感器板固件 (bme-dev-kit-odor)
+- [x] C++ 控制服务骨架 (enose-control)
+- [x] Klipper 配置文件 (printer.cfg)
+- [x] 基础 Protobuf 定义 (enose_service/data/experiment/consumable/config.proto)
+- [x] 手动控制 API (ControlService)
+- [x] 传感器数据订阅 (SensorService)
+- [x] 耗材管理 (ConsumableService)
 
-### Phase 2: 自动化
-- [ ] 实验状态机
-- [ ] 称重闭环控制
-- [ ] 温度 PID 控制
-- [ ] Python 质检基础指标
+### Phase 2: 自动化 ✅
+- [x] 实验状态机 (ExperimentService)
+- [x] 称重闭环控制 (WeightService)
+- [x] 温度 PID 控制 (HeaterService)
+- [ ] Python 质检基础指标 → Phase 5
 
-### Phase 3: 可视化
-- [ ] Next.js UI 框架
-- [ ] 实时曲线
-- [ ] 实验配置界面
-- [ ] 告警面板
+### Phase 3: 可视化 ✅
+- [x] Next.js UI 框架 (enose-ui)
+- [x] 实时曲线 (SSE + Recharts)
+- [x] 实验配置界面 (YAML 编辑器 + 参数扫描)
+- [x] 手动控制面板
+- [x] 编译警告系统
+- [ ] 告警面板 → Phase 5
 
 ### Phase 4: 高级功能
 - [ ] 流量标定
 - [ ] 自动清洗
-- [ ] 模型在线推理
+- [ ] 模型在线推理 → Phase 5
 - [ ] 数据导出与报告
+
+### Phase 5: 质检与分析服务 🚧
+- [ ] enose-analytics Python 服务骨架
+- [ ] 质量检测模块（可调阈值）
+- [ ] MLP 模型训练与推理
+- [ ] 在线可视化 (PCA/t-SNE/聚类)
+- [ ] C++ 推送通知接口
+- [ ] MinIO 集成
+- [ ] 前端页面 (alerts/visualization/models/labeling)
 
 ---
 

@@ -152,10 +152,12 @@ export const NODE_META: Record<NodeType, {
   },
   [NodeType.PARAM_SWEEP]: {
     label: '参数扫描',
-    description: '扫描参数范围',
+    description: '扫描参数范围（类似循环，有扫描体）',
     icon: 'GitBranch',
     hasFlowIn: true,
     hasFlowOut: true,
+    hasLoopBodyOut: true,  // 扫描体输出 (连接到扫描体第一个节点)
+    hasLoopBodyIn: true,   // 扫描体输入 (扫描体最后一个节点连回来)
   },
   [NodeType.ACQUIRE]: {
     label: '数据采集',
@@ -300,10 +302,48 @@ export interface RatioSweepPoint {
   ratios: Record<string, number>; // liquidId -> ratio (总和=100)
 }
 
+// =============== 扫描变量系统 ===============
+
+// 扫描变量定义（由参数扫描节点自动生成）
+export interface SweepVariable {
+  id: string;              // 唯一标识，格式: "${sweepNodeId}_${paramType}"
+  name: string;            // 显示名称，如 "外层扫描.进样量"
+  sweepNodeId: string;     // 定义此变量的扫描节点 ID
+  paramType: ParamSweepNodeData['paramType'];  // 参数类型
+  // 作用域：可使用此变量的节点 ID 列表（扫描体内的节点）
+  // 运行时计算，不存储
+}
+
+// 参数绑定（节点参数绑定到扫描变量）
+export interface ParameterBinding {
+  field: string;           // 参数字段名，如 'targetVolumeMl', 'gasPumpPwm'
+  variableId: string;      // 绑定的变量 ID
+}
+
+// 参数类型与可绑定字段的映射
+export const PARAM_TYPE_BINDABLE_FIELDS: Record<ParamSweepNodeData['paramType'], {
+  nodeTypes: NodeType[];
+  field: string;
+  label: string;
+}> = {
+  volume: { nodeTypes: [NodeType.INJECT], field: 'targetVolumeMl', label: '进样量' },
+  gasPumpPwm: { nodeTypes: [NodeType.ACQUIRE, NodeType.DRAIN, NodeType.PREHEAT, NodeType.WASH], field: 'gasPumpPwm', label: '气泵PWM' },
+  duration: { nodeTypes: [NodeType.ACQUIRE, NodeType.PREHEAT], field: 'durationS', label: '持续时间' },
+  cycles: { nodeTypes: [NodeType.ACQUIRE], field: 'heaterCycles', label: '加热周期数' },
+  ratio: { nodeTypes: [NodeType.INJECT], field: 'ratio', label: '混合比例' },
+};
+
 // 参数扫描节点数据
 export interface ParamSweepNodeData {
   name: string;
   paramType: 'ratio' | 'volume' | 'gasPumpPwm' | 'duration' | 'cycles';
+  
+  // 变量名（自动生成或用户自定义）
+  variableName?: string;
+  
+  // 目标节点绑定：指定扫描体内哪个节点使用此变量
+  // 当扫描体内有多个可绑定的同类型节点时必须指定
+  targetNodeId?: string;
   
   // 通用参数扫描（非比例类型）
   startValue?: number;
@@ -363,6 +403,27 @@ export interface HardwareConfigNodeData {
   maxFillMl: number;
 }
 
+export interface PreheatNodeData {
+  name: string;
+  mode: 'cycles' | 'duration';
+  cycles?: number;
+  durationS?: number;
+  maxDurationS: number;
+  sensorIndices: number[];
+  recordData: boolean;
+  gasPumpPwm: number;
+}
+
+export interface ConfigureHeaterNodeData {
+  name: string;
+  configs: {
+    profileName: string;
+    temps?: number[];
+    durs?: number[];
+    sensorIndices: number[];
+  }[];
+}
+
 // 联合类型
 export type ExperimentNodeData =
   | StartNodeData
@@ -380,7 +441,9 @@ export type ExperimentNodeData =
   | SetStateNodeData
   | SetGasPumpNodeData
   | HardwareConfigNodeData
-  | ParamSweepNodeData;
+  | ParamSweepNodeData
+  | PreheatNodeData
+  | ConfigureHeaterNodeData;
 
 // 扩展 React Flow 节点类型
 export type ExperimentNode = Node<Record<string, unknown>, NodeType>;
@@ -453,9 +516,9 @@ export const CONNECTION_RULES: Record<NodeType, ConnectionRule> = {
   [NodeType.LOOP]: {
     flowTargets: FLOW_NODES.filter(n => n !== NodeType.START),
     flowSources: FLOW_NODES.filter(n => n !== NodeType.END),
-    // 循环体可以连接到除 START/END/LOOP 外的所有流程节点
-    loopBodyTargets: FLOW_NODES.filter(n => n !== NodeType.START && n !== NodeType.END && n !== NodeType.LOOP),
-    loopBodySources: FLOW_NODES.filter(n => n !== NodeType.START && n !== NodeType.END && n !== NodeType.LOOP),
+    // 循环体可以连接到除 START/END 外的所有流程节点（允许嵌套 LOOP/PARAM_SWEEP）
+    loopBodyTargets: FLOW_NODES.filter(n => n !== NodeType.START && n !== NodeType.END),
+    loopBodySources: FLOW_NODES.filter(n => n !== NodeType.START && n !== NodeType.END),
     maxFlowIn: 1,
     maxFlowOut: 1,
     maxLoopBodyOut: 1,  // 只能有一个循环体起点
@@ -498,8 +561,13 @@ export const CONNECTION_RULES: Record<NodeType, ConnectionRule> = {
   [NodeType.PARAM_SWEEP]: {
     flowTargets: FLOW_NODES.filter(n => n !== NodeType.START),
     flowSources: FLOW_NODES.filter(n => n !== NodeType.END),
+    // 扫描体可以连接到除 START/END 外的所有流程节点（允许嵌套 LOOP/PARAM_SWEEP）
+    loopBodyTargets: FLOW_NODES.filter(n => n !== NodeType.START && n !== NodeType.END),
+    loopBodySources: FLOW_NODES.filter(n => n !== NodeType.START && n !== NodeType.END),
     maxFlowIn: 1,
     maxFlowOut: 1,
+    maxLoopBodyOut: 1,  // 只能有一个扫描体起点
+    maxLoopBodyIn: 1,   // 只能有一个扫描体终点
   },
   [NodeType.ACQUIRE]: {
     flowTargets: FLOW_NODES.filter(n => n !== NodeType.START),

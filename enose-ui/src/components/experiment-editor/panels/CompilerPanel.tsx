@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useEffect, useMemo, useCallback } from 'react';
+import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import { useEditorStore } from '../store';
-import { formatDuration, getDiagnosticIcon, CompilerDiagnostic } from '../compiler';
+import { formatDuration, getDiagnosticIcon, CompilerDiagnostic, CompiledStep, LoopPathEntry } from '../compiler';
 import { NODE_META, NodeType } from '../types';
 import { cn } from '@/lib/utils';
 import { 
@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 export function CompilerPanel() {
@@ -86,6 +87,21 @@ export function CompilerPanel() {
   };
 
   const [stepsExpanded, setStepsExpanded] = React.useState(false);
+  // 折叠状态：key = loopPath字符串，value = 是否展开
+  const [expandedLoops, setExpandedLoops] = useState<Set<string>>(new Set());
+  
+  // 切换循环折叠状态
+  const toggleLoop = useCallback((loopKey: string) => {
+    setExpandedLoops(prev => {
+      const next = new Set(prev);
+      if (next.has(loopKey)) {
+        next.delete(loopKey);
+      } else {
+        next.add(loopKey);
+      }
+      return next;
+    });
+  }, []);
 
   return (
     <div className="h-full flex flex-col bg-background border-l">
@@ -99,29 +115,37 @@ export function CompilerPanel() {
           )}
         </div>
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2"
-            onClick={() => setAutoCompile(!autoCompile)}
-            title={autoCompile ? '关闭自动编译' : '开启自动编译'}
-          >
-            {autoCompile ? (
-              <ToggleRight className="w-4 h-4 text-green-500" />
-            ) : (
-              <ToggleLeft className="w-4 h-4 text-muted-foreground" />
-            )}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2"
-            onClick={recompile}
-            disabled={isCompiling}
-            title="手动编译"
-          >
-            <RefreshCw className={cn("w-4 h-4", isCompiling && "animate-spin")} />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2"
+                onClick={() => setAutoCompile(!autoCompile)}
+              >
+                {autoCompile ? (
+                  <ToggleRight className="w-4 h-4 text-green-500" />
+                ) : (
+                  <ToggleLeft className="w-4 h-4 text-muted-foreground" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{autoCompile ? '关闭自动编译' : '开启自动编译'}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2"
+                onClick={recompile}
+                disabled={isCompiling}
+              >
+                <RefreshCw className={cn("w-4 h-4", isCompiling && "animate-spin")} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>手动编译</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
@@ -234,28 +258,17 @@ export function CompilerPanel() {
                 <ListOrdered className="w-4 h-4 text-purple-500" />
                 <span className="text-sm font-medium">执行步骤</span>
                 <span className="text-xs text-muted-foreground ml-auto">
-                  {result.steps.length} 步
+                  {result.steps.filter(s => s.isAtomic).length} 步
                 </span>
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <div className="mt-2 space-y-1">
-                  {result.steps.map((step, index) => (
-                    <div
-                      key={step.id}
-                      className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors text-sm"
-                      onClick={() => step.nodeId && focusNode(step.nodeId)}
-                    >
-                      <span className="w-5 h-5 flex items-center justify-center rounded-full bg-muted text-xs font-medium">
-                        {index + 1}
-                      </span>
-                      <span className="flex-1 truncate">{step.name}</span>
-                      {step.estimatedDurationS > 0 && (
-                        <span className="text-xs text-muted-foreground">
-                          {formatDuration(step.estimatedDurationS)}
-                        </span>
-                      )}
-                    </div>
-                  ))}
+                <div className="mt-2">
+                  <StepTreeView 
+                    steps={result.steps} 
+                    expandedLoops={expandedLoops}
+                    toggleLoop={toggleLoop}
+                    focusNode={focusNode}
+                  />
                 </div>
               </CollapsibleContent>
             </Collapsible>
@@ -311,6 +324,180 @@ function DiagnosticSection({ title, icon, diagnostics, onClick, className }: Dia
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+
+// 步骤树视图组件
+interface StepTreeViewProps {
+  steps: CompiledStep[];
+  expandedLoops: Set<string>;
+  toggleLoop: (key: string) => void;
+  focusNode: (nodeId: string) => void;
+}
+
+function StepTreeView({ steps, expandedLoops, toggleLoop, focusNode }: StepTreeViewProps) {
+  // 构建树形结构
+  const tree = useMemo(() => {
+    return buildStepTree(steps);
+  }, [steps]);
+  
+  return (
+    <div className="space-y-0.5">
+      {tree.map((item, index) => (
+        <StepTreeNode 
+          key={item.type === 'loop' ? item.key : item.step.id}
+          item={item}
+          index={index}
+          expandedLoops={expandedLoops}
+          toggleLoop={toggleLoop}
+          focusNode={focusNode}
+          depth={0}
+        />
+      ))}
+    </div>
+  );
+}
+
+type TreeNode = 
+  | { type: 'step'; step: CompiledStep }
+  | { type: 'loop'; key: string; loopEntry: LoopPathEntry; children: TreeNode[]; totalDuration: number; stepCount: number };
+
+// 构建步骤树
+function buildStepTree(steps: CompiledStep[]): TreeNode[] {
+  const result: TreeNode[] = [];
+  const loopGroups = new Map<string, { entry: LoopPathEntry; steps: CompiledStep[]; duration: number; count: number }>();
+  const seen = new Set<string>();
+  
+  // 第一遍：按最外层循环分组，收集所有步骤
+  for (const step of steps) {
+    if (step.loopPath.length === 0) {
+      // 顶层步骤，直接添加
+      result.push({ type: 'step', step });
+    } else {
+      // 在循环内的步骤 - 按最外层循环分组
+      const outerLoop = step.loopPath[0];
+      const key = `${outerLoop.loopId}:${outerLoop.iteration}`;
+      
+      if (!loopGroups.has(key)) {
+        loopGroups.set(key, { 
+          entry: outerLoop, 
+          steps: [], 
+          duration: 0, 
+          count: 0 
+        });
+      }
+      
+      const group = loopGroups.get(key)!;
+      // 收集步骤（移除最外层循环信息）
+      const innerStep: CompiledStep = {
+        ...step,
+        loopPath: step.loopPath.slice(1),
+        depth: Math.max(0, step.depth - 1),
+      };
+      group.steps.push(innerStep);
+      
+      if (step.isAtomic) {
+        group.duration += step.estimatedDurationS;
+        group.count++;
+      }
+      
+      // 按顺序添加循环节点（只添加一次）
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push({ 
+          type: 'loop', 
+          key, 
+          loopEntry: outerLoop, 
+          children: [], // 稍后填充
+          totalDuration: 0, 
+          stepCount: 0 
+        });
+      }
+    }
+  }
+  
+  // 第二遍：递归构建子树
+  for (const node of result) {
+    if (node.type === 'loop') {
+      const group = loopGroups.get(node.key)!;
+      node.children = buildStepTree(group.steps);
+      node.totalDuration = group.duration;
+      node.stepCount = group.count;
+    }
+  }
+  
+  return result;
+}
+
+interface StepTreeNodeProps {
+  item: TreeNode;
+  index: number;
+  expandedLoops: Set<string>;
+  toggleLoop: (key: string) => void;
+  focusNode: (nodeId: string) => void;
+  depth: number;
+}
+
+function StepTreeNode({ item, index, expandedLoops, toggleLoop, focusNode, depth }: StepTreeNodeProps) {
+  if (item.type === 'step') {
+    const step = item.step;
+    return (
+      <div
+        className="flex items-center gap-2 py-1 px-2 rounded hover:bg-muted/50 cursor-pointer transition-colors text-sm"
+        style={{ paddingLeft: `${depth * 16 + 8}px` }}
+        onClick={() => step.nodeId && focusNode(step.nodeId)}
+      >
+        <span className="flex-1 truncate">{step.name}</span>
+        {step.isAtomic && step.estimatedDurationS > 0 && (
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            {formatDuration(step.estimatedDurationS)}
+          </span>
+        )}
+      </div>
+    );
+  }
+  
+  // 循环组
+  const isExpanded = expandedLoops.has(item.key);
+  const loopEntry = item.loopEntry;
+  
+  return (
+    <div>
+      <div
+        className="flex items-center gap-1 py-1 px-2 rounded hover:bg-muted/50 cursor-pointer transition-colors text-sm font-medium"
+        style={{ paddingLeft: `${depth * 16 + 8}px` }}
+        onClick={() => toggleLoop(item.key)}
+      >
+        {isExpanded ? (
+          <ChevronDown className="w-3 h-3 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="w-3 h-3 text-muted-foreground" />
+        )}
+        <span className="text-pink-500">{loopEntry.loopName}</span>
+        <span className="text-muted-foreground text-xs">
+          #{loopEntry.iteration}/{loopEntry.total}
+        </span>
+        <span className="text-xs text-muted-foreground ml-auto">
+          {item.stepCount}步 · {formatDuration(item.totalDuration)}
+        </span>
+      </div>
+      {isExpanded && (
+        <div className="border-l border-pink-500/20 ml-3">
+          {item.children.map((child, i) => (
+            <StepTreeNode
+              key={child.type === 'loop' ? child.key : child.step.id}
+              item={child}
+              index={i}
+              expandedLoops={expandedLoops}
+              toggleLoop={toggleLoop}
+              focusNode={focusNode}
+              depth={depth + 1}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

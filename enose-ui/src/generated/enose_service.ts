@@ -214,7 +214,7 @@ export interface ManualControlResponse {
  */
 export interface StartInjectionRequest {
     /**
-     * 每个蠕动泵的进样量 (单位待标定，目前为步进电机移动距离 mm)
+     * 每个蠕动泵的进样量 (单位: ml, 1mm=1ml)
      *
      * @generated from protobuf field: float pump_0_volume = 7
      */
@@ -244,10 +244,10 @@ export interface StartInjectionRequest {
      *
      * @generated from protobuf field: optional float speed = 5
      */
-    speed?: number; // 进样速度 (mm/s), 默认 10    /**
+    speed?: number; // 进样速度 (ml/s), 默认 8    /**
      * @generated from protobuf field: optional float accel = 6
      */
-    accel?: number; // 加速度 (mm/s²), 默认 100}
+    accel?: number; // 加速度 (ml/s²), 默认 10}
 /**
  * @generated from protobuf message enose.service.StartInjectionResponse
  */
@@ -299,10 +299,10 @@ export interface StartInjectionByWeightRequest {
      *
      * @generated from protobuf field: optional float speed = 5
      */
-    speed?: number; // 进样速度 (mm/s), 默认 10    /**
+    speed?: number; // 进样速度 (ml/s), 默认 8    /**
      * @generated from protobuf field: optional float accel = 6
      */
-    accel?: number; // 加速度 (mm/s²), 默认 100}
+    accel?: number; // 加速度 (ml/s²), 默认 10}
 /**
  * @generated from protobuf message enose.service.StopInjectionResponse
  */
@@ -359,19 +359,19 @@ export interface RunPumpRequest {
      */
     pumpName: string;
     /**
-     * 速度 (步进泵: mm/s, DC泵: 0.0-1.0 PWM)
+     * 速度 (步进泵: ml/s, DC泵: 0.0-1.0 PWM)
      *
      * @generated from protobuf field: float speed = 2
      */
     speed: number;
     /**
-     * 距离 (仅步进泵需要, 单位: mm)
+     * 距离 (仅步进泵需要, 单位: ml)
      *
      * @generated from protobuf field: optional float distance = 3
      */
     distance?: number;
     /**
-     * 加速度 (仅步进泵需要, 单位: mm/s²)
+     * 加速度 (仅步进泵需要, 单位: ml/s²)
      *
      * @generated from protobuf field: optional float accel = 4
      */
@@ -914,7 +914,7 @@ export interface PumpCalibrationRequest {
     /**
      * @generated from protobuf field: float slope = 1
      */
-    slope: number; // 斜率 (g/mm)    /**
+    slope: number; // 斜率 (g/ml)    /**
      * @generated from protobuf field: float offset = 2
      */
     offset: number; // 截距 (g)}
@@ -937,31 +937,31 @@ export interface ParamSet {
     /**
      * @generated from protobuf field: float pump0_volume = 9
      */
-    pump0Volume: number; // 泵0进样量 (mm)    /**
+    pump0Volume: number; // 泵0进样量 (ml)    /**
      * @generated from protobuf field: float pump1_volume = 10
      */
-    pump1Volume: number; // 泵1进样量 (mm)    /**
+    pump1Volume: number; // 泵1进样量 (ml)    /**
      * @generated from protobuf field: float pump2_volume = 3
      */
-    pump2Volume: number; // 泵2进样量 (mm)    /**
+    pump2Volume: number; // 泵2进样量 (ml)    /**
      * @generated from protobuf field: float pump3_volume = 4
      */
-    pump3Volume: number; // 泵3进样量 (mm)    /**
+    pump3Volume: number; // 泵3进样量 (ml)    /**
      * @generated from protobuf field: float pump4_volume = 5
      */
-    pump4Volume: number; // 泵4进样量 (mm)    /**
+    pump4Volume: number; // 泵4进样量 (ml)    /**
      * @generated from protobuf field: float pump5_volume = 6
      */
-    pump5Volume: number; // 泵5进样量 (mm)    /**
+    pump5Volume: number; // 泵5进样量 (ml)    /**
      * @generated from protobuf field: float pump6_volume = 11
      */
-    pump6Volume: number; // 泵6进样量 (mm)    /**
+    pump6Volume: number; // 泵6进样量 (ml)    /**
      * @generated from protobuf field: float pump7_volume = 12
      */
-    pump7Volume: number; // 泵7进样量 (mm)    /**
+    pump7Volume: number; // 泵7进样量 (ml)    /**
      * @generated from protobuf field: float speed = 7
      */
-    speed: number; // 进样速度 (mm/s)    /**
+    speed: number; // 进样速度 (ml/s)    /**
      * @generated from protobuf field: int32 cycles = 8
      */
     cycles: number; // 循环次数}
@@ -977,7 +977,7 @@ export interface StartTestRequest {
     paramSets: ParamSet[]; // 参数组列表    /**
      * @generated from protobuf field: float accel = 2
      */
-    accel: number; // 加速度 (mm/s²)    /**
+    accel: number; // 加速度 (ml/s²)    /**
      * @generated from protobuf field: float empty_tolerance = 3
      */
     emptyTolerance: number; // 空瓶容差 (g)    /**
@@ -1051,7 +1051,7 @@ export interface TestResult {
     /**
      * @generated from protobuf field: float total_volume = 4
      */
-    totalVolume: number; // 设定总量 (mm)    /**
+    totalVolume: number; // 设定总量 (ml)    /**
      * @generated from protobuf field: float pump0_volume = 19
      */
     pump0Volume: number;
@@ -1319,6 +1319,162 @@ export interface WeightSample {
      * @generated from protobuf field: string trend = 7
      */
     trend: string; // stable/increasing/decreasing}
+/**
+ * 推送告警请求
+ *
+ * @generated from protobuf message enose.service.PushAlertRequest
+ */
+export interface PushAlertRequest {
+    /**
+     * @generated from protobuf field: string alert_id = 1
+     */
+    alertId: string; // 告警唯一 ID    /**
+     * @generated from protobuf field: string title = 2
+     */
+    title: string; // 告警标题    /**
+     * @generated from protobuf field: string message = 3
+     */
+    message: string; // 告警内容    /**
+     * @generated from protobuf field: enose.service.AlertSeverity severity = 4
+     */
+    severity: AlertSeverity; // 严重程度    /**
+     * @generated from protobuf field: string source = 5
+     */
+    source: string; // 来源 (如 "quality_checker", "model_inference")    /**
+     * @generated from protobuf field: map<string, string> metadata = 6
+     */
+    metadata: {
+        [key: string]: string;
+    }; // 附加元数据    /**
+     * @generated from protobuf field: google.protobuf.Timestamp timestamp = 7
+     */
+    timestamp?: Timestamp;
+    /**
+     * 质检相关
+     *
+     * @generated from protobuf field: optional string quality_flag = 8
+     */
+    qualityFlag?: string; // 质量标志 (如 QF_BASELINE_UNSTABLE)    /**
+     * @generated from protobuf field: optional int32 channel = 9
+     */
+    channel?: number; // 通道号 (-1 全局)    /**
+     * @generated from protobuf field: optional double value = 10
+     */
+    value?: number; // 触发值    /**
+     * @generated from protobuf field: optional double threshold = 11
+     */
+    threshold?: number; // 阈值}
+/**
+ * @generated from protobuf message enose.service.PushAlertResponse
+ */
+export interface PushAlertResponse {
+    /**
+     * @generated from protobuf field: bool success = 1
+     */
+    success: boolean;
+    /**
+     * @generated from protobuf field: string message = 2
+     */
+    message: string;
+    /**
+     * @generated from protobuf field: string push_id = 3
+     */
+    pushId: string; // 推送服务返回的 ID}
+/**
+ * 批量推送请求
+ *
+ * @generated from protobuf message enose.service.PushAlertsRequest
+ */
+export interface PushAlertsRequest {
+    /**
+     * @generated from protobuf field: repeated enose.service.PushAlertRequest alerts = 1
+     */
+    alerts: PushAlertRequest[];
+}
+/**
+ * @generated from protobuf message enose.service.PushAlertsResponse
+ */
+export interface PushAlertsResponse {
+    /**
+     * @generated from protobuf field: int32 total = 1
+     */
+    total: number;
+    /**
+     * @generated from protobuf field: int32 succeeded = 2
+     */
+    succeeded: number;
+    /**
+     * @generated from protobuf field: int32 failed = 3
+     */
+    failed: number;
+    /**
+     * @generated from protobuf field: repeated string failed_ids = 4
+     */
+    failedIds: string[];
+}
+/**
+ * 测试推送请求
+ *
+ * @generated from protobuf message enose.service.TestPushRequest
+ */
+export interface TestPushRequest {
+    /**
+     * @generated from protobuf field: string title = 1
+     */
+    title: string;
+    /**
+     * @generated from protobuf field: string message = 2
+     */
+    message: string;
+}
+/**
+ * 通知配置
+ *
+ * @generated from protobuf message enose.service.NotificationConfig
+ */
+export interface NotificationConfig {
+    /**
+     * @generated from protobuf field: bool enabled = 1
+     */
+    enabled: boolean; // 是否启用推送    /**
+     * 推送服务配置
+     *
+     * @generated from protobuf field: enose.service.PushProvider provider = 2
+     */
+    provider: PushProvider; // 推送服务提供商    /**
+     * @generated from protobuf field: string webhook_url = 3
+     */
+    webhookUrl: string; // Webhook URL (通用)    /**
+     * @generated from protobuf field: string api_key = 4
+     */
+    apiKey: string; // API Key (部分服务需要)    /**
+     * 过滤配置
+     *
+     * @generated from protobuf field: enose.service.AlertSeverity min_severity = 5
+     */
+    minSeverity: AlertSeverity; // 最小推送级别    /**
+     * @generated from protobuf field: repeated string disabled_sources = 6
+     */
+    disabledSources: string[]; // 禁用的来源    /**
+     * @generated from protobuf field: repeated string disabled_flags = 7
+     */
+    disabledFlags: string[]; // 禁用的质量标志    /**
+     * 速率限制
+     *
+     * @generated from protobuf field: int32 rate_limit_per_minute = 8
+     */
+    rateLimitPerMinute: number; // 每分钟最大推送数    /**
+     * @generated from protobuf field: int32 cooldown_seconds = 9
+     */
+    cooldownSeconds: number; // 相同告警冷却时间    /**
+     * 聚合配置
+     *
+     * @generated from protobuf field: bool aggregate_alerts = 10
+     */
+    aggregateAlerts: boolean; // 是否聚合告警    /**
+     * @generated from protobuf field: int32 aggregate_window_seconds = 11
+     */
+    aggregateWindowSeconds: number; // 聚合窗口 (秒)}
 // ============================================================// 请求/响应消息定义// ============================================================
 
 /**
@@ -1420,6 +1576,94 @@ export enum TestState {
      * @generated from protobuf enum value: TEST_STOPPING = 8;
      */
     TEST_STOPPING = 8
+}
+// ============================================================// 通知服务消息定义// ============================================================
+
+/**
+ * 告警级别
+ *
+ * @generated from protobuf enum enose.service.AlertSeverity
+ */
+export enum AlertSeverity {
+    /**
+     * @generated from protobuf enum value: ALERT_SEVERITY_UNSPECIFIED = 0;
+     */
+    ALERT_SEVERITY_UNSPECIFIED = 0,
+    /**
+     * @generated from protobuf enum value: ALERT_INFO = 1;
+     */
+    ALERT_INFO = 1,
+    /**
+     * @generated from protobuf enum value: ALERT_WARNING = 2;
+     */
+    ALERT_WARNING = 2,
+    /**
+     * @generated from protobuf enum value: ALERT_ERROR = 3;
+     */
+    ALERT_ERROR = 3,
+    /**
+     * @generated from protobuf enum value: ALERT_CRITICAL = 4;
+     */
+    ALERT_CRITICAL = 4
+}
+/**
+ * 推送服务提供商
+ *
+ * @generated from protobuf enum enose.service.PushProvider
+ */
+export enum PushProvider {
+    /**
+     * @generated from protobuf enum value: PUSH_PROVIDER_UNSPECIFIED = 0;
+     */
+    PUSH_PROVIDER_UNSPECIFIED = 0,
+    /**
+     * 通用 Webhook (POST JSON)
+     *
+     * @generated from protobuf enum value: PUSH_WEBHOOK = 1;
+     */
+    PUSH_WEBHOOK = 1,
+    /**
+     * 钉钉机器人
+     *
+     * @generated from protobuf enum value: PUSH_DINGTALK = 2;
+     */
+    PUSH_DINGTALK = 2,
+    /**
+     * 飞书机器人
+     *
+     * @generated from protobuf enum value: PUSH_FEISHU = 3;
+     */
+    PUSH_FEISHU = 3,
+    /**
+     * 企业微信机器人
+     *
+     * @generated from protobuf enum value: PUSH_WECHAT_WORK = 4;
+     */
+    PUSH_WECHAT_WORK = 4,
+    /**
+     * PushPlus
+     *
+     * @generated from protobuf enum value: PUSH_PUSHPLUS = 5;
+     */
+    PUSH_PUSHPLUS = 5,
+    /**
+     * Server酱
+     *
+     * @generated from protobuf enum value: PUSH_SERVER_CHAN = 6;
+     */
+    PUSH_SERVER_CHAN = 6,
+    /**
+     * Bark (iOS)
+     *
+     * @generated from protobuf enum value: PUSH_BARK = 7;
+     */
+    PUSH_BARK = 7,
+    /**
+     * Telegram Bot
+     *
+     * @generated from protobuf enum value: PUSH_TELEGRAM = 8;
+     */
+    PUSH_TELEGRAM = 8
 }
 // @generated message type with reflection information, may provide speed optimized methods
 class SystemStatus$Type extends MessageType<SystemStatus> {
@@ -5332,6 +5576,507 @@ class WeightSample$Type extends MessageType<WeightSample> {
  * @generated MessageType for protobuf message enose.service.WeightSample
  */
 export const WeightSample = new WeightSample$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class PushAlertRequest$Type extends MessageType<PushAlertRequest> {
+    constructor() {
+        super("enose.service.PushAlertRequest", [
+            { no: 1, name: "alert_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "title", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "message", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "severity", kind: "enum", T: () => ["enose.service.AlertSeverity", AlertSeverity] },
+            { no: 5, name: "source", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 6, name: "metadata", kind: "map", K: 9 /*ScalarType.STRING*/, V: { kind: "scalar", T: 9 /*ScalarType.STRING*/ } },
+            { no: 7, name: "timestamp", kind: "message", T: () => Timestamp },
+            { no: 8, name: "quality_flag", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ },
+            { no: 9, name: "channel", kind: "scalar", opt: true, T: 5 /*ScalarType.INT32*/ },
+            { no: 10, name: "value", kind: "scalar", opt: true, T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 11, name: "threshold", kind: "scalar", opt: true, T: 1 /*ScalarType.DOUBLE*/ }
+        ]);
+    }
+    create(value?: PartialMessage<PushAlertRequest>): PushAlertRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.alertId = "";
+        message.title = "";
+        message.message = "";
+        message.severity = 0;
+        message.source = "";
+        message.metadata = {};
+        if (value !== undefined)
+            reflectionMergePartial<PushAlertRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: PushAlertRequest): PushAlertRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string alert_id */ 1:
+                    message.alertId = reader.string();
+                    break;
+                case /* string title */ 2:
+                    message.title = reader.string();
+                    break;
+                case /* string message */ 3:
+                    message.message = reader.string();
+                    break;
+                case /* enose.service.AlertSeverity severity */ 4:
+                    message.severity = reader.int32();
+                    break;
+                case /* string source */ 5:
+                    message.source = reader.string();
+                    break;
+                case /* map<string, string> metadata */ 6:
+                    this.binaryReadMap6(message.metadata, reader, options);
+                    break;
+                case /* google.protobuf.Timestamp timestamp */ 7:
+                    message.timestamp = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.timestamp);
+                    break;
+                case /* optional string quality_flag */ 8:
+                    message.qualityFlag = reader.string();
+                    break;
+                case /* optional int32 channel */ 9:
+                    message.channel = reader.int32();
+                    break;
+                case /* optional double value */ 10:
+                    message.value = reader.double();
+                    break;
+                case /* optional double threshold */ 11:
+                    message.threshold = reader.double();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    private binaryReadMap6(map: PushAlertRequest["metadata"], reader: IBinaryReader, options: BinaryReadOptions): void {
+        let len = reader.uint32(), end = reader.pos + len, key: keyof PushAlertRequest["metadata"] | undefined, val: PushAlertRequest["metadata"][any] | undefined;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case 1:
+                    key = reader.string();
+                    break;
+                case 2:
+                    val = reader.string();
+                    break;
+                default: throw new globalThis.Error("unknown map entry field for enose.service.PushAlertRequest.metadata");
+            }
+        }
+        map[key ?? ""] = val ?? "";
+    }
+    internalBinaryWrite(message: PushAlertRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string alert_id = 1; */
+        if (message.alertId !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.alertId);
+        /* string title = 2; */
+        if (message.title !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.title);
+        /* string message = 3; */
+        if (message.message !== "")
+            writer.tag(3, WireType.LengthDelimited).string(message.message);
+        /* enose.service.AlertSeverity severity = 4; */
+        if (message.severity !== 0)
+            writer.tag(4, WireType.Varint).int32(message.severity);
+        /* string source = 5; */
+        if (message.source !== "")
+            writer.tag(5, WireType.LengthDelimited).string(message.source);
+        /* map<string, string> metadata = 6; */
+        for (let k of globalThis.Object.keys(message.metadata))
+            writer.tag(6, WireType.LengthDelimited).fork().tag(1, WireType.LengthDelimited).string(k).tag(2, WireType.LengthDelimited).string(message.metadata[k]).join();
+        /* google.protobuf.Timestamp timestamp = 7; */
+        if (message.timestamp)
+            Timestamp.internalBinaryWrite(message.timestamp, writer.tag(7, WireType.LengthDelimited).fork(), options).join();
+        /* optional string quality_flag = 8; */
+        if (message.qualityFlag !== undefined)
+            writer.tag(8, WireType.LengthDelimited).string(message.qualityFlag);
+        /* optional int32 channel = 9; */
+        if (message.channel !== undefined)
+            writer.tag(9, WireType.Varint).int32(message.channel);
+        /* optional double value = 10; */
+        if (message.value !== undefined)
+            writer.tag(10, WireType.Bit64).double(message.value);
+        /* optional double threshold = 11; */
+        if (message.threshold !== undefined)
+            writer.tag(11, WireType.Bit64).double(message.threshold);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.PushAlertRequest
+ */
+export const PushAlertRequest = new PushAlertRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class PushAlertResponse$Type extends MessageType<PushAlertResponse> {
+    constructor() {
+        super("enose.service.PushAlertResponse", [
+            { no: 1, name: "success", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 2, name: "message", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "push_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<PushAlertResponse>): PushAlertResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.success = false;
+        message.message = "";
+        message.pushId = "";
+        if (value !== undefined)
+            reflectionMergePartial<PushAlertResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: PushAlertResponse): PushAlertResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* bool success */ 1:
+                    message.success = reader.bool();
+                    break;
+                case /* string message */ 2:
+                    message.message = reader.string();
+                    break;
+                case /* string push_id */ 3:
+                    message.pushId = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: PushAlertResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* bool success = 1; */
+        if (message.success !== false)
+            writer.tag(1, WireType.Varint).bool(message.success);
+        /* string message = 2; */
+        if (message.message !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.message);
+        /* string push_id = 3; */
+        if (message.pushId !== "")
+            writer.tag(3, WireType.LengthDelimited).string(message.pushId);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.PushAlertResponse
+ */
+export const PushAlertResponse = new PushAlertResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class PushAlertsRequest$Type extends MessageType<PushAlertsRequest> {
+    constructor() {
+        super("enose.service.PushAlertsRequest", [
+            { no: 1, name: "alerts", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => PushAlertRequest }
+        ]);
+    }
+    create(value?: PartialMessage<PushAlertsRequest>): PushAlertsRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.alerts = [];
+        if (value !== undefined)
+            reflectionMergePartial<PushAlertsRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: PushAlertsRequest): PushAlertsRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated enose.service.PushAlertRequest alerts */ 1:
+                    message.alerts.push(PushAlertRequest.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: PushAlertsRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated enose.service.PushAlertRequest alerts = 1; */
+        for (let i = 0; i < message.alerts.length; i++)
+            PushAlertRequest.internalBinaryWrite(message.alerts[i], writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.PushAlertsRequest
+ */
+export const PushAlertsRequest = new PushAlertsRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class PushAlertsResponse$Type extends MessageType<PushAlertsResponse> {
+    constructor() {
+        super("enose.service.PushAlertsResponse", [
+            { no: 1, name: "total", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "succeeded", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "failed", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "failed_ids", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<PushAlertsResponse>): PushAlertsResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.total = 0;
+        message.succeeded = 0;
+        message.failed = 0;
+        message.failedIds = [];
+        if (value !== undefined)
+            reflectionMergePartial<PushAlertsResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: PushAlertsResponse): PushAlertsResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 total */ 1:
+                    message.total = reader.int32();
+                    break;
+                case /* int32 succeeded */ 2:
+                    message.succeeded = reader.int32();
+                    break;
+                case /* int32 failed */ 3:
+                    message.failed = reader.int32();
+                    break;
+                case /* repeated string failed_ids */ 4:
+                    message.failedIds.push(reader.string());
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: PushAlertsResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 total = 1; */
+        if (message.total !== 0)
+            writer.tag(1, WireType.Varint).int32(message.total);
+        /* int32 succeeded = 2; */
+        if (message.succeeded !== 0)
+            writer.tag(2, WireType.Varint).int32(message.succeeded);
+        /* int32 failed = 3; */
+        if (message.failed !== 0)
+            writer.tag(3, WireType.Varint).int32(message.failed);
+        /* repeated string failed_ids = 4; */
+        for (let i = 0; i < message.failedIds.length; i++)
+            writer.tag(4, WireType.LengthDelimited).string(message.failedIds[i]);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.PushAlertsResponse
+ */
+export const PushAlertsResponse = new PushAlertsResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class TestPushRequest$Type extends MessageType<TestPushRequest> {
+    constructor() {
+        super("enose.service.TestPushRequest", [
+            { no: 1, name: "title", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "message", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<TestPushRequest>): TestPushRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.title = "";
+        message.message = "";
+        if (value !== undefined)
+            reflectionMergePartial<TestPushRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: TestPushRequest): TestPushRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string title */ 1:
+                    message.title = reader.string();
+                    break;
+                case /* string message */ 2:
+                    message.message = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: TestPushRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string title = 1; */
+        if (message.title !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.title);
+        /* string message = 2; */
+        if (message.message !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.message);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.TestPushRequest
+ */
+export const TestPushRequest = new TestPushRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class NotificationConfig$Type extends MessageType<NotificationConfig> {
+    constructor() {
+        super("enose.service.NotificationConfig", [
+            { no: 1, name: "enabled", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 2, name: "provider", kind: "enum", T: () => ["enose.service.PushProvider", PushProvider] },
+            { no: 3, name: "webhook_url", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "api_key", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 5, name: "min_severity", kind: "enum", T: () => ["enose.service.AlertSeverity", AlertSeverity] },
+            { no: 6, name: "disabled_sources", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
+            { no: 7, name: "disabled_flags", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
+            { no: 8, name: "rate_limit_per_minute", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 9, name: "cooldown_seconds", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 10, name: "aggregate_alerts", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 11, name: "aggregate_window_seconds", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<NotificationConfig>): NotificationConfig {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.enabled = false;
+        message.provider = 0;
+        message.webhookUrl = "";
+        message.apiKey = "";
+        message.minSeverity = 0;
+        message.disabledSources = [];
+        message.disabledFlags = [];
+        message.rateLimitPerMinute = 0;
+        message.cooldownSeconds = 0;
+        message.aggregateAlerts = false;
+        message.aggregateWindowSeconds = 0;
+        if (value !== undefined)
+            reflectionMergePartial<NotificationConfig>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: NotificationConfig): NotificationConfig {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* bool enabled */ 1:
+                    message.enabled = reader.bool();
+                    break;
+                case /* enose.service.PushProvider provider */ 2:
+                    message.provider = reader.int32();
+                    break;
+                case /* string webhook_url */ 3:
+                    message.webhookUrl = reader.string();
+                    break;
+                case /* string api_key */ 4:
+                    message.apiKey = reader.string();
+                    break;
+                case /* enose.service.AlertSeverity min_severity */ 5:
+                    message.minSeverity = reader.int32();
+                    break;
+                case /* repeated string disabled_sources */ 6:
+                    message.disabledSources.push(reader.string());
+                    break;
+                case /* repeated string disabled_flags */ 7:
+                    message.disabledFlags.push(reader.string());
+                    break;
+                case /* int32 rate_limit_per_minute */ 8:
+                    message.rateLimitPerMinute = reader.int32();
+                    break;
+                case /* int32 cooldown_seconds */ 9:
+                    message.cooldownSeconds = reader.int32();
+                    break;
+                case /* bool aggregate_alerts */ 10:
+                    message.aggregateAlerts = reader.bool();
+                    break;
+                case /* int32 aggregate_window_seconds */ 11:
+                    message.aggregateWindowSeconds = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: NotificationConfig, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* bool enabled = 1; */
+        if (message.enabled !== false)
+            writer.tag(1, WireType.Varint).bool(message.enabled);
+        /* enose.service.PushProvider provider = 2; */
+        if (message.provider !== 0)
+            writer.tag(2, WireType.Varint).int32(message.provider);
+        /* string webhook_url = 3; */
+        if (message.webhookUrl !== "")
+            writer.tag(3, WireType.LengthDelimited).string(message.webhookUrl);
+        /* string api_key = 4; */
+        if (message.apiKey !== "")
+            writer.tag(4, WireType.LengthDelimited).string(message.apiKey);
+        /* enose.service.AlertSeverity min_severity = 5; */
+        if (message.minSeverity !== 0)
+            writer.tag(5, WireType.Varint).int32(message.minSeverity);
+        /* repeated string disabled_sources = 6; */
+        for (let i = 0; i < message.disabledSources.length; i++)
+            writer.tag(6, WireType.LengthDelimited).string(message.disabledSources[i]);
+        /* repeated string disabled_flags = 7; */
+        for (let i = 0; i < message.disabledFlags.length; i++)
+            writer.tag(7, WireType.LengthDelimited).string(message.disabledFlags[i]);
+        /* int32 rate_limit_per_minute = 8; */
+        if (message.rateLimitPerMinute !== 0)
+            writer.tag(8, WireType.Varint).int32(message.rateLimitPerMinute);
+        /* int32 cooldown_seconds = 9; */
+        if (message.cooldownSeconds !== 0)
+            writer.tag(9, WireType.Varint).int32(message.cooldownSeconds);
+        /* bool aggregate_alerts = 10; */
+        if (message.aggregateAlerts !== false)
+            writer.tag(10, WireType.Varint).bool(message.aggregateAlerts);
+        /* int32 aggregate_window_seconds = 11; */
+        if (message.aggregateWindowSeconds !== 0)
+            writer.tag(11, WireType.Varint).int32(message.aggregateWindowSeconds);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.service.NotificationConfig
+ */
+export const NotificationConfig = new NotificationConfig$Type();
 /**
  * @generated ServiceType for protobuf service enose.service.ControlService
  */
@@ -5403,4 +6148,14 @@ export const TestService = new ServiceType("enose.service.TestService", [
     { name: "GetTestRun", options: {}, I: GetTestRunRequest, O: TestRunDetail },
     { name: "GetTestRunResults", options: {}, I: GetTestRunRequest, O: TestResultsResponse },
     { name: "GetWeightSamples", options: {}, I: GetWeightSamplesRequest, O: WeightSamplesResponse }
+]);
+/**
+ * @generated ServiceType for protobuf service enose.service.NotificationService
+ */
+export const NotificationService = new ServiceType("enose.service.NotificationService", [
+    { name: "PushAlert", options: {}, I: PushAlertRequest, O: PushAlertResponse },
+    { name: "PushAlerts", options: {}, I: PushAlertsRequest, O: PushAlertsResponse },
+    { name: "GetNotificationConfig", options: {}, I: Empty, O: NotificationConfig },
+    { name: "UpdateNotificationConfig", options: {}, I: NotificationConfig, O: NotificationConfig },
+    { name: "TestPush", options: {}, I: TestPushRequest, O: PushAlertResponse }
 ]);

@@ -142,9 +142,7 @@ private:
     // 转换系统状态
     workflows::SystemState::State convert_state(::enose::experiment::SystemState state);
     
-    // 气泵运行时间跟踪
-    std::chrono::steady_clock::time_point gas_pump_start_time_;
-    bool gas_pump_running_{false};
+    // 气泵运行时间由 RuntimeTracker 在 SystemState 层自动统计
     
     // Action Executors (Phase 3)
     std::shared_ptr<workflows::HardwareStateMachine> hardware_state_machine_;

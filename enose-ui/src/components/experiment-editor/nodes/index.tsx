@@ -226,9 +226,11 @@ export const WashNode = memo(function WashNode(props: NodeProps) {
   );
 });
 
-// 参数扫描节点
+// 参数扫描节点 (类似循环节点，有扫描体)
 export const ParamSweepNode = memo(function ParamSweepNode(props: NodeProps) {
   const data = props.data as Record<string, unknown>;
+  const edges = useEdges();
+  
   const paramTypeLabels: Record<string, string> = {
     ratio: '混合比例',
     volume: '进样量',
@@ -244,10 +246,49 @@ export const ParamSweepNode = memo(function ParamSweepNode(props: NodeProps) {
   if (paramType === 'ratio') {
     iterations = ratioSweepPoints.length;
   } else {
-    const start = data.startValue as number ?? 0;
-    const end = data.endValue as number ?? 100;
-    const step = data.stepValue as number ?? 10;
-    iterations = step > 0 ? Math.floor((end - start) / step) + 1 : 1;
+    const generatedSeq = data.generatedSequence as number[] | undefined;
+    if (generatedSeq && generatedSeq.length > 0) {
+      iterations = generatedSeq.length;
+    } else {
+      const start = data.startValue as number ?? 0;
+      const end = data.endValue as number ?? 100;
+      const step = data.stepValue as number ?? 10;
+      iterations = step > 0 ? Math.floor((end - start) / step) + 1 : 1;
+    }
+  }
+  
+  // 检查是否已连接扫描体 (类似 LoopNode)
+  const loopBodyOutEdge = edges.find(
+    e => e.source === props.id && e.sourceHandle === HANDLE_TYPES.LOOP_BODY
+  );
+  const loopBodyInEdge = edges.find(
+    e => e.target === props.id && e.targetHandle === HANDLE_TYPES.LOOP_BODY
+  );
+  const hasLoopBody = loopBodyOutEdge && loopBodyInEdge;
+  
+  // 计算扫描体节点数量
+  let bodyNodeCount = 0;
+  if (loopBodyOutEdge) {
+    let currentId: string | undefined = loopBodyOutEdge.target;
+    const visited = new Set<string>();
+    const flowAdjacency = new Map<string, string>();
+    for (const edge of edges) {
+      if (edge.sourceHandle === HANDLE_TYPES.FLOW || !edge.sourceHandle) {
+        flowAdjacency.set(edge.source, edge.target);
+      }
+    }
+    
+    while (currentId && !visited.has(currentId)) {
+      visited.add(currentId);
+      bodyNodeCount++;
+      
+      const isReturn = edges.some(
+        e => e.source === currentId && e.target === props.id && e.targetHandle === HANDLE_TYPES.LOOP_BODY
+      );
+      if (isReturn) break;
+      
+      currentId = flowAdjacency.get(currentId);
+    }
   }
   
   return (
@@ -259,7 +300,7 @@ export const ParamSweepNode = memo(function ParamSweepNode(props: NodeProps) {
         </div>
         {paramType === 'ratio' ? (
           <div className="text-muted-foreground">
-            {iterations > 0 ? `${iterations} 组比例配置` : '未配置扫描点'}
+            {iterations > 0 ? `${iterations} 组配置` : '未配置'}
           </div>
         ) : (
           <div className="text-muted-foreground">
@@ -269,6 +310,15 @@ export const ParamSweepNode = memo(function ParamSweepNode(props: NodeProps) {
         <div className="text-pink-500 font-medium">
           ⟳ {iterations} 次迭代
         </div>
+        {hasLoopBody ? (
+          <div className="text-amber-500 text-[10px]">
+            扫描体: {bodyNodeCount} 个步骤
+          </div>
+        ) : (
+          <div className="text-[10px] text-muted-foreground">
+            {loopBodyOutEdge ? '⚠ 请连接扫描体返回' : '→ 连接扫描体'}
+          </div>
+        )}
       </div>
     </BaseNode>
   );
@@ -396,7 +446,7 @@ export const HardwareConfigNode = memo(function HardwareConfigNode(props: NodePr
 // 预热节点
 export const PreheatNode = memo(function PreheatNode(props: NodeProps) {
   const data = props.data as Record<string, unknown>;
-  const mode = data.preheatMode as string || 'duration';
+  const mode = (data.mode as string) || 'duration';
   return (
     <BaseNode {...props}>
       <div className="text-xs space-y-1">
@@ -407,7 +457,7 @@ export const PreheatNode = memo(function PreheatNode(props: NodeProps) {
           </div>
         ) : (
           <div className="text-muted-foreground">
-            等待 {String(data.cycles ?? 3)} 个周期
+            等待 {String(data.cycles ?? 5)} 个周期
           </div>
         )}
         <div className="text-[10px] text-muted-foreground">

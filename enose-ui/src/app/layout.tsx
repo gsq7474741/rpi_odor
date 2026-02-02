@@ -4,6 +4,8 @@ import "./globals.css";
 import { Sidebar } from "@/components/sidebar";
 import { TopBar } from "@/components/top-bar";
 import { ThemeProvider } from "@/components/theme-provider";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,15 +38,18 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <div className="flex flex-col h-screen bg-background">
-            <TopBar />
-            <div className="flex flex-1 overflow-hidden">
-              <Sidebar />
-              <main className="flex-1 overflow-auto">
-                {children}
-              </main>
+          <TooltipProvider delayDuration={200}>
+            <div className="flex flex-col h-screen bg-background">
+              <TopBar />
+              <div className="flex flex-1 overflow-hidden">
+                <Sidebar />
+                <main className="flex-1 overflow-auto">
+                  {children}
+                </main>
+              </div>
             </div>
-          </div>
+            <Toaster richColors position="top-right" />
+          </TooltipProvider>
         </ThemeProvider>
       </body>
     </html>

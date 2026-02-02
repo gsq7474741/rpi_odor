@@ -196,7 +196,7 @@ message ManualControlResponse {
 
 // 进样请求
 message StartInjectionRequest {
-  // 每个蠕动泵的进样量 (单位待标定，目前为步进电机移动距离 mm)
+  // 每个蠕动泵的进样量 (单位: ml, 1mm=1ml)
   float pump_0_volume = 7;   // 蠕动泵0
   float pump_1_volume = 8;   // 蠕动泵1
   float pump_2_volume = 1;   // 蠕动泵2
@@ -207,8 +207,8 @@ message StartInjectionRequest {
   float pump_7_volume = 10;  // 蠕动泵7
   
   // 可选参数
-  optional float speed = 5;  // 进样速度 (mm/s), 默认 10
-  optional float accel = 6;  // 加速度 (mm/s²), 默认 100
+  optional float speed = 5;  // 进样速度 (ml/s), 默认 8
+  optional float accel = 6;  // 加速度 (ml/s²), 默认 10
 }
 
 message StartInjectionResponse {
@@ -230,8 +230,8 @@ message StartInjectionByWeightRequest {
   float pump_7_weight = 10;  // 蠕动泵7
   
   // 可选参数
-  optional float speed = 5;  // 进样速度 (mm/s), 默认 10
-  optional float accel = 6;  // 加速度 (mm/s²), 默认 100
+  optional float speed = 5;  // 进样速度 (ml/s), 默认 8
+  optional float accel = 6;  // 加速度 (ml/s²), 默认 10
 }
 
 message StopInjectionResponse {
@@ -256,13 +256,13 @@ message RunPumpRequest {
   // 泵名称 (pump_0 ~ pump_7, cleaning_pump)
   string pump_name = 1;
   
-  // 速度 (步进泵: mm/s, DC泵: 0.0-1.0 PWM)
+  // 速度 (步进泵: ml/s, DC泵: 0.0-1.0 PWM)
   float speed = 2;
   
-  // 距离 (仅步进泵需要, 单位: mm)
+  // 距离 (仅步进泵需要, 单位: ml)
   optional float distance = 3;
   
-  // 加速度 (仅步进泵需要, 单位: mm/s²)
+  // 加速度 (仅步进泵需要, 单位: ml/s²)
   optional float accel = 4;
 }
 
@@ -540,7 +540,7 @@ message LoadCellConfig {
 
 // 泵校准系数请求
 message PumpCalibrationRequest {
-  float slope = 1;                  // 斜率 (g/mm)
+  float slope = 1;                  // 斜率 (g/ml)
   float offset = 2;                 // 截距 (g)
 }
 
@@ -587,22 +587,22 @@ service TestService {
 message ParamSet {
   int32 id = 1;
   string name = 2;
-  float pump0_volume = 9;           // 泵0进样量 (mm)
-  float pump1_volume = 10;          // 泵1进样量 (mm)
-  float pump2_volume = 3;           // 泵2进样量 (mm)
-  float pump3_volume = 4;           // 泵3进样量 (mm)
-  float pump4_volume = 5;           // 泵4进样量 (mm)
-  float pump5_volume = 6;           // 泵5进样量 (mm)
-  float pump6_volume = 11;          // 泵6进样量 (mm)
-  float pump7_volume = 12;          // 泵7进样量 (mm)
-  float speed = 7;                  // 进样速度 (mm/s)
+  float pump0_volume = 9;           // 泵0进样量 (ml)
+  float pump1_volume = 10;          // 泵1进样量 (ml)
+  float pump2_volume = 3;           // 泵2进样量 (ml)
+  float pump3_volume = 4;           // 泵3进样量 (ml)
+  float pump4_volume = 5;           // 泵4进样量 (ml)
+  float pump5_volume = 6;           // 泵5进样量 (ml)
+  float pump6_volume = 11;          // 泵6进样量 (ml)
+  float pump7_volume = 12;          // 泵7进样量 (ml)
+  float speed = 7;                  // 进样速度 (ml/s)
   int32 cycles = 8;                 // 循环次数
 }
 
 // 启动测试请求
 message StartTestRequest {
   repeated ParamSet param_sets = 1; // 参数组列表
-  float accel = 2;                  // 加速度 (mm/s²)
+  float accel = 2;                  // 加速度 (ml/s²)
   float empty_tolerance = 3;        // 空瓶容差 (g)
   float drain_stability_window = 4; // 排废稳定窗口 (s)
 }
@@ -642,7 +642,7 @@ message TestResult {
   int32 param_set_id = 1;
   string param_set_name = 2;
   int32 cycle = 3;
-  float total_volume = 4;           // 设定总量 (mm)
+  float total_volume = 4;           // 设定总量 (ml)
   float pump0_volume = 19;
   float pump1_volume = 20;
   float pump2_volume = 5;
@@ -739,4 +739,115 @@ message WeightSample {
   float weight = 5;                   // 重量 (g)
   bool is_stable = 6;
   string trend = 7;                   // stable/increasing/decreasing
+}
+
+// ============================================================
+// 通知服务 (NotificationService)
+// 接收来自 enose-analytics 的告警推送，转发到第三方推送服务
+// ============================================================
+service NotificationService {
+  // 推送告警通知 (由 Python 端调用)
+  rpc PushAlert(PushAlertRequest) returns (PushAlertResponse);
+  
+  // 批量推送告警
+  rpc PushAlerts(PushAlertsRequest) returns (PushAlertsResponse);
+  
+  // 获取通知配置
+  rpc GetNotificationConfig(google.protobuf.Empty) returns (NotificationConfig);
+  
+  // 更新通知配置
+  rpc UpdateNotificationConfig(NotificationConfig) returns (NotificationConfig);
+  
+  // 测试推送 (用于验证配置)
+  rpc TestPush(TestPushRequest) returns (PushAlertResponse);
+}
+
+// ============================================================
+// 通知服务消息定义
+// ============================================================
+
+// 告警级别
+enum AlertSeverity {
+  ALERT_SEVERITY_UNSPECIFIED = 0;
+  ALERT_INFO = 1;
+  ALERT_WARNING = 2;
+  ALERT_ERROR = 3;
+  ALERT_CRITICAL = 4;
+}
+
+// 推送告警请求
+message PushAlertRequest {
+  string alert_id = 1;              // 告警唯一 ID
+  string title = 2;                 // 告警标题
+  string message = 3;               // 告警内容
+  AlertSeverity severity = 4;       // 严重程度
+  string source = 5;                // 来源 (如 "quality_checker", "model_inference")
+  map<string, string> metadata = 6; // 附加元数据
+  google.protobuf.Timestamp timestamp = 7;
+  
+  // 质检相关
+  optional string quality_flag = 8; // 质量标志 (如 QF_BASELINE_UNSTABLE)
+  optional int32 channel = 9;       // 通道号 (-1 全局)
+  optional double value = 10;       // 触发值
+  optional double threshold = 11;   // 阈值
+}
+
+message PushAlertResponse {
+  bool success = 1;
+  string message = 2;
+  string push_id = 3;               // 推送服务返回的 ID
+}
+
+// 批量推送请求
+message PushAlertsRequest {
+  repeated PushAlertRequest alerts = 1;
+}
+
+message PushAlertsResponse {
+  int32 total = 1;
+  int32 succeeded = 2;
+  int32 failed = 3;
+  repeated string failed_ids = 4;
+}
+
+// 测试推送请求
+message TestPushRequest {
+  string title = 1;
+  string message = 2;
+}
+
+// 通知配置
+message NotificationConfig {
+  bool enabled = 1;                     // 是否启用推送
+  
+  // 推送服务配置
+  PushProvider provider = 2;            // 推送服务提供商
+  string webhook_url = 3;               // Webhook URL (通用)
+  string api_key = 4;                   // API Key (部分服务需要)
+  
+  // 过滤配置
+  AlertSeverity min_severity = 5;       // 最小推送级别
+  repeated string disabled_sources = 6; // 禁用的来源
+  repeated string disabled_flags = 7;   // 禁用的质量标志
+  
+  // 速率限制
+  int32 rate_limit_per_minute = 8;      // 每分钟最大推送数
+  int32 cooldown_seconds = 9;           // 相同告警冷却时间
+  
+  // 聚合配置
+  bool aggregate_alerts = 10;           // 是否聚合告警
+  int32 aggregate_window_seconds = 11;  // 聚合窗口 (秒)
+}
+
+// 推送服务提供商
+enum PushProvider {
+  PUSH_PROVIDER_UNSPECIFIED = 0;
+  PUSH_WEBHOOK = 1;         // 通用 Webhook (POST JSON)
+  PUSH_DINGTALK = 2;        // 钉钉机器人
+  PUSH_FEISHU = 3;          // 飞书机器人
+  PUSH_WECHAT_WORK = 4;     // 企业微信机器人
+  PUSH_PUSHPLUS = 5;        // PushPlus
+  PUSH_SERVER_CHAN = 6;     // Server酱
+  PUSH_BARK = 7;            // Bark (iOS)
+  PUSH_TELEGRAM = 8;        // Telegram Bot
 }

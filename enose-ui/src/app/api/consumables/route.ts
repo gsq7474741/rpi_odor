@@ -79,6 +79,65 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(response);
       }
       
+      case "tags": {
+        const category = searchParams.get("category") || "";
+        const search = searchParams.get("search") || "";
+        const orderByUsage = searchParams.get("orderByUsage") === "true";
+        const response = await promisify(
+          c.listTags.bind(c),
+          { category, search, limit: 100, orderByUsage }
+        );
+        return NextResponse.json(response);
+      }
+      
+      case "tag-suggestions": {
+        const prefix = searchParams.get("prefix") || "";
+        const category = searchParams.get("category") || "";
+        const limit = parseInt(searchParams.get("limit") || "10");
+        const response = await promisify(
+          c.getTagSuggestions.bind(c),
+          { prefix, category, limit }
+        );
+        return NextResponse.json(response);
+      }
+      
+      case "liquid-tags": {
+        const liquidId = parseInt(searchParams.get("liquidId") || "0");
+        const fieldKey = searchParams.get("fieldKey") || "aroma_notes";
+        const response = await promisify(
+          c.getLiquidTags.bind(c),
+          { liquidId, fieldKey }
+        );
+        return NextResponse.json(response);
+      }
+      
+      case "liquids-by-tags": {
+        const tagNames = searchParams.get("tags")?.split(",") || [];
+        const fieldKey = searchParams.get("fieldKey") || "aroma_notes";
+        const typeFilter = searchParams.get("filter") || "";
+        const response = await promisify(
+          c.listLiquidsByTags.bind(c),
+          { 
+            tagNames, 
+            fieldKey, 
+            typeFilter: typeFilter === "sample" ? 1 : typeFilter === "rinse" ? 2 : 0,
+            limit: 100,
+            offset: 0
+          }
+        );
+        return NextResponse.json(response);
+      }
+      
+      case "attachments": {
+        const liquidId = parseInt(searchParams.get("liquidId") || "0");
+        const fieldKey = searchParams.get("fieldKey") || "";
+        const response = await promisify(
+          c.getLiquidAttachments.bind(c),
+          { liquidId, fieldKey }
+        );
+        return NextResponse.json(response);
+      }
+      
       default:
         return NextResponse.json({ error: "Invalid type" }, { status: 400 });
     }
@@ -203,6 +262,7 @@ export async function POST(request: NextRequest) {
           {
             consumableId: body.consumableId,
             notes: body.notes || "",
+            newLifetimeSeconds: body.newLifetimeSeconds || 0,
           }
         );
         return NextResponse.json(response);
@@ -256,6 +316,57 @@ export async function POST(request: NextRequest) {
       
       case "delete-field": {
         await promisify(c.deleteMetadataField.bind(c), { id: body.id });
+        return NextResponse.json({ success: true });
+      }
+      
+      // 标签管理
+      case "create-tag": {
+        const response = await promisify(
+          c.createTag.bind(c),
+          {
+            name: body.name,
+            category: body.category || "aroma",
+            color: body.color || "",
+          }
+        );
+        return NextResponse.json(response);
+      }
+      
+      case "delete-tag": {
+        await promisify(c.deleteTag.bind(c), { id: body.id });
+        return NextResponse.json({ success: true });
+      }
+      
+      case "set-liquid-tags": {
+        const response = await promisify(
+          c.setLiquidTags.bind(c),
+          {
+            liquidId: body.liquidId,
+            tagNames: body.tagNames || [],
+            fieldKey: body.fieldKey || "aroma_notes",
+          }
+        );
+        return NextResponse.json(response);
+      }
+      
+      case "create-attachment": {
+        const response = await promisify(
+          c.createLiquidAttachment.bind(c),
+          {
+            liquidId: body.liquidId,
+            fieldKey: body.fieldKey,
+            fileType: body.fileType || "image",
+            fileName: body.fileName,
+            filePath: body.filePath,
+            fileSize: body.fileSize || 0,
+            mimeType: body.mimeType || "",
+          }
+        );
+        return NextResponse.json(response);
+      }
+      
+      case "delete-attachment": {
+        await promisify(c.deleteLiquidAttachment.bind(c), { attachmentId: body.attachmentId });
         return NextResponse.json({ success: true });
       }
       

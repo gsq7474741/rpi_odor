@@ -716,7 +716,7 @@ bool ConsumableRepository::add_runtime(const std::string& id, int64_t seconds) {
     }
 }
 
-bool ConsumableRepository::reset_consumable(const std::string& id, const std::string& notes) {
+bool ConsumableRepository::reset_consumable(const std::string& id, const std::string& notes, int64_t new_lifetime_seconds) {
     try {
         auto conn = ConnectionPool::instance().acquire();
         if (!conn.valid()) return false;
@@ -734,10 +734,13 @@ bool ConsumableRepository::reset_consumable(const std::string& id, const std::st
         
         int64_t old_value = res[0][0].as<int64_t>();
         
-        // 重置累积时间
-        txn.exec(
-            "UPDATE consumables SET accumulated_seconds = 0, last_reset_at = NOW() "
-            "WHERE id = " + conn->quote(id));
+        // 重置累积时间，可选更新总寿命
+        std::string sql = "UPDATE consumables SET accumulated_seconds = 0, last_reset_at = NOW()";
+        if (new_lifetime_seconds > 0) {
+            sql += ", lifetime_seconds = " + std::to_string(new_lifetime_seconds);
+        }
+        sql += " WHERE id = " + conn->quote(id);
+        txn.exec(sql);
         
         // 记录历史
         txn.exec(
@@ -747,7 +750,8 @@ bool ConsumableRepository::reset_consumable(const std::string& id, const std::st
             std::to_string(-old_value) + ", " + conn->quote(notes) + ")");
         
         txn.commit();
-        spdlog::info("Reset consumable: {} (was {} seconds)", id, old_value);
+        spdlog::info("Reset consumable: {} (was {} seconds, new lifetime: {})", 
+                     id, old_value, new_lifetime_seconds > 0 ? new_lifetime_seconds : -1);
         return true;
     } catch (const std::exception& e) {
         spdlog::error("ConsumableRepository::reset_consumable error: {}", e.what());
@@ -909,6 +913,411 @@ bool ConsumableRepository::delete_metadata_field(int id) {
         spdlog::error("ConsumableRepository::delete_metadata_field error: {}", e.what());
         return false;
     }
+}
+
+// ============================================================
+// 标签管理
+// ============================================================
+
+std::vector<TagRecord> ConsumableRepository::list_tags(
+    const std::string& category,
+    const std::string& search,
+    int limit,
+    bool order_by_usage) {
+    
+    std::vector<TagRecord> results;
+    
+    try {
+        auto conn = ConnectionPool::instance().acquire();
+        if (!conn.valid()) return results;
+        
+        std::string sql = "SELECT id, name, category, COALESCE(color, ''), usage_count, "
+                         "created_at, updated_at FROM tags WHERE 1=1";
+        
+        if (!category.empty()) {
+            sql += " AND category = " + conn->quote(category);
+        }
+        
+        if (!search.empty()) {
+            sql += " AND name ILIKE " + conn->quote("%" + search + "%");
+        }
+        
+        if (order_by_usage) {
+            sql += " ORDER BY usage_count DESC, name ASC";
+        } else {
+            sql += " ORDER BY name ASC";
+        }
+        
+        sql += " LIMIT " + std::to_string(limit);
+        
+        pqxx::work txn(conn.get());
+        pqxx::result res = txn.exec(sql);
+        
+        for (const auto& row : res) {
+            TagRecord record;
+            record.id = row[0].as<int>();
+            record.name = row[1].as<std::string>();
+            record.category = row[2].is_null() ? "aroma" : row[2].as<std::string>();
+            record.color = row[3].as<std::string>();
+            record.usage_count = row[4].as<int>();
+            record.created_at = parse_timestamp(row[5].as<std::string>());
+            record.updated_at = parse_timestamp(row[6].as<std::string>());
+            results.push_back(record);
+        }
+        
+        txn.commit();
+    } catch (const std::exception& e) {
+        spdlog::error("ConsumableRepository::list_tags error: {}", e.what());
+    }
+    
+    return results;
+}
+
+std::optional<int> ConsumableRepository::create_tag(
+    const std::string& name,
+    const std::string& category,
+    const std::string& color) {
+    
+    try {
+        auto conn = ConnectionPool::instance().acquire();
+        if (!conn.valid()) return std::nullopt;
+        
+        pqxx::work txn(conn.get());
+        
+        std::string sql = "INSERT INTO tags (name, category";
+        std::string values = ") VALUES (" + conn->quote(name) + ", " + conn->quote(category.empty() ? "aroma" : category);
+        
+        if (!color.empty()) {
+            sql += ", color";
+            values += ", " + conn->quote(color);
+        }
+        
+        sql += values + ") ON CONFLICT (name) DO UPDATE SET category = EXCLUDED.category RETURNING id";
+        
+        pqxx::result res = txn.exec(sql);
+        int id = res[0][0].as<int>();
+        txn.commit();
+        
+        spdlog::info("Created/updated tag: {} (id={})", name, id);
+        return id;
+    } catch (const std::exception& e) {
+        spdlog::error("ConsumableRepository::create_tag error: {}", e.what());
+        return std::nullopt;
+    }
+}
+
+bool ConsumableRepository::delete_tag(int id) {
+    try {
+        auto conn = ConnectionPool::instance().acquire();
+        if (!conn.valid()) return false;
+        
+        pqxx::work txn(conn.get());
+        txn.exec("DELETE FROM tags WHERE id = " + std::to_string(id));
+        txn.commit();
+        
+        spdlog::info("Deleted tag id={}", id);
+        return true;
+    } catch (const std::exception& e) {
+        spdlog::error("ConsumableRepository::delete_tag error: {}", e.what());
+        return false;
+    }
+}
+
+std::vector<TagRecord> ConsumableRepository::get_tag_suggestions(
+    const std::string& prefix,
+    const std::string& category,
+    int limit) {
+    
+    std::vector<TagRecord> results;
+    
+    try {
+        auto conn = ConnectionPool::instance().acquire();
+        if (!conn.valid()) return results;
+        
+        std::string sql = "SELECT id, name, category, COALESCE(color, ''), usage_count, "
+                         "created_at, updated_at FROM tags WHERE name ILIKE " + 
+                         conn->quote(prefix + "%");
+        
+        if (!category.empty()) {
+            sql += " AND category = " + conn->quote(category);
+        }
+        
+        sql += " ORDER BY usage_count DESC, name ASC LIMIT " + std::to_string(limit);
+        
+        pqxx::work txn(conn.get());
+        pqxx::result res = txn.exec(sql);
+        
+        for (const auto& row : res) {
+            TagRecord record;
+            record.id = row[0].as<int>();
+            record.name = row[1].as<std::string>();
+            record.category = row[2].is_null() ? "aroma" : row[2].as<std::string>();
+            record.color = row[3].as<std::string>();
+            record.usage_count = row[4].as<int>();
+            record.created_at = parse_timestamp(row[5].as<std::string>());
+            record.updated_at = parse_timestamp(row[6].as<std::string>());
+            results.push_back(record);
+        }
+        
+        txn.commit();
+    } catch (const std::exception& e) {
+        spdlog::error("ConsumableRepository::get_tag_suggestions error: {}", e.what());
+    }
+    
+    return results;
+}
+
+// ============================================================
+// 液体标签关系
+// ============================================================
+
+std::vector<TagRecord> ConsumableRepository::get_liquid_tags(int liquid_id, const std::string& field_key) {
+    std::vector<TagRecord> results;
+    
+    try {
+        auto conn = ConnectionPool::instance().acquire();
+        if (!conn.valid()) return results;
+        
+        std::string sql = "SELECT t.id, t.name, t.category, COALESCE(t.color, ''), t.usage_count, "
+                         "t.created_at, t.updated_at FROM tags t "
+                         "JOIN liquid_tags lt ON lt.tag_id = t.id "
+                         "WHERE lt.liquid_id = " + std::to_string(liquid_id) +
+                         " AND lt.field_key = " + conn->quote(field_key) +
+                         " ORDER BY t.name ASC";
+        
+        pqxx::work txn(conn.get());
+        pqxx::result res = txn.exec(sql);
+        
+        for (const auto& row : res) {
+            TagRecord record;
+            record.id = row[0].as<int>();
+            record.name = row[1].as<std::string>();
+            record.category = row[2].is_null() ? "aroma" : row[2].as<std::string>();
+            record.color = row[3].as<std::string>();
+            record.usage_count = row[4].as<int>();
+            record.created_at = parse_timestamp(row[5].as<std::string>());
+            record.updated_at = parse_timestamp(row[6].as<std::string>());
+            results.push_back(record);
+        }
+        
+        txn.commit();
+    } catch (const std::exception& e) {
+        spdlog::error("ConsumableRepository::get_liquid_tags error: {}", e.what());
+    }
+    
+    return results;
+}
+
+bool ConsumableRepository::set_liquid_tags(int liquid_id, const std::vector<std::string>& tag_names, 
+                                            const std::string& field_key) {
+    try {
+        auto conn = ConnectionPool::instance().acquire();
+        if (!conn.valid()) return false;
+        
+        pqxx::work txn(conn.get());
+        
+        // 删除现有关系
+        txn.exec("DELETE FROM liquid_tags WHERE liquid_id = " + std::to_string(liquid_id) +
+                 " AND field_key = " + conn->quote(field_key));
+        
+        // 添加新标签
+        for (const auto& tag_name : tag_names) {
+            if (tag_name.empty()) continue;
+            
+            // 确保标签存在
+            txn.exec("INSERT INTO tags (name, category) VALUES (" + 
+                     conn->quote(tag_name) + ", 'aroma') ON CONFLICT (name) DO NOTHING");
+            
+            // 获取标签 ID 并创建关系
+            pqxx::result res = txn.exec(
+                "SELECT id FROM tags WHERE name = " + conn->quote(tag_name));
+            
+            if (!res.empty()) {
+                int tag_id = res[0][0].as<int>();
+                txn.exec("INSERT INTO liquid_tags (liquid_id, tag_id, field_key) VALUES (" +
+                         std::to_string(liquid_id) + ", " + std::to_string(tag_id) + ", " +
+                         conn->quote(field_key) + ") ON CONFLICT DO NOTHING");
+            }
+        }
+        
+        txn.commit();
+        spdlog::info("Set {} tags for liquid {}", tag_names.size(), liquid_id);
+        return true;
+    } catch (const std::exception& e) {
+        spdlog::error("ConsumableRepository::set_liquid_tags error: {}", e.what());
+        return false;
+    }
+}
+
+std::vector<LiquidRecord> ConsumableRepository::list_liquids_by_tags(
+    const std::vector<std::string>& tag_names,
+    const std::string& field_key,
+    const std::string& type_filter,
+    int limit,
+    int offset) {
+    
+    std::vector<LiquidRecord> results;
+    
+    if (tag_names.empty()) return results;
+    
+    try {
+        auto conn = ConnectionPool::instance().acquire();
+        if (!conn.valid()) return results;
+        
+        // 构建标签名称列表
+        std::string tag_list;
+        for (size_t i = 0; i < tag_names.size(); ++i) {
+            if (i > 0) tag_list += ", ";
+            tag_list += conn->quote(tag_names[i]);
+        }
+        
+        std::string sql = 
+            "SELECT l.id, l.name, l.type, l.description, l.density, "
+            "COALESCE(l.metadata::text, '{}'), l.is_active, l.created_at, l.updated_at "
+            "FROM liquids l "
+            "WHERE l.id IN ("
+            "  SELECT lt.liquid_id FROM liquid_tags lt "
+            "  JOIN tags t ON t.id = lt.tag_id "
+            "  WHERE t.name IN (" + tag_list + ") AND lt.field_key = " + conn->quote(field_key) +
+            "  GROUP BY lt.liquid_id "
+            "  HAVING COUNT(DISTINCT t.id) = " + std::to_string(tag_names.size()) +
+            ")";
+        
+        if (!type_filter.empty()) {
+            sql += " AND l.type = " + conn->quote(type_filter);
+        }
+        
+        sql += " ORDER BY l.name ASC LIMIT " + std::to_string(limit) + 
+               " OFFSET " + std::to_string(offset);
+        
+        pqxx::work txn(conn.get());
+        pqxx::result res = txn.exec(sql);
+        
+        for (const auto& row : res) {
+            LiquidRecord record;
+            record.id = row[0].as<int>();
+            record.name = row[1].as<std::string>();
+            record.type = row[2].as<std::string>();
+            record.description = row[3].is_null() ? "" : row[3].as<std::string>();
+            record.density = row[4].as<float>();
+            record.metadata_json = row[5].as<std::string>();
+            record.is_active = row[6].as<bool>();
+            record.created_at = parse_timestamp(row[7].as<std::string>());
+            record.updated_at = parse_timestamp(row[8].as<std::string>());
+            results.push_back(record);
+        }
+        
+        txn.commit();
+    } catch (const std::exception& e) {
+        spdlog::error("ConsumableRepository::list_liquids_by_tags error: {}", e.what());
+    }
+    
+    return results;
+}
+
+// ============================================================
+// 附件管理
+// ============================================================
+
+std::vector<AttachmentRecord> ConsumableRepository::get_liquid_attachments(
+    int liquid_id, const std::string& field_key) {
+    
+    std::vector<AttachmentRecord> results;
+    
+    try {
+        auto conn = ConnectionPool::instance().acquire();
+        if (!conn.valid()) return results;
+        
+        std::string sql = "SELECT id, liquid_id, field_key, file_type, file_name, "
+                         "file_path, file_size, mime_type, created_at "
+                         "FROM liquid_attachments WHERE liquid_id = " + std::to_string(liquid_id);
+        
+        if (!field_key.empty()) {
+            sql += " AND field_key = " + conn->quote(field_key);
+        }
+        
+        sql += " ORDER BY created_at DESC";
+        
+        pqxx::work txn(conn.get());
+        pqxx::result res = txn.exec(sql);
+        
+        for (const auto& row : res) {
+            AttachmentRecord record;
+            record.id = row[0].as<int>();
+            record.liquid_id = row[1].as<int>();
+            record.field_key = row[2].as<std::string>();
+            record.file_type = row[3].as<std::string>();
+            record.file_name = row[4].as<std::string>();
+            record.file_path = row[5].as<std::string>();
+            record.file_size = row[6].is_null() ? 0 : row[6].as<int64_t>();
+            record.mime_type = row[7].is_null() ? "" : row[7].as<std::string>();
+            record.created_at = parse_timestamp(row[8].as<std::string>());
+            results.push_back(record);
+        }
+        
+        txn.commit();
+    } catch (const std::exception& e) {
+        spdlog::error("ConsumableRepository::get_liquid_attachments error: {}", e.what());
+    }
+    
+    return results;
+}
+
+std::optional<int> ConsumableRepository::create_liquid_attachment(
+    int liquid_id,
+    const std::string& field_key,
+    const std::string& file_type,
+    const std::string& file_name,
+    const std::string& file_path,
+    int64_t file_size,
+    const std::string& mime_type) {
+    
+    try {
+        auto conn = ConnectionPool::instance().acquire();
+        if (!conn.valid()) return std::nullopt;
+        
+        pqxx::work txn(conn.get());
+        
+        std::string sql = "INSERT INTO liquid_attachments "
+                         "(liquid_id, field_key, file_type, file_name, file_path, file_size, mime_type) "
+                         "VALUES (" + std::to_string(liquid_id) + ", " +
+                         txn.quote(field_key) + ", " +
+                         txn.quote(file_type) + ", " +
+                         txn.quote(file_name) + ", " +
+                         txn.quote(file_path) + ", " +
+                         std::to_string(file_size) + ", " +
+                         txn.quote(mime_type) + ") RETURNING id";
+        
+        pqxx::result res = txn.exec(sql);
+        txn.commit();
+        
+        if (!res.empty()) {
+            return res[0][0].as<int>();
+        }
+    } catch (const std::exception& e) {
+        spdlog::error("ConsumableRepository::create_liquid_attachment error: {}", e.what());
+    }
+    
+    return std::nullopt;
+}
+
+bool ConsumableRepository::delete_liquid_attachment(int attachment_id) {
+    try {
+        auto conn = ConnectionPool::instance().acquire();
+        if (!conn.valid()) return false;
+        
+        pqxx::work txn(conn.get());
+        
+        std::string sql = "DELETE FROM liquid_attachments WHERE id = " + std::to_string(attachment_id);
+        pqxx::result res = txn.exec(sql);
+        txn.commit();
+        
+        return res.affected_rows() > 0;
+    } catch (const std::exception& e) {
+        spdlog::error("ConsumableRepository::delete_liquid_attachment error: {}", e.what());
+    }
+    
+    return false;
 }
 
 } // namespace db

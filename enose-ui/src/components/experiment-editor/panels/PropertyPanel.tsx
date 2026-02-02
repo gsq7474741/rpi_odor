@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useEditorStore } from '../store';
-import { NodeType, NODE_META, SYSTEM_STATES, EXPERIMENT_PHASES } from '../types';
+import { NodeType, NODE_META, SYSTEM_STATES, EXPERIMENT_PHASES, HANDLE_TYPES, PARAM_TYPE_BINDABLE_FIELDS, ParamSweepNodeData } from '../types';
 import { HeaterProfileDialog, HeaterProfile } from '../dialogs/HeaterProfileDialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -42,18 +42,29 @@ function HeaterProfileSelector({
     onChange(newBaseName + suffix);
   };
 
+  const selectedProfile = profiles?.find(p => p.name === baseValue);
+  
   return (
     <Select value={baseValue} onValueChange={handleProfileSelect}>
-      <SelectTrigger className="flex-1 min-w-0">
-        <SelectValue placeholder={loading ? '加载中...' : '选择预设...'} className="truncate" />
+      <SelectTrigger className="w-full h-auto min-h-9 py-1.5">
+        <SelectValue placeholder={loading ? '加载中...' : '选择预设...'}>
+          <div className="flex flex-col items-start text-left overflow-hidden">
+            <span className="truncate text-sm">{baseValue}</span>
+            {selectedProfile?.description && (
+              <span className="text-[10px] text-muted-foreground truncate">
+                {selectedProfile.description}
+              </span>
+            )}
+          </div>
+        </SelectValue>
       </SelectTrigger>
       <SelectContent>
         {profiles?.map((p) => (
           <SelectItem key={p.id} value={p.name}>
-            <div className="flex flex-col max-w-[200px]">
-              <span className="truncate">{p.name}</span>
+            <div className="flex flex-col">
+              <span>{p.name}</span>
               {p.description && (
-                <span className="text-[10px] text-muted-foreground truncate">{p.description}</span>
+                <span className="text-[10px] text-muted-foreground">{p.description}</span>
               )}
             </div>
           </SelectItem>
@@ -182,7 +193,10 @@ function ConfigureHeaterFields({
     handleChange('sensorProfiles', newProfiles);
   };
   
-  const activeGroups = Object.entries(profileGroups).filter(([profile]) => profile !== '');
+  // 稳定排序：按预设名称字母顺序排列，避免重渲染时顺序跳动
+  const activeGroups = Object.entries(profileGroups)
+    .filter(([profile]) => profile !== '')
+    .sort(([a], [b]) => a.localeCompare(b));
   const unassignedSensors = profileGroups[''] || [];
   
   return (
@@ -221,9 +235,9 @@ function ConfigureHeaterFields({
         {/* 配置组列表 */}
         <div className="space-y-2">
           {activeGroups.map(([profile, sensors]) => (
-            <div key={profile} className="border rounded-lg p-2 space-y-2 bg-muted/30 overflow-hidden">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="flex-1 min-w-0">
+            <div key={profile} className="border rounded-lg p-2 space-y-2 bg-muted/30">
+              <div className="flex items-start gap-2">
+                <div className="flex-1 min-w-0 overflow-hidden">
                   <HeaterProfileSelector
                     value={profile}
                     onChange={(newProfile) => handleGroupProfileChange(profile, newProfile)}
@@ -234,10 +248,10 @@ function ConfigureHeaterFields({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6 shrink-0 flex-none"
+                  className="h-8 w-8 shrink-0"
                   onClick={() => handleDeleteGroup(profile)}
                 >
-                  <Trash2 className="w-3 h-3" />
+                  <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
               
@@ -421,8 +435,62 @@ function generateSequence(type: SeqGenType, min: number, max: number, steps: num
   return [...new Set(result)].sort((a, b) => a - b);
 }
 
+// 查找包含指定节点的所有父级扫描/循环节点
+function findParentSweepNodes(
+  nodeId: string,
+  nodes: Array<{ id: string; type?: string; data: unknown }>,
+  edges: Array<{ source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }>
+): Array<{ id: string; name: string; paramType: string; variableName: string }> {
+  const parentSweeps: Array<{ id: string; name: string; paramType: string; variableName: string }> = [];
+  
+  // 找到所有 loopBody 类型的边
+  const loopBodyEdges = edges.filter(e => e.sourceHandle === HANDLE_TYPES.LOOP_BODY);
+  
+  // 对于每个扫描节点，检查其扫描体是否包含目标节点
+  const sweepNodes = nodes.filter(n => n.type === NodeType.PARAM_SWEEP);
+  
+  for (const sweepNode of sweepNodes) {
+    // 找到从扫描节点出发的 loopBody 边
+    const bodyStartEdge = loopBodyEdges.find(e => e.source === sweepNode.id);
+    if (!bodyStartEdge) continue;
+    
+    // 遍历扫描体，检查是否包含目标节点
+    const flowEdges = edges.filter(e => !e.sourceHandle || e.sourceHandle === HANDLE_TYPES.FLOW);
+    const visited = new Set<string>();
+    let currentId: string | undefined = bodyStartEdge.target;
+    
+    while (currentId && !visited.has(currentId)) {
+      if (currentId === nodeId) {
+        const data = sweepNode.data as ParamSweepNodeData;
+        parentSweeps.push({
+          id: sweepNode.id,
+          name: data.name || '参数扫描',
+          paramType: data.paramType || 'volume',
+          variableName: data.variableName || `${data.name || '扫描'}.${data.paramType || 'value'}`,
+        });
+        break;
+      }
+      visited.add(currentId);
+      
+      // 检查是否回到了扫描节点（扫描体结束）
+      const returnEdge = edges.find(e => 
+        e.source === currentId && 
+        e.targetHandle === HANDLE_TYPES.LOOP_BODY && 
+        e.target === sweepNode.id
+      );
+      if (returnEdge) break;
+      
+      // 继续沿 flow 边遍历
+      const nextEdge = flowEdges.find(e => e.source === currentId);
+      currentId = nextEdge?.target;
+    }
+  }
+  
+  return parentSweeps;
+}
+
 export function PropertyPanel() {
-  const { nodes, selectedNodeId, updateNodeData, deleteNode } = useEditorStore();
+  const { nodes, edges, selectedNodeId, updateNodeData, deleteNode } = useEditorStore();
   
   // 液体库状态
   const [liquids, setLiquids] = useState<LiquidItem[]>([]);
@@ -432,8 +500,37 @@ export function PropertyPanel() {
   const [seqGenType, setSeqGenType] = useState<SeqGenType>('linear');
   const [seqGenSteps, setSeqGenSteps] = useState(5);
   
+  const selectedNode = nodes.find((n) => n.id === selectedNodeId);
+  const nodeType = selectedNode?.type as NodeType | undefined;
+  
+  // 查找当前节点所在的扫描体 (必须在所有条件返回之前调用)
+  const parentSweeps = useMemo(() => {
+    if (!selectedNode) return [];
+    return findParentSweepNodes(selectedNode.id, nodes, edges);
+  }, [selectedNode, nodes, edges]);
+  
+  // 检查当前节点类型是否可以绑定扫描变量 (必须在所有条件返回之前调用)
+  const bindableFields = useMemo(() => {
+    if (!nodeType) return [];
+    const fields: Array<{ sweepId: string; sweepName: string; paramType: string; variableName: string; field: string; label: string }> = [];
+    for (const sweep of parentSweeps) {
+      const binding = PARAM_TYPE_BINDABLE_FIELDS[sweep.paramType as keyof typeof PARAM_TYPE_BINDABLE_FIELDS];
+      if (binding && binding.nodeTypes.includes(nodeType)) {
+        fields.push({
+          sweepId: sweep.id,
+          sweepName: sweep.name,
+          paramType: sweep.paramType,
+          variableName: sweep.variableName,
+          field: binding.field,
+          label: binding.label,
+        });
+      }
+    }
+    return fields;
+  }, [parentSweeps, nodeType]);
+  
   // 加载液体库
-  const loadLiquids = async () => {
+  const loadLiquids = useCallback(async () => {
     setLoadingLiquids(true);
     try {
       const res = await fetch('/api/consumables?type=liquids');
@@ -446,16 +543,14 @@ export function PropertyPanel() {
     } finally {
       setLoadingLiquids(false);
     }
-  };
+  }, []);
   
   // 初始加载液体库
   useEffect(() => {
     loadLiquids();
-  }, []);
+  }, [loadLiquids]);
   
-  const selectedNode = nodes.find((n) => n.id === selectedNodeId);
-  
-  if (!selectedNode) {
+  if (!selectedNode || !nodeType) {
     return (
       <div className="w-64 bg-muted/30 border-l p-4">
         <p className="text-sm text-muted-foreground">选择一个节点来编辑属性</p>
@@ -463,7 +558,6 @@ export function PropertyPanel() {
     );
   }
   
-  const nodeType = selectedNode.type as NodeType;
   const meta = NODE_META[nodeType];
   const data = selectedNode.data as Record<string, unknown>;
   
@@ -1388,8 +1482,11 @@ export function PropertyPanel() {
     }
   };
 
+  // 当前节点的变量绑定
+  const boundVariables = (data.boundVariables || {}) as Record<string, string>;
+
   return (
-    <div className="w-64 bg-muted/30 border-l overflow-y-auto">
+    <div className="h-full bg-muted/30 border-l overflow-y-auto">
       <div className="p-3 border-b flex items-center justify-between">
         <h3 className="font-semibold text-sm">{meta.label}</h3>
         {nodeType !== NodeType.START && nodeType !== NodeType.END && (
@@ -1405,6 +1502,58 @@ export function PropertyPanel() {
       </div>
       <div className="p-3 space-y-4">
         {renderFields()}
+        
+        {/* 扫描变量绑定区域 */}
+        {bindableFields.length > 0 && (
+          <div className="pt-3 border-t space-y-3">
+            <div className="flex items-center gap-2">
+              <Wand2 className="w-4 h-4 text-pink-500" />
+              <span className="text-xs font-medium text-pink-600">扫描变量绑定</span>
+            </div>
+            {bindableFields.map((field) => (
+              <div key={`${field.sweepId}_${field.field}`} className="space-y-1.5">
+                <Label className="text-xs flex items-center gap-1">
+                  <span className="text-muted-foreground">{field.sweepName}</span>
+                  <span className="text-pink-500">→</span>
+                  <span>{field.label}</span>
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={boundVariables[field.field] === field.sweepId}
+                    onCheckedChange={(checked) => {
+                      const newBound = { ...boundVariables };
+                      if (checked) {
+                        newBound[field.field] = field.sweepId;
+                      } else {
+                        delete newBound[field.field];
+                      }
+                      handleChange('boundVariables', newBound);
+                    }}
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {boundVariables[field.field] === field.sweepId ? (
+                      <span className="text-pink-500">已绑定: {field.variableName}</span>
+                    ) : (
+                      '未绑定'
+                    )}
+                  </span>
+                </div>
+              </div>
+            ))}
+            <p className="text-[10px] text-muted-foreground">
+              绑定后，此参数将使用扫描节点的迭代值
+            </p>
+          </div>
+        )}
+        
+        {/* 显示所在扫描体信息 */}
+        {parentSweeps.length > 0 && bindableFields.length === 0 && (
+          <div className="pt-3 border-t">
+            <p className="text-xs text-muted-foreground">
+              位于扫描体内: {parentSweeps.map(s => s.name).join(', ')}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

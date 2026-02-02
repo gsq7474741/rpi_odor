@@ -598,7 +598,10 @@ std::string ConsumableServiceImpl::field_type_to_string(consumable::FieldType ty
     const consumable::ResetConsumableRequest* request,
     consumable::Consumable* response) {
     
-    bool success = repo_.reset_consumable(request->consumable_id(), request->notes());
+    bool success = repo_.reset_consumable(
+        request->consumable_id(), 
+        request->notes(),
+        request->new_lifetime_seconds());
     if (!success) {
         return ::grpc::Status(::grpc::INTERNAL, "Failed to reset consumable");
     }
@@ -711,6 +714,247 @@ std::string ConsumableServiceImpl::field_type_to_string(consumable::FieldType ty
     bool success = repo_.delete_metadata_field(request->id());
     if (!success) {
         return ::grpc::Status(::grpc::INTERNAL, "Failed to delete metadata field");
+    }
+    
+    return ::grpc::Status::OK;
+}
+
+// ============================================================
+// 标签管理
+// ============================================================
+
+void ConsumableServiceImpl::fill_tag(consumable::Tag* proto, const db::TagRecord& record) {
+    proto->set_id(record.id);
+    proto->set_name(record.name);
+    proto->set_category(record.category);
+    proto->set_color(record.color);
+    proto->set_usage_count(record.usage_count);
+    
+    auto* created = proto->mutable_created_at();
+    created->set_seconds(std::chrono::duration_cast<std::chrono::seconds>(
+        record.created_at.time_since_epoch()).count());
+    
+    auto* updated = proto->mutable_updated_at();
+    updated->set_seconds(std::chrono::duration_cast<std::chrono::seconds>(
+        record.updated_at.time_since_epoch()).count());
+}
+
+::grpc::Status ConsumableServiceImpl::ListTags(
+    ::grpc::ServerContext* context,
+    const consumable::ListTagsRequest* request,
+    consumable::TagListResponse* response) {
+    
+    auto tags = repo_.list_tags(
+        request->category(),
+        request->search(),
+        request->limit() > 0 ? request->limit() : 100,
+        request->order_by_usage());
+    
+    for (const auto& tag : tags) {
+        fill_tag(response->add_tags(), tag);
+    }
+    
+    response->set_total_count(tags.size());
+    return ::grpc::Status::OK;
+}
+
+::grpc::Status ConsumableServiceImpl::CreateTag(
+    ::grpc::ServerContext* context,
+    const consumable::CreateTagRequest* request,
+    consumable::Tag* response) {
+    
+    auto id = repo_.create_tag(request->name(), request->category(), request->color());
+    if (!id) {
+        return ::grpc::Status(::grpc::INTERNAL, "Failed to create tag");
+    }
+    
+    // 返回创建的标签
+    auto tags = repo_.list_tags("", request->name(), 1, false);
+    if (!tags.empty()) {
+        fill_tag(response, tags[0]);
+    }
+    
+    return ::grpc::Status::OK;
+}
+
+::grpc::Status ConsumableServiceImpl::DeleteTag(
+    ::grpc::ServerContext* context,
+    const consumable::DeleteTagRequest* request,
+    ::google::protobuf::Empty* response) {
+    
+    bool success = repo_.delete_tag(request->id());
+    if (!success) {
+        return ::grpc::Status(::grpc::INTERNAL, "Failed to delete tag");
+    }
+    
+    return ::grpc::Status::OK;
+}
+
+::grpc::Status ConsumableServiceImpl::GetTagSuggestions(
+    ::grpc::ServerContext* context,
+    const consumable::GetTagSuggestionsRequest* request,
+    consumable::TagSuggestionsResponse* response) {
+    
+    auto suggestions = repo_.get_tag_suggestions(
+        request->prefix(),
+        request->category(),
+        request->limit() > 0 ? request->limit() : 10);
+    
+    for (const auto& tag : suggestions) {
+        fill_tag(response->add_suggestions(), tag);
+    }
+    
+    return ::grpc::Status::OK;
+}
+
+// ============================================================
+// 液体标签关系
+// ============================================================
+
+::grpc::Status ConsumableServiceImpl::SetLiquidTags(
+    ::grpc::ServerContext* context,
+    const consumable::SetLiquidTagsRequest* request,
+    consumable::LiquidTagsResponse* response) {
+    
+    std::vector<std::string> tag_names;
+    for (const auto& name : request->tag_names()) {
+        tag_names.push_back(name);
+    }
+    
+    std::string field_key = request->field_key().empty() ? "aroma_notes" : request->field_key();
+    
+    bool success = repo_.set_liquid_tags(request->liquid_id(), tag_names, field_key);
+    if (!success) {
+        return ::grpc::Status(::grpc::INTERNAL, "Failed to set liquid tags");
+    }
+    
+    // 返回更新后的标签
+    response->set_liquid_id(request->liquid_id());
+    auto tags = repo_.get_liquid_tags(request->liquid_id(), field_key);
+    for (const auto& tag : tags) {
+        fill_tag(response->add_tags(), tag);
+    }
+    
+    return ::grpc::Status::OK;
+}
+
+::grpc::Status ConsumableServiceImpl::GetLiquidTags(
+    ::grpc::ServerContext* context,
+    const consumable::GetLiquidTagsRequest* request,
+    consumable::LiquidTagsResponse* response) {
+    
+    std::string field_key = request->field_key().empty() ? "aroma_notes" : request->field_key();
+    
+    response->set_liquid_id(request->liquid_id());
+    auto tags = repo_.get_liquid_tags(request->liquid_id(), field_key);
+    for (const auto& tag : tags) {
+        fill_tag(response->add_tags(), tag);
+    }
+    
+    return ::grpc::Status::OK;
+}
+
+::grpc::Status ConsumableServiceImpl::ListLiquidsByTags(
+    ::grpc::ServerContext* context,
+    const consumable::ListLiquidsByTagsRequest* request,
+    consumable::LiquidListResponse* response) {
+    
+    std::vector<std::string> tag_names;
+    for (const auto& name : request->tag_names()) {
+        tag_names.push_back(name);
+    }
+    
+    std::string field_key = request->field_key().empty() ? "aroma_notes" : request->field_key();
+    std::string type_filter = liquid_type_to_string(request->type_filter());
+    if (type_filter == "unspecified") type_filter = "";
+    
+    auto liquids = repo_.list_liquids_by_tags(
+        tag_names,
+        field_key,
+        type_filter,
+        request->limit() > 0 ? request->limit() : 100,
+        request->offset());
+    
+    for (const auto& liquid : liquids) {
+        fill_liquid(response->add_liquids(), liquid);
+    }
+    
+    response->set_total_count(liquids.size());
+    return ::grpc::Status::OK;
+}
+
+// ============================================================
+// 附件管理
+// ============================================================
+
+::grpc::Status ConsumableServiceImpl::GetLiquidAttachments(
+    ::grpc::ServerContext* context,
+    const consumable::GetLiquidAttachmentsRequest* request,
+    consumable::LiquidAttachmentsResponse* response) {
+    
+    auto attachments = repo_.get_liquid_attachments(
+        request->liquid_id(),
+        request->field_key());
+    
+    for (const auto& att : attachments) {
+        auto* proto = response->add_attachments();
+        proto->set_id(att.id);
+        proto->set_liquid_id(att.liquid_id);
+        proto->set_field_key(att.field_key);
+        proto->set_file_type(att.file_type);
+        proto->set_file_name(att.file_name);
+        proto->set_file_path(att.file_path);
+        // 生成访问URL（前端使用）
+        proto->set_file_url("/api/uploads/" + att.file_path);
+        proto->set_file_size(att.file_size);
+        proto->set_mime_type(att.mime_type);
+        *proto->mutable_created_at() = google::protobuf::util::TimeUtil::TimeTToTimestamp(
+            std::chrono::system_clock::to_time_t(att.created_at));
+    }
+    
+    return ::grpc::Status::OK;
+}
+
+::grpc::Status ConsumableServiceImpl::CreateLiquidAttachment(
+    ::grpc::ServerContext* context,
+    const consumable::CreateLiquidAttachmentRequest* request,
+    consumable::LiquidAttachment* response) {
+    
+    auto id = repo_.create_liquid_attachment(
+        request->liquid_id(),
+        request->field_key(),
+        request->file_type(),
+        request->file_name(),
+        request->file_path(),
+        request->file_size(),
+        request->mime_type());
+    
+    if (!id.has_value()) {
+        return ::grpc::Status(::grpc::StatusCode::INTERNAL, "Failed to create attachment");
+    }
+    
+    response->set_id(id.value());
+    response->set_liquid_id(request->liquid_id());
+    response->set_field_key(request->field_key());
+    response->set_file_type(request->file_type());
+    response->set_file_name(request->file_name());
+    response->set_file_path(request->file_path());
+    response->set_file_url("/api/uploads/" + request->file_path());
+    response->set_file_size(request->file_size());
+    response->set_mime_type(request->mime_type());
+    
+    return ::grpc::Status::OK;
+}
+
+::grpc::Status ConsumableServiceImpl::DeleteLiquidAttachment(
+    ::grpc::ServerContext* context,
+    const consumable::DeleteLiquidAttachmentRequest* request,
+    google::protobuf::Empty* response) {
+    
+    bool success = repo_.delete_liquid_attachment(request->attachment_id());
+    
+    if (!success) {
+        return ::grpc::Status(::grpc::StatusCode::NOT_FOUND, "Attachment not found");
     }
     
     return ::grpc::Status::OK;

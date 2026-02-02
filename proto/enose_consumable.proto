@@ -38,6 +38,22 @@ service ConsumableService {
   rpc CreateMetadataField(CreateMetadataFieldRequest) returns (MetadataField);
   rpc UpdateMetadataField(UpdateMetadataFieldRequest) returns (MetadataField);
   rpc DeleteMetadataField(DeleteMetadataFieldRequest) returns (google.protobuf.Empty);
+  
+  // 标签管理
+  rpc ListTags(ListTagsRequest) returns (TagListResponse);
+  rpc CreateTag(CreateTagRequest) returns (Tag);
+  rpc DeleteTag(DeleteTagRequest) returns (google.protobuf.Empty);
+  rpc GetTagSuggestions(GetTagSuggestionsRequest) returns (TagSuggestionsResponse);
+  
+  // 液体标签关系
+  rpc SetLiquidTags(SetLiquidTagsRequest) returns (LiquidTagsResponse);
+  rpc GetLiquidTags(GetLiquidTagsRequest) returns (LiquidTagsResponse);
+  rpc ListLiquidsByTags(ListLiquidsByTagsRequest) returns (LiquidListResponse);
+  
+  // 附件管理（图片等）
+  rpc GetLiquidAttachments(GetLiquidAttachmentsRequest) returns (LiquidAttachmentsResponse);
+  rpc CreateLiquidAttachment(CreateLiquidAttachmentRequest) returns (LiquidAttachment);
+  rpc DeleteLiquidAttachment(DeleteLiquidAttachmentRequest) returns (google.protobuf.Empty);
 }
 
 // ============================================================
@@ -230,6 +246,7 @@ message ConsumableStatusResponse {
 message ResetConsumableRequest {
   string consumable_id = 1;
   string notes = 2;
+  int64 new_lifetime_seconds = 3;  // 可选：重置时指定新的总寿命（0表示保持原值）
 }
 
 message UpdateLifetimeRequest {
@@ -303,4 +320,117 @@ message UpdateMetadataFieldRequest {
 
 message DeleteMetadataFieldRequest {
   int32 id = 1;
+}
+
+// ============================================================
+// 标签相关消息
+// ============================================================
+
+message Tag {
+  int32 id = 1;
+  string name = 2;
+  string category = 3;       // aroma, flavor, intensity 等
+  string color = 4;          // 可选颜色
+  int32 usage_count = 5;     // 使用次数
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message ListTagsRequest {
+  string category = 1;       // 可选：按分类过滤
+  string search = 2;         // 可选：搜索关键词
+  int32 limit = 3;           // 限制数量
+  bool order_by_usage = 4;   // 按使用频率排序
+}
+
+message TagListResponse {
+  repeated Tag tags = 1;
+  int32 total_count = 2;
+}
+
+message CreateTagRequest {
+  string name = 1;
+  string category = 2;
+  string color = 3;
+}
+
+message DeleteTagRequest {
+  int32 id = 1;
+}
+
+// 液体标签关系
+message SetLiquidTagsRequest {
+  int32 liquid_id = 1;
+  repeated string tag_names = 2;  // 标签名称列表
+  string field_key = 3;           // 字段键，默认 aroma_notes
+}
+
+message GetLiquidTagsRequest {
+  int32 liquid_id = 1;
+  string field_key = 2;           // 字段键，默认 aroma_notes
+}
+
+message LiquidTagsResponse {
+  int32 liquid_id = 1;
+  repeated Tag tags = 2;
+}
+
+// 按标签筛选液体
+message ListLiquidsByTagsRequest {
+  repeated string tag_names = 1;  // 标签名称列表（AND 关系）
+  string field_key = 2;           // 字段键
+  LiquidType type_filter = 3;     // 可选：液体类型过滤
+  int32 limit = 4;
+  int32 offset = 5;
+}
+
+// 标签建议（自动补全）
+message GetTagSuggestionsRequest {
+  string prefix = 1;              // 输入前缀
+  string category = 2;            // 可选：按分类过滤
+  int32 limit = 3;                // 建议数量上限
+}
+
+message TagSuggestionsResponse {
+  repeated Tag suggestions = 1;
+}
+
+// ============================================================
+// 附件相关消息（图片等）
+// ============================================================
+
+message LiquidAttachment {
+  int32 id = 1;
+  int32 liquid_id = 2;
+  string field_key = 3;           // 对应 metadata_fields.field_key
+  string file_type = 4;           // 'image', 'document'
+  string file_name = 5;           // 原始文件名
+  string file_path = 6;           // 存储路径（服务端）
+  string file_url = 7;            // 访问URL（前端使用）
+  int64 file_size = 8;            // 文件大小 (bytes)
+  string mime_type = 9;           // MIME 类型
+  google.protobuf.Timestamp created_at = 10;
+}
+
+message GetLiquidAttachmentsRequest {
+  int32 liquid_id = 1;
+  string field_key = 2;           // 可选：只获取特定字段的附件
+}
+
+message LiquidAttachmentsResponse {
+  repeated LiquidAttachment attachments = 1;
+}
+
+message CreateLiquidAttachmentRequest {
+  int32 liquid_id = 1;
+  string field_key = 2;
+  string file_type = 3;
+  string file_name = 4;
+  string file_path = 5;
+  int64 file_size = 6;
+  string mime_type = 7;
+}
+
+message DeleteLiquidAttachmentRequest {
+  int32 attachment_id = 1;
 }

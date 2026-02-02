@@ -498,6 +498,10 @@ export interface ResetConsumableRequest {
      * @generated from protobuf field: string notes = 2
      */
     notes: string;
+    /**
+     * @generated from protobuf field: int64 new_lifetime_seconds = 3
+     */
+    newLifetimeSeconds: string; // 可选：重置时指定新的总寿命（0表示保持原值）
 }
 /**
  * @generated from protobuf message enose.consumable.UpdateLifetimeRequest
@@ -669,6 +673,316 @@ export interface DeleteMetadataFieldRequest {
      * @generated from protobuf field: int32 id = 1
      */
     id: number;
+}
+// ============================================================
+// 标签相关消息
+// ============================================================
+
+/**
+ * @generated from protobuf message enose.consumable.Tag
+ */
+export interface Tag {
+    /**
+     * @generated from protobuf field: int32 id = 1
+     */
+    id: number;
+    /**
+     * @generated from protobuf field: string name = 2
+     */
+    name: string;
+    /**
+     * @generated from protobuf field: string category = 3
+     */
+    category: string; // aroma, flavor, intensity 等
+    /**
+     * @generated from protobuf field: string color = 4
+     */
+    color: string; // 可选颜色
+    /**
+     * @generated from protobuf field: int32 usage_count = 5
+     */
+    usageCount: number; // 使用次数
+    /**
+     * @generated from protobuf field: google.protobuf.Timestamp created_at = 6
+     */
+    createdAt?: Timestamp;
+    /**
+     * @generated from protobuf field: google.protobuf.Timestamp updated_at = 7
+     */
+    updatedAt?: Timestamp;
+}
+/**
+ * @generated from protobuf message enose.consumable.ListTagsRequest
+ */
+export interface ListTagsRequest {
+    /**
+     * @generated from protobuf field: string category = 1
+     */
+    category: string; // 可选：按分类过滤
+    /**
+     * @generated from protobuf field: string search = 2
+     */
+    search: string; // 可选：搜索关键词
+    /**
+     * @generated from protobuf field: int32 limit = 3
+     */
+    limit: number; // 限制数量
+    /**
+     * @generated from protobuf field: bool order_by_usage = 4
+     */
+    orderByUsage: boolean; // 按使用频率排序
+}
+/**
+ * @generated from protobuf message enose.consumable.TagListResponse
+ */
+export interface TagListResponse {
+    /**
+     * @generated from protobuf field: repeated enose.consumable.Tag tags = 1
+     */
+    tags: Tag[];
+    /**
+     * @generated from protobuf field: int32 total_count = 2
+     */
+    totalCount: number;
+}
+/**
+ * @generated from protobuf message enose.consumable.CreateTagRequest
+ */
+export interface CreateTagRequest {
+    /**
+     * @generated from protobuf field: string name = 1
+     */
+    name: string;
+    /**
+     * @generated from protobuf field: string category = 2
+     */
+    category: string;
+    /**
+     * @generated from protobuf field: string color = 3
+     */
+    color: string;
+}
+/**
+ * @generated from protobuf message enose.consumable.DeleteTagRequest
+ */
+export interface DeleteTagRequest {
+    /**
+     * @generated from protobuf field: int32 id = 1
+     */
+    id: number;
+}
+/**
+ * 液体标签关系
+ *
+ * @generated from protobuf message enose.consumable.SetLiquidTagsRequest
+ */
+export interface SetLiquidTagsRequest {
+    /**
+     * @generated from protobuf field: int32 liquid_id = 1
+     */
+    liquidId: number;
+    /**
+     * @generated from protobuf field: repeated string tag_names = 2
+     */
+    tagNames: string[]; // 标签名称列表
+    /**
+     * @generated from protobuf field: string field_key = 3
+     */
+    fieldKey: string; // 字段键，默认 aroma_notes
+}
+/**
+ * @generated from protobuf message enose.consumable.GetLiquidTagsRequest
+ */
+export interface GetLiquidTagsRequest {
+    /**
+     * @generated from protobuf field: int32 liquid_id = 1
+     */
+    liquidId: number;
+    /**
+     * @generated from protobuf field: string field_key = 2
+     */
+    fieldKey: string; // 字段键，默认 aroma_notes
+}
+/**
+ * @generated from protobuf message enose.consumable.LiquidTagsResponse
+ */
+export interface LiquidTagsResponse {
+    /**
+     * @generated from protobuf field: int32 liquid_id = 1
+     */
+    liquidId: number;
+    /**
+     * @generated from protobuf field: repeated enose.consumable.Tag tags = 2
+     */
+    tags: Tag[];
+}
+/**
+ * 按标签筛选液体
+ *
+ * @generated from protobuf message enose.consumable.ListLiquidsByTagsRequest
+ */
+export interface ListLiquidsByTagsRequest {
+    /**
+     * @generated from protobuf field: repeated string tag_names = 1
+     */
+    tagNames: string[]; // 标签名称列表（AND 关系）
+    /**
+     * @generated from protobuf field: string field_key = 2
+     */
+    fieldKey: string; // 字段键
+    /**
+     * @generated from protobuf field: enose.consumable.LiquidType type_filter = 3
+     */
+    typeFilter: LiquidType; // 可选：液体类型过滤
+    /**
+     * @generated from protobuf field: int32 limit = 4
+     */
+    limit: number;
+    /**
+     * @generated from protobuf field: int32 offset = 5
+     */
+    offset: number;
+}
+/**
+ * 标签建议（自动补全）
+ *
+ * @generated from protobuf message enose.consumable.GetTagSuggestionsRequest
+ */
+export interface GetTagSuggestionsRequest {
+    /**
+     * @generated from protobuf field: string prefix = 1
+     */
+    prefix: string; // 输入前缀
+    /**
+     * @generated from protobuf field: string category = 2
+     */
+    category: string; // 可选：按分类过滤
+    /**
+     * @generated from protobuf field: int32 limit = 3
+     */
+    limit: number; // 建议数量上限
+}
+/**
+ * @generated from protobuf message enose.consumable.TagSuggestionsResponse
+ */
+export interface TagSuggestionsResponse {
+    /**
+     * @generated from protobuf field: repeated enose.consumable.Tag suggestions = 1
+     */
+    suggestions: Tag[];
+}
+// ============================================================
+// 附件相关消息（图片等）
+// ============================================================
+
+/**
+ * @generated from protobuf message enose.consumable.LiquidAttachment
+ */
+export interface LiquidAttachment {
+    /**
+     * @generated from protobuf field: int32 id = 1
+     */
+    id: number;
+    /**
+     * @generated from protobuf field: int32 liquid_id = 2
+     */
+    liquidId: number;
+    /**
+     * @generated from protobuf field: string field_key = 3
+     */
+    fieldKey: string; // 对应 metadata_fields.field_key
+    /**
+     * @generated from protobuf field: string file_type = 4
+     */
+    fileType: string; // 'image', 'document'
+    /**
+     * @generated from protobuf field: string file_name = 5
+     */
+    fileName: string; // 原始文件名
+    /**
+     * @generated from protobuf field: string file_path = 6
+     */
+    filePath: string; // 存储路径（服务端）
+    /**
+     * @generated from protobuf field: string file_url = 7
+     */
+    fileUrl: string; // 访问URL（前端使用）
+    /**
+     * @generated from protobuf field: int64 file_size = 8
+     */
+    fileSize: string; // 文件大小 (bytes)
+    /**
+     * @generated from protobuf field: string mime_type = 9
+     */
+    mimeType: string; // MIME 类型
+    /**
+     * @generated from protobuf field: google.protobuf.Timestamp created_at = 10
+     */
+    createdAt?: Timestamp;
+}
+/**
+ * @generated from protobuf message enose.consumable.GetLiquidAttachmentsRequest
+ */
+export interface GetLiquidAttachmentsRequest {
+    /**
+     * @generated from protobuf field: int32 liquid_id = 1
+     */
+    liquidId: number;
+    /**
+     * @generated from protobuf field: string field_key = 2
+     */
+    fieldKey: string; // 可选：只获取特定字段的附件
+}
+/**
+ * @generated from protobuf message enose.consumable.LiquidAttachmentsResponse
+ */
+export interface LiquidAttachmentsResponse {
+    /**
+     * @generated from protobuf field: repeated enose.consumable.LiquidAttachment attachments = 1
+     */
+    attachments: LiquidAttachment[];
+}
+/**
+ * @generated from protobuf message enose.consumable.CreateLiquidAttachmentRequest
+ */
+export interface CreateLiquidAttachmentRequest {
+    /**
+     * @generated from protobuf field: int32 liquid_id = 1
+     */
+    liquidId: number;
+    /**
+     * @generated from protobuf field: string field_key = 2
+     */
+    fieldKey: string;
+    /**
+     * @generated from protobuf field: string file_type = 3
+     */
+    fileType: string;
+    /**
+     * @generated from protobuf field: string file_name = 4
+     */
+    fileName: string;
+    /**
+     * @generated from protobuf field: string file_path = 5
+     */
+    filePath: string;
+    /**
+     * @generated from protobuf field: int64 file_size = 6
+     */
+    fileSize: string;
+    /**
+     * @generated from protobuf field: string mime_type = 7
+     */
+    mimeType: string;
+}
+/**
+ * @generated from protobuf message enose.consumable.DeleteLiquidAttachmentRequest
+ */
+export interface DeleteLiquidAttachmentRequest {
+    /**
+     * @generated from protobuf field: int32 attachment_id = 1
+     */
+    attachmentId: number;
 }
 // ============================================================
 // 液体相关消息
@@ -2243,13 +2557,15 @@ class ResetConsumableRequest$Type extends MessageType<ResetConsumableRequest> {
     constructor() {
         super("enose.consumable.ResetConsumableRequest", [
             { no: 1, name: "consumable_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
-            { no: 2, name: "notes", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+            { no: 2, name: "notes", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "new_lifetime_seconds", kind: "scalar", T: 3 /*ScalarType.INT64*/ }
         ]);
     }
     create(value?: PartialMessage<ResetConsumableRequest>): ResetConsumableRequest {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.consumableId = "";
         message.notes = "";
+        message.newLifetimeSeconds = "0";
         if (value !== undefined)
             reflectionMergePartial<ResetConsumableRequest>(this, message, value);
         return message;
@@ -2264,6 +2580,9 @@ class ResetConsumableRequest$Type extends MessageType<ResetConsumableRequest> {
                     break;
                 case /* string notes */ 2:
                     message.notes = reader.string();
+                    break;
+                case /* int64 new_lifetime_seconds */ 3:
+                    message.newLifetimeSeconds = reader.int64().toString();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -2283,6 +2602,9 @@ class ResetConsumableRequest$Type extends MessageType<ResetConsumableRequest> {
         /* string notes = 2; */
         if (message.notes !== "")
             writer.tag(2, WireType.LengthDelimited).string(message.notes);
+        /* int64 new_lifetime_seconds = 3; */
+        if (message.newLifetimeSeconds !== "0")
+            writer.tag(3, WireType.Varint).int64(message.newLifetimeSeconds);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -2838,6 +3160,1059 @@ class DeleteMetadataFieldRequest$Type extends MessageType<DeleteMetadataFieldReq
  * @generated MessageType for protobuf message enose.consumable.DeleteMetadataFieldRequest
  */
 export const DeleteMetadataFieldRequest = new DeleteMetadataFieldRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class Tag$Type extends MessageType<Tag> {
+    constructor() {
+        super("enose.consumable.Tag", [
+            { no: 1, name: "id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "category", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "color", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 5, name: "usage_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 6, name: "created_at", kind: "message", T: () => Timestamp },
+            { no: 7, name: "updated_at", kind: "message", T: () => Timestamp }
+        ]);
+    }
+    create(value?: PartialMessage<Tag>): Tag {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.id = 0;
+        message.name = "";
+        message.category = "";
+        message.color = "";
+        message.usageCount = 0;
+        if (value !== undefined)
+            reflectionMergePartial<Tag>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: Tag): Tag {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 id */ 1:
+                    message.id = reader.int32();
+                    break;
+                case /* string name */ 2:
+                    message.name = reader.string();
+                    break;
+                case /* string category */ 3:
+                    message.category = reader.string();
+                    break;
+                case /* string color */ 4:
+                    message.color = reader.string();
+                    break;
+                case /* int32 usage_count */ 5:
+                    message.usageCount = reader.int32();
+                    break;
+                case /* google.protobuf.Timestamp created_at */ 6:
+                    message.createdAt = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.createdAt);
+                    break;
+                case /* google.protobuf.Timestamp updated_at */ 7:
+                    message.updatedAt = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.updatedAt);
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: Tag, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 id = 1; */
+        if (message.id !== 0)
+            writer.tag(1, WireType.Varint).int32(message.id);
+        /* string name = 2; */
+        if (message.name !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.name);
+        /* string category = 3; */
+        if (message.category !== "")
+            writer.tag(3, WireType.LengthDelimited).string(message.category);
+        /* string color = 4; */
+        if (message.color !== "")
+            writer.tag(4, WireType.LengthDelimited).string(message.color);
+        /* int32 usage_count = 5; */
+        if (message.usageCount !== 0)
+            writer.tag(5, WireType.Varint).int32(message.usageCount);
+        /* google.protobuf.Timestamp created_at = 6; */
+        if (message.createdAt)
+            Timestamp.internalBinaryWrite(message.createdAt, writer.tag(6, WireType.LengthDelimited).fork(), options).join();
+        /* google.protobuf.Timestamp updated_at = 7; */
+        if (message.updatedAt)
+            Timestamp.internalBinaryWrite(message.updatedAt, writer.tag(7, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.consumable.Tag
+ */
+export const Tag = new Tag$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class ListTagsRequest$Type extends MessageType<ListTagsRequest> {
+    constructor() {
+        super("enose.consumable.ListTagsRequest", [
+            { no: 1, name: "category", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "search", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "limit", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "order_by_usage", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
+        ]);
+    }
+    create(value?: PartialMessage<ListTagsRequest>): ListTagsRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.category = "";
+        message.search = "";
+        message.limit = 0;
+        message.orderByUsage = false;
+        if (value !== undefined)
+            reflectionMergePartial<ListTagsRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ListTagsRequest): ListTagsRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string category */ 1:
+                    message.category = reader.string();
+                    break;
+                case /* string search */ 2:
+                    message.search = reader.string();
+                    break;
+                case /* int32 limit */ 3:
+                    message.limit = reader.int32();
+                    break;
+                case /* bool order_by_usage */ 4:
+                    message.orderByUsage = reader.bool();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: ListTagsRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string category = 1; */
+        if (message.category !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.category);
+        /* string search = 2; */
+        if (message.search !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.search);
+        /* int32 limit = 3; */
+        if (message.limit !== 0)
+            writer.tag(3, WireType.Varint).int32(message.limit);
+        /* bool order_by_usage = 4; */
+        if (message.orderByUsage !== false)
+            writer.tag(4, WireType.Varint).bool(message.orderByUsage);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.consumable.ListTagsRequest
+ */
+export const ListTagsRequest = new ListTagsRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class TagListResponse$Type extends MessageType<TagListResponse> {
+    constructor() {
+        super("enose.consumable.TagListResponse", [
+            { no: 1, name: "tags", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => Tag },
+            { no: 2, name: "total_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<TagListResponse>): TagListResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.tags = [];
+        message.totalCount = 0;
+        if (value !== undefined)
+            reflectionMergePartial<TagListResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: TagListResponse): TagListResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated enose.consumable.Tag tags */ 1:
+                    message.tags.push(Tag.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* int32 total_count */ 2:
+                    message.totalCount = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: TagListResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated enose.consumable.Tag tags = 1; */
+        for (let i = 0; i < message.tags.length; i++)
+            Tag.internalBinaryWrite(message.tags[i], writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        /* int32 total_count = 2; */
+        if (message.totalCount !== 0)
+            writer.tag(2, WireType.Varint).int32(message.totalCount);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.consumable.TagListResponse
+ */
+export const TagListResponse = new TagListResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class CreateTagRequest$Type extends MessageType<CreateTagRequest> {
+    constructor() {
+        super("enose.consumable.CreateTagRequest", [
+            { no: 1, name: "name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "category", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "color", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<CreateTagRequest>): CreateTagRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.name = "";
+        message.category = "";
+        message.color = "";
+        if (value !== undefined)
+            reflectionMergePartial<CreateTagRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: CreateTagRequest): CreateTagRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string name */ 1:
+                    message.name = reader.string();
+                    break;
+                case /* string category */ 2:
+                    message.category = reader.string();
+                    break;
+                case /* string color */ 3:
+                    message.color = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: CreateTagRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string name = 1; */
+        if (message.name !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.name);
+        /* string category = 2; */
+        if (message.category !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.category);
+        /* string color = 3; */
+        if (message.color !== "")
+            writer.tag(3, WireType.LengthDelimited).string(message.color);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.consumable.CreateTagRequest
+ */
+export const CreateTagRequest = new CreateTagRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class DeleteTagRequest$Type extends MessageType<DeleteTagRequest> {
+    constructor() {
+        super("enose.consumable.DeleteTagRequest", [
+            { no: 1, name: "id", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<DeleteTagRequest>): DeleteTagRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.id = 0;
+        if (value !== undefined)
+            reflectionMergePartial<DeleteTagRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: DeleteTagRequest): DeleteTagRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 id */ 1:
+                    message.id = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: DeleteTagRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 id = 1; */
+        if (message.id !== 0)
+            writer.tag(1, WireType.Varint).int32(message.id);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.consumable.DeleteTagRequest
+ */
+export const DeleteTagRequest = new DeleteTagRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class SetLiquidTagsRequest$Type extends MessageType<SetLiquidTagsRequest> {
+    constructor() {
+        super("enose.consumable.SetLiquidTagsRequest", [
+            { no: 1, name: "liquid_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "tag_names", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "field_key", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<SetLiquidTagsRequest>): SetLiquidTagsRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.liquidId = 0;
+        message.tagNames = [];
+        message.fieldKey = "";
+        if (value !== undefined)
+            reflectionMergePartial<SetLiquidTagsRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: SetLiquidTagsRequest): SetLiquidTagsRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 liquid_id */ 1:
+                    message.liquidId = reader.int32();
+                    break;
+                case /* repeated string tag_names */ 2:
+                    message.tagNames.push(reader.string());
+                    break;
+                case /* string field_key */ 3:
+                    message.fieldKey = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: SetLiquidTagsRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 liquid_id = 1; */
+        if (message.liquidId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.liquidId);
+        /* repeated string tag_names = 2; */
+        for (let i = 0; i < message.tagNames.length; i++)
+            writer.tag(2, WireType.LengthDelimited).string(message.tagNames[i]);
+        /* string field_key = 3; */
+        if (message.fieldKey !== "")
+            writer.tag(3, WireType.LengthDelimited).string(message.fieldKey);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.consumable.SetLiquidTagsRequest
+ */
+export const SetLiquidTagsRequest = new SetLiquidTagsRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetLiquidTagsRequest$Type extends MessageType<GetLiquidTagsRequest> {
+    constructor() {
+        super("enose.consumable.GetLiquidTagsRequest", [
+            { no: 1, name: "liquid_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "field_key", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GetLiquidTagsRequest>): GetLiquidTagsRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.liquidId = 0;
+        message.fieldKey = "";
+        if (value !== undefined)
+            reflectionMergePartial<GetLiquidTagsRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetLiquidTagsRequest): GetLiquidTagsRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 liquid_id */ 1:
+                    message.liquidId = reader.int32();
+                    break;
+                case /* string field_key */ 2:
+                    message.fieldKey = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetLiquidTagsRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 liquid_id = 1; */
+        if (message.liquidId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.liquidId);
+        /* string field_key = 2; */
+        if (message.fieldKey !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.fieldKey);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.consumable.GetLiquidTagsRequest
+ */
+export const GetLiquidTagsRequest = new GetLiquidTagsRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class LiquidTagsResponse$Type extends MessageType<LiquidTagsResponse> {
+    constructor() {
+        super("enose.consumable.LiquidTagsResponse", [
+            { no: 1, name: "liquid_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "tags", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => Tag }
+        ]);
+    }
+    create(value?: PartialMessage<LiquidTagsResponse>): LiquidTagsResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.liquidId = 0;
+        message.tags = [];
+        if (value !== undefined)
+            reflectionMergePartial<LiquidTagsResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: LiquidTagsResponse): LiquidTagsResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 liquid_id */ 1:
+                    message.liquidId = reader.int32();
+                    break;
+                case /* repeated enose.consumable.Tag tags */ 2:
+                    message.tags.push(Tag.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: LiquidTagsResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 liquid_id = 1; */
+        if (message.liquidId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.liquidId);
+        /* repeated enose.consumable.Tag tags = 2; */
+        for (let i = 0; i < message.tags.length; i++)
+            Tag.internalBinaryWrite(message.tags[i], writer.tag(2, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.consumable.LiquidTagsResponse
+ */
+export const LiquidTagsResponse = new LiquidTagsResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class ListLiquidsByTagsRequest$Type extends MessageType<ListLiquidsByTagsRequest> {
+    constructor() {
+        super("enose.consumable.ListLiquidsByTagsRequest", [
+            { no: 1, name: "tag_names", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "field_key", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "type_filter", kind: "enum", T: () => ["enose.consumable.LiquidType", LiquidType, "LIQUID_TYPE_"] },
+            { no: 4, name: "limit", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 5, name: "offset", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<ListLiquidsByTagsRequest>): ListLiquidsByTagsRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.tagNames = [];
+        message.fieldKey = "";
+        message.typeFilter = 0;
+        message.limit = 0;
+        message.offset = 0;
+        if (value !== undefined)
+            reflectionMergePartial<ListLiquidsByTagsRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ListLiquidsByTagsRequest): ListLiquidsByTagsRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated string tag_names */ 1:
+                    message.tagNames.push(reader.string());
+                    break;
+                case /* string field_key */ 2:
+                    message.fieldKey = reader.string();
+                    break;
+                case /* enose.consumable.LiquidType type_filter */ 3:
+                    message.typeFilter = reader.int32();
+                    break;
+                case /* int32 limit */ 4:
+                    message.limit = reader.int32();
+                    break;
+                case /* int32 offset */ 5:
+                    message.offset = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: ListLiquidsByTagsRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated string tag_names = 1; */
+        for (let i = 0; i < message.tagNames.length; i++)
+            writer.tag(1, WireType.LengthDelimited).string(message.tagNames[i]);
+        /* string field_key = 2; */
+        if (message.fieldKey !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.fieldKey);
+        /* enose.consumable.LiquidType type_filter = 3; */
+        if (message.typeFilter !== 0)
+            writer.tag(3, WireType.Varint).int32(message.typeFilter);
+        /* int32 limit = 4; */
+        if (message.limit !== 0)
+            writer.tag(4, WireType.Varint).int32(message.limit);
+        /* int32 offset = 5; */
+        if (message.offset !== 0)
+            writer.tag(5, WireType.Varint).int32(message.offset);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.consumable.ListLiquidsByTagsRequest
+ */
+export const ListLiquidsByTagsRequest = new ListLiquidsByTagsRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetTagSuggestionsRequest$Type extends MessageType<GetTagSuggestionsRequest> {
+    constructor() {
+        super("enose.consumable.GetTagSuggestionsRequest", [
+            { no: 1, name: "prefix", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "category", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "limit", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GetTagSuggestionsRequest>): GetTagSuggestionsRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.prefix = "";
+        message.category = "";
+        message.limit = 0;
+        if (value !== undefined)
+            reflectionMergePartial<GetTagSuggestionsRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetTagSuggestionsRequest): GetTagSuggestionsRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string prefix */ 1:
+                    message.prefix = reader.string();
+                    break;
+                case /* string category */ 2:
+                    message.category = reader.string();
+                    break;
+                case /* int32 limit */ 3:
+                    message.limit = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetTagSuggestionsRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string prefix = 1; */
+        if (message.prefix !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.prefix);
+        /* string category = 2; */
+        if (message.category !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.category);
+        /* int32 limit = 3; */
+        if (message.limit !== 0)
+            writer.tag(3, WireType.Varint).int32(message.limit);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.consumable.GetTagSuggestionsRequest
+ */
+export const GetTagSuggestionsRequest = new GetTagSuggestionsRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class TagSuggestionsResponse$Type extends MessageType<TagSuggestionsResponse> {
+    constructor() {
+        super("enose.consumable.TagSuggestionsResponse", [
+            { no: 1, name: "suggestions", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => Tag }
+        ]);
+    }
+    create(value?: PartialMessage<TagSuggestionsResponse>): TagSuggestionsResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.suggestions = [];
+        if (value !== undefined)
+            reflectionMergePartial<TagSuggestionsResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: TagSuggestionsResponse): TagSuggestionsResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated enose.consumable.Tag suggestions */ 1:
+                    message.suggestions.push(Tag.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: TagSuggestionsResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated enose.consumable.Tag suggestions = 1; */
+        for (let i = 0; i < message.suggestions.length; i++)
+            Tag.internalBinaryWrite(message.suggestions[i], writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.consumable.TagSuggestionsResponse
+ */
+export const TagSuggestionsResponse = new TagSuggestionsResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class LiquidAttachment$Type extends MessageType<LiquidAttachment> {
+    constructor() {
+        super("enose.consumable.LiquidAttachment", [
+            { no: 1, name: "id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "liquid_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "field_key", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "file_type", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 5, name: "file_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 6, name: "file_path", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 7, name: "file_url", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 8, name: "file_size", kind: "scalar", T: 3 /*ScalarType.INT64*/ },
+            { no: 9, name: "mime_type", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 10, name: "created_at", kind: "message", T: () => Timestamp }
+        ]);
+    }
+    create(value?: PartialMessage<LiquidAttachment>): LiquidAttachment {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.id = 0;
+        message.liquidId = 0;
+        message.fieldKey = "";
+        message.fileType = "";
+        message.fileName = "";
+        message.filePath = "";
+        message.fileUrl = "";
+        message.fileSize = "0";
+        message.mimeType = "";
+        if (value !== undefined)
+            reflectionMergePartial<LiquidAttachment>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: LiquidAttachment): LiquidAttachment {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 id */ 1:
+                    message.id = reader.int32();
+                    break;
+                case /* int32 liquid_id */ 2:
+                    message.liquidId = reader.int32();
+                    break;
+                case /* string field_key */ 3:
+                    message.fieldKey = reader.string();
+                    break;
+                case /* string file_type */ 4:
+                    message.fileType = reader.string();
+                    break;
+                case /* string file_name */ 5:
+                    message.fileName = reader.string();
+                    break;
+                case /* string file_path */ 6:
+                    message.filePath = reader.string();
+                    break;
+                case /* string file_url */ 7:
+                    message.fileUrl = reader.string();
+                    break;
+                case /* int64 file_size */ 8:
+                    message.fileSize = reader.int64().toString();
+                    break;
+                case /* string mime_type */ 9:
+                    message.mimeType = reader.string();
+                    break;
+                case /* google.protobuf.Timestamp created_at */ 10:
+                    message.createdAt = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.createdAt);
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: LiquidAttachment, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 id = 1; */
+        if (message.id !== 0)
+            writer.tag(1, WireType.Varint).int32(message.id);
+        /* int32 liquid_id = 2; */
+        if (message.liquidId !== 0)
+            writer.tag(2, WireType.Varint).int32(message.liquidId);
+        /* string field_key = 3; */
+        if (message.fieldKey !== "")
+            writer.tag(3, WireType.LengthDelimited).string(message.fieldKey);
+        /* string file_type = 4; */
+        if (message.fileType !== "")
+            writer.tag(4, WireType.LengthDelimited).string(message.fileType);
+        /* string file_name = 5; */
+        if (message.fileName !== "")
+            writer.tag(5, WireType.LengthDelimited).string(message.fileName);
+        /* string file_path = 6; */
+        if (message.filePath !== "")
+            writer.tag(6, WireType.LengthDelimited).string(message.filePath);
+        /* string file_url = 7; */
+        if (message.fileUrl !== "")
+            writer.tag(7, WireType.LengthDelimited).string(message.fileUrl);
+        /* int64 file_size = 8; */
+        if (message.fileSize !== "0")
+            writer.tag(8, WireType.Varint).int64(message.fileSize);
+        /* string mime_type = 9; */
+        if (message.mimeType !== "")
+            writer.tag(9, WireType.LengthDelimited).string(message.mimeType);
+        /* google.protobuf.Timestamp created_at = 10; */
+        if (message.createdAt)
+            Timestamp.internalBinaryWrite(message.createdAt, writer.tag(10, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.consumable.LiquidAttachment
+ */
+export const LiquidAttachment = new LiquidAttachment$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetLiquidAttachmentsRequest$Type extends MessageType<GetLiquidAttachmentsRequest> {
+    constructor() {
+        super("enose.consumable.GetLiquidAttachmentsRequest", [
+            { no: 1, name: "liquid_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "field_key", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GetLiquidAttachmentsRequest>): GetLiquidAttachmentsRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.liquidId = 0;
+        message.fieldKey = "";
+        if (value !== undefined)
+            reflectionMergePartial<GetLiquidAttachmentsRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetLiquidAttachmentsRequest): GetLiquidAttachmentsRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 liquid_id */ 1:
+                    message.liquidId = reader.int32();
+                    break;
+                case /* string field_key */ 2:
+                    message.fieldKey = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetLiquidAttachmentsRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 liquid_id = 1; */
+        if (message.liquidId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.liquidId);
+        /* string field_key = 2; */
+        if (message.fieldKey !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.fieldKey);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.consumable.GetLiquidAttachmentsRequest
+ */
+export const GetLiquidAttachmentsRequest = new GetLiquidAttachmentsRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class LiquidAttachmentsResponse$Type extends MessageType<LiquidAttachmentsResponse> {
+    constructor() {
+        super("enose.consumable.LiquidAttachmentsResponse", [
+            { no: 1, name: "attachments", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => LiquidAttachment }
+        ]);
+    }
+    create(value?: PartialMessage<LiquidAttachmentsResponse>): LiquidAttachmentsResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.attachments = [];
+        if (value !== undefined)
+            reflectionMergePartial<LiquidAttachmentsResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: LiquidAttachmentsResponse): LiquidAttachmentsResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated enose.consumable.LiquidAttachment attachments */ 1:
+                    message.attachments.push(LiquidAttachment.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: LiquidAttachmentsResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated enose.consumable.LiquidAttachment attachments = 1; */
+        for (let i = 0; i < message.attachments.length; i++)
+            LiquidAttachment.internalBinaryWrite(message.attachments[i], writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.consumable.LiquidAttachmentsResponse
+ */
+export const LiquidAttachmentsResponse = new LiquidAttachmentsResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class CreateLiquidAttachmentRequest$Type extends MessageType<CreateLiquidAttachmentRequest> {
+    constructor() {
+        super("enose.consumable.CreateLiquidAttachmentRequest", [
+            { no: 1, name: "liquid_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "field_key", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "file_type", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "file_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 5, name: "file_path", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 6, name: "file_size", kind: "scalar", T: 3 /*ScalarType.INT64*/ },
+            { no: 7, name: "mime_type", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<CreateLiquidAttachmentRequest>): CreateLiquidAttachmentRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.liquidId = 0;
+        message.fieldKey = "";
+        message.fileType = "";
+        message.fileName = "";
+        message.filePath = "";
+        message.fileSize = "0";
+        message.mimeType = "";
+        if (value !== undefined)
+            reflectionMergePartial<CreateLiquidAttachmentRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: CreateLiquidAttachmentRequest): CreateLiquidAttachmentRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 liquid_id */ 1:
+                    message.liquidId = reader.int32();
+                    break;
+                case /* string field_key */ 2:
+                    message.fieldKey = reader.string();
+                    break;
+                case /* string file_type */ 3:
+                    message.fileType = reader.string();
+                    break;
+                case /* string file_name */ 4:
+                    message.fileName = reader.string();
+                    break;
+                case /* string file_path */ 5:
+                    message.filePath = reader.string();
+                    break;
+                case /* int64 file_size */ 6:
+                    message.fileSize = reader.int64().toString();
+                    break;
+                case /* string mime_type */ 7:
+                    message.mimeType = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: CreateLiquidAttachmentRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 liquid_id = 1; */
+        if (message.liquidId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.liquidId);
+        /* string field_key = 2; */
+        if (message.fieldKey !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.fieldKey);
+        /* string file_type = 3; */
+        if (message.fileType !== "")
+            writer.tag(3, WireType.LengthDelimited).string(message.fileType);
+        /* string file_name = 4; */
+        if (message.fileName !== "")
+            writer.tag(4, WireType.LengthDelimited).string(message.fileName);
+        /* string file_path = 5; */
+        if (message.filePath !== "")
+            writer.tag(5, WireType.LengthDelimited).string(message.filePath);
+        /* int64 file_size = 6; */
+        if (message.fileSize !== "0")
+            writer.tag(6, WireType.Varint).int64(message.fileSize);
+        /* string mime_type = 7; */
+        if (message.mimeType !== "")
+            writer.tag(7, WireType.LengthDelimited).string(message.mimeType);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.consumable.CreateLiquidAttachmentRequest
+ */
+export const CreateLiquidAttachmentRequest = new CreateLiquidAttachmentRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class DeleteLiquidAttachmentRequest$Type extends MessageType<DeleteLiquidAttachmentRequest> {
+    constructor() {
+        super("enose.consumable.DeleteLiquidAttachmentRequest", [
+            { no: 1, name: "attachment_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<DeleteLiquidAttachmentRequest>): DeleteLiquidAttachmentRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.attachmentId = 0;
+        if (value !== undefined)
+            reflectionMergePartial<DeleteLiquidAttachmentRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: DeleteLiquidAttachmentRequest): DeleteLiquidAttachmentRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 attachment_id */ 1:
+                    message.attachmentId = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: DeleteLiquidAttachmentRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 attachment_id = 1; */
+        if (message.attachmentId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.attachmentId);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.consumable.DeleteLiquidAttachmentRequest
+ */
+export const DeleteLiquidAttachmentRequest = new DeleteLiquidAttachmentRequest$Type();
 /**
  * @generated ServiceType for protobuf service enose.consumable.ConsumableService
  */
@@ -2861,5 +4236,15 @@ export const ConsumableService = new ServiceType("enose.consumable.ConsumableSer
     { name: "ListMetadataFields", options: {}, I: ListMetadataFieldsRequest, O: MetadataFieldListResponse },
     { name: "CreateMetadataField", options: {}, I: CreateMetadataFieldRequest, O: MetadataField },
     { name: "UpdateMetadataField", options: {}, I: UpdateMetadataFieldRequest, O: MetadataField },
-    { name: "DeleteMetadataField", options: {}, I: DeleteMetadataFieldRequest, O: Empty }
+    { name: "DeleteMetadataField", options: {}, I: DeleteMetadataFieldRequest, O: Empty },
+    { name: "ListTags", options: {}, I: ListTagsRequest, O: TagListResponse },
+    { name: "CreateTag", options: {}, I: CreateTagRequest, O: Tag },
+    { name: "DeleteTag", options: {}, I: DeleteTagRequest, O: Empty },
+    { name: "GetTagSuggestions", options: {}, I: GetTagSuggestionsRequest, O: TagSuggestionsResponse },
+    { name: "SetLiquidTags", options: {}, I: SetLiquidTagsRequest, O: LiquidTagsResponse },
+    { name: "GetLiquidTags", options: {}, I: GetLiquidTagsRequest, O: LiquidTagsResponse },
+    { name: "ListLiquidsByTags", options: {}, I: ListLiquidsByTagsRequest, O: LiquidListResponse },
+    { name: "GetLiquidAttachments", options: {}, I: GetLiquidAttachmentsRequest, O: LiquidAttachmentsResponse },
+    { name: "CreateLiquidAttachment", options: {}, I: CreateLiquidAttachmentRequest, O: LiquidAttachment },
+    { name: "DeleteLiquidAttachment", options: {}, I: DeleteLiquidAttachmentRequest, O: Empty }
 ]);

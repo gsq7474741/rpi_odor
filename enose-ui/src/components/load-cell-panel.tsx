@@ -7,6 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Scale, Target, Settings, RefreshCw, Check, X, Loader2, Plus, Trash2, Play, Square, BarChart3, Save } from "lucide-react";
 import ReactECharts from "echarts-for-react";
 import { useLoadCellStream } from "@/hooks/use-load-cell-stream";
@@ -164,7 +167,7 @@ interface AutoTestResult {
   paramSetId: number;
   paramSetName: string;
   cycle: number;
-  totalVolume: number; // 泵设定总量 (mm)
+  totalVolume: number; // 泵设定总量 (ml)
   pump0Volume: number;
   pump1Volume: number;
   pump2Volume: number;
@@ -194,7 +197,7 @@ interface AutoTestResult {
 interface DeadZoneResult {
   cycle: number;
   pumpId: number; // 2-5
-  deadZoneVolume: number; // 死区体积 (mm)
+  deadZoneVolume: number; // 死区体积 (ml)
   firstDropWeight: number; // 首滴重量 (g)
   timestamp: Date;
 }
@@ -204,7 +207,7 @@ interface ResolutionResult {
   cycle: number;
   testMode: 'single' | 'multi'; // 单电机/多电机
   pumpId?: number; // 单电机模式下的泵ID
-  volumeStep: number; // 测试的进样量步长 (mm)
+  volumeStep: number; // 测试的进样量步长 (ml)
   baseWeight: number; // 基准重量
   injectedWeight: number; // 实际进样重量
   detected: boolean; // 是否检测到重量变化
@@ -222,7 +225,7 @@ interface BaselineDriftRecord {
 
 // 线性度检测结果
 interface LinearityResult {
-  setVolume: number; // 设定进样量 (mm)
+  setVolume: number; // 设定进样量 (ml)
   actualWeight: number; // 实际重量变化 (g)
   cycle: number;
   pumpId?: number; // 单电机模式下的泵ID
@@ -232,8 +235,7 @@ interface LinearityResult {
 // 称重标定结果
 interface WeightCalibrationResult {
   index: number; // 序号
-  setVolumeMm: number; // 设定进样量 (mm)
-  setVolumeMl: number; // 计算的ml值
+  setVolumeMl: number; // 设定进样量 (ml)
   measuredWeight: number; // 称重变化值 (g)
   realWeight: number | null; // 用户输入的真实值 (g)
   timestamp: Date;
@@ -258,12 +260,12 @@ export function LoadCellPanel() {
   const [autoTestStep, setAutoTestStep] = useState<AutoTestStep>("idle");
   const [autoTestConfig, setAutoTestConfig] = useState<AutoTestConfig>({
     paramSets: [
-      { id: 1, name: "小量", params: { pump0Volume: 150, pump1Volume: 150, pump2Volume: 150, pump3Volume: 150, pump4Volume: 150, pump5Volume: 150, pump6Volume: 150, pump7Volume: 150 }, speed: 50, cycles: 3 },
-      { id: 2, name: "中量", params: { pump0Volume: 250, pump1Volume: 250, pump2Volume: 250, pump3Volume: 250, pump4Volume: 250, pump5Volume: 250, pump6Volume: 250, pump7Volume: 250 }, speed: 50, cycles: 3 },
-      { id: 3, name: "大量", params: { pump0Volume: 450, pump1Volume: 450, pump2Volume: 450, pump3Volume: 450, pump4Volume: 450, pump5Volume: 450, pump6Volume: 450, pump7Volume: 450 }, speed: 50, cycles: 3 },
+      { id: 1, name: "小量", params: { pump0Volume: 150, pump1Volume: 150, pump2Volume: 150, pump3Volume: 150, pump4Volume: 150, pump5Volume: 150, pump6Volume: 150, pump7Volume: 150 }, speed: 5, cycles: 3 },
+      { id: 2, name: "中量", params: { pump0Volume: 250, pump1Volume: 250, pump2Volume: 250, pump3Volume: 250, pump4Volume: 250, pump5Volume: 250, pump6Volume: 250, pump7Volume: 250 }, speed: 5, cycles: 3 },
+      { id: 3, name: "大量", params: { pump0Volume: 450, pump1Volume: 450, pump2Volume: 450, pump3Volume: 450, pump4Volume: 450, pump5Volume: 450, pump6Volume: 450, pump7Volume: 450 }, speed: 5, cycles: 3 },
     ],
-    speed: 10,
-    accel: 100,
+    speed: 5,
+    accel: 1,
     emptyTolerance: 5,
     drainStabilityWindow: 5, // 排废稳定窗口默认5秒
   });
@@ -306,10 +308,10 @@ export function LoadCellPanel() {
   const [deadZoneResults, setDeadZoneResults] = useState<DeadZoneResult[]>([]);
   const [deadZoneConfig, setDeadZoneConfig] = useState({
     pumpIds: [0, 1, 2, 3, 4, 5, 6, 7] as number[], // 要测试的泵
-    stepVolume: 10, // 每次进样步长 (mm)
-    maxVolume: 200, // 最大测试量 (mm)
+    stepVolume: 10, // 每次进样步长 (ml)
+    maxVolume: 200, // 最大测试量 (ml)
     cycles: 3, // 每个泵重复次数
-    speed: 50, // 进样速度
+    speed: 5, // 进样速度
     detectionThreshold: 0.5, // 检测阈值 (g)
   });
   
@@ -318,12 +320,12 @@ export function LoadCellPanel() {
   const [resolutionConfig, setResolutionConfig] = useState({
     testMode: 'single' as 'single' | 'multi',
     pumpId: 2, // 单电机模式下测试的泵
-    baseVolume: 50, // 基准液体量 (mm) - 用于没过管子下段
-    testStartVolume: 50, // 测试起始值 (mm) - 从这个值开始递减
-    stepVolume: 10, // 递减步长 (mm)
-    minVolume: 5, // 最小测试量 (mm)
+    baseVolume: 50, // 基准液体量 (ml) - 用于没过管子下段
+    testStartVolume: 50, // 测试起始值 (ml) - 从这个值开始递减
+    stepVolume: 10, // 递减步长 (ml)
+    minVolume: 5, // 最小测试量 (ml)
     cycles: 5, // 每个量重复次数
-    speed: 50,
+    speed: 5,
     detectionThreshold: 0.3, // 检测阈值 (g)
   });
   
@@ -335,9 +337,9 @@ export function LoadCellPanel() {
   const [linearityConfig, setLinearityConfig] = useState({
     testMode: 'single' as 'single' | 'multi',
     pumpId: 2, // 单电机模式下测试的泵
-    volumeSteps: [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000], // 测试进样量序列 (mm)
+    volumeSteps: [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000], // 测试进样量序列 (ml)
     cycles: 3, // 每个进样量重复次数
-    speed: 100,
+    speed: 5,
   });
   
   // 序列生成器
@@ -354,8 +356,8 @@ export function LoadCellPanel() {
   const [weightCalibConfig, setWeightCalibConfig] = useState({
     testMode: 'single' as 'single' | 'multi',
     pumpId: 2,
-    volumeSteps: [100, 200, 300, 400, 500, 600, 700, 800], // 测试进样量序列 (mm)
-    speed: 100,
+    volumeSteps: [100, 200, 300, 400, 500, 600, 700, 800], // 测试进样量序列 (ml)
+    speed: 5,
     pumpMmToMl: 0.0314, // 从后端配置加载
     pumpMmOffset: -7.34, // 从后端配置加载
   });
@@ -913,7 +915,7 @@ export function LoadCellPanel() {
     
     // 步骤4: 进样（使用参数组的速度）
     const injectStartTime = Date.now();
-    addAutoTestLog(`[${name}] 循环 ${cycleNum}: 开始进样 (总量 ${totalVolume}mm, 速度 ${speed}mm/s)...`);
+    addAutoTestLog(`[${name}] 循环 ${cycleNum}: 开始进样 (总量 ${totalVolume}ml, 速度 ${speed}ml/s)...`);
     setAutoTestStep("injecting");
     await setSystemState("INJECT");
     await startInjection({
@@ -1356,7 +1358,7 @@ export function LoadCellPanel() {
             
             if (weightChange >= deadZoneConfig.detectionThreshold) {
               detected = true;
-              addAutoTestLog(`[泵${pumpId}] 循环 ${cycle}: 死区 ${totalVolume}mm, 首滴重量变化 ${weightChange.toFixed(2)}g`);
+              addAutoTestLog(`[泵${pumpId}] 循环 ${cycle}: 死区 ${totalVolume}ml, 首滴重量变化 ${weightChange.toFixed(2)}g`);
               
               setDeadZoneResults(prev => [...prev, {
                 cycle,
@@ -1369,7 +1371,7 @@ export function LoadCellPanel() {
           }
           
           if (!detected) {
-            addAutoTestLog(`[泵${pumpId}] 循环 ${cycle}: 未检测到液体（已达最大量 ${deadZoneConfig.maxVolume}mm）`);
+            addAutoTestLog(`[泵${pumpId}] 循环 ${cycle}: 未检测到液体（已达最大量 ${deadZoneConfig.maxVolume}ml）`);
           }
           
           await setSystemState("INITIAL");
@@ -1407,7 +1409,7 @@ export function LoadCellPanel() {
       await setSystemState("INITIAL");
       
       // 进样一定量作为基准（没过管子下段，避免液滴波动干扰）
-      addAutoTestLog(`进样基准液体 ${resolutionConfig.baseVolume}mm (没过管子)...`);
+      addAutoTestLog(`进样基准液体 ${resolutionConfig.baseVolume}ml (没过管子)...`);
       await setSystemState("INJECT");
       if (resolutionConfig.testMode === 'single') {
         const params: any = { pump0Volume: 0, pump1Volume: 0, pump2Volume: 0, pump3Volume: 0, pump4Volume: 0, pump5Volume: 0, pump6Volume: 0, pump7Volume: 0 };
@@ -1421,12 +1423,12 @@ export function LoadCellPanel() {
       // 保持INJECT状态，整个测试过程不切换，避免液路不密封导致液滴下滴
       
       // 从testStartVolume开始，以stepVolume递减测试
-      addAutoTestLog(`开始测试: ${resolutionConfig.testStartVolume}mm → ${resolutionConfig.minVolume}mm (步长 ${resolutionConfig.stepVolume}mm)`);
+      addAutoTestLog(`开始测试: ${resolutionConfig.testStartVolume}ml → ${resolutionConfig.minVolume}ml (步长 ${resolutionConfig.stepVolume}ml)`);
       let currentVolume = resolutionConfig.testStartVolume;
       let consecutiveFails = 0;
       
       while (currentVolume >= resolutionConfig.minVolume && consecutiveFails < 3 && !advancedTestAbortRef.current) {
-        addAutoTestLog(`测试进样量: ${currentVolume}mm (${resolutionConfig.cycles}次)`);
+        addAutoTestLog(`测试进样量: ${currentVolume}ml (${resolutionConfig.cycles}次)`);
         
         let detectedCount = 0;
         for (let cycle = 1; cycle <= resolutionConfig.cycles; cycle++) {
@@ -1500,13 +1502,13 @@ export function LoadCellPanel() {
     
     const modeLabel = linearityConfig.testMode === 'single' ? `单电机(泵${linearityConfig.pumpId})` : '多电机';
     addAutoTestLog(`=== 开始线性度检测 (${modeLabel}) ===`);
-    addAutoTestLog(`测试进样量序列: ${linearityConfig.volumeSteps.join(', ')}mm, 每量${linearityConfig.cycles}次`);
+    addAutoTestLog(`测试进样量序列: ${linearityConfig.volumeSteps.join(', ')}ml, 每量${linearityConfig.cycles}次`);
     
     try {
       for (const setVolume of linearityConfig.volumeSteps) {
         if (advancedTestAbortRef.current) break;
         
-        addAutoTestLog(`--- 测试进样量: ${setVolume}mm ---`);
+        addAutoTestLog(`--- 测试进样量: ${setVolume}ml ---`);
         
         for (let cycle = 1; cycle <= linearityConfig.cycles; cycle++) {
           if (advancedTestAbortRef.current) break;
@@ -1560,7 +1562,7 @@ export function LoadCellPanel() {
             timestamp: new Date(),
           }]);
           
-          addAutoTestLog(`  循环 ${cycle}: 设定${setVolume}mm → 实际${actualWeight.toFixed(2)}g`);
+          addAutoTestLog(`  循环 ${cycle}: 设定${setVolume}ml → 实际${actualWeight.toFixed(2)}g`);
         }
       }
       
@@ -1588,7 +1590,7 @@ export function LoadCellPanel() {
     
     const modeLabel = weightCalibConfig.testMode === 'single' ? `单电机(泵${weightCalibConfig.pumpId})` : '多电机';
     addAutoTestLog(`=== 开始称重标定测试 (${modeLabel}) ===`);
-    addAutoTestLog(`测试进样量序列: ${weightCalibConfig.volumeSteps.join(', ')}mm`);
+    addAutoTestLog(`测试进样量序列: ${weightCalibConfig.volumeSteps.join(', ')}ml`);
     
     try {
       for (let idx = 0; idx < weightCalibConfig.volumeSteps.length; idx++) {
@@ -1597,7 +1599,7 @@ export function LoadCellPanel() {
         const setVolume = weightCalibConfig.volumeSteps[idx];
         setWeightCalibCurrentIndex(idx);
         
-        addAutoTestLog(`--- 测试 ${idx + 1}/${weightCalibConfig.volumeSteps.length}: ${setVolume}mm ---`);
+        addAutoTestLog(`--- 测试 ${idx + 1}/${weightCalibConfig.volumeSteps.length}: ${setVolume}ml ---`);
         
         // 排废
         setWeightCalibStep('draining');
@@ -1649,8 +1651,7 @@ export function LoadCellPanel() {
         // 记录结果
         setWeightCalibResults(prev => [...prev, {
           index: idx,
-          setVolumeMm: setVolume,
-          setVolumeMl: mlValue,
+          setVolumeMl: setVolume,
           measuredWeight,
           realWeight: null,
           timestamp: new Date(),
@@ -1765,9 +1766,9 @@ export function LoadCellPanel() {
         if (!r) return '';
         return `<div style="font-size:12px">
           <div style="font-weight:bold">${r.paramSetName} #${r.cycle}</div>
-          <div>速度: ${r.speed}mm/s</div>
-          <div>泵0-7: ${r.pump0Volume}/${r.pump1Volume}/${r.pump2Volume}/${r.pump3Volume}/${r.pump4Volume}/${r.pump5Volume}/${r.pump6Volume}/${r.pump7Volume}mm</div>
-          <div>设定总量: ${r.totalVolume}mm</div>
+          <div>速度: ${r.speed}ml/s</div>
+          <div>泵0-7: ${r.pump0Volume}/${r.pump1Volume}/${r.pump2Volume}/${r.pump3Volume}/${r.pump4Volume}/${r.pump5Volume}/${r.pump6Volume}/${r.pump7Volume}ml</div>
+          <div>设定总量: ${r.totalVolume}ml</div>
           <div>实际进样: <b>${r.injectedWeight.toFixed(1)}g</b></div>
           <div>空瓶→进样后: ${r.emptyWeight.toFixed(1)}g → ${r.fullWeight.toFixed(1)}g</div>
         </div>`;
@@ -1848,16 +1849,16 @@ export function LoadCellPanel() {
         const d = params.data;
         return `<div style="font-size:12px">
           <div style="font-weight:bold">${d.name}</div>
-          <div>设定量: ${d.value[0]}mm</div>
+          <div>设定量: ${d.value[0]}ml</div>
           <div>实际进样: ${d.value[1].toFixed(1)}g</div>
-          <div>速度: ${d.speed}mm/s</div>
+          <div>速度: ${d.speed}ml/s</div>
         </div>`;
       }
     },
     grid: { left: 50, right: 20, top: 40, bottom: 40 },
     xAxis: {
       type: 'value',
-      name: '设定总量 (mm)',
+      name: '设定总量 (ml)',
       nameLocation: 'middle',
       nameGap: 25,
       axisLine: { show: true },
@@ -1912,8 +1913,8 @@ export function LoadCellPanel() {
     grid: { left: 50, right: 20, top: 40, bottom: 30 },
     xAxis: {
       type: 'category',
-      name: '速度 (mm/s)',
-      data: Object.keys(speedGroups).map(s => `${s}mm/s`),
+      name: '速度 (ml/s)',
+      data: Object.keys(speedGroups).map(s => `${s}ml/s`),
       axisLabel: { fontSize: 10 },
     },
     yAxis: {
@@ -1954,7 +1955,7 @@ export function LoadCellPanel() {
       radius: ['40%', '70%'],
       avoidLabelOverlap: false,
       itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
-      label: { show: true, formatter: '{b}: {c}mm ({d}%)' },
+      label: { show: true, formatter: '{b}: {c}ml ({d}%)' },
       data: [
         { value: pumpAnalysis.pump2.volume, name: '泵2', itemStyle: { color: chartColors.primary } },
         { value: pumpAnalysis.pump3.volume, name: '泵3', itemStyle: { color: chartColors.info } },
@@ -2065,7 +2066,7 @@ export function LoadCellPanel() {
         if (!r) return '';
         return `<div style="font-size:12px">
           <div style="font-weight:bold">泵${r.pumpId} #${r.cycle}</div>
-          <div>死区体积: ${r.deadZoneVolume}mm</div>
+          <div>死区体积: ${r.deadZoneVolume}ml</div>
           <div>首滴重量: ${r.firstDropWeight.toFixed(2)}g</div>
         </div>`;
       }
@@ -2078,7 +2079,7 @@ export function LoadCellPanel() {
     },
     yAxis: {
       type: 'value',
-      name: '死区体积 (mm)',
+      name: '死区体积 (ml)',
       axisLine: { show: true },
       splitLine: { lineStyle: { type: 'dashed', opacity: 0.3 } },
     },
@@ -2087,7 +2088,7 @@ export function LoadCellPanel() {
       type: 'bar',
       data: deadZoneResults.map(r => r.deadZoneVolume),
       itemStyle: { color: chartColors.warning },
-      label: { show: true, position: 'top', fontSize: 10, formatter: '{c}mm' },
+      label: { show: true, position: 'top', fontSize: 10, formatter: '{c}ml' },
     }],
   } : null;
   
@@ -2115,8 +2116,8 @@ export function LoadCellPanel() {
     grid: { left: 50, right: 20, top: 30, bottom: 40 },
     xAxis: {
       type: 'category',
-      name: '进样量 (mm)',
-      data: [...new Set(resolutionResults.map(r => r.volumeStep))].sort((a, b) => b - a).map(v => `${v}mm`),
+      name: '进样量 (ml)',
+      data: [...new Set(resolutionResults.map(r => r.volumeStep))].sort((a, b) => b - a).map(v => `${v}ml`),
       axisLabel: { fontSize: 10 },
     },
     yAxis: {
@@ -2282,7 +2283,7 @@ export function LoadCellPanel() {
         if (params.seriesType === 'scatter') {
           const r = weightCalibResults[params.dataIndex];
           return `<div style="font-size:12px">
-            <div>设定量: ${r?.setVolumeMm}mm (${r?.setVolumeMl.toFixed(2)}ml)</div>
+            <div>设定量: ${r?.setVolumeMl}ml</div>
             <div>称重变化: ${params.value[0]?.toFixed(2)}g</div>
             <div>真实值: ${params.value[1] !== null ? params.value[1]?.toFixed(2) + 'g' : '未输入'}</div>
           </div>`;
@@ -2384,7 +2385,7 @@ export function LoadCellPanel() {
       formatter: (params: any) => {
         if (params.seriesType === 'scatter') {
           return `<div style="font-size:12px">
-            <div>设定量: ${params.value[0]}mm</div>
+            <div>设定量: ${params.value[0]}ml</div>
             <div>实际重量: ${params.value[1].toFixed(2)}g</div>
           </div>`;
         }
@@ -2395,7 +2396,7 @@ export function LoadCellPanel() {
     grid: { left: 60, right: 30, top: 40, bottom: 50 },
     xAxis: {
       type: 'value',
-      name: '设定进样量 (mm)',
+      name: '设定进样量 (ml)',
       nameLocation: 'middle',
       nameGap: 25,
       axisLabel: { fontSize: 10 },
@@ -2665,11 +2666,9 @@ export function LoadCellPanel() {
                     <div className="flex gap-2">
                       {/* 测试选择下拉列表 - 新建测试或查看历史 */}
                       {autoTestStep === "idle" && (
-                        <select
-                          className="h-8 px-2 text-xs border rounded-md bg-background"
-                          value={viewingHistoryRunId || currentRunId || "new"}
-                          onChange={(e) => {
-                            const val = e.target.value;
+                        <Select
+                          value={String(viewingHistoryRunId || currentRunId || "new")}
+                          onValueChange={(val) => {
                             if (val === "new") {
                               // 新建测试 - 清空状态
                               setViewingHistoryRunId(null);
@@ -2684,25 +2683,49 @@ export function LoadCellPanel() {
                             }
                           }}
                         >
-                          <option value="new">+ 新建测试</option>
-                          {historicalRuns.map(run => (
-                            <option key={run.runId} value={run.runId}>
-                              #{run.runId} - {run.status} ({run.totalCycles}循环) {run.startedAt}
-                            </option>
-                          ))}
-                        </select>
+                          <SelectTrigger className="h-8 w-[200px] text-xs">
+                            <SelectValue placeholder="选择测试..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="new">+ 新建测试</SelectItem>
+                            {historicalRuns.map(run => (
+                              <SelectItem key={run.runId} value={String(run.runId)}>
+                                #{run.runId} - {run.status} ({run.totalCycles}循环) {run.startedAt}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       )}
                       {autoTestStep === "idle" ? (
-                        <Button 
-                          variant="default" 
-                          size="sm" 
-                          onClick={handleStartAutoTest}
-                          disabled={!reading?.isCalibrated || !!viewingHistoryRunId}
-                          title={viewingHistoryRunId ? "查看历史时无法开始新测试，请先选择「新建测试」" : ""}
-                        >
-                          <Play className="mr-1 h-3 w-3" />
-                          开始测试
-                        </Button>
+                        viewingHistoryRunId ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span>
+                                <Button 
+                                  variant="default" 
+                                  size="sm" 
+                                  disabled
+                                >
+                                  <Play className="mr-1 h-3 w-3" />
+                                  开始测试
+                                </Button>
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>查看历史时无法开始新测试，请先选择「新建测试」</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <Button 
+                            variant="default" 
+                            size="sm" 
+                            onClick={handleStartAutoTest}
+                            disabled={!reading?.isCalibrated}
+                          >
+                            <Play className="mr-1 h-3 w-3" />
+                            开始测试
+                          </Button>
+                        )
                       ) : (
                         <Button 
                           variant="destructive" 
@@ -2734,12 +2757,10 @@ export function LoadCellPanel() {
                           {autoTestStep === "complete" && "完成!"}
                         </Badge>
                       </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-                        <div 
-                          className="bg-gradient-to-r from-blue-500 to-indigo-500 h-2.5 rounded-full transition-all"
-                          style={{ width: `${(autoTestCurrentCycle / (autoTestTotalCycles || totalCycles || 1)) * 100}%` }}
-                        />
-                      </div>
+                      <Progress 
+                        value={(autoTestCurrentCycle / (autoTestTotalCycles || totalCycles || 1)) * 100} 
+                        className="h-2.5"
+                      />
                     </div>
                   )}
                   
@@ -2767,14 +2788,16 @@ export function LoadCellPanel() {
                                 <Input
                                   className="h-8 w-16 text-sm"
                                   type="number"
+                                  step="0.1"
+                                  max="6"
                                   value={ps.speed}
                                   onChange={(e) => {
                                     const newSets = [...autoTestConfig.paramSets];
-                                    newSets[idx] = { ...ps, speed: parseFloat(e.target.value) || 10 };
+                                    newSets[idx] = { ...ps, speed: parseFloat(e.target.value) || 5 };
                                     setAutoTestConfig(prev => ({ ...prev, paramSets: newSets }));
                                   }}
                                 />
-                                <span className="text-xs text-muted-foreground">mm/s</span>
+                                <span className="text-xs text-muted-foreground">ml/s</span>
                               </div>
                               <div className="flex items-center gap-1">
                                 <Label className="text-xs text-muted-foreground">循环</Label>
@@ -2809,7 +2832,7 @@ export function LoadCellPanel() {
                             <div className="grid grid-cols-4 gap-2">
                               {(['pump0Volume', 'pump1Volume', 'pump2Volume', 'pump3Volume', 'pump4Volume', 'pump5Volume', 'pump6Volume', 'pump7Volume'] as const).map((pumpKey, pIdx) => (
                                 <div key={pumpKey} className="space-y-1">
-                                  <Label className="text-xs text-muted-foreground">泵{pIdx} (mm)</Label>
+                                  <Label className="text-xs text-muted-foreground">泵{pIdx} (ml)</Label>
                                   <Input
                                     className="h-8 text-sm font-mono"
                                     type="number"
@@ -2838,7 +2861,7 @@ export function LoadCellPanel() {
                               id: nextParamSetId,
                               name: `组${nextParamSetId}`,
                               params: { pump0Volume: 0, pump1Volume: 0, pump2Volume: 50, pump3Volume: 50, pump4Volume: 50, pump5Volume: 50, pump6Volume: 0, pump7Volume: 0 },
-                              speed: 10,
+                              speed: 5,
                               cycles: 3,
                             }]
                           }));
@@ -2850,12 +2873,13 @@ export function LoadCellPanel() {
                       
                       <div className="grid grid-cols-3 gap-2 pt-2 border-t">
                         <div>
-                          <Label className="text-xs">加速度 (mm/s²)</Label>
+                          <Label className="text-xs">加速度 (ml/s²)</Label>
                           <Input
                             type="number"
                             value={autoTestConfig.accel}
-                            onChange={(e) => setAutoTestConfig(prev => ({ ...prev, accel: parseFloat(e.target.value) || 100 }))}
+                            onChange={(e) => setAutoTestConfig(prev => ({ ...prev, accel: parseFloat(e.target.value) || 1 }))}
                             className="h-8"
+                            step="0.1"
                           />
                         </div>
                         <div>
@@ -2943,7 +2967,7 @@ export function LoadCellPanel() {
                                 {autoTestStatsByParamSet.map(stat => stat && (
                                   <tr key={stat.paramSetId} className="border-b last:border-0">
                                     <td className="py-1 px-2 font-medium">{stat.name}</td>
-                                    <td className="py-1 px-2 text-right font-mono">{stat.totalVolume}mm</td>
+                                    <td className="py-1 px-2 text-right font-mono">{stat.totalVolume}ml</td>
                                     <td className="py-1 px-2 text-right font-mono">{stat.meanInjected.toFixed(1)}g</td>
                                     <td className={`py-1 px-2 text-right font-mono ${stat.rangeInjected < 2 ? 'text-green-600' : stat.rangeInjected < 5 ? 'text-yellow-600' : 'text-red-600'}`}>
                                       {stat.rangeInjected.toFixed(1)}g
@@ -3091,12 +3115,12 @@ export function LoadCellPanel() {
                 
                 <div className="grid grid-cols-3 gap-3 text-sm">
                   <div>
-                    <Label className="text-xs">步长 (mm)</Label>
+                    <Label className="text-xs">步长 (ml)</Label>
                     <Input type="number" className="h-8" value={deadZoneConfig.stepVolume}
                       onChange={e => setDeadZoneConfig(p => ({ ...p, stepVolume: +e.target.value || 10 }))} />
                   </div>
                   <div>
-                    <Label className="text-xs">最大测试量 (mm)</Label>
+                    <Label className="text-xs">最大测试量 (ml)</Label>
                     <Input type="number" className="h-8" value={deadZoneConfig.maxVolume}
                       onChange={e => setDeadZoneConfig(p => ({ ...p, maxVolume: +e.target.value || 200 }))} />
                   </div>
@@ -3111,9 +3135,9 @@ export function LoadCellPanel() {
                       onChange={e => setDeadZoneConfig(p => ({ ...p, cycles: +e.target.value || 3 }))} />
                   </div>
                   <div>
-                    <Label className="text-xs">进样速度 (mm/s)</Label>
-                    <Input type="number" className="h-8" value={deadZoneConfig.speed}
-                      onChange={e => setDeadZoneConfig(p => ({ ...p, speed: +e.target.value || 50 }))} />
+                    <Label className="text-xs">进样速度 (ml/s)</Label>
+                    <Input type="number" className="h-8" step="0.1" max="6" value={deadZoneConfig.speed}
+                      onChange={e => setDeadZoneConfig(p => ({ ...p, speed: +e.target.value || 5 }))} />
                   </div>
                   <div>
                     <Label className="text-xs">测试泵</Label>
@@ -3147,8 +3171,8 @@ export function LoadCellPanel() {
                       {deadZoneByPump.map(stat => stat && (
                         <div key={stat.pumpId} className="p-2 rounded bg-muted/50 text-center">
                           <div className="font-medium">泵{stat.pumpId}</div>
-                          <div className="text-lg font-bold text-primary">{stat.mean.toFixed(0)}mm</div>
-                          <div className="text-muted-foreground">±{stat.stdDev.toFixed(1)}mm</div>
+                          <div className="text-lg font-bold text-primary">{stat.mean.toFixed(0)}ml</div>
+                          <div className="text-muted-foreground">±{stat.stdDev.toFixed(1)}ml</div>
                         </div>
                       ))}
                     </div>
@@ -3201,12 +3225,12 @@ export function LoadCellPanel() {
                     </div>
                   )}
                   <div>
-                    <Label className="text-xs">基准液体量 (mm)</Label>
+                    <Label className="text-xs">基准液体量 (ml)</Label>
                     <Input type="number" className="h-8" value={resolutionConfig.baseVolume}
                       onChange={e => setResolutionConfig(p => ({ ...p, baseVolume: +e.target.value || 50 }))} />
                   </div>
                   <div>
-                    <Label className="text-xs">测试起始值 (mm)</Label>
+                    <Label className="text-xs">测试起始值 (ml)</Label>
                     <Input type="number" className="h-8" value={resolutionConfig.testStartVolume}
                       onChange={e => setResolutionConfig(p => ({ ...p, testStartVolume: +e.target.value || 50 }))} />
                   </div>
@@ -3214,12 +3238,12 @@ export function LoadCellPanel() {
                 
                 <div className="grid grid-cols-4 gap-3 text-sm">
                   <div>
-                    <Label className="text-xs">递减步长 (mm)</Label>
+                    <Label className="text-xs">递减步长 (ml)</Label>
                     <Input type="number" className="h-8" value={resolutionConfig.stepVolume}
                       onChange={e => setResolutionConfig(p => ({ ...p, stepVolume: +e.target.value || 10 }))} />
                   </div>
                   <div>
-                    <Label className="text-xs">最小测试量 (mm)</Label>
+                    <Label className="text-xs">最小测试量 (ml)</Label>
                     <Input type="number" className="h-8" value={resolutionConfig.minVolume}
                       onChange={e => setResolutionConfig(p => ({ ...p, minVolume: +e.target.value || 5 }))} />
                   </div>
@@ -3251,7 +3275,7 @@ export function LoadCellPanel() {
                       {resolutionStats.minReliable !== null && (
                         <div className="text-center p-2 rounded bg-green-50 dark:bg-green-900/20">
                           <div className="text-xs text-muted-foreground">最小可靠进样量</div>
-                          <div className="text-xl font-bold text-green-600">{resolutionStats.minReliable}mm</div>
+                          <div className="text-xl font-bold text-green-600">{resolutionStats.minReliable}ml</div>
                         </div>
                       )}
                     </div>
@@ -3267,7 +3291,7 @@ export function LoadCellPanel() {
                       <tbody>
                         {resolutionStats.volumes.map(v => (
                           <tr key={v.volume} className="border-b last:border-0">
-                            <td className="py-1 px-2 font-mono">{v.volume}mm</td>
+                            <td className="py-1 px-2 font-mono">{v.volume}ml</td>
                             <td className="py-1 px-2 text-right text-green-600">{v.success}</td>
                             <td className="py-1 px-2 text-right text-red-600">{v.total - v.success}</td>
                             <td className={`py-1 px-2 text-right font-medium ${v.rate >= 0.8 ? 'text-green-600' : v.rate >= 0.5 ? 'text-yellow-600' : 'text-red-600'}`}>
@@ -3331,15 +3355,15 @@ export function LoadCellPanel() {
                       onChange={e => setLinearityConfig(p => ({ ...p, cycles: +e.target.value || 3 }))} />
                   </div>
                   <div>
-                    <Label className="text-xs">进样速度 (mm/s)</Label>
-                    <Input type="number" className="h-8" value={linearityConfig.speed}
-                      onChange={e => setLinearityConfig(p => ({ ...p, speed: +e.target.value || 100 }))} />
+                    <Label className="text-xs">进样速度 (ml/s)</Label>
+                    <Input type="number" className="h-8" step="0.1" max="6" value={linearityConfig.speed}
+                      onChange={e => setLinearityConfig(p => ({ ...p, speed: +e.target.value || 5 }))} />
                   </div>
                 </div>
                 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-xs">测试进样量序列 (mm)</Label>
+                    <Label className="text-xs">测试进样量序列 (ml)</Label>
                     <Button 
                       variant="outline" 
                       size="sm" 
@@ -3355,12 +3379,12 @@ export function LoadCellPanel() {
                     <div className="p-3 rounded-lg bg-muted/30 border space-y-3">
                       <div className="grid grid-cols-4 gap-2">
                         <div>
-                          <Label className="text-xs">最小值 (mm)</Label>
+                          <Label className="text-xs">最小值 (ml)</Label>
                           <Input type="number" className="h-7 text-xs" value={seqGenConfig.min}
                             onChange={e => setSeqGenConfig(p => ({ ...p, min: +e.target.value || 50 }))} />
                         </div>
                         <div>
-                          <Label className="text-xs">最大值 (mm)</Label>
+                          <Label className="text-xs">最大值 (ml)</Label>
                           <Input type="number" className="h-7 text-xs" value={seqGenConfig.max}
                             onChange={e => setSeqGenConfig(p => ({ ...p, max: +e.target.value || 1000 }))} />
                         </div>
@@ -3371,17 +3395,21 @@ export function LoadCellPanel() {
                         </div>
                         <div>
                           <Label className="text-xs">分布类型</Label>
-                          <select 
-                            className="w-full h-7 text-xs rounded border bg-background px-2"
+                          <Select
                             value={seqGenConfig.type}
-                            onChange={e => setSeqGenConfig(p => ({ ...p, type: e.target.value as typeof seqGenConfig.type }))}
+                            onValueChange={(v) => setSeqGenConfig(p => ({ ...p, type: v as typeof seqGenConfig.type }))}
                           >
-                            <option value="linear">线性等差</option>
-                            <option value="log">对数 (小值密集)</option>
-                            <option value="sqrt">平方根 (小值密集)</option>
-                            <option value="exp">指数 (大值密集)</option>
-                            <option value="quadratic">二次 (大值密集)</option>
-                          </select>
+                            <SelectTrigger className="h-7 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="linear">线性等差</SelectItem>
+                              <SelectItem value="log">对数 (小值密集)</SelectItem>
+                              <SelectItem value="sqrt">平方根 (小值密集)</SelectItem>
+                              <SelectItem value="exp">指数 (大值密集)</SelectItem>
+                              <SelectItem value="quadratic">二次 (大值密集)</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
                       
@@ -3434,7 +3462,7 @@ export function LoadCellPanel() {
                       </div>
                     </div>
                     <div className="p-3 rounded-lg bg-muted/50">
-                      <div className="text-xs text-muted-foreground">斜率 (g/mm)</div>
+                      <div className="text-xs text-muted-foreground">斜率 (g/ml)</div>
                       <div className="text-xl font-bold text-primary">
                         {linearityRegression.slope.toFixed(4)}
                       </div>
@@ -3460,7 +3488,7 @@ export function LoadCellPanel() {
                     <div className="flex-1">
                       <div className="text-sm font-medium text-blue-900 dark:text-blue-100">保存泵校准系数</div>
                       <div className="text-xs text-blue-700 dark:text-blue-300">
-                        斜率: {linearityRegression.slope.toFixed(4)} g/mm, 截距: {linearityRegression.intercept.toFixed(2)} g
+                        斜率: {linearityRegression.slope.toFixed(4)} g/ml, 截距: {linearityRegression.intercept.toFixed(2)} g
                       </div>
                     </div>
                     <Button
@@ -3499,7 +3527,7 @@ export function LoadCellPanel() {
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b text-left text-muted-foreground">
-                          <th className="py-1 px-2">设定量 (mm)</th>
+                          <th className="py-1 px-2">设定量 (ml)</th>
                           <th className="py-1 px-2 text-right">平均重量 (g)</th>
                           <th className="py-1 px-2 text-right">标准差 (g)</th>
                           <th className="py-1 px-2 text-right">测量次数</th>
@@ -3604,12 +3632,12 @@ export function LoadCellPanel() {
                     </div>
                   )}
                   <div>
-                    <Label className="text-xs">进样速度 (mm/s)</Label>
-                    <Input type="number" className="h-8" value={weightCalibConfig.speed}
-                      onChange={e => setWeightCalibConfig(p => ({ ...p, speed: +e.target.value || 100 }))} />
+                    <Label className="text-xs">进样速度 (ml/s)</Label>
+                    <Input type="number" className="h-8" step="0.1" max="6" value={weightCalibConfig.speed}
+                      onChange={e => setWeightCalibConfig(p => ({ ...p, speed: +e.target.value || 5 }))} />
                   </div>
                   <div className="col-span-2">
-                    <Label className="text-xs">泵线性系数 (ml = slope × mm + offset)</Label>
+                    <Label className="text-xs">泵线性系数</Label>
                     <div className="h-8 px-3 py-1.5 rounded-md border bg-muted/50 text-sm font-mono flex items-center gap-3">
                       <span>slope: <strong>{config.pumpMmToMl ? config.pumpMmToMl.toFixed(4) : '未标定'}</strong></span>
                       <span>offset: <strong>{config.pumpMmOffset !== undefined ? config.pumpMmOffset.toFixed(2) : '未标定'}</strong></span>
@@ -3621,7 +3649,7 @@ export function LoadCellPanel() {
                 {/* 序列配置 */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <Label className="text-xs">进样量序列 (mm)</Label>
+                    <Label className="text-xs">进样量序列 (ml)</Label>
                     <Button variant="outline" size="sm" className="h-6 text-xs" onClick={() => setWeightCalibSeqGenOpen(!weightCalibSeqGenOpen)}>
                       序列生成器
                     </Button>
@@ -3641,15 +3669,21 @@ export function LoadCellPanel() {
                       <div className="grid grid-cols-5 gap-2 text-xs">
                         <div>
                           <Label className="text-xs">类型</Label>
-                          <select className="w-full h-8 rounded border px-2 text-xs"
+                          <Select
                             value={seqGenConfig.type}
-                            onChange={e => setSeqGenConfig(p => ({ ...p, type: e.target.value as any }))}>
-                            <option value="linear">线性</option>
-                            <option value="log">对数</option>
-                            <option value="exp">指数</option>
-                            <option value="quadratic">二次</option>
-                            <option value="sqrt">平方根</option>
-                          </select>
+                            onValueChange={(v) => setSeqGenConfig(p => ({ ...p, type: v as typeof seqGenConfig.type }))}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="linear">线性</SelectItem>
+                              <SelectItem value="log">对数</SelectItem>
+                              <SelectItem value="exp">指数</SelectItem>
+                              <SelectItem value="quadratic">二次</SelectItem>
+                              <SelectItem value="sqrt">平方根</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div>
                           <Label className="text-xs">最小值</Label>
@@ -3769,7 +3803,7 @@ export function LoadCellPanel() {
                       <thead>
                         <tr className="border-b text-left text-muted-foreground">
                           <th className="py-1 px-2">#</th>
-                          <th className="py-1 px-2 text-right">设定量 (mm)</th>
+                          <th className="py-1 px-2 text-right">设定量 (ml)</th>
                           <th className="py-1 px-2 text-right">计算ml值</th>
                           <th className="py-1 px-2 text-right">称重变化 (g)</th>
                           <th className="py-1 px-2">真实重量 (g)</th>
@@ -3779,7 +3813,7 @@ export function LoadCellPanel() {
                         {weightCalibResults.map(r => (
                           <tr key={r.index} className="border-b last:border-0">
                             <td className="py-1 px-2 font-mono">{r.index + 1}</td>
-                            <td className="py-1 px-2 text-right font-mono">{r.setVolumeMm}</td>
+                            <td className="py-1 px-2 text-right font-mono">{r.setVolumeMl}</td>
                             <td className="py-1 px-2 text-right font-mono">{r.setVolumeMl.toFixed(2)}</td>
                             <td className="py-1 px-2 text-right font-mono">{r.measuredWeight.toFixed(2)}</td>
                             <td className="py-1 px-2">

@@ -5,6 +5,12 @@
 // 电子鼻 gRPC 服务定义
 // 提供控制接口和数据流服务
 //
+import { TestPushRequest } from "./enose_service";
+import { NotificationConfig } from "./enose_service";
+import { PushAlertsResponse } from "./enose_service";
+import { PushAlertsRequest } from "./enose_service";
+import { PushAlertResponse } from "./enose_service";
+import { PushAlertRequest } from "./enose_service";
 import { WeightSamplesResponse } from "./enose_service";
 import { GetWeightSamplesRequest } from "./enose_service";
 import { TestRunDetail } from "./enose_service";
@@ -927,5 +933,108 @@ export const testServiceDefinition: grpc.ServiceDefinition<ITestService> = {
         requestDeserialize: bytes => GetWeightSamplesRequest.fromBinary(bytes),
         responseSerialize: value => Buffer.from(WeightSamplesResponse.toBinary(value)),
         requestSerialize: value => Buffer.from(GetWeightSamplesRequest.toBinary(value))
+    }
+};
+/**
+ * ============================================================
+ * 通知服务 (NotificationService)
+ * 接收来自 enose-analytics 的告警推送，转发到第三方推送服务
+ * ============================================================
+ *
+ * @generated from protobuf service enose.service.NotificationService
+ */
+export interface INotificationService extends grpc.UntypedServiceImplementation {
+    /**
+     * 推送告警通知 (由 Python 端调用)
+     *
+     * @generated from protobuf rpc: PushAlert
+     */
+    pushAlert: grpc.handleUnaryCall<PushAlertRequest, PushAlertResponse>;
+    /**
+     * 批量推送告警
+     *
+     * @generated from protobuf rpc: PushAlerts
+     */
+    pushAlerts: grpc.handleUnaryCall<PushAlertsRequest, PushAlertsResponse>;
+    /**
+     * 获取通知配置
+     *
+     * @generated from protobuf rpc: GetNotificationConfig
+     */
+    getNotificationConfig: grpc.handleUnaryCall<Empty, NotificationConfig>;
+    /**
+     * 更新通知配置
+     *
+     * @generated from protobuf rpc: UpdateNotificationConfig
+     */
+    updateNotificationConfig: grpc.handleUnaryCall<NotificationConfig, NotificationConfig>;
+    /**
+     * 测试推送 (用于验证配置)
+     *
+     * @generated from protobuf rpc: TestPush
+     */
+    testPush: grpc.handleUnaryCall<TestPushRequest, PushAlertResponse>;
+}
+/**
+ * @grpc/grpc-js definition for the protobuf service enose.service.NotificationService.
+ *
+ * Usage: Implement the interface INotificationService and add to a grpc server.
+ *
+ * ```typescript
+ * const server = new grpc.Server();
+ * const service: INotificationService = ...
+ * server.addService(notificationServiceDefinition, service);
+ * ```
+ */
+export const notificationServiceDefinition: grpc.ServiceDefinition<INotificationService> = {
+    pushAlert: {
+        path: "/enose.service.NotificationService/PushAlert",
+        originalName: "PushAlert",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => PushAlertResponse.fromBinary(bytes),
+        requestDeserialize: bytes => PushAlertRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(PushAlertResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(PushAlertRequest.toBinary(value))
+    },
+    pushAlerts: {
+        path: "/enose.service.NotificationService/PushAlerts",
+        originalName: "PushAlerts",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => PushAlertsResponse.fromBinary(bytes),
+        requestDeserialize: bytes => PushAlertsRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(PushAlertsResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(PushAlertsRequest.toBinary(value))
+    },
+    getNotificationConfig: {
+        path: "/enose.service.NotificationService/GetNotificationConfig",
+        originalName: "GetNotificationConfig",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => NotificationConfig.fromBinary(bytes),
+        requestDeserialize: bytes => Empty.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(NotificationConfig.toBinary(value)),
+        requestSerialize: value => Buffer.from(Empty.toBinary(value))
+    },
+    updateNotificationConfig: {
+        path: "/enose.service.NotificationService/UpdateNotificationConfig",
+        originalName: "UpdateNotificationConfig",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => NotificationConfig.fromBinary(bytes),
+        requestDeserialize: bytes => NotificationConfig.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(NotificationConfig.toBinary(value)),
+        requestSerialize: value => Buffer.from(NotificationConfig.toBinary(value))
+    },
+    testPush: {
+        path: "/enose.service.NotificationService/TestPush",
+        originalName: "TestPush",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => PushAlertResponse.fromBinary(bytes),
+        requestDeserialize: bytes => TestPushRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(PushAlertResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(TestPushRequest.toBinary(value))
     }
 };

@@ -25,6 +25,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+} from "@/components/ui/context-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface DataTableProps<TData, TValue> {
@@ -33,6 +38,7 @@ interface DataTableProps<TData, TValue> {
   searchKey?: string;
   searchPlaceholder?: string;
   toolbar?: React.ReactNode;
+  rowContextMenu?: (row: TData) => React.ReactNode;
 }
 
 export function DataTable<TData, TValue>({
@@ -41,6 +47,7 @@ export function DataTable<TData, TValue>({
   searchKey,
   searchPlaceholder = "搜索...",
   toolbar,
+  rowContextMenu,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -164,26 +171,43 @@ export function DataTable<TData, TValue>({
           </thead>
           <tbody>
             {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <tr
-                  key={row.id}
-                  className="border-t hover:bg-muted/50 transition-colors"
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => {
-                    const size = cell.column.columnDef.size;
-                    return (
-                      <td 
-                        key={cell.id} 
-                        className="px-4 py-3 align-middle text-sm"
-                        style={{ width: size ? `${size}px` : "auto" }}
-                      >
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))
+              table.getRowModel().rows.map((row) => {
+                const rowContent = (
+                  <tr
+                    key={row.id}
+                    className="border-t hover:bg-muted/50 transition-colors"
+                    data-state={row.getIsSelected() && "selected"}
+                  >
+                    {row.getVisibleCells().map((cell) => {
+                      const size = cell.column.columnDef.size;
+                      return (
+                        <td 
+                          key={cell.id} 
+                          className="px-4 py-3 align-middle text-sm"
+                          style={{ width: size ? `${size}px` : "auto" }}
+                        >
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+
+                if (rowContextMenu) {
+                  return (
+                    <ContextMenu key={row.id}>
+                      <ContextMenuTrigger asChild>
+                        {rowContent}
+                      </ContextMenuTrigger>
+                      <ContextMenuContent>
+                        {rowContextMenu(row.original)}
+                      </ContextMenuContent>
+                    </ContextMenu>
+                  );
+                }
+
+                return rowContent;
+              })
             ) : (
               <tr>
                 <td

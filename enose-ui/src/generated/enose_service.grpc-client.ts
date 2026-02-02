@@ -5,6 +5,13 @@
 // 电子鼻 gRPC 服务定义
 // 提供控制接口和数据流服务
 //
+import { NotificationService } from "./enose_service";
+import type { TestPushRequest } from "./enose_service";
+import type { NotificationConfig } from "./enose_service";
+import type { PushAlertsResponse } from "./enose_service";
+import type { PushAlertsRequest } from "./enose_service";
+import type { PushAlertResponse } from "./enose_service";
+import type { PushAlertRequest } from "./enose_service";
 import { TestService } from "./enose_service";
 import type { WeightSamplesResponse } from "./enose_service";
 import type { GetWeightSamplesRequest } from "./enose_service";
@@ -1033,5 +1040,120 @@ export class TestServiceClient extends grpc.Client implements ITestServiceClient
     getWeightSamples(input: GetWeightSamplesRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: WeightSamplesResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: WeightSamplesResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: WeightSamplesResponse) => void)): grpc.ClientUnaryCall {
         const method = TestService.methods[8];
         return this.makeUnaryRequest<GetWeightSamplesRequest, WeightSamplesResponse>(`/${TestService.typeName}/${method.name}`, (value: GetWeightSamplesRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): WeightSamplesResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+}
+/**
+ * ============================================================
+ * 通知服务 (NotificationService)
+ * 接收来自 enose-analytics 的告警推送，转发到第三方推送服务
+ * ============================================================
+ *
+ * @generated from protobuf service enose.service.NotificationService
+ */
+export interface INotificationServiceClient {
+    /**
+     * 推送告警通知 (由 Python 端调用)
+     *
+     * @generated from protobuf rpc: PushAlert
+     */
+    pushAlert(input: PushAlertRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: PushAlertResponse) => void): grpc.ClientUnaryCall;
+    pushAlert(input: PushAlertRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: PushAlertResponse) => void): grpc.ClientUnaryCall;
+    pushAlert(input: PushAlertRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: PushAlertResponse) => void): grpc.ClientUnaryCall;
+    pushAlert(input: PushAlertRequest, callback: (err: grpc.ServiceError | null, value?: PushAlertResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 批量推送告警
+     *
+     * @generated from protobuf rpc: PushAlerts
+     */
+    pushAlerts(input: PushAlertsRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: PushAlertsResponse) => void): grpc.ClientUnaryCall;
+    pushAlerts(input: PushAlertsRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: PushAlertsResponse) => void): grpc.ClientUnaryCall;
+    pushAlerts(input: PushAlertsRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: PushAlertsResponse) => void): grpc.ClientUnaryCall;
+    pushAlerts(input: PushAlertsRequest, callback: (err: grpc.ServiceError | null, value?: PushAlertsResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 获取通知配置
+     *
+     * @generated from protobuf rpc: GetNotificationConfig
+     */
+    getNotificationConfig(input: Empty, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: NotificationConfig) => void): grpc.ClientUnaryCall;
+    getNotificationConfig(input: Empty, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: NotificationConfig) => void): grpc.ClientUnaryCall;
+    getNotificationConfig(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: NotificationConfig) => void): grpc.ClientUnaryCall;
+    getNotificationConfig(input: Empty, callback: (err: grpc.ServiceError | null, value?: NotificationConfig) => void): grpc.ClientUnaryCall;
+    /**
+     * 更新通知配置
+     *
+     * @generated from protobuf rpc: UpdateNotificationConfig
+     */
+    updateNotificationConfig(input: NotificationConfig, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: NotificationConfig) => void): grpc.ClientUnaryCall;
+    updateNotificationConfig(input: NotificationConfig, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: NotificationConfig) => void): grpc.ClientUnaryCall;
+    updateNotificationConfig(input: NotificationConfig, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: NotificationConfig) => void): grpc.ClientUnaryCall;
+    updateNotificationConfig(input: NotificationConfig, callback: (err: grpc.ServiceError | null, value?: NotificationConfig) => void): grpc.ClientUnaryCall;
+    /**
+     * 测试推送 (用于验证配置)
+     *
+     * @generated from protobuf rpc: TestPush
+     */
+    testPush(input: TestPushRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: PushAlertResponse) => void): grpc.ClientUnaryCall;
+    testPush(input: TestPushRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: PushAlertResponse) => void): grpc.ClientUnaryCall;
+    testPush(input: TestPushRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: PushAlertResponse) => void): grpc.ClientUnaryCall;
+    testPush(input: TestPushRequest, callback: (err: grpc.ServiceError | null, value?: PushAlertResponse) => void): grpc.ClientUnaryCall;
+}
+/**
+ * ============================================================
+ * 通知服务 (NotificationService)
+ * 接收来自 enose-analytics 的告警推送，转发到第三方推送服务
+ * ============================================================
+ *
+ * @generated from protobuf service enose.service.NotificationService
+ */
+export class NotificationServiceClient extends grpc.Client implements INotificationServiceClient {
+    private readonly _binaryOptions: Partial<BinaryReadOptions & BinaryWriteOptions>;
+    constructor(address: string, credentials: grpc.ChannelCredentials, options: grpc.ClientOptions = {}, binaryOptions: Partial<BinaryReadOptions & BinaryWriteOptions> = {}) {
+        super(address, credentials, options);
+        this._binaryOptions = binaryOptions;
+    }
+    /**
+     * 推送告警通知 (由 Python 端调用)
+     *
+     * @generated from protobuf rpc: PushAlert
+     */
+    pushAlert(input: PushAlertRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: PushAlertResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: PushAlertResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: PushAlertResponse) => void)): grpc.ClientUnaryCall {
+        const method = NotificationService.methods[0];
+        return this.makeUnaryRequest<PushAlertRequest, PushAlertResponse>(`/${NotificationService.typeName}/${method.name}`, (value: PushAlertRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): PushAlertResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 批量推送告警
+     *
+     * @generated from protobuf rpc: PushAlerts
+     */
+    pushAlerts(input: PushAlertsRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: PushAlertsResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: PushAlertsResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: PushAlertsResponse) => void)): grpc.ClientUnaryCall {
+        const method = NotificationService.methods[1];
+        return this.makeUnaryRequest<PushAlertsRequest, PushAlertsResponse>(`/${NotificationService.typeName}/${method.name}`, (value: PushAlertsRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): PushAlertsResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 获取通知配置
+     *
+     * @generated from protobuf rpc: GetNotificationConfig
+     */
+    getNotificationConfig(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: NotificationConfig) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: NotificationConfig) => void), callback?: ((err: grpc.ServiceError | null, value?: NotificationConfig) => void)): grpc.ClientUnaryCall {
+        const method = NotificationService.methods[2];
+        return this.makeUnaryRequest<Empty, NotificationConfig>(`/${NotificationService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): NotificationConfig => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 更新通知配置
+     *
+     * @generated from protobuf rpc: UpdateNotificationConfig
+     */
+    updateNotificationConfig(input: NotificationConfig, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: NotificationConfig) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: NotificationConfig) => void), callback?: ((err: grpc.ServiceError | null, value?: NotificationConfig) => void)): grpc.ClientUnaryCall {
+        const method = NotificationService.methods[3];
+        return this.makeUnaryRequest<NotificationConfig, NotificationConfig>(`/${NotificationService.typeName}/${method.name}`, (value: NotificationConfig): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): NotificationConfig => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 测试推送 (用于验证配置)
+     *
+     * @generated from protobuf rpc: TestPush
+     */
+    testPush(input: TestPushRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: PushAlertResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: PushAlertResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: PushAlertResponse) => void)): grpc.ClientUnaryCall {
+        const method = NotificationService.methods[4];
+        return this.makeUnaryRequest<TestPushRequest, PushAlertResponse>(`/${NotificationService.typeName}/${method.name}`, (value: TestPushRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): PushAlertResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
 }

@@ -1,0 +1,408 @@
+syntax = "proto3";
+
+package enose.analytics.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+import "enose_data.proto";
+
+option go_package = "github.com/gsq7474741/rpi_odor/gen/go/enose/analytics/v1;analyticsv1";
+
+// ============================================================================
+// Analytics Service - 质量检测与在线分析
+// ============================================================================
+
+service AnalyticsService {
+  // 实时质检分析 (双向流)
+  rpc AnalyzeSensorData(stream enose.data.SensorFrame) returns (stream AnalysisResponse);
+  
+  // 获取可视化数据 (PCA/t-SNE/聚类)
+  rpc GetVisualization(VisualizationRequest) returns (VisualizationResponse);
+  
+  // 订阅实时可视化更新
+  rpc StreamVisualization(VisualizationRequest) returns (stream VisualizationResponse);
+  
+  // 获取质检配置
+  rpc GetQualityConfig(google.protobuf.Empty) returns (QualityConfig);
+  
+  // 更新质检配置
+  rpc UpdateQualityConfig(QualityConfig) returns (QualityConfig);
+}
+
+// ============================================================================
+// Model Service - MLP 模型训练与推理
+// ============================================================================
+
+service ModelService {
+  // 训练模型
+  rpc TrainModel(TrainModelRequest) returns (stream TrainProgress);
+  
+  // 列出已训练模型
+  rpc ListModels(ListModelsRequest) returns (ListModelsResponse);
+  
+  // 获取模型详情
+  rpc GetModel(GetModelRequest) returns (ModelInfo);
+  
+  // 加载模型到推理引擎
+  rpc LoadModel(LoadModelRequest) returns (google.protobuf.Empty);
+  
+  // 卸载模型
+  rpc UnloadModel(google.protobuf.Empty) returns (google.protobuf.Empty);
+  
+  // 单次推理
+  rpc Predict(PredictRequest) returns (PredictResponse);
+  
+  // 删除模型
+  rpc DeleteModel(DeleteModelRequest) returns (google.protobuf.Empty);
+}
+
+// ============================================================================
+// Label Service - 样品标注管理
+// ============================================================================
+
+service LabelService {
+  // 创建标签
+  rpc CreateLabel(CreateLabelRequest) returns (SampleLabel);
+  
+  // 列出标签
+  rpc ListLabels(ListLabelsRequest) returns (ListLabelsResponse);
+  
+  // 更新标签
+  rpc UpdateLabel(UpdateLabelRequest) returns (SampleLabel);
+  
+  // 删除标签
+  rpc DeleteLabel(DeleteLabelRequest) returns (google.protobuf.Empty);
+  
+  // 批量标注
+  rpc BatchLabel(BatchLabelRequest) returns (BatchLabelResponse);
+}
+
+// ============================================================================
+// 质量检测消息
+// ============================================================================
+
+message AnalysisResponse {
+  google.protobuf.Timestamp ts = 1;
+  uint64 sensor_seq = 2;
+  
+  // 质量标志
+  repeated QualityAlert alerts = 3;
+  
+  // 统计指标
+  repeated Metric metrics = 4;
+  
+  // 模型推理结果 (如果已加载模型)
+  optional PredictResult prediction = 5;
+}
+
+message QualityAlert {
+  QualityFlag flag = 1;
+  Severity severity = 2;
+  string message = 3;
+  int32 channel = 4;  // -1 表示全局
+  double value = 5;   // 触发值
+  double threshold = 6;  // 阈值
+}
+
+enum QualityFlag {
+  QF_UNKNOWN = 0;
+  QF_BASELINE_UNSTABLE = 1;  // 基线不稳
+  QF_SENSOR_SATURATION = 2;  // 传感器饱和
+  QF_EXCESS_NOISE = 3;       // 噪声过大
+  QF_HUMIDITY_OUT_OF_RANGE = 4;  // 湿度异常
+  QF_TEMP_OUT_OF_RANGE = 5;      // 温度异常
+  QF_FLOW_SUSPECTED = 6;         // 流量异常
+  QF_SENSOR_DRIFT = 7;           // 传感器漂移
+  QF_SIGNAL_ANOMALY = 8;         // 信号异常
+}
+
+enum Severity {
+  SEVERITY_UNKNOWN = 0;
+  SEVERITY_INFO = 1;
+  SEVERITY_WARNING = 2;
+  SEVERITY_ERROR = 3;
+  SEVERITY_CRITICAL = 4;
+}
+
+message Metric {
+  string name = 1;
+  double value = 2;
+  string unit = 3;
+  int32 channel = 4;  // -1 表示全局
+}
+
+// 质检配置 (所有阈值可调)
+message QualityConfig {
+  // 基线稳定性
+  double baseline_cv_threshold = 1;        // 基线变异系数阈值 (默认 0.05)
+  double baseline_slope_threshold = 2;     // 基线斜率阈值 (默认 0.01)
+  int32 baseline_window_size = 3;          // 基线检测窗口大小 (默认 60)
+  
+  // 传感器范围
+  double min_resistance = 4;               // 最小电阻值 (默认 100)
+  double max_resistance = 5;               // 最大电阻值 (默认 1000000)
+  
+  // 噪声检测
+  double noise_std_threshold = 6;          // 噪声标准差阈值 (默认 0.1)
+  int32 noise_window_size = 7;             // 噪声检测窗口大小 (默认 10)
+  
+  // 环境参数
+  double min_humidity = 8;                 // 最小湿度 (默认 20)
+  double max_humidity = 9;                 // 最大湿度 (默认 80)
+  double min_temperature = 10;             // 最小温度 (默认 15)
+  double max_temperature = 11;             // 最大温度 (默认 40)
+  
+  // 漂移检测
+  double drift_threshold = 12;             // 漂移阈值 (默认 0.1)
+  int32 drift_window_size = 13;            // 漂移检测窗口大小 (默认 300)
+  
+  // 告警控制
+  bool enable_notifications = 14;          // 是否启用推送通知
+  repeated QualityFlag disabled_flags = 15; // 禁用的告警类型
+}
+
+// ============================================================================
+// 可视化消息
+// ============================================================================
+
+message VisualizationRequest {
+  VisualizationType type = 1;
+  
+  // 数据范围
+  optional google.protobuf.Timestamp start_time = 2;
+  optional google.protobuf.Timestamp end_time = 3;
+  optional string experiment_id = 4;
+  
+  // PCA/t-SNE 参数
+  int32 n_components = 5;  // 降维维度 (默认 2)
+  int32 perplexity = 6;    // t-SNE perplexity (默认 30)
+  
+  // 聚类参数
+  int32 n_clusters = 7;    // 聚类数量 (默认 5)
+  
+  // 采样
+  int32 max_points = 8;    // 最大点数 (默认 1000)
+}
+
+enum VisualizationType {
+  VIS_UNKNOWN = 0;
+  VIS_PCA = 1;
+  VIS_TSNE = 2;
+  VIS_CLUSTERING = 3;
+  VIS_PCA_CLUSTERING = 4;  // PCA + 聚类
+}
+
+message VisualizationResponse {
+  google.protobuf.Timestamp ts = 1;
+  VisualizationType type = 2;
+  
+  // 降维后的点
+  repeated VisPoint points = 3;
+  
+  // 聚类中心 (如果有)
+  repeated VisPoint centers = 4;
+  
+  // 解释方差比 (PCA)
+  repeated double explained_variance_ratio = 5;
+  
+  // 元信息
+  int32 total_samples = 6;
+  int32 n_clusters = 7;
+}
+
+message VisPoint {
+  string id = 1;           // 样本 ID
+  repeated double coords = 2;  // 坐标 (2D 或 3D)
+  int32 cluster = 3;       // 聚类标签 (-1 表示未聚类)
+  string label = 4;        // 用户标签 (如果有)
+  google.protobuf.Timestamp ts = 5;
+}
+
+// ============================================================================
+// 模型训练消息
+// ============================================================================
+
+message TrainModelRequest {
+  string name = 1;              // 模型名称
+  string description = 2;       // 模型描述
+  
+  // 数据选择
+  repeated string label_ids = 3;  // 用于训练的标签 ID
+  optional string experiment_id = 4;  // 或指定实验 ID
+  
+  // 模型超参数
+  MLPConfig config = 5;
+  
+  // 训练超参数
+  int32 epochs = 6;             // 训练轮数 (默认 100)
+  int32 batch_size = 7;         // 批大小 (默认 32)
+  double learning_rate = 8;     // 学习率 (默认 0.001)
+  double validation_split = 9;  // 验证集比例 (默认 0.2)
+}
+
+message MLPConfig {
+  repeated int32 hidden_layers = 1;  // 隐藏层大小 (默认 [64, 32])
+  string activation = 2;             // 激活函数 (默认 "relu")
+  double dropout = 3;                // Dropout 比例 (默认 0.2)
+}
+
+message TrainProgress {
+  int32 epoch = 1;
+  int32 total_epochs = 2;
+  double train_loss = 3;
+  double val_loss = 4;
+  double train_accuracy = 5;
+  double val_accuracy = 6;
+  TrainStatus status = 7;
+  string message = 8;
+  
+  // 训练完成时返回模型信息
+  optional ModelInfo model = 9;
+}
+
+enum TrainStatus {
+  TRAIN_UNKNOWN = 0;
+  TRAIN_STARTED = 1;
+  TRAIN_IN_PROGRESS = 2;
+  TRAIN_COMPLETED = 3;
+  TRAIN_FAILED = 4;
+}
+
+message ListModelsRequest {
+  int32 limit = 1;
+  int32 offset = 2;
+}
+
+message ListModelsResponse {
+  repeated ModelInfo models = 1;
+  int32 total = 2;
+}
+
+message GetModelRequest {
+  string model_id = 1;
+}
+
+message LoadModelRequest {
+  string model_id = 1;
+}
+
+message DeleteModelRequest {
+  string model_id = 1;
+}
+
+message ModelInfo {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  google.protobuf.Timestamp created_at = 4;
+  
+  // 模型配置
+  MLPConfig config = 5;
+  int32 input_dim = 6;
+  int32 output_dim = 7;
+  repeated string class_names = 8;
+  
+  // 训练指标
+  double train_accuracy = 9;
+  double val_accuracy = 10;
+  double train_loss = 11;
+  double val_loss = 12;
+  
+  // 存储
+  string minio_path = 13;
+  int64 file_size = 14;
+  
+  // 状态
+  bool is_loaded = 15;
+}
+
+// ============================================================================
+// 推理消息
+// ============================================================================
+
+message PredictRequest {
+  // 特征向量 (已提取的特征)
+  repeated double features = 1;
+  
+  // 或原始传感器帧
+  optional enose.data.SensorFrame frame = 2;
+}
+
+message PredictResponse {
+  PredictResult result = 1;
+}
+
+message PredictResult {
+  string predicted_class = 1;
+  int32 predicted_index = 2;
+  double confidence = 3;
+  repeated ClassProbability probabilities = 4;
+}
+
+message ClassProbability {
+  string class_name = 1;
+  double probability = 2;
+}
+
+// ============================================================================
+// 标签消息
+// ============================================================================
+
+message SampleLabel {
+  string id = 1;
+  string name = 2;                    // 标签名称 (如 "苹果汁")
+  string description = 3;             // 描述
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+  
+  // 关联的数据范围
+  repeated LabeledRange ranges = 6;
+  
+  // 统计
+  int32 sample_count = 7;
+}
+
+message LabeledRange {
+  string experiment_id = 1;
+  google.protobuf.Timestamp start_time = 2;
+  google.protobuf.Timestamp end_time = 3;
+  string phase = 4;  // 可选: 只标注特定阶段
+}
+
+message CreateLabelRequest {
+  string name = 1;
+  string description = 2;
+  repeated LabeledRange ranges = 3;
+}
+
+message ListLabelsRequest {
+  int32 limit = 1;
+  int32 offset = 2;
+  optional string experiment_id = 3;  // 过滤特定实验
+}
+
+message ListLabelsResponse {
+  repeated SampleLabel labels = 1;
+  int32 total = 2;
+}
+
+message UpdateLabelRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string description = 3;
+  repeated LabeledRange ranges = 4;  // 追加或替换
+  bool replace_ranges = 5;           // true 替换, false 追加
+}
+
+message DeleteLabelRequest {
+  string id = 1;
+}
+
+message BatchLabelRequest {
+  string label_id = 1;
+  repeated LabeledRange ranges = 2;
+}
+
+message BatchLabelResponse {
+  int32 added_count = 1;
+}

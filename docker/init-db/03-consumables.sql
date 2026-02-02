@@ -166,8 +166,16 @@ INSERT INTO metadata_fields (entity_type, field_key, field_name, field_type, des
 ON CONFLICT (entity_type, field_key) DO NOTHING;
 
 -- ============================================================
--- 初始化常用液体
+-- 初始化常用液体（使用 name 唯一约束避免重复插入）
 -- ============================================================
+-- 先添加唯一约束（如果不存在）
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'liquids_name_unique') THEN
+        ALTER TABLE liquids ADD CONSTRAINT liquids_name_unique UNIQUE (name);
+    END IF;
+END $$;
+
 INSERT INTO liquids (name, type, description, density, metadata) VALUES
 -- 清洗液
 ('蒸馏水', 'rinse', '标准清洗液', 1.0, '{}'),
@@ -175,7 +183,7 @@ INSERT INTO liquids (name, type, description, density, metadata) VALUES
 -- 示例样品
 ('苹果汁', 'sample', '100%纯苹果汁', 1.05, '{"category": "果汁", "aroma_notes": ["果香", "甜"]}'),
 ('橙汁', 'sample', '100%纯橙汁', 1.04, '{"category": "果汁", "aroma_notes": ["果香", "酸"]}')
-ON CONFLICT DO NOTHING;
+ON CONFLICT (name) DO NOTHING;
 
 -- ============================================================
 -- 触发器：自动更新 updated_at
