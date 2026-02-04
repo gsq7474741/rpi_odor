@@ -28,6 +28,7 @@ struct SensorReadingRecord {
     std::optional<int16_t> heater_step;
     std::optional<int32_t> run_id;
     std::optional<std::string> phase_name;
+    std::optional<int32_t> sample_id;  // 样本 ID (用于聚合分析)
 };
 
 // ============================================================
@@ -143,6 +144,10 @@ public:
     void set_run_context(std::optional<int32_t> run_id, const std::string& phase_name = "");
     void clear_run_context();
     
+    // 设置样本上下文 (用于自动填充 sample_id)
+    void set_sample_context(int32_t sample_id);
+    void clear_sample_context();
+    
     // ============================================================
     // 查询接口
     // ============================================================
@@ -251,6 +256,7 @@ private:
     // 运行上下文
     std::optional<int32_t> current_run_id_;
     std::string current_phase_;
+    std::optional<int32_t> current_sample_id_;  // 样本 ID
     std::mutex context_mutex_;
     
     // 配置

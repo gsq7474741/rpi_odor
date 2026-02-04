@@ -3,6 +3,8 @@
 from .analytics_service import AnalyticsServiceImpl, add_to_server as add_analytics_service
 from .label_service import LabelServiceImpl, add_to_server as add_label_service
 from .model_service import ModelServiceImpl, add_to_server as add_model_service
+from .data_service import DataServiceServicer, add_to_server as add_data_service
+from .sample_service import SampleServiceImpl, add_to_server as add_sample_service
 from .notification_client import NotificationClient
 
 __all__ = [
@@ -10,7 +12,11 @@ __all__ = [
     "AnalyticsServiceImpl",
     "LabelServiceImpl",
     "ModelServiceImpl",
+    "DataServiceServicer",
+    "SampleServiceImpl",
     "add_analytics_service",
     "add_label_service",
     "add_model_service",
+    "add_data_service",
+    "add_sample_service",
 ]

@@ -294,6 +294,105 @@ export interface VisPoint {
     ts?: Timestamp;
 }
 // ============================================================================
+// 归一化帧消息
+// ============================================================================
+
+/**
+ * @generated from protobuf message enose.analytics.v1.NormalizedFramesStatusRequest
+ */
+export interface NormalizedFramesStatusRequest {
+    /**
+     * @generated from protobuf field: int32 run_id = 1
+     */
+    runId: number; // 实验 run_id
+    /**
+     * @generated from protobuf field: string phase_name = 2
+     */
+    phaseName: string; // 阶段名称（可选，为空时检查所有阶段）
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.NormalizedFramesStatusResponse
+ */
+export interface NormalizedFramesStatusResponse {
+    /**
+     * @generated from protobuf field: bool exists = 1
+     */
+    exists: boolean; // 是否存在归一化帧
+    /**
+     * @generated from protobuf field: repeated enose.analytics.v1.NormalizedFramesMeta meta = 2
+     */
+    meta: NormalizedFramesMeta[]; // 每种方法的元数据
+    /**
+     * @generated from protobuf field: int32 total_frames = 3
+     */
+    totalFrames: number; // 总帧数
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.NormalizedFramesMeta
+ */
+export interface NormalizedFramesMeta {
+    /**
+     * @generated from protobuf field: string method = 1
+     */
+    method: string; // linear 或 pchip
+    /**
+     * @generated from protobuf field: int32 n_samples = 2
+     */
+    nSamples: number; // 采样点数
+    /**
+     * @generated from protobuf field: repeated int32 original_point_counts = 3
+     */
+    originalPointCounts: number[]; // 每个传感器的原始点数
+    /**
+     * @generated from protobuf field: int64 time_range_ms = 4
+     */
+    timeRangeMs: string; // 原始时间跨度
+    /**
+     * @generated from protobuf field: string phase_name = 5
+     */
+    phaseName: string; // 阶段名称
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GenerateNormalizedFramesRequest
+ */
+export interface GenerateNormalizedFramesRequest {
+    /**
+     * @generated from protobuf field: int32 run_id = 1
+     */
+    runId: number; // 实验 run_id
+    /**
+     * @generated from protobuf field: repeated string phase_names = 2
+     */
+    phaseNames: string[]; // 阶段名称列表（可选，为空时处理所有阶段）
+    /**
+     * @generated from protobuf field: int32 n_samples = 3
+     */
+    nSamples: number; // 采样点数 (默认 100)
+    /**
+     * @generated from protobuf field: repeated string methods = 4
+     */
+    methods: string[]; // 插值方法列表 (默认 ["linear", "pchip"])
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GenerateNormalizedFramesResponse
+ */
+export interface GenerateNormalizedFramesResponse {
+    /**
+     * @generated from protobuf field: bool success = 1
+     */
+    success: boolean;
+    /**
+     * @generated from protobuf field: string message = 2
+     */
+    message: string;
+    /**
+     * @generated from protobuf field: map<string, int32> frames_generated = 3
+     */
+    framesGenerated: {
+        [key: string]: number;
+    }; // 每个阶段+方法生成的帧数
+}
+// ============================================================================
 // 模型训练消息
 // ============================================================================
 
@@ -759,6 +858,765 @@ export interface BatchLabelResponse {
      */
     addedCount: number;
 }
+// ============================================================================
+// 实验列表
+// ============================================================================
+
+/**
+ * @generated from protobuf message enose.analytics.v1.ListExperimentsRequest
+ */
+export interface ListExperimentsRequest {
+    /**
+     * @generated from protobuf field: int32 limit = 1
+     */
+    limit: number;
+    /**
+     * @generated from protobuf field: int32 offset = 2
+     */
+    offset: number;
+    /**
+     * @generated from protobuf field: optional google.protobuf.Timestamp start_time = 3
+     */
+    startTime?: Timestamp;
+    /**
+     * @generated from protobuf field: optional google.protobuf.Timestamp end_time = 4
+     */
+    endTime?: Timestamp;
+    /**
+     * @generated from protobuf field: optional string label_id = 5
+     */
+    labelId?: string; // 过滤包含特定标签的实验
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.ListExperimentsResponse
+ */
+export interface ListExperimentsResponse {
+    /**
+     * @generated from protobuf field: repeated enose.analytics.v1.ExperimentSummary experiments = 1
+     */
+    experiments: ExperimentSummary[];
+    /**
+     * @generated from protobuf field: int32 total = 2
+     */
+    total: number;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.ExperimentSummary
+ */
+export interface ExperimentSummary {
+    /**
+     * @generated from protobuf field: string experiment_id = 1
+     */
+    experimentId: string;
+    /**
+     * @generated from protobuf field: google.protobuf.Timestamp start_time = 2
+     */
+    startTime?: Timestamp;
+    /**
+     * @generated from protobuf field: google.protobuf.Timestamp end_time = 3
+     */
+    endTime?: Timestamp;
+    /**
+     * @generated from protobuf field: int32 frame_count = 4
+     */
+    frameCount: number;
+    /**
+     * @generated from protobuf field: repeated string phases = 5
+     */
+    phases: string[];
+    /**
+     * @generated from protobuf field: repeated string labels = 6
+     */
+    labels: string[]; // 关联的标签名称
+    /**
+     * @generated from protobuf field: string status = 7
+     */
+    status: string; // running, completed, error
+}
+// ============================================================================
+// 传感器数据查询
+// ============================================================================
+
+/**
+ * @generated from protobuf message enose.analytics.v1.QuerySensorDataRequest
+ */
+export interface QuerySensorDataRequest {
+    /**
+     * 过滤条件
+     *
+     * @generated from protobuf field: optional string experiment_id = 1
+     */
+    experimentId?: string;
+    /**
+     * @generated from protobuf field: optional string label_id = 2
+     */
+    labelId?: string;
+    /**
+     * @generated from protobuf field: optional string phase = 3
+     */
+    phase?: string;
+    /**
+     * @generated from protobuf field: optional google.protobuf.Timestamp start_time = 4
+     */
+    startTime?: Timestamp;
+    /**
+     * @generated from protobuf field: optional google.protobuf.Timestamp end_time = 5
+     */
+    endTime?: Timestamp;
+    /**
+     * 分页
+     *
+     * @generated from protobuf field: int32 limit = 6
+     */
+    limit: number;
+    /**
+     * @generated from protobuf field: int32 offset = 7
+     */
+    offset: number;
+    /**
+     * 降采样 (用于大数据量)
+     *
+     * @generated from protobuf field: int32 downsample_factor = 8
+     */
+    downsampleFactor: number; // 每 N 条取 1 条
+    /**
+     * 选择返回的字段
+     *
+     * @generated from protobuf field: repeated string fields = 9
+     */
+    fields: string[]; // 空表示全部
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.QuerySensorDataResponse
+ */
+export interface QuerySensorDataResponse {
+    /**
+     * @generated from protobuf field: repeated enose.analytics.v1.SensorDataRow rows = 1
+     */
+    rows: SensorDataRow[];
+    /**
+     * @generated from protobuf field: int32 total = 2
+     */
+    total: number;
+    /**
+     * @generated from protobuf field: int32 returned = 3
+     */
+    returned: number;
+    /**
+     * 列信息
+     *
+     * @generated from protobuf field: repeated enose.analytics.v1.ColumnInfo columns = 4
+     */
+    columns: ColumnInfo[];
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.SensorDataRow
+ */
+export interface SensorDataRow {
+    /**
+     * @generated from protobuf field: google.protobuf.Timestamp ts = 1
+     */
+    ts?: Timestamp;
+    /**
+     * @generated from protobuf field: int64 seq = 2
+     */
+    seq: string;
+    /**
+     * @generated from protobuf field: string experiment_id = 3
+     */
+    experimentId: string;
+    /**
+     * @generated from protobuf field: string phase = 4
+     */
+    phase: string;
+    /**
+     * @generated from protobuf field: repeated double mox_readings = 5
+     */
+    moxReadings: number[]; // 8 个传感器值
+    /**
+     * @generated from protobuf field: double temperature = 6
+     */
+    temperature: number;
+    /**
+     * @generated from protobuf field: double humidity = 7
+     */
+    humidity: number;
+    /**
+     * @generated from protobuf field: double pressure = 8
+     */
+    pressure: number;
+    /**
+     * @generated from protobuf field: optional string label = 9
+     */
+    label?: string; // 如果有标签
+    /**
+     * @generated from protobuf field: int32 heater_step = 10
+     */
+    heaterStep: number;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.ColumnInfo
+ */
+export interface ColumnInfo {
+    /**
+     * @generated from protobuf field: string name = 1
+     */
+    name: string;
+    /**
+     * @generated from protobuf field: string type = 2
+     */
+    type: string; // number, string, timestamp
+    /**
+     * @generated from protobuf field: string unit = 3
+     */
+    unit: string;
+}
+// ============================================================================
+// 聚合统计
+// ============================================================================
+
+/**
+ * @generated from protobuf message enose.analytics.v1.AggregatedStatsRequest
+ */
+export interface AggregatedStatsRequest {
+    /**
+     * 分组维度
+     *
+     * @generated from protobuf field: enose.analytics.v1.AggregationDimension dimension = 1
+     */
+    dimension: AggregationDimension;
+    /**
+     * 过滤条件
+     *
+     * @generated from protobuf field: optional string experiment_id = 2
+     */
+    experimentId?: string;
+    /**
+     * @generated from protobuf field: optional string label_id = 3
+     */
+    labelId?: string;
+    /**
+     * @generated from protobuf field: optional google.protobuf.Timestamp start_time = 4
+     */
+    startTime?: Timestamp;
+    /**
+     * @generated from protobuf field: optional google.protobuf.Timestamp end_time = 5
+     */
+    endTime?: Timestamp;
+    /**
+     * 时间桶大小 (用于时间维度)
+     *
+     * @generated from protobuf field: string time_bucket = 6
+     */
+    timeBucket: string; // 1m, 5m, 1h, 1d
+    /**
+     * 选择的传感器 (空表示全部)
+     *
+     * @generated from protobuf field: repeated int32 sensor_indices = 7
+     */
+    sensorIndices: number[];
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.AggregatedStatsResponse
+ */
+export interface AggregatedStatsResponse {
+    /**
+     * @generated from protobuf field: repeated enose.analytics.v1.AggregatedGroup groups = 1
+     */
+    groups: AggregatedGroup[];
+    /**
+     * @generated from protobuf field: enose.analytics.v1.AggregationDimension dimension = 2
+     */
+    dimension: AggregationDimension;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.AggregatedGroup
+ */
+export interface AggregatedGroup {
+    /**
+     * @generated from protobuf field: string key = 1
+     */
+    key: string; // 分组键
+    /**
+     * @generated from protobuf field: string label = 2
+     */
+    label: string; // 显示标签
+    /**
+     * @generated from protobuf field: int32 sample_count = 3
+     */
+    sampleCount: number;
+    /**
+     * 传感器统计 (每个传感器)
+     *
+     * @generated from protobuf field: repeated enose.analytics.v1.SensorStats sensor_stats = 4
+     */
+    sensorStats: SensorStats[];
+    /**
+     * 环境统计
+     *
+     * @generated from protobuf field: double avg_temperature = 5
+     */
+    avgTemperature: number;
+    /**
+     * @generated from protobuf field: double avg_humidity = 6
+     */
+    avgHumidity: number;
+    /**
+     * 时间范围
+     *
+     * @generated from protobuf field: google.protobuf.Timestamp start_time = 7
+     */
+    startTime?: Timestamp;
+    /**
+     * @generated from protobuf field: google.protobuf.Timestamp end_time = 8
+     */
+    endTime?: Timestamp;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.SensorStats
+ */
+export interface SensorStats {
+    /**
+     * @generated from protobuf field: int32 sensor_idx = 1
+     */
+    sensorIdx: number;
+    /**
+     * @generated from protobuf field: double min = 2
+     */
+    min: number;
+    /**
+     * @generated from protobuf field: double max = 3
+     */
+    max: number;
+    /**
+     * @generated from protobuf field: double mean = 4
+     */
+    mean: number;
+    /**
+     * @generated from protobuf field: double std = 5
+     */
+    std: number;
+    /**
+     * @generated from protobuf field: double median = 6
+     */
+    median: number;
+}
+// ============================================================================
+// 实验详情
+// ============================================================================
+
+/**
+ * @generated from protobuf message enose.analytics.v1.GetExperimentDetailRequest
+ */
+export interface GetExperimentDetailRequest {
+    /**
+     * @generated from protobuf field: string experiment_id = 1
+     */
+    experimentId: string;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.ExperimentDetail
+ */
+export interface ExperimentDetail {
+    /**
+     * @generated from protobuf field: string experiment_id = 1
+     */
+    experimentId: string;
+    /**
+     * @generated from protobuf field: google.protobuf.Timestamp start_time = 2
+     */
+    startTime?: Timestamp;
+    /**
+     * @generated from protobuf field: google.protobuf.Timestamp end_time = 3
+     */
+    endTime?: Timestamp;
+    /**
+     * @generated from protobuf field: int32 frame_count = 4
+     */
+    frameCount: number;
+    /**
+     * @generated from protobuf field: string status = 5
+     */
+    status: string;
+    /**
+     * 阶段信息
+     *
+     * @generated from protobuf field: repeated enose.analytics.v1.PhaseInfo phases = 6
+     */
+    phases: PhaseInfo[];
+    /**
+     * 关联标签
+     *
+     * @generated from protobuf field: repeated enose.analytics.v1.SampleLabel labels = 7
+     */
+    labels: SampleLabel[];
+    /**
+     * 统计摘要
+     *
+     * @generated from protobuf field: repeated enose.analytics.v1.SensorStats sensor_summary = 8
+     */
+    sensorSummary: SensorStats[];
+    /**
+     * @generated from protobuf field: double avg_temperature = 9
+     */
+    avgTemperature: number;
+    /**
+     * @generated from protobuf field: double avg_humidity = 10
+     */
+    avgHumidity: number;
+    /**
+     * 质检结果摘要
+     *
+     * @generated from protobuf field: int32 total_alerts = 11
+     */
+    totalAlerts: number;
+    /**
+     * @generated from protobuf field: int32 critical_alerts = 12
+     */
+    criticalAlerts: number;
+    /**
+     * @generated from protobuf field: int32 warning_alerts = 13
+     */
+    warningAlerts: number;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.PhaseInfo
+ */
+export interface PhaseInfo {
+    /**
+     * @generated from protobuf field: string name = 1
+     */
+    name: string;
+    /**
+     * @generated from protobuf field: google.protobuf.Timestamp start_time = 2
+     */
+    startTime?: Timestamp;
+    /**
+     * @generated from protobuf field: google.protobuf.Timestamp end_time = 3
+     */
+    endTime?: Timestamp;
+    /**
+     * @generated from protobuf field: int32 frame_count = 4
+     */
+    frameCount: number;
+}
+// ============================================================================
+// 样本消息
+// ============================================================================
+
+/**
+ * @generated from protobuf message enose.analytics.v1.Sample
+ */
+export interface Sample {
+    /**
+     * @generated from protobuf field: int32 id = 1
+     */
+    id: number;
+    /**
+     * @generated from protobuf field: int32 run_id = 2
+     */
+    runId: number;
+    /**
+     * @generated from protobuf field: int32 sample_idx = 3
+     */
+    sampleIdx: number;
+    /**
+     * 时间范围
+     *
+     * @generated from protobuf field: int64 start_time_ms = 4
+     */
+    startTimeMs: string;
+    /**
+     * @generated from protobuf field: int64 end_time_ms = 5
+     */
+    endTimeMs: string;
+    /**
+     * 参数哈希
+     *
+     * @generated from protobuf field: string params_hash = 6
+     */
+    paramsHash: string;
+    /**
+     * 液体参数
+     *
+     * @generated from protobuf field: repeated enose.analytics.v1.LiquidComponent liquids = 7
+     */
+    liquids: LiquidComponent[];
+    /**
+     * @generated from protobuf field: double total_volume_ml = 8
+     */
+    totalVolumeMl: number;
+    /**
+     * @generated from protobuf field: double flow_rate_ml_s = 9
+     */
+    flowRateMlS: number;
+    /**
+     * 采集参数
+     *
+     * @generated from protobuf field: int32 gas_pump_pwm = 10
+     */
+    gasPumpPwm: number;
+    /**
+     * @generated from protobuf field: string termination_type = 11
+     */
+    terminationType: string;
+    /**
+     * @generated from protobuf field: double termination_value = 12
+     */
+    terminationValue: number;
+    /**
+     * @generated from protobuf field: double max_duration_s = 13
+     */
+    maxDurationS: number;
+    /**
+     * 加热器配置
+     *
+     * @generated from protobuf field: repeated enose.analytics.v1.HeaterConfigInfo heater_configs = 14
+     */
+    heaterConfigs: HeaterConfigInfo[];
+    /**
+     * 清洗参数
+     *
+     * @generated from protobuf field: int32 pre_wash_count = 15
+     */
+    preWashCount: number;
+    /**
+     * @generated from protobuf field: double pre_wash_volume_ml = 16
+     */
+    preWashVolumeMl: number;
+    /**
+     * @generated from protobuf field: string wash_liquid_id = 17
+     */
+    washLiquidId: string;
+    /**
+     * 阶段
+     *
+     * @generated from protobuf field: string phase_name = 18
+     */
+    phaseName: string;
+    /**
+     * 环境参数
+     *
+     * @generated from protobuf field: double avg_temperature_c = 19
+     */
+    avgTemperatureC: number;
+    /**
+     * @generated from protobuf field: double avg_humidity_pct = 20
+     */
+    avgHumidityPct: number;
+    /**
+     * @generated from protobuf field: double avg_pressure_hpa = 21
+     */
+    avgPressureHpa: number;
+    /**
+     * 元数据
+     *
+     * @generated from protobuf field: google.protobuf.Timestamp created_at = 22
+     */
+    createdAt?: Timestamp;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.LiquidComponent
+ */
+export interface LiquidComponent {
+    /**
+     * @generated from protobuf field: string id = 1
+     */
+    id: string;
+    /**
+     * @generated from protobuf field: string name = 2
+     */
+    name: string;
+    /**
+     * @generated from protobuf field: double ratio = 3
+     */
+    ratio: number;
+    /**
+     * @generated from protobuf field: int32 pump_index = 4
+     */
+    pumpIndex: number;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.HeaterConfigInfo
+ */
+export interface HeaterConfigInfo {
+    /**
+     * @generated from protobuf field: repeated int32 sensor_indices = 1
+     */
+    sensorIndices: number[];
+    /**
+     * @generated from protobuf field: string profile_name = 2
+     */
+    profileName: string;
+    /**
+     * @generated from protobuf field: repeated int32 temps = 3
+     */
+    temps: number[];
+    /**
+     * @generated from protobuf field: repeated int32 durs = 4
+     */
+    durs: number[];
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.ListSamplesRequest
+ */
+export interface ListSamplesRequest {
+    /**
+     * @generated from protobuf field: optional int32 run_id = 1
+     */
+    runId?: number; // 按 run 过滤
+    /**
+     * @generated from protobuf field: optional string phase_name = 2
+     */
+    phaseName?: string; // 按阶段过滤
+    /**
+     * @generated from protobuf field: optional string params_hash = 3
+     */
+    paramsHash?: string; // 按参数哈希过滤
+    /**
+     * @generated from protobuf field: repeated string liquid_ids = 4
+     */
+    liquidIds: string[]; // 按液体过滤
+    /**
+     * @generated from protobuf field: int32 limit = 5
+     */
+    limit: number;
+    /**
+     * @generated from protobuf field: int32 offset = 6
+     */
+    offset: number;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.ListSamplesResponse
+ */
+export interface ListSamplesResponse {
+    /**
+     * @generated from protobuf field: repeated enose.analytics.v1.Sample samples = 1
+     */
+    samples: Sample[];
+    /**
+     * @generated from protobuf field: int32 total = 2
+     */
+    total: number;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GetSampleRequest
+ */
+export interface GetSampleRequest {
+    /**
+     * @generated from protobuf field: int32 sample_id = 1
+     */
+    sampleId: number;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GetSampleGroupsRequest
+ */
+export interface GetSampleGroupsRequest {
+    /**
+     * @generated from protobuf field: optional string phase_name = 1
+     */
+    phaseName?: string; // 按阶段过滤
+    /**
+     * @generated from protobuf field: repeated string liquid_ids = 2
+     */
+    liquidIds: string[]; // 按液体过滤
+    /**
+     * @generated from protobuf field: int32 limit = 3
+     */
+    limit: number;
+    /**
+     * @generated from protobuf field: int32 offset = 4
+     */
+    offset: number;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GetSampleGroupsResponse
+ */
+export interface GetSampleGroupsResponse {
+    /**
+     * @generated from protobuf field: repeated enose.analytics.v1.SampleGroup groups = 1
+     */
+    groups: SampleGroup[];
+    /**
+     * @generated from protobuf field: int32 total = 2
+     */
+    total: number;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.SampleGroup
+ */
+export interface SampleGroup {
+    /**
+     * @generated from protobuf field: string params_hash = 1
+     */
+    paramsHash: string;
+    /**
+     * 共同参数
+     *
+     * @generated from protobuf field: repeated enose.analytics.v1.LiquidComponent liquids = 2
+     */
+    liquids: LiquidComponent[];
+    /**
+     * @generated from protobuf field: int32 gas_pump_pwm = 3
+     */
+    gasPumpPwm: number;
+    /**
+     * @generated from protobuf field: string phase_name = 4
+     */
+    phaseName: string;
+    /**
+     * 聚合统计
+     *
+     * @generated from protobuf field: int32 sample_count = 5
+     */
+    sampleCount: number;
+    /**
+     * @generated from protobuf field: repeated int32 run_ids = 6
+     */
+    runIds: number[];
+    /**
+     * @generated from protobuf field: google.protobuf.Timestamp first_created = 7
+     */
+    firstCreated?: Timestamp;
+    /**
+     * @generated from protobuf field: google.protobuf.Timestamp last_created = 8
+     */
+    lastCreated?: Timestamp;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GetSampleSensorDataRequest
+ */
+export interface GetSampleSensorDataRequest {
+    /**
+     * @generated from protobuf field: int32 sample_id = 1
+     */
+    sampleId: number;
+    /**
+     * @generated from protobuf field: repeated int32 sensor_indices = 2
+     */
+    sensorIndices: number[]; // 空表示全部
+    /**
+     * @generated from protobuf field: int32 downsample_factor = 3
+     */
+    downsampleFactor: number; // 降采样因子
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GetSampleSensorDataResponse
+ */
+export interface GetSampleSensorDataResponse {
+    /**
+     * @generated from protobuf field: int32 sample_id = 1
+     */
+    sampleId: number;
+    /**
+     * @generated from protobuf field: repeated enose.analytics.v1.SensorDataRow rows = 2
+     */
+    rows: SensorDataRow[];
+    /**
+     * @generated from protobuf field: int32 total_points = 3
+     */
+    totalPoints: number;
+}
 /**
  * @generated from protobuf enum enose.analytics.v1.QualityFlag
  */
@@ -892,6 +1750,51 @@ export enum TrainStatus {
      * @generated from protobuf enum value: TRAIN_FAILED = 4;
      */
     TRAIN_FAILED = 4
+}
+/**
+ * @generated from protobuf enum enose.analytics.v1.AggregationDimension
+ */
+export enum AggregationDimension {
+    /**
+     * @generated from protobuf enum value: AGG_UNKNOWN = 0;
+     */
+    AGG_UNKNOWN = 0,
+    /**
+     * 按实验分组
+     *
+     * @generated from protobuf enum value: AGG_BY_EXPERIMENT = 1;
+     */
+    AGG_BY_EXPERIMENT = 1,
+    /**
+     * 按标签分组
+     *
+     * @generated from protobuf enum value: AGG_BY_LABEL = 2;
+     */
+    AGG_BY_LABEL = 2,
+    /**
+     * 按阶段分组
+     *
+     * @generated from protobuf enum value: AGG_BY_PHASE = 3;
+     */
+    AGG_BY_PHASE = 3,
+    /**
+     * 按时间分组
+     *
+     * @generated from protobuf enum value: AGG_BY_TIME = 4;
+     */
+    AGG_BY_TIME = 4,
+    /**
+     * 按加热器步骤分组
+     *
+     * @generated from protobuf enum value: AGG_BY_HEATER_STEP = 5;
+     */
+    AGG_BY_HEATER_STEP = 5,
+    /**
+     * 按传感器分组
+     *
+     * @generated from protobuf enum value: AGG_BY_SENSOR = 6;
+     */
+    AGG_BY_SENSOR = 6
 }
 // @generated message type with reflection information, may provide speed optimized methods
 class AnalysisResponse$Type extends MessageType<AnalysisResponse> {
@@ -1583,6 +2486,361 @@ class VisPoint$Type extends MessageType<VisPoint> {
  * @generated MessageType for protobuf message enose.analytics.v1.VisPoint
  */
 export const VisPoint = new VisPoint$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class NormalizedFramesStatusRequest$Type extends MessageType<NormalizedFramesStatusRequest> {
+    constructor() {
+        super("enose.analytics.v1.NormalizedFramesStatusRequest", [
+            { no: 1, name: "run_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "phase_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<NormalizedFramesStatusRequest>): NormalizedFramesStatusRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.runId = 0;
+        message.phaseName = "";
+        if (value !== undefined)
+            reflectionMergePartial<NormalizedFramesStatusRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: NormalizedFramesStatusRequest): NormalizedFramesStatusRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 run_id */ 1:
+                    message.runId = reader.int32();
+                    break;
+                case /* string phase_name */ 2:
+                    message.phaseName = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: NormalizedFramesStatusRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 run_id = 1; */
+        if (message.runId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.runId);
+        /* string phase_name = 2; */
+        if (message.phaseName !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.phaseName);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.NormalizedFramesStatusRequest
+ */
+export const NormalizedFramesStatusRequest = new NormalizedFramesStatusRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class NormalizedFramesStatusResponse$Type extends MessageType<NormalizedFramesStatusResponse> {
+    constructor() {
+        super("enose.analytics.v1.NormalizedFramesStatusResponse", [
+            { no: 1, name: "exists", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 2, name: "meta", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => NormalizedFramesMeta },
+            { no: 3, name: "total_frames", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<NormalizedFramesStatusResponse>): NormalizedFramesStatusResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.exists = false;
+        message.meta = [];
+        message.totalFrames = 0;
+        if (value !== undefined)
+            reflectionMergePartial<NormalizedFramesStatusResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: NormalizedFramesStatusResponse): NormalizedFramesStatusResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* bool exists */ 1:
+                    message.exists = reader.bool();
+                    break;
+                case /* repeated enose.analytics.v1.NormalizedFramesMeta meta */ 2:
+                    message.meta.push(NormalizedFramesMeta.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* int32 total_frames */ 3:
+                    message.totalFrames = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: NormalizedFramesStatusResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* bool exists = 1; */
+        if (message.exists !== false)
+            writer.tag(1, WireType.Varint).bool(message.exists);
+        /* repeated enose.analytics.v1.NormalizedFramesMeta meta = 2; */
+        for (let i = 0; i < message.meta.length; i++)
+            NormalizedFramesMeta.internalBinaryWrite(message.meta[i], writer.tag(2, WireType.LengthDelimited).fork(), options).join();
+        /* int32 total_frames = 3; */
+        if (message.totalFrames !== 0)
+            writer.tag(3, WireType.Varint).int32(message.totalFrames);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.NormalizedFramesStatusResponse
+ */
+export const NormalizedFramesStatusResponse = new NormalizedFramesStatusResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class NormalizedFramesMeta$Type extends MessageType<NormalizedFramesMeta> {
+    constructor() {
+        super("enose.analytics.v1.NormalizedFramesMeta", [
+            { no: 1, name: "method", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "n_samples", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "original_point_counts", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "time_range_ms", kind: "scalar", T: 3 /*ScalarType.INT64*/ },
+            { no: 5, name: "phase_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<NormalizedFramesMeta>): NormalizedFramesMeta {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.method = "";
+        message.nSamples = 0;
+        message.originalPointCounts = [];
+        message.timeRangeMs = "0";
+        message.phaseName = "";
+        if (value !== undefined)
+            reflectionMergePartial<NormalizedFramesMeta>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: NormalizedFramesMeta): NormalizedFramesMeta {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string method */ 1:
+                    message.method = reader.string();
+                    break;
+                case /* int32 n_samples */ 2:
+                    message.nSamples = reader.int32();
+                    break;
+                case /* repeated int32 original_point_counts */ 3:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.originalPointCounts.push(reader.int32());
+                    else
+                        message.originalPointCounts.push(reader.int32());
+                    break;
+                case /* int64 time_range_ms */ 4:
+                    message.timeRangeMs = reader.int64().toString();
+                    break;
+                case /* string phase_name */ 5:
+                    message.phaseName = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: NormalizedFramesMeta, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string method = 1; */
+        if (message.method !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.method);
+        /* int32 n_samples = 2; */
+        if (message.nSamples !== 0)
+            writer.tag(2, WireType.Varint).int32(message.nSamples);
+        /* repeated int32 original_point_counts = 3; */
+        if (message.originalPointCounts.length) {
+            writer.tag(3, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.originalPointCounts.length; i++)
+                writer.int32(message.originalPointCounts[i]);
+            writer.join();
+        }
+        /* int64 time_range_ms = 4; */
+        if (message.timeRangeMs !== "0")
+            writer.tag(4, WireType.Varint).int64(message.timeRangeMs);
+        /* string phase_name = 5; */
+        if (message.phaseName !== "")
+            writer.tag(5, WireType.LengthDelimited).string(message.phaseName);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.NormalizedFramesMeta
+ */
+export const NormalizedFramesMeta = new NormalizedFramesMeta$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GenerateNormalizedFramesRequest$Type extends MessageType<GenerateNormalizedFramesRequest> {
+    constructor() {
+        super("enose.analytics.v1.GenerateNormalizedFramesRequest", [
+            { no: 1, name: "run_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "phase_names", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "n_samples", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "methods", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GenerateNormalizedFramesRequest>): GenerateNormalizedFramesRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.runId = 0;
+        message.phaseNames = [];
+        message.nSamples = 0;
+        message.methods = [];
+        if (value !== undefined)
+            reflectionMergePartial<GenerateNormalizedFramesRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GenerateNormalizedFramesRequest): GenerateNormalizedFramesRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 run_id */ 1:
+                    message.runId = reader.int32();
+                    break;
+                case /* repeated string phase_names */ 2:
+                    message.phaseNames.push(reader.string());
+                    break;
+                case /* int32 n_samples */ 3:
+                    message.nSamples = reader.int32();
+                    break;
+                case /* repeated string methods */ 4:
+                    message.methods.push(reader.string());
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GenerateNormalizedFramesRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 run_id = 1; */
+        if (message.runId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.runId);
+        /* repeated string phase_names = 2; */
+        for (let i = 0; i < message.phaseNames.length; i++)
+            writer.tag(2, WireType.LengthDelimited).string(message.phaseNames[i]);
+        /* int32 n_samples = 3; */
+        if (message.nSamples !== 0)
+            writer.tag(3, WireType.Varint).int32(message.nSamples);
+        /* repeated string methods = 4; */
+        for (let i = 0; i < message.methods.length; i++)
+            writer.tag(4, WireType.LengthDelimited).string(message.methods[i]);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GenerateNormalizedFramesRequest
+ */
+export const GenerateNormalizedFramesRequest = new GenerateNormalizedFramesRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GenerateNormalizedFramesResponse$Type extends MessageType<GenerateNormalizedFramesResponse> {
+    constructor() {
+        super("enose.analytics.v1.GenerateNormalizedFramesResponse", [
+            { no: 1, name: "success", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 2, name: "message", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "frames_generated", kind: "map", K: 9 /*ScalarType.STRING*/, V: { kind: "scalar", T: 5 /*ScalarType.INT32*/ } }
+        ]);
+    }
+    create(value?: PartialMessage<GenerateNormalizedFramesResponse>): GenerateNormalizedFramesResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.success = false;
+        message.message = "";
+        message.framesGenerated = {};
+        if (value !== undefined)
+            reflectionMergePartial<GenerateNormalizedFramesResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GenerateNormalizedFramesResponse): GenerateNormalizedFramesResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* bool success */ 1:
+                    message.success = reader.bool();
+                    break;
+                case /* string message */ 2:
+                    message.message = reader.string();
+                    break;
+                case /* map<string, int32> frames_generated */ 3:
+                    this.binaryReadMap3(message.framesGenerated, reader, options);
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    private binaryReadMap3(map: GenerateNormalizedFramesResponse["framesGenerated"], reader: IBinaryReader, options: BinaryReadOptions): void {
+        let len = reader.uint32(), end = reader.pos + len, key: keyof GenerateNormalizedFramesResponse["framesGenerated"] | undefined, val: GenerateNormalizedFramesResponse["framesGenerated"][any] | undefined;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case 1:
+                    key = reader.string();
+                    break;
+                case 2:
+                    val = reader.int32();
+                    break;
+                default: throw new globalThis.Error("unknown map entry field for enose.analytics.v1.GenerateNormalizedFramesResponse.frames_generated");
+            }
+        }
+        map[key ?? ""] = val ?? 0;
+    }
+    internalBinaryWrite(message: GenerateNormalizedFramesResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* bool success = 1; */
+        if (message.success !== false)
+            writer.tag(1, WireType.Varint).bool(message.success);
+        /* string message = 2; */
+        if (message.message !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.message);
+        /* map<string, int32> frames_generated = 3; */
+        for (let k of globalThis.Object.keys(message.framesGenerated))
+            writer.tag(3, WireType.LengthDelimited).fork().tag(1, WireType.LengthDelimited).string(k).tag(2, WireType.Varint).int32(message.framesGenerated[k]).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GenerateNormalizedFramesResponse
+ */
+export const GenerateNormalizedFramesResponse = new GenerateNormalizedFramesResponse$Type();
 // @generated message type with reflection information, may provide speed optimized methods
 class TrainModelRequest$Type extends MessageType<TrainModelRequest> {
     constructor() {
@@ -3083,6 +4341,2128 @@ class BatchLabelResponse$Type extends MessageType<BatchLabelResponse> {
  * @generated MessageType for protobuf message enose.analytics.v1.BatchLabelResponse
  */
 export const BatchLabelResponse = new BatchLabelResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class ListExperimentsRequest$Type extends MessageType<ListExperimentsRequest> {
+    constructor() {
+        super("enose.analytics.v1.ListExperimentsRequest", [
+            { no: 1, name: "limit", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "offset", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "start_time", kind: "message", T: () => Timestamp },
+            { no: 4, name: "end_time", kind: "message", T: () => Timestamp },
+            { no: 5, name: "label_id", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<ListExperimentsRequest>): ListExperimentsRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.limit = 0;
+        message.offset = 0;
+        if (value !== undefined)
+            reflectionMergePartial<ListExperimentsRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ListExperimentsRequest): ListExperimentsRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 limit */ 1:
+                    message.limit = reader.int32();
+                    break;
+                case /* int32 offset */ 2:
+                    message.offset = reader.int32();
+                    break;
+                case /* optional google.protobuf.Timestamp start_time */ 3:
+                    message.startTime = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.startTime);
+                    break;
+                case /* optional google.protobuf.Timestamp end_time */ 4:
+                    message.endTime = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.endTime);
+                    break;
+                case /* optional string label_id */ 5:
+                    message.labelId = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: ListExperimentsRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 limit = 1; */
+        if (message.limit !== 0)
+            writer.tag(1, WireType.Varint).int32(message.limit);
+        /* int32 offset = 2; */
+        if (message.offset !== 0)
+            writer.tag(2, WireType.Varint).int32(message.offset);
+        /* optional google.protobuf.Timestamp start_time = 3; */
+        if (message.startTime)
+            Timestamp.internalBinaryWrite(message.startTime, writer.tag(3, WireType.LengthDelimited).fork(), options).join();
+        /* optional google.protobuf.Timestamp end_time = 4; */
+        if (message.endTime)
+            Timestamp.internalBinaryWrite(message.endTime, writer.tag(4, WireType.LengthDelimited).fork(), options).join();
+        /* optional string label_id = 5; */
+        if (message.labelId !== undefined)
+            writer.tag(5, WireType.LengthDelimited).string(message.labelId);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.ListExperimentsRequest
+ */
+export const ListExperimentsRequest = new ListExperimentsRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class ListExperimentsResponse$Type extends MessageType<ListExperimentsResponse> {
+    constructor() {
+        super("enose.analytics.v1.ListExperimentsResponse", [
+            { no: 1, name: "experiments", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => ExperimentSummary },
+            { no: 2, name: "total", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<ListExperimentsResponse>): ListExperimentsResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.experiments = [];
+        message.total = 0;
+        if (value !== undefined)
+            reflectionMergePartial<ListExperimentsResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ListExperimentsResponse): ListExperimentsResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated enose.analytics.v1.ExperimentSummary experiments */ 1:
+                    message.experiments.push(ExperimentSummary.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* int32 total */ 2:
+                    message.total = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: ListExperimentsResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated enose.analytics.v1.ExperimentSummary experiments = 1; */
+        for (let i = 0; i < message.experiments.length; i++)
+            ExperimentSummary.internalBinaryWrite(message.experiments[i], writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        /* int32 total = 2; */
+        if (message.total !== 0)
+            writer.tag(2, WireType.Varint).int32(message.total);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.ListExperimentsResponse
+ */
+export const ListExperimentsResponse = new ListExperimentsResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class ExperimentSummary$Type extends MessageType<ExperimentSummary> {
+    constructor() {
+        super("enose.analytics.v1.ExperimentSummary", [
+            { no: 1, name: "experiment_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "start_time", kind: "message", T: () => Timestamp },
+            { no: 3, name: "end_time", kind: "message", T: () => Timestamp },
+            { no: 4, name: "frame_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 5, name: "phases", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
+            { no: 6, name: "labels", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
+            { no: 7, name: "status", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<ExperimentSummary>): ExperimentSummary {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.experimentId = "";
+        message.frameCount = 0;
+        message.phases = [];
+        message.labels = [];
+        message.status = "";
+        if (value !== undefined)
+            reflectionMergePartial<ExperimentSummary>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ExperimentSummary): ExperimentSummary {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string experiment_id */ 1:
+                    message.experimentId = reader.string();
+                    break;
+                case /* google.protobuf.Timestamp start_time */ 2:
+                    message.startTime = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.startTime);
+                    break;
+                case /* google.protobuf.Timestamp end_time */ 3:
+                    message.endTime = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.endTime);
+                    break;
+                case /* int32 frame_count */ 4:
+                    message.frameCount = reader.int32();
+                    break;
+                case /* repeated string phases */ 5:
+                    message.phases.push(reader.string());
+                    break;
+                case /* repeated string labels */ 6:
+                    message.labels.push(reader.string());
+                    break;
+                case /* string status */ 7:
+                    message.status = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: ExperimentSummary, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string experiment_id = 1; */
+        if (message.experimentId !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.experimentId);
+        /* google.protobuf.Timestamp start_time = 2; */
+        if (message.startTime)
+            Timestamp.internalBinaryWrite(message.startTime, writer.tag(2, WireType.LengthDelimited).fork(), options).join();
+        /* google.protobuf.Timestamp end_time = 3; */
+        if (message.endTime)
+            Timestamp.internalBinaryWrite(message.endTime, writer.tag(3, WireType.LengthDelimited).fork(), options).join();
+        /* int32 frame_count = 4; */
+        if (message.frameCount !== 0)
+            writer.tag(4, WireType.Varint).int32(message.frameCount);
+        /* repeated string phases = 5; */
+        for (let i = 0; i < message.phases.length; i++)
+            writer.tag(5, WireType.LengthDelimited).string(message.phases[i]);
+        /* repeated string labels = 6; */
+        for (let i = 0; i < message.labels.length; i++)
+            writer.tag(6, WireType.LengthDelimited).string(message.labels[i]);
+        /* string status = 7; */
+        if (message.status !== "")
+            writer.tag(7, WireType.LengthDelimited).string(message.status);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.ExperimentSummary
+ */
+export const ExperimentSummary = new ExperimentSummary$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class QuerySensorDataRequest$Type extends MessageType<QuerySensorDataRequest> {
+    constructor() {
+        super("enose.analytics.v1.QuerySensorDataRequest", [
+            { no: 1, name: "experiment_id", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "label_id", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "phase", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "start_time", kind: "message", T: () => Timestamp },
+            { no: 5, name: "end_time", kind: "message", T: () => Timestamp },
+            { no: 6, name: "limit", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 7, name: "offset", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 8, name: "downsample_factor", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 9, name: "fields", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<QuerySensorDataRequest>): QuerySensorDataRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.limit = 0;
+        message.offset = 0;
+        message.downsampleFactor = 0;
+        message.fields = [];
+        if (value !== undefined)
+            reflectionMergePartial<QuerySensorDataRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: QuerySensorDataRequest): QuerySensorDataRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* optional string experiment_id */ 1:
+                    message.experimentId = reader.string();
+                    break;
+                case /* optional string label_id */ 2:
+                    message.labelId = reader.string();
+                    break;
+                case /* optional string phase */ 3:
+                    message.phase = reader.string();
+                    break;
+                case /* optional google.protobuf.Timestamp start_time */ 4:
+                    message.startTime = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.startTime);
+                    break;
+                case /* optional google.protobuf.Timestamp end_time */ 5:
+                    message.endTime = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.endTime);
+                    break;
+                case /* int32 limit */ 6:
+                    message.limit = reader.int32();
+                    break;
+                case /* int32 offset */ 7:
+                    message.offset = reader.int32();
+                    break;
+                case /* int32 downsample_factor */ 8:
+                    message.downsampleFactor = reader.int32();
+                    break;
+                case /* repeated string fields */ 9:
+                    message.fields.push(reader.string());
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: QuerySensorDataRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* optional string experiment_id = 1; */
+        if (message.experimentId !== undefined)
+            writer.tag(1, WireType.LengthDelimited).string(message.experimentId);
+        /* optional string label_id = 2; */
+        if (message.labelId !== undefined)
+            writer.tag(2, WireType.LengthDelimited).string(message.labelId);
+        /* optional string phase = 3; */
+        if (message.phase !== undefined)
+            writer.tag(3, WireType.LengthDelimited).string(message.phase);
+        /* optional google.protobuf.Timestamp start_time = 4; */
+        if (message.startTime)
+            Timestamp.internalBinaryWrite(message.startTime, writer.tag(4, WireType.LengthDelimited).fork(), options).join();
+        /* optional google.protobuf.Timestamp end_time = 5; */
+        if (message.endTime)
+            Timestamp.internalBinaryWrite(message.endTime, writer.tag(5, WireType.LengthDelimited).fork(), options).join();
+        /* int32 limit = 6; */
+        if (message.limit !== 0)
+            writer.tag(6, WireType.Varint).int32(message.limit);
+        /* int32 offset = 7; */
+        if (message.offset !== 0)
+            writer.tag(7, WireType.Varint).int32(message.offset);
+        /* int32 downsample_factor = 8; */
+        if (message.downsampleFactor !== 0)
+            writer.tag(8, WireType.Varint).int32(message.downsampleFactor);
+        /* repeated string fields = 9; */
+        for (let i = 0; i < message.fields.length; i++)
+            writer.tag(9, WireType.LengthDelimited).string(message.fields[i]);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.QuerySensorDataRequest
+ */
+export const QuerySensorDataRequest = new QuerySensorDataRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class QuerySensorDataResponse$Type extends MessageType<QuerySensorDataResponse> {
+    constructor() {
+        super("enose.analytics.v1.QuerySensorDataResponse", [
+            { no: 1, name: "rows", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => SensorDataRow },
+            { no: 2, name: "total", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "returned", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "columns", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => ColumnInfo }
+        ]);
+    }
+    create(value?: PartialMessage<QuerySensorDataResponse>): QuerySensorDataResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.rows = [];
+        message.total = 0;
+        message.returned = 0;
+        message.columns = [];
+        if (value !== undefined)
+            reflectionMergePartial<QuerySensorDataResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: QuerySensorDataResponse): QuerySensorDataResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated enose.analytics.v1.SensorDataRow rows */ 1:
+                    message.rows.push(SensorDataRow.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* int32 total */ 2:
+                    message.total = reader.int32();
+                    break;
+                case /* int32 returned */ 3:
+                    message.returned = reader.int32();
+                    break;
+                case /* repeated enose.analytics.v1.ColumnInfo columns */ 4:
+                    message.columns.push(ColumnInfo.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: QuerySensorDataResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated enose.analytics.v1.SensorDataRow rows = 1; */
+        for (let i = 0; i < message.rows.length; i++)
+            SensorDataRow.internalBinaryWrite(message.rows[i], writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        /* int32 total = 2; */
+        if (message.total !== 0)
+            writer.tag(2, WireType.Varint).int32(message.total);
+        /* int32 returned = 3; */
+        if (message.returned !== 0)
+            writer.tag(3, WireType.Varint).int32(message.returned);
+        /* repeated enose.analytics.v1.ColumnInfo columns = 4; */
+        for (let i = 0; i < message.columns.length; i++)
+            ColumnInfo.internalBinaryWrite(message.columns[i], writer.tag(4, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.QuerySensorDataResponse
+ */
+export const QuerySensorDataResponse = new QuerySensorDataResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class SensorDataRow$Type extends MessageType<SensorDataRow> {
+    constructor() {
+        super("enose.analytics.v1.SensorDataRow", [
+            { no: 1, name: "ts", kind: "message", T: () => Timestamp },
+            { no: 2, name: "seq", kind: "scalar", T: 3 /*ScalarType.INT64*/ },
+            { no: 3, name: "experiment_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "phase", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 5, name: "mox_readings", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 6, name: "temperature", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 7, name: "humidity", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 8, name: "pressure", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 9, name: "label", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ },
+            { no: 10, name: "heater_step", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<SensorDataRow>): SensorDataRow {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.seq = "0";
+        message.experimentId = "";
+        message.phase = "";
+        message.moxReadings = [];
+        message.temperature = 0;
+        message.humidity = 0;
+        message.pressure = 0;
+        message.heaterStep = 0;
+        if (value !== undefined)
+            reflectionMergePartial<SensorDataRow>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: SensorDataRow): SensorDataRow {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* google.protobuf.Timestamp ts */ 1:
+                    message.ts = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.ts);
+                    break;
+                case /* int64 seq */ 2:
+                    message.seq = reader.int64().toString();
+                    break;
+                case /* string experiment_id */ 3:
+                    message.experimentId = reader.string();
+                    break;
+                case /* string phase */ 4:
+                    message.phase = reader.string();
+                    break;
+                case /* repeated double mox_readings */ 5:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.moxReadings.push(reader.double());
+                    else
+                        message.moxReadings.push(reader.double());
+                    break;
+                case /* double temperature */ 6:
+                    message.temperature = reader.double();
+                    break;
+                case /* double humidity */ 7:
+                    message.humidity = reader.double();
+                    break;
+                case /* double pressure */ 8:
+                    message.pressure = reader.double();
+                    break;
+                case /* optional string label */ 9:
+                    message.label = reader.string();
+                    break;
+                case /* int32 heater_step */ 10:
+                    message.heaterStep = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: SensorDataRow, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* google.protobuf.Timestamp ts = 1; */
+        if (message.ts)
+            Timestamp.internalBinaryWrite(message.ts, writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        /* int64 seq = 2; */
+        if (message.seq !== "0")
+            writer.tag(2, WireType.Varint).int64(message.seq);
+        /* string experiment_id = 3; */
+        if (message.experimentId !== "")
+            writer.tag(3, WireType.LengthDelimited).string(message.experimentId);
+        /* string phase = 4; */
+        if (message.phase !== "")
+            writer.tag(4, WireType.LengthDelimited).string(message.phase);
+        /* repeated double mox_readings = 5; */
+        if (message.moxReadings.length) {
+            writer.tag(5, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.moxReadings.length; i++)
+                writer.double(message.moxReadings[i]);
+            writer.join();
+        }
+        /* double temperature = 6; */
+        if (message.temperature !== 0)
+            writer.tag(6, WireType.Bit64).double(message.temperature);
+        /* double humidity = 7; */
+        if (message.humidity !== 0)
+            writer.tag(7, WireType.Bit64).double(message.humidity);
+        /* double pressure = 8; */
+        if (message.pressure !== 0)
+            writer.tag(8, WireType.Bit64).double(message.pressure);
+        /* optional string label = 9; */
+        if (message.label !== undefined)
+            writer.tag(9, WireType.LengthDelimited).string(message.label);
+        /* int32 heater_step = 10; */
+        if (message.heaterStep !== 0)
+            writer.tag(10, WireType.Varint).int32(message.heaterStep);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.SensorDataRow
+ */
+export const SensorDataRow = new SensorDataRow$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class ColumnInfo$Type extends MessageType<ColumnInfo> {
+    constructor() {
+        super("enose.analytics.v1.ColumnInfo", [
+            { no: 1, name: "name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "type", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "unit", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<ColumnInfo>): ColumnInfo {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.name = "";
+        message.type = "";
+        message.unit = "";
+        if (value !== undefined)
+            reflectionMergePartial<ColumnInfo>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ColumnInfo): ColumnInfo {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string name */ 1:
+                    message.name = reader.string();
+                    break;
+                case /* string type */ 2:
+                    message.type = reader.string();
+                    break;
+                case /* string unit */ 3:
+                    message.unit = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: ColumnInfo, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string name = 1; */
+        if (message.name !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.name);
+        /* string type = 2; */
+        if (message.type !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.type);
+        /* string unit = 3; */
+        if (message.unit !== "")
+            writer.tag(3, WireType.LengthDelimited).string(message.unit);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.ColumnInfo
+ */
+export const ColumnInfo = new ColumnInfo$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class AggregatedStatsRequest$Type extends MessageType<AggregatedStatsRequest> {
+    constructor() {
+        super("enose.analytics.v1.AggregatedStatsRequest", [
+            { no: 1, name: "dimension", kind: "enum", T: () => ["enose.analytics.v1.AggregationDimension", AggregationDimension] },
+            { no: 2, name: "experiment_id", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "label_id", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "start_time", kind: "message", T: () => Timestamp },
+            { no: 5, name: "end_time", kind: "message", T: () => Timestamp },
+            { no: 6, name: "time_bucket", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 7, name: "sensor_indices", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<AggregatedStatsRequest>): AggregatedStatsRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.dimension = 0;
+        message.timeBucket = "";
+        message.sensorIndices = [];
+        if (value !== undefined)
+            reflectionMergePartial<AggregatedStatsRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: AggregatedStatsRequest): AggregatedStatsRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* enose.analytics.v1.AggregationDimension dimension */ 1:
+                    message.dimension = reader.int32();
+                    break;
+                case /* optional string experiment_id */ 2:
+                    message.experimentId = reader.string();
+                    break;
+                case /* optional string label_id */ 3:
+                    message.labelId = reader.string();
+                    break;
+                case /* optional google.protobuf.Timestamp start_time */ 4:
+                    message.startTime = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.startTime);
+                    break;
+                case /* optional google.protobuf.Timestamp end_time */ 5:
+                    message.endTime = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.endTime);
+                    break;
+                case /* string time_bucket */ 6:
+                    message.timeBucket = reader.string();
+                    break;
+                case /* repeated int32 sensor_indices */ 7:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.sensorIndices.push(reader.int32());
+                    else
+                        message.sensorIndices.push(reader.int32());
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: AggregatedStatsRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* enose.analytics.v1.AggregationDimension dimension = 1; */
+        if (message.dimension !== 0)
+            writer.tag(1, WireType.Varint).int32(message.dimension);
+        /* optional string experiment_id = 2; */
+        if (message.experimentId !== undefined)
+            writer.tag(2, WireType.LengthDelimited).string(message.experimentId);
+        /* optional string label_id = 3; */
+        if (message.labelId !== undefined)
+            writer.tag(3, WireType.LengthDelimited).string(message.labelId);
+        /* optional google.protobuf.Timestamp start_time = 4; */
+        if (message.startTime)
+            Timestamp.internalBinaryWrite(message.startTime, writer.tag(4, WireType.LengthDelimited).fork(), options).join();
+        /* optional google.protobuf.Timestamp end_time = 5; */
+        if (message.endTime)
+            Timestamp.internalBinaryWrite(message.endTime, writer.tag(5, WireType.LengthDelimited).fork(), options).join();
+        /* string time_bucket = 6; */
+        if (message.timeBucket !== "")
+            writer.tag(6, WireType.LengthDelimited).string(message.timeBucket);
+        /* repeated int32 sensor_indices = 7; */
+        if (message.sensorIndices.length) {
+            writer.tag(7, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.sensorIndices.length; i++)
+                writer.int32(message.sensorIndices[i]);
+            writer.join();
+        }
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.AggregatedStatsRequest
+ */
+export const AggregatedStatsRequest = new AggregatedStatsRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class AggregatedStatsResponse$Type extends MessageType<AggregatedStatsResponse> {
+    constructor() {
+        super("enose.analytics.v1.AggregatedStatsResponse", [
+            { no: 1, name: "groups", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => AggregatedGroup },
+            { no: 2, name: "dimension", kind: "enum", T: () => ["enose.analytics.v1.AggregationDimension", AggregationDimension] }
+        ]);
+    }
+    create(value?: PartialMessage<AggregatedStatsResponse>): AggregatedStatsResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.groups = [];
+        message.dimension = 0;
+        if (value !== undefined)
+            reflectionMergePartial<AggregatedStatsResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: AggregatedStatsResponse): AggregatedStatsResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated enose.analytics.v1.AggregatedGroup groups */ 1:
+                    message.groups.push(AggregatedGroup.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* enose.analytics.v1.AggregationDimension dimension */ 2:
+                    message.dimension = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: AggregatedStatsResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated enose.analytics.v1.AggregatedGroup groups = 1; */
+        for (let i = 0; i < message.groups.length; i++)
+            AggregatedGroup.internalBinaryWrite(message.groups[i], writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        /* enose.analytics.v1.AggregationDimension dimension = 2; */
+        if (message.dimension !== 0)
+            writer.tag(2, WireType.Varint).int32(message.dimension);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.AggregatedStatsResponse
+ */
+export const AggregatedStatsResponse = new AggregatedStatsResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class AggregatedGroup$Type extends MessageType<AggregatedGroup> {
+    constructor() {
+        super("enose.analytics.v1.AggregatedGroup", [
+            { no: 1, name: "key", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "label", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "sample_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "sensor_stats", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => SensorStats },
+            { no: 5, name: "avg_temperature", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 6, name: "avg_humidity", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 7, name: "start_time", kind: "message", T: () => Timestamp },
+            { no: 8, name: "end_time", kind: "message", T: () => Timestamp }
+        ]);
+    }
+    create(value?: PartialMessage<AggregatedGroup>): AggregatedGroup {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.key = "";
+        message.label = "";
+        message.sampleCount = 0;
+        message.sensorStats = [];
+        message.avgTemperature = 0;
+        message.avgHumidity = 0;
+        if (value !== undefined)
+            reflectionMergePartial<AggregatedGroup>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: AggregatedGroup): AggregatedGroup {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string key */ 1:
+                    message.key = reader.string();
+                    break;
+                case /* string label */ 2:
+                    message.label = reader.string();
+                    break;
+                case /* int32 sample_count */ 3:
+                    message.sampleCount = reader.int32();
+                    break;
+                case /* repeated enose.analytics.v1.SensorStats sensor_stats */ 4:
+                    message.sensorStats.push(SensorStats.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* double avg_temperature */ 5:
+                    message.avgTemperature = reader.double();
+                    break;
+                case /* double avg_humidity */ 6:
+                    message.avgHumidity = reader.double();
+                    break;
+                case /* google.protobuf.Timestamp start_time */ 7:
+                    message.startTime = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.startTime);
+                    break;
+                case /* google.protobuf.Timestamp end_time */ 8:
+                    message.endTime = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.endTime);
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: AggregatedGroup, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string key = 1; */
+        if (message.key !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.key);
+        /* string label = 2; */
+        if (message.label !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.label);
+        /* int32 sample_count = 3; */
+        if (message.sampleCount !== 0)
+            writer.tag(3, WireType.Varint).int32(message.sampleCount);
+        /* repeated enose.analytics.v1.SensorStats sensor_stats = 4; */
+        for (let i = 0; i < message.sensorStats.length; i++)
+            SensorStats.internalBinaryWrite(message.sensorStats[i], writer.tag(4, WireType.LengthDelimited).fork(), options).join();
+        /* double avg_temperature = 5; */
+        if (message.avgTemperature !== 0)
+            writer.tag(5, WireType.Bit64).double(message.avgTemperature);
+        /* double avg_humidity = 6; */
+        if (message.avgHumidity !== 0)
+            writer.tag(6, WireType.Bit64).double(message.avgHumidity);
+        /* google.protobuf.Timestamp start_time = 7; */
+        if (message.startTime)
+            Timestamp.internalBinaryWrite(message.startTime, writer.tag(7, WireType.LengthDelimited).fork(), options).join();
+        /* google.protobuf.Timestamp end_time = 8; */
+        if (message.endTime)
+            Timestamp.internalBinaryWrite(message.endTime, writer.tag(8, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.AggregatedGroup
+ */
+export const AggregatedGroup = new AggregatedGroup$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class SensorStats$Type extends MessageType<SensorStats> {
+    constructor() {
+        super("enose.analytics.v1.SensorStats", [
+            { no: 1, name: "sensor_idx", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "min", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 3, name: "max", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 4, name: "mean", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 5, name: "std", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 6, name: "median", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ }
+        ]);
+    }
+    create(value?: PartialMessage<SensorStats>): SensorStats {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.sensorIdx = 0;
+        message.min = 0;
+        message.max = 0;
+        message.mean = 0;
+        message.std = 0;
+        message.median = 0;
+        if (value !== undefined)
+            reflectionMergePartial<SensorStats>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: SensorStats): SensorStats {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 sensor_idx */ 1:
+                    message.sensorIdx = reader.int32();
+                    break;
+                case /* double min */ 2:
+                    message.min = reader.double();
+                    break;
+                case /* double max */ 3:
+                    message.max = reader.double();
+                    break;
+                case /* double mean */ 4:
+                    message.mean = reader.double();
+                    break;
+                case /* double std */ 5:
+                    message.std = reader.double();
+                    break;
+                case /* double median */ 6:
+                    message.median = reader.double();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: SensorStats, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 sensor_idx = 1; */
+        if (message.sensorIdx !== 0)
+            writer.tag(1, WireType.Varint).int32(message.sensorIdx);
+        /* double min = 2; */
+        if (message.min !== 0)
+            writer.tag(2, WireType.Bit64).double(message.min);
+        /* double max = 3; */
+        if (message.max !== 0)
+            writer.tag(3, WireType.Bit64).double(message.max);
+        /* double mean = 4; */
+        if (message.mean !== 0)
+            writer.tag(4, WireType.Bit64).double(message.mean);
+        /* double std = 5; */
+        if (message.std !== 0)
+            writer.tag(5, WireType.Bit64).double(message.std);
+        /* double median = 6; */
+        if (message.median !== 0)
+            writer.tag(6, WireType.Bit64).double(message.median);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.SensorStats
+ */
+export const SensorStats = new SensorStats$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetExperimentDetailRequest$Type extends MessageType<GetExperimentDetailRequest> {
+    constructor() {
+        super("enose.analytics.v1.GetExperimentDetailRequest", [
+            { no: 1, name: "experiment_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GetExperimentDetailRequest>): GetExperimentDetailRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.experimentId = "";
+        if (value !== undefined)
+            reflectionMergePartial<GetExperimentDetailRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetExperimentDetailRequest): GetExperimentDetailRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string experiment_id */ 1:
+                    message.experimentId = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetExperimentDetailRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string experiment_id = 1; */
+        if (message.experimentId !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.experimentId);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GetExperimentDetailRequest
+ */
+export const GetExperimentDetailRequest = new GetExperimentDetailRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class ExperimentDetail$Type extends MessageType<ExperimentDetail> {
+    constructor() {
+        super("enose.analytics.v1.ExperimentDetail", [
+            { no: 1, name: "experiment_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "start_time", kind: "message", T: () => Timestamp },
+            { no: 3, name: "end_time", kind: "message", T: () => Timestamp },
+            { no: 4, name: "frame_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 5, name: "status", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 6, name: "phases", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => PhaseInfo },
+            { no: 7, name: "labels", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => SampleLabel },
+            { no: 8, name: "sensor_summary", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => SensorStats },
+            { no: 9, name: "avg_temperature", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 10, name: "avg_humidity", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 11, name: "total_alerts", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 12, name: "critical_alerts", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 13, name: "warning_alerts", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<ExperimentDetail>): ExperimentDetail {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.experimentId = "";
+        message.frameCount = 0;
+        message.status = "";
+        message.phases = [];
+        message.labels = [];
+        message.sensorSummary = [];
+        message.avgTemperature = 0;
+        message.avgHumidity = 0;
+        message.totalAlerts = 0;
+        message.criticalAlerts = 0;
+        message.warningAlerts = 0;
+        if (value !== undefined)
+            reflectionMergePartial<ExperimentDetail>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ExperimentDetail): ExperimentDetail {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string experiment_id */ 1:
+                    message.experimentId = reader.string();
+                    break;
+                case /* google.protobuf.Timestamp start_time */ 2:
+                    message.startTime = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.startTime);
+                    break;
+                case /* google.protobuf.Timestamp end_time */ 3:
+                    message.endTime = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.endTime);
+                    break;
+                case /* int32 frame_count */ 4:
+                    message.frameCount = reader.int32();
+                    break;
+                case /* string status */ 5:
+                    message.status = reader.string();
+                    break;
+                case /* repeated enose.analytics.v1.PhaseInfo phases */ 6:
+                    message.phases.push(PhaseInfo.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* repeated enose.analytics.v1.SampleLabel labels */ 7:
+                    message.labels.push(SampleLabel.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* repeated enose.analytics.v1.SensorStats sensor_summary */ 8:
+                    message.sensorSummary.push(SensorStats.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* double avg_temperature */ 9:
+                    message.avgTemperature = reader.double();
+                    break;
+                case /* double avg_humidity */ 10:
+                    message.avgHumidity = reader.double();
+                    break;
+                case /* int32 total_alerts */ 11:
+                    message.totalAlerts = reader.int32();
+                    break;
+                case /* int32 critical_alerts */ 12:
+                    message.criticalAlerts = reader.int32();
+                    break;
+                case /* int32 warning_alerts */ 13:
+                    message.warningAlerts = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: ExperimentDetail, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string experiment_id = 1; */
+        if (message.experimentId !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.experimentId);
+        /* google.protobuf.Timestamp start_time = 2; */
+        if (message.startTime)
+            Timestamp.internalBinaryWrite(message.startTime, writer.tag(2, WireType.LengthDelimited).fork(), options).join();
+        /* google.protobuf.Timestamp end_time = 3; */
+        if (message.endTime)
+            Timestamp.internalBinaryWrite(message.endTime, writer.tag(3, WireType.LengthDelimited).fork(), options).join();
+        /* int32 frame_count = 4; */
+        if (message.frameCount !== 0)
+            writer.tag(4, WireType.Varint).int32(message.frameCount);
+        /* string status = 5; */
+        if (message.status !== "")
+            writer.tag(5, WireType.LengthDelimited).string(message.status);
+        /* repeated enose.analytics.v1.PhaseInfo phases = 6; */
+        for (let i = 0; i < message.phases.length; i++)
+            PhaseInfo.internalBinaryWrite(message.phases[i], writer.tag(6, WireType.LengthDelimited).fork(), options).join();
+        /* repeated enose.analytics.v1.SampleLabel labels = 7; */
+        for (let i = 0; i < message.labels.length; i++)
+            SampleLabel.internalBinaryWrite(message.labels[i], writer.tag(7, WireType.LengthDelimited).fork(), options).join();
+        /* repeated enose.analytics.v1.SensorStats sensor_summary = 8; */
+        for (let i = 0; i < message.sensorSummary.length; i++)
+            SensorStats.internalBinaryWrite(message.sensorSummary[i], writer.tag(8, WireType.LengthDelimited).fork(), options).join();
+        /* double avg_temperature = 9; */
+        if (message.avgTemperature !== 0)
+            writer.tag(9, WireType.Bit64).double(message.avgTemperature);
+        /* double avg_humidity = 10; */
+        if (message.avgHumidity !== 0)
+            writer.tag(10, WireType.Bit64).double(message.avgHumidity);
+        /* int32 total_alerts = 11; */
+        if (message.totalAlerts !== 0)
+            writer.tag(11, WireType.Varint).int32(message.totalAlerts);
+        /* int32 critical_alerts = 12; */
+        if (message.criticalAlerts !== 0)
+            writer.tag(12, WireType.Varint).int32(message.criticalAlerts);
+        /* int32 warning_alerts = 13; */
+        if (message.warningAlerts !== 0)
+            writer.tag(13, WireType.Varint).int32(message.warningAlerts);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.ExperimentDetail
+ */
+export const ExperimentDetail = new ExperimentDetail$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class PhaseInfo$Type extends MessageType<PhaseInfo> {
+    constructor() {
+        super("enose.analytics.v1.PhaseInfo", [
+            { no: 1, name: "name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "start_time", kind: "message", T: () => Timestamp },
+            { no: 3, name: "end_time", kind: "message", T: () => Timestamp },
+            { no: 4, name: "frame_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<PhaseInfo>): PhaseInfo {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.name = "";
+        message.frameCount = 0;
+        if (value !== undefined)
+            reflectionMergePartial<PhaseInfo>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: PhaseInfo): PhaseInfo {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string name */ 1:
+                    message.name = reader.string();
+                    break;
+                case /* google.protobuf.Timestamp start_time */ 2:
+                    message.startTime = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.startTime);
+                    break;
+                case /* google.protobuf.Timestamp end_time */ 3:
+                    message.endTime = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.endTime);
+                    break;
+                case /* int32 frame_count */ 4:
+                    message.frameCount = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: PhaseInfo, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string name = 1; */
+        if (message.name !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.name);
+        /* google.protobuf.Timestamp start_time = 2; */
+        if (message.startTime)
+            Timestamp.internalBinaryWrite(message.startTime, writer.tag(2, WireType.LengthDelimited).fork(), options).join();
+        /* google.protobuf.Timestamp end_time = 3; */
+        if (message.endTime)
+            Timestamp.internalBinaryWrite(message.endTime, writer.tag(3, WireType.LengthDelimited).fork(), options).join();
+        /* int32 frame_count = 4; */
+        if (message.frameCount !== 0)
+            writer.tag(4, WireType.Varint).int32(message.frameCount);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.PhaseInfo
+ */
+export const PhaseInfo = new PhaseInfo$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class Sample$Type extends MessageType<Sample> {
+    constructor() {
+        super("enose.analytics.v1.Sample", [
+            { no: 1, name: "id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "run_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "sample_idx", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "start_time_ms", kind: "scalar", T: 3 /*ScalarType.INT64*/ },
+            { no: 5, name: "end_time_ms", kind: "scalar", T: 3 /*ScalarType.INT64*/ },
+            { no: 6, name: "params_hash", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 7, name: "liquids", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => LiquidComponent },
+            { no: 8, name: "total_volume_ml", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 9, name: "flow_rate_ml_s", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 10, name: "gas_pump_pwm", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 11, name: "termination_type", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 12, name: "termination_value", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 13, name: "max_duration_s", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 14, name: "heater_configs", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => HeaterConfigInfo },
+            { no: 15, name: "pre_wash_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 16, name: "pre_wash_volume_ml", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 17, name: "wash_liquid_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 18, name: "phase_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 19, name: "avg_temperature_c", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 20, name: "avg_humidity_pct", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 21, name: "avg_pressure_hpa", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 22, name: "created_at", kind: "message", T: () => Timestamp }
+        ]);
+    }
+    create(value?: PartialMessage<Sample>): Sample {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.id = 0;
+        message.runId = 0;
+        message.sampleIdx = 0;
+        message.startTimeMs = "0";
+        message.endTimeMs = "0";
+        message.paramsHash = "";
+        message.liquids = [];
+        message.totalVolumeMl = 0;
+        message.flowRateMlS = 0;
+        message.gasPumpPwm = 0;
+        message.terminationType = "";
+        message.terminationValue = 0;
+        message.maxDurationS = 0;
+        message.heaterConfigs = [];
+        message.preWashCount = 0;
+        message.preWashVolumeMl = 0;
+        message.washLiquidId = "";
+        message.phaseName = "";
+        message.avgTemperatureC = 0;
+        message.avgHumidityPct = 0;
+        message.avgPressureHpa = 0;
+        if (value !== undefined)
+            reflectionMergePartial<Sample>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: Sample): Sample {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 id */ 1:
+                    message.id = reader.int32();
+                    break;
+                case /* int32 run_id */ 2:
+                    message.runId = reader.int32();
+                    break;
+                case /* int32 sample_idx */ 3:
+                    message.sampleIdx = reader.int32();
+                    break;
+                case /* int64 start_time_ms */ 4:
+                    message.startTimeMs = reader.int64().toString();
+                    break;
+                case /* int64 end_time_ms */ 5:
+                    message.endTimeMs = reader.int64().toString();
+                    break;
+                case /* string params_hash */ 6:
+                    message.paramsHash = reader.string();
+                    break;
+                case /* repeated enose.analytics.v1.LiquidComponent liquids */ 7:
+                    message.liquids.push(LiquidComponent.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* double total_volume_ml */ 8:
+                    message.totalVolumeMl = reader.double();
+                    break;
+                case /* double flow_rate_ml_s */ 9:
+                    message.flowRateMlS = reader.double();
+                    break;
+                case /* int32 gas_pump_pwm */ 10:
+                    message.gasPumpPwm = reader.int32();
+                    break;
+                case /* string termination_type */ 11:
+                    message.terminationType = reader.string();
+                    break;
+                case /* double termination_value */ 12:
+                    message.terminationValue = reader.double();
+                    break;
+                case /* double max_duration_s */ 13:
+                    message.maxDurationS = reader.double();
+                    break;
+                case /* repeated enose.analytics.v1.HeaterConfigInfo heater_configs */ 14:
+                    message.heaterConfigs.push(HeaterConfigInfo.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* int32 pre_wash_count */ 15:
+                    message.preWashCount = reader.int32();
+                    break;
+                case /* double pre_wash_volume_ml */ 16:
+                    message.preWashVolumeMl = reader.double();
+                    break;
+                case /* string wash_liquid_id */ 17:
+                    message.washLiquidId = reader.string();
+                    break;
+                case /* string phase_name */ 18:
+                    message.phaseName = reader.string();
+                    break;
+                case /* double avg_temperature_c */ 19:
+                    message.avgTemperatureC = reader.double();
+                    break;
+                case /* double avg_humidity_pct */ 20:
+                    message.avgHumidityPct = reader.double();
+                    break;
+                case /* double avg_pressure_hpa */ 21:
+                    message.avgPressureHpa = reader.double();
+                    break;
+                case /* google.protobuf.Timestamp created_at */ 22:
+                    message.createdAt = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.createdAt);
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: Sample, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 id = 1; */
+        if (message.id !== 0)
+            writer.tag(1, WireType.Varint).int32(message.id);
+        /* int32 run_id = 2; */
+        if (message.runId !== 0)
+            writer.tag(2, WireType.Varint).int32(message.runId);
+        /* int32 sample_idx = 3; */
+        if (message.sampleIdx !== 0)
+            writer.tag(3, WireType.Varint).int32(message.sampleIdx);
+        /* int64 start_time_ms = 4; */
+        if (message.startTimeMs !== "0")
+            writer.tag(4, WireType.Varint).int64(message.startTimeMs);
+        /* int64 end_time_ms = 5; */
+        if (message.endTimeMs !== "0")
+            writer.tag(5, WireType.Varint).int64(message.endTimeMs);
+        /* string params_hash = 6; */
+        if (message.paramsHash !== "")
+            writer.tag(6, WireType.LengthDelimited).string(message.paramsHash);
+        /* repeated enose.analytics.v1.LiquidComponent liquids = 7; */
+        for (let i = 0; i < message.liquids.length; i++)
+            LiquidComponent.internalBinaryWrite(message.liquids[i], writer.tag(7, WireType.LengthDelimited).fork(), options).join();
+        /* double total_volume_ml = 8; */
+        if (message.totalVolumeMl !== 0)
+            writer.tag(8, WireType.Bit64).double(message.totalVolumeMl);
+        /* double flow_rate_ml_s = 9; */
+        if (message.flowRateMlS !== 0)
+            writer.tag(9, WireType.Bit64).double(message.flowRateMlS);
+        /* int32 gas_pump_pwm = 10; */
+        if (message.gasPumpPwm !== 0)
+            writer.tag(10, WireType.Varint).int32(message.gasPumpPwm);
+        /* string termination_type = 11; */
+        if (message.terminationType !== "")
+            writer.tag(11, WireType.LengthDelimited).string(message.terminationType);
+        /* double termination_value = 12; */
+        if (message.terminationValue !== 0)
+            writer.tag(12, WireType.Bit64).double(message.terminationValue);
+        /* double max_duration_s = 13; */
+        if (message.maxDurationS !== 0)
+            writer.tag(13, WireType.Bit64).double(message.maxDurationS);
+        /* repeated enose.analytics.v1.HeaterConfigInfo heater_configs = 14; */
+        for (let i = 0; i < message.heaterConfigs.length; i++)
+            HeaterConfigInfo.internalBinaryWrite(message.heaterConfigs[i], writer.tag(14, WireType.LengthDelimited).fork(), options).join();
+        /* int32 pre_wash_count = 15; */
+        if (message.preWashCount !== 0)
+            writer.tag(15, WireType.Varint).int32(message.preWashCount);
+        /* double pre_wash_volume_ml = 16; */
+        if (message.preWashVolumeMl !== 0)
+            writer.tag(16, WireType.Bit64).double(message.preWashVolumeMl);
+        /* string wash_liquid_id = 17; */
+        if (message.washLiquidId !== "")
+            writer.tag(17, WireType.LengthDelimited).string(message.washLiquidId);
+        /* string phase_name = 18; */
+        if (message.phaseName !== "")
+            writer.tag(18, WireType.LengthDelimited).string(message.phaseName);
+        /* double avg_temperature_c = 19; */
+        if (message.avgTemperatureC !== 0)
+            writer.tag(19, WireType.Bit64).double(message.avgTemperatureC);
+        /* double avg_humidity_pct = 20; */
+        if (message.avgHumidityPct !== 0)
+            writer.tag(20, WireType.Bit64).double(message.avgHumidityPct);
+        /* double avg_pressure_hpa = 21; */
+        if (message.avgPressureHpa !== 0)
+            writer.tag(21, WireType.Bit64).double(message.avgPressureHpa);
+        /* google.protobuf.Timestamp created_at = 22; */
+        if (message.createdAt)
+            Timestamp.internalBinaryWrite(message.createdAt, writer.tag(22, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.Sample
+ */
+export const Sample = new Sample$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class LiquidComponent$Type extends MessageType<LiquidComponent> {
+    constructor() {
+        super("enose.analytics.v1.LiquidComponent", [
+            { no: 1, name: "id", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "ratio", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 4, name: "pump_index", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<LiquidComponent>): LiquidComponent {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.id = "";
+        message.name = "";
+        message.ratio = 0;
+        message.pumpIndex = 0;
+        if (value !== undefined)
+            reflectionMergePartial<LiquidComponent>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: LiquidComponent): LiquidComponent {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string id */ 1:
+                    message.id = reader.string();
+                    break;
+                case /* string name */ 2:
+                    message.name = reader.string();
+                    break;
+                case /* double ratio */ 3:
+                    message.ratio = reader.double();
+                    break;
+                case /* int32 pump_index */ 4:
+                    message.pumpIndex = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: LiquidComponent, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string id = 1; */
+        if (message.id !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.id);
+        /* string name = 2; */
+        if (message.name !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.name);
+        /* double ratio = 3; */
+        if (message.ratio !== 0)
+            writer.tag(3, WireType.Bit64).double(message.ratio);
+        /* int32 pump_index = 4; */
+        if (message.pumpIndex !== 0)
+            writer.tag(4, WireType.Varint).int32(message.pumpIndex);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.LiquidComponent
+ */
+export const LiquidComponent = new LiquidComponent$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class HeaterConfigInfo$Type extends MessageType<HeaterConfigInfo> {
+    constructor() {
+        super("enose.analytics.v1.HeaterConfigInfo", [
+            { no: 1, name: "sensor_indices", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "profile_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "temps", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "durs", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<HeaterConfigInfo>): HeaterConfigInfo {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.sensorIndices = [];
+        message.profileName = "";
+        message.temps = [];
+        message.durs = [];
+        if (value !== undefined)
+            reflectionMergePartial<HeaterConfigInfo>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: HeaterConfigInfo): HeaterConfigInfo {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated int32 sensor_indices */ 1:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.sensorIndices.push(reader.int32());
+                    else
+                        message.sensorIndices.push(reader.int32());
+                    break;
+                case /* string profile_name */ 2:
+                    message.profileName = reader.string();
+                    break;
+                case /* repeated int32 temps */ 3:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.temps.push(reader.int32());
+                    else
+                        message.temps.push(reader.int32());
+                    break;
+                case /* repeated int32 durs */ 4:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.durs.push(reader.int32());
+                    else
+                        message.durs.push(reader.int32());
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: HeaterConfigInfo, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated int32 sensor_indices = 1; */
+        if (message.sensorIndices.length) {
+            writer.tag(1, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.sensorIndices.length; i++)
+                writer.int32(message.sensorIndices[i]);
+            writer.join();
+        }
+        /* string profile_name = 2; */
+        if (message.profileName !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.profileName);
+        /* repeated int32 temps = 3; */
+        if (message.temps.length) {
+            writer.tag(3, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.temps.length; i++)
+                writer.int32(message.temps[i]);
+            writer.join();
+        }
+        /* repeated int32 durs = 4; */
+        if (message.durs.length) {
+            writer.tag(4, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.durs.length; i++)
+                writer.int32(message.durs[i]);
+            writer.join();
+        }
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.HeaterConfigInfo
+ */
+export const HeaterConfigInfo = new HeaterConfigInfo$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class ListSamplesRequest$Type extends MessageType<ListSamplesRequest> {
+    constructor() {
+        super("enose.analytics.v1.ListSamplesRequest", [
+            { no: 1, name: "run_id", kind: "scalar", opt: true, T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "phase_name", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "params_hash", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "liquid_ids", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
+            { no: 5, name: "limit", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 6, name: "offset", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<ListSamplesRequest>): ListSamplesRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.liquidIds = [];
+        message.limit = 0;
+        message.offset = 0;
+        if (value !== undefined)
+            reflectionMergePartial<ListSamplesRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ListSamplesRequest): ListSamplesRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* optional int32 run_id */ 1:
+                    message.runId = reader.int32();
+                    break;
+                case /* optional string phase_name */ 2:
+                    message.phaseName = reader.string();
+                    break;
+                case /* optional string params_hash */ 3:
+                    message.paramsHash = reader.string();
+                    break;
+                case /* repeated string liquid_ids */ 4:
+                    message.liquidIds.push(reader.string());
+                    break;
+                case /* int32 limit */ 5:
+                    message.limit = reader.int32();
+                    break;
+                case /* int32 offset */ 6:
+                    message.offset = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: ListSamplesRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* optional int32 run_id = 1; */
+        if (message.runId !== undefined)
+            writer.tag(1, WireType.Varint).int32(message.runId);
+        /* optional string phase_name = 2; */
+        if (message.phaseName !== undefined)
+            writer.tag(2, WireType.LengthDelimited).string(message.phaseName);
+        /* optional string params_hash = 3; */
+        if (message.paramsHash !== undefined)
+            writer.tag(3, WireType.LengthDelimited).string(message.paramsHash);
+        /* repeated string liquid_ids = 4; */
+        for (let i = 0; i < message.liquidIds.length; i++)
+            writer.tag(4, WireType.LengthDelimited).string(message.liquidIds[i]);
+        /* int32 limit = 5; */
+        if (message.limit !== 0)
+            writer.tag(5, WireType.Varint).int32(message.limit);
+        /* int32 offset = 6; */
+        if (message.offset !== 0)
+            writer.tag(6, WireType.Varint).int32(message.offset);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.ListSamplesRequest
+ */
+export const ListSamplesRequest = new ListSamplesRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class ListSamplesResponse$Type extends MessageType<ListSamplesResponse> {
+    constructor() {
+        super("enose.analytics.v1.ListSamplesResponse", [
+            { no: 1, name: "samples", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => Sample },
+            { no: 2, name: "total", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<ListSamplesResponse>): ListSamplesResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.samples = [];
+        message.total = 0;
+        if (value !== undefined)
+            reflectionMergePartial<ListSamplesResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ListSamplesResponse): ListSamplesResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated enose.analytics.v1.Sample samples */ 1:
+                    message.samples.push(Sample.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* int32 total */ 2:
+                    message.total = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: ListSamplesResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated enose.analytics.v1.Sample samples = 1; */
+        for (let i = 0; i < message.samples.length; i++)
+            Sample.internalBinaryWrite(message.samples[i], writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        /* int32 total = 2; */
+        if (message.total !== 0)
+            writer.tag(2, WireType.Varint).int32(message.total);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.ListSamplesResponse
+ */
+export const ListSamplesResponse = new ListSamplesResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetSampleRequest$Type extends MessageType<GetSampleRequest> {
+    constructor() {
+        super("enose.analytics.v1.GetSampleRequest", [
+            { no: 1, name: "sample_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GetSampleRequest>): GetSampleRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.sampleId = 0;
+        if (value !== undefined)
+            reflectionMergePartial<GetSampleRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetSampleRequest): GetSampleRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 sample_id */ 1:
+                    message.sampleId = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetSampleRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 sample_id = 1; */
+        if (message.sampleId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.sampleId);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GetSampleRequest
+ */
+export const GetSampleRequest = new GetSampleRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetSampleGroupsRequest$Type extends MessageType<GetSampleGroupsRequest> {
+    constructor() {
+        super("enose.analytics.v1.GetSampleGroupsRequest", [
+            { no: 1, name: "phase_name", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "liquid_ids", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "limit", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "offset", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GetSampleGroupsRequest>): GetSampleGroupsRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.liquidIds = [];
+        message.limit = 0;
+        message.offset = 0;
+        if (value !== undefined)
+            reflectionMergePartial<GetSampleGroupsRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetSampleGroupsRequest): GetSampleGroupsRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* optional string phase_name */ 1:
+                    message.phaseName = reader.string();
+                    break;
+                case /* repeated string liquid_ids */ 2:
+                    message.liquidIds.push(reader.string());
+                    break;
+                case /* int32 limit */ 3:
+                    message.limit = reader.int32();
+                    break;
+                case /* int32 offset */ 4:
+                    message.offset = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetSampleGroupsRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* optional string phase_name = 1; */
+        if (message.phaseName !== undefined)
+            writer.tag(1, WireType.LengthDelimited).string(message.phaseName);
+        /* repeated string liquid_ids = 2; */
+        for (let i = 0; i < message.liquidIds.length; i++)
+            writer.tag(2, WireType.LengthDelimited).string(message.liquidIds[i]);
+        /* int32 limit = 3; */
+        if (message.limit !== 0)
+            writer.tag(3, WireType.Varint).int32(message.limit);
+        /* int32 offset = 4; */
+        if (message.offset !== 0)
+            writer.tag(4, WireType.Varint).int32(message.offset);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GetSampleGroupsRequest
+ */
+export const GetSampleGroupsRequest = new GetSampleGroupsRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetSampleGroupsResponse$Type extends MessageType<GetSampleGroupsResponse> {
+    constructor() {
+        super("enose.analytics.v1.GetSampleGroupsResponse", [
+            { no: 1, name: "groups", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => SampleGroup },
+            { no: 2, name: "total", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GetSampleGroupsResponse>): GetSampleGroupsResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.groups = [];
+        message.total = 0;
+        if (value !== undefined)
+            reflectionMergePartial<GetSampleGroupsResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetSampleGroupsResponse): GetSampleGroupsResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated enose.analytics.v1.SampleGroup groups */ 1:
+                    message.groups.push(SampleGroup.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* int32 total */ 2:
+                    message.total = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetSampleGroupsResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated enose.analytics.v1.SampleGroup groups = 1; */
+        for (let i = 0; i < message.groups.length; i++)
+            SampleGroup.internalBinaryWrite(message.groups[i], writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        /* int32 total = 2; */
+        if (message.total !== 0)
+            writer.tag(2, WireType.Varint).int32(message.total);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GetSampleGroupsResponse
+ */
+export const GetSampleGroupsResponse = new GetSampleGroupsResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class SampleGroup$Type extends MessageType<SampleGroup> {
+    constructor() {
+        super("enose.analytics.v1.SampleGroup", [
+            { no: 1, name: "params_hash", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "liquids", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => LiquidComponent },
+            { no: 3, name: "gas_pump_pwm", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "phase_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 5, name: "sample_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 6, name: "run_ids", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ },
+            { no: 7, name: "first_created", kind: "message", T: () => Timestamp },
+            { no: 8, name: "last_created", kind: "message", T: () => Timestamp }
+        ]);
+    }
+    create(value?: PartialMessage<SampleGroup>): SampleGroup {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.paramsHash = "";
+        message.liquids = [];
+        message.gasPumpPwm = 0;
+        message.phaseName = "";
+        message.sampleCount = 0;
+        message.runIds = [];
+        if (value !== undefined)
+            reflectionMergePartial<SampleGroup>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: SampleGroup): SampleGroup {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string params_hash */ 1:
+                    message.paramsHash = reader.string();
+                    break;
+                case /* repeated enose.analytics.v1.LiquidComponent liquids */ 2:
+                    message.liquids.push(LiquidComponent.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* int32 gas_pump_pwm */ 3:
+                    message.gasPumpPwm = reader.int32();
+                    break;
+                case /* string phase_name */ 4:
+                    message.phaseName = reader.string();
+                    break;
+                case /* int32 sample_count */ 5:
+                    message.sampleCount = reader.int32();
+                    break;
+                case /* repeated int32 run_ids */ 6:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.runIds.push(reader.int32());
+                    else
+                        message.runIds.push(reader.int32());
+                    break;
+                case /* google.protobuf.Timestamp first_created */ 7:
+                    message.firstCreated = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.firstCreated);
+                    break;
+                case /* google.protobuf.Timestamp last_created */ 8:
+                    message.lastCreated = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.lastCreated);
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: SampleGroup, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string params_hash = 1; */
+        if (message.paramsHash !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.paramsHash);
+        /* repeated enose.analytics.v1.LiquidComponent liquids = 2; */
+        for (let i = 0; i < message.liquids.length; i++)
+            LiquidComponent.internalBinaryWrite(message.liquids[i], writer.tag(2, WireType.LengthDelimited).fork(), options).join();
+        /* int32 gas_pump_pwm = 3; */
+        if (message.gasPumpPwm !== 0)
+            writer.tag(3, WireType.Varint).int32(message.gasPumpPwm);
+        /* string phase_name = 4; */
+        if (message.phaseName !== "")
+            writer.tag(4, WireType.LengthDelimited).string(message.phaseName);
+        /* int32 sample_count = 5; */
+        if (message.sampleCount !== 0)
+            writer.tag(5, WireType.Varint).int32(message.sampleCount);
+        /* repeated int32 run_ids = 6; */
+        if (message.runIds.length) {
+            writer.tag(6, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.runIds.length; i++)
+                writer.int32(message.runIds[i]);
+            writer.join();
+        }
+        /* google.protobuf.Timestamp first_created = 7; */
+        if (message.firstCreated)
+            Timestamp.internalBinaryWrite(message.firstCreated, writer.tag(7, WireType.LengthDelimited).fork(), options).join();
+        /* google.protobuf.Timestamp last_created = 8; */
+        if (message.lastCreated)
+            Timestamp.internalBinaryWrite(message.lastCreated, writer.tag(8, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.SampleGroup
+ */
+export const SampleGroup = new SampleGroup$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetSampleSensorDataRequest$Type extends MessageType<GetSampleSensorDataRequest> {
+    constructor() {
+        super("enose.analytics.v1.GetSampleSensorDataRequest", [
+            { no: 1, name: "sample_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "sensor_indices", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "downsample_factor", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GetSampleSensorDataRequest>): GetSampleSensorDataRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.sampleId = 0;
+        message.sensorIndices = [];
+        message.downsampleFactor = 0;
+        if (value !== undefined)
+            reflectionMergePartial<GetSampleSensorDataRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetSampleSensorDataRequest): GetSampleSensorDataRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 sample_id */ 1:
+                    message.sampleId = reader.int32();
+                    break;
+                case /* repeated int32 sensor_indices */ 2:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.sensorIndices.push(reader.int32());
+                    else
+                        message.sensorIndices.push(reader.int32());
+                    break;
+                case /* int32 downsample_factor */ 3:
+                    message.downsampleFactor = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetSampleSensorDataRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 sample_id = 1; */
+        if (message.sampleId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.sampleId);
+        /* repeated int32 sensor_indices = 2; */
+        if (message.sensorIndices.length) {
+            writer.tag(2, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.sensorIndices.length; i++)
+                writer.int32(message.sensorIndices[i]);
+            writer.join();
+        }
+        /* int32 downsample_factor = 3; */
+        if (message.downsampleFactor !== 0)
+            writer.tag(3, WireType.Varint).int32(message.downsampleFactor);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GetSampleSensorDataRequest
+ */
+export const GetSampleSensorDataRequest = new GetSampleSensorDataRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetSampleSensorDataResponse$Type extends MessageType<GetSampleSensorDataResponse> {
+    constructor() {
+        super("enose.analytics.v1.GetSampleSensorDataResponse", [
+            { no: 1, name: "sample_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "rows", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => SensorDataRow },
+            { no: 3, name: "total_points", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GetSampleSensorDataResponse>): GetSampleSensorDataResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.sampleId = 0;
+        message.rows = [];
+        message.totalPoints = 0;
+        if (value !== undefined)
+            reflectionMergePartial<GetSampleSensorDataResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetSampleSensorDataResponse): GetSampleSensorDataResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 sample_id */ 1:
+                    message.sampleId = reader.int32();
+                    break;
+                case /* repeated enose.analytics.v1.SensorDataRow rows */ 2:
+                    message.rows.push(SensorDataRow.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* int32 total_points */ 3:
+                    message.totalPoints = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetSampleSensorDataResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 sample_id = 1; */
+        if (message.sampleId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.sampleId);
+        /* repeated enose.analytics.v1.SensorDataRow rows = 2; */
+        for (let i = 0; i < message.rows.length; i++)
+            SensorDataRow.internalBinaryWrite(message.rows[i], writer.tag(2, WireType.LengthDelimited).fork(), options).join();
+        /* int32 total_points = 3; */
+        if (message.totalPoints !== 0)
+            writer.tag(3, WireType.Varint).int32(message.totalPoints);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GetSampleSensorDataResponse
+ */
+export const GetSampleSensorDataResponse = new GetSampleSensorDataResponse$Type();
 /**
  * @generated ServiceType for protobuf service enose.analytics.v1.AnalyticsService
  */
@@ -3091,7 +6471,9 @@ export const AnalyticsService = new ServiceType("enose.analytics.v1.AnalyticsSer
     { name: "GetVisualization", options: {}, I: VisualizationRequest, O: VisualizationResponse },
     { name: "StreamVisualization", serverStreaming: true, options: {}, I: VisualizationRequest, O: VisualizationResponse },
     { name: "GetQualityConfig", options: {}, I: Empty, O: QualityConfig },
-    { name: "UpdateQualityConfig", options: {}, I: QualityConfig, O: QualityConfig }
+    { name: "UpdateQualityConfig", options: {}, I: QualityConfig, O: QualityConfig },
+    { name: "GetNormalizedFramesStatus", options: {}, I: NormalizedFramesStatusRequest, O: NormalizedFramesStatusResponse },
+    { name: "GenerateNormalizedFrames", options: {}, I: GenerateNormalizedFramesRequest, O: GenerateNormalizedFramesResponse }
 ]);
 /**
  * @generated ServiceType for protobuf service enose.analytics.v1.ModelService
@@ -3114,4 +6496,22 @@ export const LabelService = new ServiceType("enose.analytics.v1.LabelService", [
     { name: "UpdateLabel", options: {}, I: UpdateLabelRequest, O: SampleLabel },
     { name: "DeleteLabel", options: {}, I: DeleteLabelRequest, O: Empty },
     { name: "BatchLabel", options: {}, I: BatchLabelRequest, O: BatchLabelResponse }
+]);
+/**
+ * @generated ServiceType for protobuf service enose.analytics.v1.DataService
+ */
+export const DataService = new ServiceType("enose.analytics.v1.DataService", [
+    { name: "ListExperiments", options: {}, I: ListExperimentsRequest, O: ListExperimentsResponse },
+    { name: "QuerySensorData", options: {}, I: QuerySensorDataRequest, O: QuerySensorDataResponse },
+    { name: "GetAggregatedStats", options: {}, I: AggregatedStatsRequest, O: AggregatedStatsResponse },
+    { name: "GetExperimentDetail", options: {}, I: GetExperimentDetailRequest, O: ExperimentDetail }
+]);
+/**
+ * @generated ServiceType for protobuf service enose.analytics.v1.SampleService
+ */
+export const SampleService = new ServiceType("enose.analytics.v1.SampleService", [
+    { name: "ListSamples", options: {}, I: ListSamplesRequest, O: ListSamplesResponse },
+    { name: "GetSample", options: {}, I: GetSampleRequest, O: Sample },
+    { name: "GetSampleGroups", options: {}, I: GetSampleGroupsRequest, O: GetSampleGroupsResponse },
+    { name: "GetSampleSensorData", options: {}, I: GetSampleSensorDataRequest, O: GetSampleSensorDataResponse }
 ]);

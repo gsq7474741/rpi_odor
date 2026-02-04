@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertsPanel } from "@/components/analytics/AlertsPanel";
 import { VisualizationPanel } from "@/components/analytics/VisualizationPanel";
@@ -8,10 +9,22 @@ import { ModelsPanel } from "@/components/analytics/ModelsPanel";
 import { LabelsPanel } from "@/components/analytics/LabelsPanel";
 import { useAnalyticsLatency } from "@/hooks/use-analytics-latency";
 import { Wifi, WifiOff } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 export default function AnalyticsPage() {
+  const searchParams = useSearchParams();
+  const experimentId = searchParams.get("experimentId");
+  const labelId = searchParams.get("labelId");
+  
   const [activeTab, setActiveTab] = useState("alerts");
   const { rtt, avg, jitter, connected } = useAnalyticsLatency();
+
+  // 如果有 experimentId 或 labelId 参数，自动切换到可视化 tab
+  useEffect(() => {
+    if (experimentId || labelId) {
+      setActiveTab("visualization");
+    }
+  }, [experimentId, labelId]);
 
   const getLatencyColor = (ms: number | null) => {
     if (ms === null) return "text-zinc-400";
@@ -59,7 +72,18 @@ export default function AnalyticsPage() {
         </TabsContent>
 
         <TabsContent value="visualization" className="mt-6">
-          <VisualizationPanel />
+          {(experimentId || labelId) && (
+            <div className="mb-4 flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">筛选条件:</span>
+              {experimentId && (
+                <Badge variant="secondary">实验: {experimentId}</Badge>
+              )}
+              {labelId && (
+                <Badge variant="secondary">标签: {labelId}</Badge>
+              )}
+            </div>
+          )}
+          <VisualizationPanel experimentId={experimentId} labelId={labelId} />
         </TabsContent>
 
         <TabsContent value="models" className="mt-6">

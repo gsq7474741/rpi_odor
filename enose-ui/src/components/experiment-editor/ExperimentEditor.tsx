@@ -520,6 +520,8 @@ function EditorToolbar() {
     redo,
     canUndo,
     canRedo,
+    compilationResult,  // 获取编译结果用于 YAML 生成
+    recompile,
   } = useEditorStore();
   
   // 面板可见性状态（监听变化以触发重渲染）
@@ -700,6 +702,10 @@ function EditorToolbar() {
 
   const handleExportYaml = () => {
     try {
+      // 确保编译结果是最新的
+      if (!compilationResult) {
+        recompile();
+      }
       const yaml = graphToYaml(nodes, edges, {
         programId,
         programName,
@@ -707,7 +713,7 @@ function EditorToolbar() {
         programVersion,
         bottleCapacityMl,
         maxFillMl,
-      });
+      }, compilationResult || undefined);
       
       // 下载 YAML 文件
       const blob = new Blob([yaml], { type: 'text/yaml' });
@@ -809,7 +815,7 @@ function EditorToolbar() {
         programVersion,
         bottleCapacityMl,
         maxFillMl,
-      });
+      }, compilationResult || undefined);
       
       const res = await fetch('/api/experiment/programs', {
         method: 'POST',
@@ -935,7 +941,7 @@ function EditorToolbar() {
         programVersion,
         bottleCapacityMl,
         maxFillMl,
-      });
+      }, compilationResult || undefined);
       setYamlPreview(yaml);
     } catch (error) {
       alert(`预览失败: ${error instanceof Error ? error.message : '未知错误'}`);
@@ -971,7 +977,7 @@ function EditorToolbar() {
           programVersion,
           bottleCapacityMl,
           maxFillMl,
-        });
+        }, compilationResult || undefined);
         
         const res = await fetch('/api/experiment?action=validate', {
           method: 'POST',
@@ -1050,7 +1056,7 @@ function EditorToolbar() {
         programVersion,
         bottleCapacityMl,
         maxFillMl,
-      });
+      }, compilationResult || undefined);
       
       try {
         const saveRes = await fetch('/api/experiment/programs', {
@@ -1093,7 +1099,7 @@ function EditorToolbar() {
         programVersion,
         bottleCapacityMl,
         maxFillMl,
-      });
+      }, compilationResult || undefined);
       
       // 先加载程序
       const loadRes = await fetch('/api/experiment?action=load', {

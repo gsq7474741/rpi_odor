@@ -15,6 +15,10 @@
 #include "../hal/load_cell_driver.hpp"
 #include "../hal/sensor_driver.hpp"
 #include "../db/consumable_repository.hpp"
+#include "../db/sample_repository.hpp"
+
+// 前向声明
+namespace grpc_service { class SensorServiceImpl; }
 
 namespace grpc_service {
 
@@ -80,6 +84,8 @@ private:
     std::shared_ptr<hal::LoadCellDriver> load_cell_;
     std::shared_ptr<hal::SensorDriver> sensor_driver_;
     std::shared_ptr<db::ConsumableRepository> consumable_repo_;
+    std::shared_ptr<db::SampleRepository> sample_repo_;
+    SensorServiceImpl* sensor_service_{nullptr};  // 弱引用，不拥有
     enose::workflows::ExperimentValidator validator_;
     
     // 状态
@@ -104,6 +110,10 @@ private:
     std::vector<std::string> logs_;
     std::string error_message_;
     
+    // 当前 run 和样本上下文
+    std::optional<int32_t> current_run_id_;
+    db::SampleContext current_sample_ctx_;
+    
     // 事件队列 (用于订阅者)
     std::mutex event_mutex_;
     std::condition_variable event_cv_;
@@ -125,6 +135,16 @@ private:
     void execute_loop(const ::enose::experiment::LoopAction& action);
     void execute_phase_marker(const ::enose::experiment::PhaseMarkerAction& action);
     void execute_wash(const ::enose::experiment::WashAction& action);
+    void execute_configure_heater(const ::enose::experiment::ConfigureHeaterAction& action);
+    
+public:
+    // 设置传感器服务引用（用于设置 sample_id 上下文）
+    void set_sensor_service(SensorServiceImpl* service) { sensor_service_ = service; }
+    
+    // 设置样本仓库
+    void set_sample_repository(std::shared_ptr<db::SampleRepository> repo) { sample_repo_ = repo; }
+    
+private:
     
     // 等待辅助方法
     bool wait_for_heater_cycles(int count, double timeout_s);

@@ -8,6 +8,7 @@ import grpc
 from google.protobuf import timestamp_pb2
 
 from ..analytics.visualization import VisualizationEngine, VisualizationType
+from ..db.frame_normalizer import FrameNormalizer
 from ..db.quality_repository import QualityRepository
 from ..db.sensor_reader import SensorReader
 from ..generated import enose_analytics_pb2 as pb
@@ -23,6 +24,7 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
         self._sensor_reader = SensorReader()
         self._quality_repo = QualityRepository()
         self._vis_engine = VisualizationEngine()
+        self._frame_normalizer = FrameNormalizer()
 
     def GetVisualization(
         self,
@@ -33,24 +35,39 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
         logger.info(f"GetVisualization: type={request.type}, max_points={request.max_points}")
 
         try:
-            # 从数据库获取传感器数据
-            start_time = None
-            end_time = None
-            if request.HasField("start_time"):
-                start_time = request.start_time.ToDatetime()
-            if request.HasField("end_time"):
-                end_time = request.end_time.ToDatetime()
-
             experiment_id = request.experiment_id if request.experiment_id else None
             max_points = request.max_points if request.max_points > 0 else 500
 
-            # 获取传感器帧
-            df = self._sensor_reader.get_frames(
-                start_time=start_time,
-                end_time=end_time,
-                experiment_id=experiment_id,
-                limit=max_points * 2,  # 获取更多数据用于过滤
-            )
+            # 尝试从归一化帧获取数据
+            df = None
+            if experiment_id:
+                try:
+                    run_id = int(experiment_id)
+                    df = self._frame_normalizer.get_normalized_frames(
+                        run_id=run_id,
+                        method="linear",
+                        n_samples=100,
+                    )
+                    if not df.empty:
+                        logger.info(f"Using normalized frames for run_id={run_id}")
+                except (ValueError, Exception) as e:
+                    logger.debug(f"Fallback to raw data: {e}")
+
+            # 如果没有归一化帧，回退到原始数据
+            if df is None or df.empty:
+                start_time = None
+                end_time = None
+                if request.HasField("start_time"):
+                    start_time = request.start_time.ToDatetime()
+                if request.HasField("end_time"):
+                    end_time = request.end_time.ToDatetime()
+
+                df = self._sensor_reader.get_frames(
+                    start_time=start_time,
+                    end_time=end_time,
+                    experiment_id=experiment_id,
+                    limit=max_points * 2,
+                )
 
             if df.empty:
                 logger.warning("No sensor data found")
@@ -61,18 +78,29 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
 
             # 清空并重新填充可视化引擎
             self._vis_engine.clear()
+
+            # 检测数据来源（归一化帧 vs 原始数据）
+            is_normalized = "normalized_t" in df.columns
             
             for idx, row in df.iterrows():
-                mox = row.get("mox_readings", [])
-                if isinstance(mox, list) and len(mox) > 0:
+                if is_normalized:
+                    mox = row.get("mox_readings", [])
+                    sample_id = f"{row.get('run_id', 'unknown')}_{row.get('phase_name', '')}_{row.get('frame_idx', idx)}"
+                    label = row.get("phase_name")
+                    ts = None
+                else:
+                    mox = row.get("mox_readings", [])
                     sample_id = f"{row.get('experiment_id', 'unknown')}_{row.get('seq', idx)}"
+                    label = row.get("phase_name")
                     ts = row.get("ts")
                     if isinstance(ts, str):
                         ts = datetime.fromisoformat(ts)
+
+                if isinstance(mox, list) and len(mox) > 0:
                     self._vis_engine.add_sample(
                         sample_id=sample_id,
                         features=mox,
-                        label=row.get("phase_name"),
+                        label=label,
                         ts=ts,
                     )
 
@@ -214,6 +242,77 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
         }
         self._quality_repo.update_config(config)
         return request
+
+    def GetNormalizedFramesStatus(
+        self,
+        request: pb.NormalizedFramesStatusRequest,
+        context: grpc.ServicerContext,
+    ) -> pb.NormalizedFramesStatusResponse:
+        """检查归一化帧状态"""
+        logger.info(f"GetNormalizedFramesStatus: run_id={request.run_id}")
+
+        try:
+            status = self._frame_normalizer.get_normalized_frames_status(
+                run_id=request.run_id,
+                phase_name=request.phase_name if request.phase_name else None,
+            )
+
+            response = pb.NormalizedFramesStatusResponse(
+                exists=status["exists"],
+                total_frames=status["total_frames"],
+            )
+
+            for m in status["meta"]:
+                meta = pb.NormalizedFramesMeta(
+                    method=m["method"],
+                    n_samples=m["n_samples"],
+                    original_point_counts=m["original_point_counts"],
+                    time_range_ms=m["time_range_ms"],
+                    phase_name=m["phase_name"],
+                )
+                response.meta.append(meta)
+
+            return response
+
+        except Exception as e:
+            logger.exception(f"GetNormalizedFramesStatus failed: {e}")
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(str(e))
+            return pb.NormalizedFramesStatusResponse()
+
+    def GenerateNormalizedFrames(
+        self,
+        request: pb.GenerateNormalizedFramesRequest,
+        context: grpc.ServicerContext,
+    ) -> pb.GenerateNormalizedFramesResponse:
+        """生成归一化帧"""
+        logger.info(f"GenerateNormalizedFrames: run_id={request.run_id}")
+
+        try:
+            n_samples = request.n_samples if request.n_samples > 0 else 100
+            methods = list(request.methods) if request.methods else ["linear", "pchip"]
+            phase_names = list(request.phase_names) if request.phase_names else None
+
+            results = self._frame_normalizer.generate_all_phases(
+                run_id=request.run_id,
+                phase_names=phase_names,
+                n_samples=n_samples,
+                methods=methods,
+            )
+
+            total = sum(results.values())
+            return pb.GenerateNormalizedFramesResponse(
+                success=True,
+                message=f"Generated {total} frames",
+                frames_generated=results,
+            )
+
+        except Exception as e:
+            logger.exception(f"GenerateNormalizedFrames failed: {e}")
+            return pb.GenerateNormalizedFramesResponse(
+                success=False,
+                message=str(e),
+            )
 
 
 def add_to_server(server: grpc.Server) -> None:

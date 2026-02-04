@@ -33,6 +33,9 @@ void SensorRepository::buffer_insert(const SensorReadingRecord& record) {
         if (!r.phase_name && !current_phase_.empty()) {
             r.phase_name = current_phase_;
         }
+        if (!r.sample_id && current_sample_id_) {
+            r.sample_id = current_sample_id_;
+        }
     }
     
     bool should_flush = false;
@@ -78,6 +81,18 @@ void SensorRepository::clear_run_context() {
     spdlog::debug("SensorRepository: cleared run context");
 }
 
+void SensorRepository::set_sample_context(int32_t sample_id) {
+    std::lock_guard<std::mutex> lock(context_mutex_);
+    current_sample_id_ = sample_id;
+    spdlog::debug("SensorRepository: set sample context sample_id={}", sample_id);
+}
+
+void SensorRepository::clear_sample_context() {
+    std::lock_guard<std::mutex> lock(context_mutex_);
+    current_sample_id_.reset();
+    spdlog::debug("SensorRepository: cleared sample context");
+}
+
 // ============================================================
 // 批量写入实现
 // ============================================================
@@ -98,7 +113,7 @@ bool SensorRepository::do_batch_insert(const std::vector<SensorReadingRecord>& r
             std::vector<std::string>{
                 "time_ms", "device_tick_ms", "sensor_idx", "sensor_id", "sensor_type",
                 "value", "temperature", "humidity", "pressure", "heater_step",
-                "run_id", "phase_name"
+                "run_id", "phase_name", "sample_id"
             });
         
         for (const auto& r : records) {
@@ -109,6 +124,7 @@ bool SensorRepository::do_batch_insert(const std::vector<SensorReadingRecord>& r
             std::optional<int16_t> hs = r.heater_step;
             std::optional<int32_t> rid = r.run_id;
             std::optional<std::string> phase = r.phase_name;
+            std::optional<int32_t> sid = r.sample_id;
             
             stream.write_values(
                 r.time_ms,
@@ -122,7 +138,8 @@ bool SensorRepository::do_batch_insert(const std::vector<SensorReadingRecord>& r
                 pres,
                 hs,
                 rid,
-                phase
+                phase,
+                sid
             );
         }
         

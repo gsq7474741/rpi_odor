@@ -387,6 +387,7 @@ export default function ExperimentPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {/* 内置程序列表 */}
+              <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
               {programs.length === 0 ? (
                 <div className="text-sm text-muted-foreground text-center py-4">
                   加载内置程序中...
@@ -418,6 +419,7 @@ export default function ExperimentPage() {
                   </div>
                 ))
               )}
+              </div>
               
               {/* 上传 YAML 文件 */}
               {experiment.status === "idle" && (

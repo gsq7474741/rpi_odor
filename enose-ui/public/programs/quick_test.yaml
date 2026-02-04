@@ -2,6 +2,14 @@ id: quick_test
 name: 快速测试
 description: 简单的系统功能验证
 version: 1.0.0
+hardware:
+  bottle_capacity_ml: 150
+  max_fill_ml: 100
+  liquids:
+    - id: default
+      name: 默认液体
+      pump_index: 2
+      type: LIQUID_SAMPLE
 steps:
   - name: 切换状态
     set_state:
@@ -9,6 +17,83 @@ steps:
   - name: 等待
     wait:
       duration_s: 5
+      timeout_s: 120
   - name: 恢复
     set_state:
       state: STATE_INITIAL
+_editor_layout:
+  nodes:
+    - id: node_1
+      type: start
+      position:
+        x: 250
+        'y': 50
+      data:
+        programId: quick_test
+        programName: 快速测试
+        description: 简单的系统功能验证
+        version: 1.0.0
+    - id: node_2
+      type: setState
+      position:
+        x: 250
+        'y': 150
+      data:
+        name: 切换状态
+        state: STATE_SAMPLE
+    - id: node_3
+      type: waitTime
+      position:
+        x: 250
+        'y': 250
+      data:
+        name: 等待
+        durationS: 5
+    - id: node_4
+      type: setState
+      position:
+        x: 250
+        'y': 350
+      data:
+        name: 恢复
+        state: STATE_INITIAL
+    - id: node_5
+      type: end
+      position:
+        x: 250
+        'y': 450
+      data: {}
+    - id: node_6
+      type: hardwareConfig
+      position:
+        x: -15
+        'y': -30
+      data:
+        bottleCapacityMl: 120
+        maxFillMl: 80
+  edges:
+    - id: edge_node_1_node_2
+      source: node_1
+      target: node_2
+      sourceHandle: flow
+      targetHandle: flow
+    - id: edge_node_2_node_3
+      source: node_2
+      target: node_3
+      sourceHandle: flow
+      targetHandle: flow
+    - id: edge_node_3_node_4
+      source: node_3
+      target: node_4
+      sourceHandle: flow
+      targetHandle: flow
+    - id: edge_node_4_node_5
+      source: node_4
+      target: node_5
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_6hardware-node_1hardware
+      source: node_6
+      target: node_1
+      sourceHandle: hardware
+      targetHandle: hardware

@@ -120,6 +120,12 @@ export const InjectNode = memo(function InjectNode(props: NodeProps) {
     : Number(data.targetWeightG ?? 0);
   const valueUnit = targetType === 'volume' ? 'ml' : 'g';
   
+  // 检查扫描变量绑定状态
+  const boundVars = (data.boundVariables || {}) as Record<string, string>;
+  const isVolumeBound = !!boundVars.targetVolumeMl;
+  const isRatioBound = !!boundVars.ratio;
+  const hasSweepBinding = isVolumeBound || isRatioBound;
+  
   // 获取连接到此进样节点的液体源
   const liquidEdges = edges.filter(
     (e) => e.target === props.id && e.targetHandle === HANDLE_TYPES.LIQUID
@@ -144,23 +150,35 @@ export const InjectNode = memo(function InjectNode(props: NodeProps) {
     <BaseNode {...props}>
       <div className="text-xs space-y-1">
         <div className="font-medium">{String(data.name ?? '进样')}</div>
-        <div className="text-muted-foreground">
+        
+        {/* 扫描绑定状态指示 */}
+        {hasSweepBinding && (
+          <div className="flex items-center gap-1 text-[10px] text-pink-500 font-medium">
+            <span>⟳</span>
+            {isVolumeBound && <span>进样量</span>}
+            {isVolumeBound && isRatioBound && <span>+</span>}
+            {isRatioBound && <span>比例</span>}
+            <span className="text-pink-400">由扫描控制</span>
+          </div>
+        )}
+        
+        <div className={`text-muted-foreground ${isVolumeBound ? 'line-through opacity-50' : ''}`}>
           总量: {targetValue} {valueUnit}
         </div>
         {connectedLiquids.length > 0 ? (
           <>
-            <div className="text-[10px] space-y-0.5 pt-1 border-t border-border/50">
+            <div className={`text-[10px] space-y-0.5 pt-1 border-t border-border/50 ${isRatioBound ? 'opacity-50' : ''}`}>
               {connectedLiquids.map((liquid, i) => {
                 const amount = (targetValue * liquid.ratio).toFixed(1);
                 return (
-                  <div key={i} className="flex justify-between text-muted-foreground">
+                  <div key={i} className={`flex justify-between text-muted-foreground ${isRatioBound ? 'line-through' : ''}`}>
                     <span>{liquid.name}</span>
                     <span>{amount} {valueUnit} ({(liquid.ratio * 100).toFixed(0)}%)</span>
                   </div>
                 );
               })}
             </div>
-            {!isRatioValid && (
+            {!isRatioValid && !isRatioBound && (
               <div className="text-[10px] text-red-500">
                 ⚠ 比例总和: {totalRatioPercent.toFixed(0)}% (应为100%)
               </div>
@@ -195,12 +213,36 @@ export const DrainNode = memo(function DrainNode(props: NodeProps) {
 // 液体源节点
 export const LiquidSourceNode = memo(function LiquidSourceNode(props: NodeProps) {
   const data = props.data as Record<string, unknown>;
+  const edges = useEdges();
+  const nodes = useNodes();
   const ratio = (data.ratio as number) ?? 1;
+  
+  // 检查连接的进样节点是否绑定了 ratio 扫描
+  const connectedInjectEdges = edges.filter(
+    (e) => e.source === props.id && e.sourceHandle === HANDLE_TYPES.LIQUID
+  );
+  let isRatioBoundByInject = false;
+  for (const edge of connectedInjectEdges) {
+    const injectNode = nodes.find(n => n.id === edge.target);
+    if (injectNode) {
+      const injectBoundVars = ((injectNode.data as Record<string, unknown>).boundVariables || {}) as Record<string, string>;
+      if (injectBoundVars.ratio) {
+        isRatioBoundByInject = true;
+        break;
+      }
+    }
+  }
+  
   return (
     <BaseNode {...props}>
       <div className="text-xs space-y-1">
         <div className="font-medium">{data.liquidName as string || '未选择'}</div>
-        <div className="text-muted-foreground">
+        {isRatioBoundByInject && (
+          <div className="text-[10px] text-pink-500 font-medium">
+            ⟳ 比例由扫描控制
+          </div>
+        )}
+        <div className={`text-muted-foreground ${isRatioBoundByInject ? 'line-through opacity-50' : ''}`}>
           比例: {(ratio * 100).toFixed(0)}%
         </div>
       </div>
@@ -226,10 +268,89 @@ export const WashNode = memo(function WashNode(props: NodeProps) {
   );
 });
 
+// 递归计算循环体/扫描体内的实际执行步骤数（穿透嵌套的扫描/循环节点）
+function countBodySteps(
+  startNodeId: string,
+  parentNodeId: string,
+  nodes: Array<{ id: string; type?: string; data: unknown }>,
+  edges: Array<{ source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }>,
+  visited: Set<string> = new Set()
+): number {
+  let count = 0;
+  const flowAdjacency = new Map<string, string>();
+  for (const edge of edges) {
+    if (edge.sourceHandle === HANDLE_TYPES.FLOW || !edge.sourceHandle) {
+      flowAdjacency.set(edge.source, edge.target);
+    }
+  }
+  
+  let currentId: string | undefined = startNodeId;
+  
+  while (currentId && !visited.has(currentId)) {
+    visited.add(currentId);
+    const currentNode = nodes.find(n => n.id === currentId);
+    
+    // 先处理当前节点
+    if (currentNode) {
+      const nodeType = currentNode.type;
+      
+      if (nodeType === NodeType.PARAM_SWEEP || nodeType === NodeType.LOOP) {
+        // 嵌套的扫描/循环节点：计算其迭代次数 * 循环体内步骤数
+        const nodeData = currentNode.data as Record<string, unknown>;
+        let nestedIterations = 1;
+        
+        if (nodeType === NodeType.PARAM_SWEEP) {
+          const paramType = nodeData.paramType as string || 'volume';
+          if (paramType === 'ratio') {
+            nestedIterations = ((nodeData.ratioSweepPoints as Array<unknown>) || []).length || 1;
+          } else {
+            const generatedSeq = nodeData.generatedSequence as number[] | undefined;
+            if (generatedSeq && generatedSeq.length > 0) {
+              nestedIterations = generatedSeq.length;
+            } else {
+              const start = nodeData.startValue as number ?? 0;
+              const end = nodeData.endValue as number ?? 100;
+              const step = nodeData.stepValue as number ?? 10;
+              nestedIterations = step > 0 ? Math.floor((end - start) / step) + 1 : 1;
+            }
+          }
+        } else {
+          nestedIterations = Number(nodeData.iterations || 1);
+        }
+        
+        // 找到嵌套节点的循环体起始节点
+        const nestedBodyEdge = edges.find(
+          e => e.source === currentId && e.sourceHandle === HANDLE_TYPES.LOOP_BODY
+        );
+        if (nestedBodyEdge) {
+          const nestedBodySteps = countBodySteps(
+            nestedBodyEdge.target, currentId, nodes, edges, new Set()
+          );
+          count += nestedIterations * nestedBodySteps;
+        }
+      } else {
+        // 普通执行节点：计数 +1
+        count++;
+      }
+    }
+    
+    // 处理完当前节点后，检查是否回到了父节点（循环体结束）
+    const isReturn = edges.some(
+      e => e.source === currentId && e.targetHandle === HANDLE_TYPES.LOOP_BODY && e.target === parentNodeId
+    );
+    if (isReturn) break;
+    
+    currentId = flowAdjacency.get(currentId);
+  }
+  
+  return count;
+}
+
 // 参数扫描节点 (类似循环节点，有扫描体)
 export const ParamSweepNode = memo(function ParamSweepNode(props: NodeProps) {
   const data = props.data as Record<string, unknown>;
   const edges = useEdges();
+  const nodes = useNodes();
   
   const paramTypeLabels: Record<string, string> = {
     ratio: '混合比例',
@@ -266,29 +387,10 @@ export const ParamSweepNode = memo(function ParamSweepNode(props: NodeProps) {
   );
   const hasLoopBody = loopBodyOutEdge && loopBodyInEdge;
   
-  // 计算扫描体节点数量
-  let bodyNodeCount = 0;
+  // 计算扫描体内的实际执行步骤数（穿透嵌套的扫描/循环节点）
+  let bodyStepCount = 0;
   if (loopBodyOutEdge) {
-    let currentId: string | undefined = loopBodyOutEdge.target;
-    const visited = new Set<string>();
-    const flowAdjacency = new Map<string, string>();
-    for (const edge of edges) {
-      if (edge.sourceHandle === HANDLE_TYPES.FLOW || !edge.sourceHandle) {
-        flowAdjacency.set(edge.source, edge.target);
-      }
-    }
-    
-    while (currentId && !visited.has(currentId)) {
-      visited.add(currentId);
-      bodyNodeCount++;
-      
-      const isReturn = edges.some(
-        e => e.source === currentId && e.target === props.id && e.targetHandle === HANDLE_TYPES.LOOP_BODY
-      );
-      if (isReturn) break;
-      
-      currentId = flowAdjacency.get(currentId);
-    }
+    bodyStepCount = countBodySteps(loopBodyOutEdge.target, props.id, nodes, edges);
   }
   
   return (
@@ -312,7 +414,7 @@ export const ParamSweepNode = memo(function ParamSweepNode(props: NodeProps) {
         </div>
         {hasLoopBody ? (
           <div className="text-amber-500 text-[10px]">
-            扫描体: {bodyNodeCount} 个步骤
+            扫描体: {bodyStepCount} 个步骤
           </div>
         ) : (
           <div className="text-[10px] text-muted-foreground">

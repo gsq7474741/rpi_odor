@@ -1,4 +1,4 @@
-"""在线可视化模块 - PCA/t-SNE/聚类"""
+"""在线可视化模块 - PCA/t-SNE/聚类/UMAP"""
 
 import logging
 from dataclasses import dataclass, field
@@ -7,12 +7,14 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 from sklearn.preprocessing import StandardScaler
 
 from ..config import VisualizationConfig, get_settings
+from ..db.sample_reader import SampleReader
 
 logger = logging.getLogger(__name__)
 
@@ -302,3 +304,114 @@ class VisualizationEngine:
     def sample_count(self) -> int:
         """当前样本数量"""
         return len(self._data_buffer)
+
+    def load_samples_from_db(
+        self,
+        sample_ids: list[int] | None = None,
+        params_hash: str | None = None,
+        phase_name: str | None = None,
+        liquid_ids: list[str] | None = None,
+        limit: int = 1000,
+    ) -> int:
+        """从数据库加载样本数据到缓冲区
+        
+        Args:
+            sample_ids: 指定的样本 ID 列表
+            params_hash: 按参数哈希过滤（跨 run 聚合）
+            phase_name: 按阶段过滤
+            liquid_ids: 按液体过滤
+            limit: 最大加载数量
+            
+        Returns:
+            加载的样本数量
+        """
+        reader = SampleReader()
+        
+        # 获取聚合特征
+        if sample_ids:
+            df = reader.get_aggregated_features(sample_ids=sample_ids)
+        elif params_hash:
+            df = reader.get_aggregated_features(params_hash=params_hash)
+        else:
+            # 列出样本然后获取特征
+            samples = reader.list_samples(
+                phase_name=phase_name,
+                liquid_ids=liquid_ids,
+                limit=limit,
+            )
+            if not samples:
+                return 0
+            sample_ids = [s["id"] for s in samples]
+            df = reader.get_aggregated_features(sample_ids=sample_ids)
+        
+        if df.empty:
+            return 0
+        
+        # 将聚合特征转换为宽格式（每个样本一行，每个传感器的特征作为列）
+        loaded_count = 0
+        for sample_id in df["sample_id"].unique():
+            sample_df = df[df["sample_id"] == sample_id]
+            
+            # 构建特征向量：[sensor_0_mean, sensor_0_std, ..., sensor_7_mean, sensor_7_std]
+            features = []
+            for sensor_idx in range(8):
+                sensor_data = sample_df[sample_df["sensor_idx"] == sensor_idx]
+                if not sensor_data.empty:
+                    row = sensor_data.iloc[0]
+                    features.extend([
+                        row.get("mean_value", 0) or 0,
+                        row.get("std_value", 0) or 0,
+                        row.get("min_value", 0) or 0,
+                        row.get("max_value", 0) or 0,
+                    ])
+                else:
+                    features.extend([0, 0, 0, 0])
+            
+            # 获取标签（液体名称）
+            label = None
+            liquid_names = sample_df["liquid_names"].iloc[0] if "liquid_names" in sample_df.columns else None
+            if liquid_names and isinstance(liquid_names, list):
+                label = " + ".join(liquid_names)
+            
+            # 添加到缓冲区
+            self.add_sample(
+                sample_id=str(sample_id),
+                features=np.array(features),
+                label=label,
+            )
+            loaded_count += 1
+        
+        logger.info(f"Loaded {loaded_count} samples from database")
+        return loaded_count
+
+    def compute_from_sample_group(
+        self,
+        params_hash: str,
+        vis_type: VisualizationType,
+        n_components: int | None = None,
+        perplexity: int | None = None,
+        n_clusters: int | None = None,
+    ) -> VisualizationResult:
+        """计算特定参数组的可视化（跨 run 聚合）
+        
+        Args:
+            params_hash: 参数哈希（用于跨 run 聚合相同参数的样本）
+            vis_type: 可视化类型
+            n_components: PCA/t-SNE 维度
+            perplexity: t-SNE perplexity
+            n_clusters: 聚类数量
+            
+        Returns:
+            可视化结果
+        """
+        self.clear()
+        loaded = self.load_samples_from_db(params_hash=params_hash)
+        if loaded == 0:
+            return VisualizationResult(type=vis_type, total_samples=0)
+        
+        return self.compute(
+            vis_type=vis_type,
+            n_components=n_components,
+            perplexity=perplexity,
+            n_clusters=n_clusters,
+        )

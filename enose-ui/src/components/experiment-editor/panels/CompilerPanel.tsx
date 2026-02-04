@@ -188,7 +188,7 @@ export function CompilerPanel() {
               <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
                 <Droplets className="w-4 h-4 text-cyan-500" />
                 <div>
-                  <div className="text-xs text-muted-foreground">峰值液位</div>
+                  <div className="text-xs text-muted-foreground">峰值样品液位</div>
                   <div className="text-sm font-medium">
                     {result.peakLiquidLevelMl.toFixed(1)} ml
                   </div>
@@ -209,8 +209,36 @@ export function CompilerPanel() {
                   <div className="text-xs text-muted-foreground">总排废量</div>
                   <div className="text-sm font-medium">
                     {result.totalDrainMl.toFixed(1)} ml
+                    {result.totalWashVolumeMl > 0 && (
+                      <span className="text-xs text-muted-foreground ml-1">
+                        (进样{result.totalInjectMl.toFixed(1)} + 清洗{result.totalWashVolumeMl.toFixed(1)})
+                      </span>
+                    )}
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* 液体消耗明细 */}
+          {result && result.liquidConsumption.length > 0 && (
+            <div className="p-2 rounded-lg border bg-muted/30">
+              <div className="text-xs font-medium text-muted-foreground mb-2">液体消耗明细</div>
+              <div className="space-y-1">
+                {result.liquidConsumption.map((lc) => (
+                  <div key={lc.liquidId} className="flex justify-between items-center text-xs">
+                    <span className="truncate" title={lc.liquidName}>
+                      {lc.liquidName}
+                      {lc.pumpIndex >= 0 && (
+                        <span className="text-muted-foreground ml-1">(泵{lc.pumpIndex})</span>
+                      )}
+                      {lc.pumpIndex < 0 && (
+                        <span className="text-muted-foreground ml-1">(清洗泵)</span>
+                      )}
+                    </span>
+                    <span className="font-medium ml-2">{lc.requiredMl.toFixed(1)} ml</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}

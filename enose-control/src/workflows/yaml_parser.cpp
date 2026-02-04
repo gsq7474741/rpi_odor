@@ -355,6 +355,51 @@ YamlParser::ParseResult YamlParser::parse(const std::string& yaml_content) {
             }
         }
         
+        // 解析前端编译估算 (可选)
+        if (root["_compile_estimate"]) {
+            auto ce = root["_compile_estimate"];
+            auto* est = result.program.mutable_compile_estimate();
+            
+            if (ce["total_duration_s"]) {
+                est->set_estimated_duration_s(ce["total_duration_s"].as<double>());
+            }
+            if (ce["peak_liquid_level_ml"]) {
+                est->set_peak_liquid_level_ml(ce["peak_liquid_level_ml"].as<double>());
+            }
+            
+            // 解析泵消耗量
+            if (ce["pump_estimates"] && ce["pump_estimates"].IsSequence()) {
+                auto* pump_map = est->mutable_pump_consumption_ml();
+                for (const auto& pe : ce["pump_estimates"]) {
+                    if (pe["pump_index"] && pe["volume_ml"]) {
+                        (*pump_map)[pe["pump_index"].as<int>()] = pe["volume_ml"].as<double>();
+                    }
+                }
+            }
+            
+            // 解析液体消耗详情
+            if (ce["liquid_consumption"] && ce["liquid_consumption"].IsSequence()) {
+                for (const auto& lc : ce["liquid_consumption"]) {
+                    auto* consumption = est->add_liquid_consumption();
+                    if (lc["liquid_id"]) {
+                        consumption->set_liquid_id(lc["liquid_id"].as<std::string>());
+                    }
+                    if (lc["liquid_name"]) {
+                        consumption->set_liquid_name(lc["liquid_name"].as<std::string>());
+                    }
+                    if (lc["pump_index"]) {
+                        consumption->set_pump_index(lc["pump_index"].as<int>());
+                    }
+                    if (lc["required_ml"]) {
+                        consumption->set_required_ml(lc["required_ml"].as<double>());
+                    }
+                }
+            }
+            
+            spdlog::debug("解析前端编译估算: duration={}s, peak={}ml",
+                         est->estimated_duration_s(), est->peak_liquid_level_ml());
+        }
+        
         result.success = true;
         spdlog::info("YAML 解析成功: {} ({}个步骤)", 
                      result.program.name(), result.program.steps_size());

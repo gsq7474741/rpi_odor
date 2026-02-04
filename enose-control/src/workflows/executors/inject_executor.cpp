@@ -76,10 +76,10 @@ ExecuteResult InjectExecutor::execute(const enose::experiment::Step& step) {
     // 创建事务守卫
     auto guard = create_guard(SystemState::State::INJECT, "inject");
     
-    // 计算每个泵的进样量
+    // 计算每个泵的进样量 (单位: ml, Klipper 已配置 1mm=1ml)
     double total_volume = action.target_volume_ml();
     SystemState::InjectionParams params;
-    params.speed = action.flow_rate_ml_min() / 60.0 * 1000;  // 转换为 mm/s
+    params.speed = action.flow_rate_ml_min() / 60.0;  // ml/min -> ml/s
     params.accel = params.speed * 2;
     
     // 根据液体配方设置各泵进样量
@@ -88,14 +88,14 @@ ExecuteResult InjectExecutor::execute(const enose::experiment::Step& step) {
     int pump_offset = 2;  // 从 pump_2 开始
     for (int i = 0; i < action.components_size() && i < 4; ++i) {
         const auto& comp = action.components(i);
-        double volume_mm = total_volume * comp.ratio() * 1000;  // ml to mm
+        double volume_ml = total_volume * comp.ratio();  // 直接使用 ml
         
         int pump_idx = pump_offset + i;
         switch (pump_idx) {
-            case 2: params.pump_2_volume = volume_mm; break;
-            case 3: params.pump_3_volume = volume_mm; break;
-            case 4: params.pump_4_volume = volume_mm; break;
-            case 5: params.pump_5_volume = volume_mm; break;
+            case 2: params.pump_2_volume = volume_ml; break;
+            case 3: params.pump_3_volume = volume_ml; break;
+            case 4: params.pump_4_volume = volume_ml; break;
+            case 5: params.pump_5_volume = volume_ml; break;
         }
     }
     
@@ -131,17 +131,16 @@ ExecuteResult InjectExecutor::execute(const enose::experiment::Step& step) {
     auto inject_duration = std::chrono::steady_clock::now() - inject_start;
     int64_t inject_seconds = std::chrono::duration_cast<std::chrono::seconds>(inject_duration).count();
     
-    // 记录耗材消耗 (通过回调)
+    // 记录耗材消耗 (通过回调) - 单位已经是 ml
     if (consumable_callback_ && inject_seconds > 0) {
-        constexpr double MM_TO_ML = 0.1;
-        if (params.pump_0_volume > 0) consumable_callback_("pump_tube_0", params.pump_0_volume * MM_TO_ML);
-        if (params.pump_1_volume > 0) consumable_callback_("pump_tube_1", params.pump_1_volume * MM_TO_ML);
-        if (params.pump_2_volume > 0) consumable_callback_("pump_tube_2", params.pump_2_volume * MM_TO_ML);
-        if (params.pump_3_volume > 0) consumable_callback_("pump_tube_3", params.pump_3_volume * MM_TO_ML);
-        if (params.pump_4_volume > 0) consumable_callback_("pump_tube_4", params.pump_4_volume * MM_TO_ML);
-        if (params.pump_5_volume > 0) consumable_callback_("pump_tube_5", params.pump_5_volume * MM_TO_ML);
-        if (params.pump_6_volume > 0) consumable_callback_("pump_tube_6", params.pump_6_volume * MM_TO_ML);
-        if (params.pump_7_volume > 0) consumable_callback_("pump_tube_7", params.pump_7_volume * MM_TO_ML);
+        if (params.pump_0_volume > 0) consumable_callback_("pump_tube_0", params.pump_0_volume);
+        if (params.pump_1_volume > 0) consumable_callback_("pump_tube_1", params.pump_1_volume);
+        if (params.pump_2_volume > 0) consumable_callback_("pump_tube_2", params.pump_2_volume);
+        if (params.pump_3_volume > 0) consumable_callback_("pump_tube_3", params.pump_3_volume);
+        if (params.pump_4_volume > 0) consumable_callback_("pump_tube_4", params.pump_4_volume);
+        if (params.pump_5_volume > 0) consumable_callback_("pump_tube_5", params.pump_5_volume);
+        if (params.pump_6_volume > 0) consumable_callback_("pump_tube_6", params.pump_6_volume);
+        if (params.pump_7_volume > 0) consumable_callback_("pump_tube_7", params.pump_7_volume);
     }
     
     // 提交事务

@@ -46,6 +46,9 @@ message ExperimentProgram {
   
   // 元数据
   Metadata metadata = 10;
+  
+  // 前端编译期估算 (可选，用于后端校验对比)
+  ResourceEstimate compile_estimate = 11;
 }
 
 // ============================================================

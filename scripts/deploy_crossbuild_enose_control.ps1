@@ -1,10 +1,12 @@
 # 交叉编译并部署 enose-control 到 RPi5
 # 用法: .\scripts\deploy_cross.ps1
-# 可选参数: -Proto  强制重新生成 protobuf (默认自动检测变更)
-#           -Force  强制重新构建 Docker 镜像
+# 可选参数: -Proto      强制重新生成 protobuf (默认自动检测变更)
+#           -ProtoOnly  只生成 protobuf，不交叉编译和部署
+#           -Force      强制重新构建 Docker 镜像
 
 param(
     [switch]$Proto,
+    [switch]$ProtoOnly,
     [switch]$Force
 )
 
@@ -90,7 +92,7 @@ if ($needBuildImage) {
 $currentProtoHash = Get-DirHash $ProtoDir "*.proto"
 $cachedProtoHash = if (Test-Path $ProtoHashFile) { Get-Content $ProtoHashFile } else { "" }
 
-$needGenProto = $Proto -or ($currentProtoHash -ne $cachedProtoHash)
+$needGenProto = $Proto -or $ProtoOnly -or ($currentProtoHash -ne $cachedProtoHash)
 
 if ($needGenProto) {
     Write-Host "`n[2/6] 生成 Protobuf 代码 (容器内 buf)..." -ForegroundColor Yellow
@@ -112,19 +114,26 @@ if ($needGenProto) {
 }
 
 # ============================================
-# 步骤 3: 交叉编译
+# 步骤 3: 交叉编译 (如果不是 ProtoOnly 模式)
 # ============================================
-Write-Host "`n[3/6] 交叉编译 enose-control (arm64)..." -ForegroundColor Yellow
+if ($ProtoOnly) {
+    Write-Host "`n[3/6] 跳过交叉编译 (ProtoOnly 模式)" -ForegroundColor DarkGray
+} else {
+    Write-Host "`n[3/6] 交叉编译 enose-control (arm64)..." -ForegroundColor Yellow
 
 $cmd = 'cd /src/enose-control && mkdir -p build && cd build && cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/opt/toolchain-arm64.cmake -DCMAKE_PREFIX_PATH=/opt/cross-pi-arm64/usr .. && ninja -j$(nproc)'
 & docker run --rm -v "${ProjectRoot}:/src" $DockerImage bash -c $cmd 2>&1 | ForEach-Object { Write-Host $_ }
 if ($LASTEXITCODE -ne 0) { throw "交叉编译失败" }
-Write-Host "  编译成功" -ForegroundColor Green
+    Write-Host "  编译成功" -ForegroundColor Green
+}
 
 # ============================================
-# 步骤 4: 部署到 RPi5
+# 步骤 4: 部署到 RPi5 (如果不是 ProtoOnly 模式)
 # ============================================
-Write-Host "`n[4/6] 部署到 RPi5..." -ForegroundColor Yellow
+if ($ProtoOnly) {
+    Write-Host "`n[4/6] 跳过部署 (ProtoOnly 模式)" -ForegroundColor DarkGray
+} else {
+    Write-Host "`n[4/6] 部署到 RPi5..." -ForegroundColor Yellow
 
 $binaryPath = Join-Path $EnoseControl "build\bin\enose-control"
 if (-not (Test-Path $binaryPath)) {
@@ -166,20 +175,24 @@ if (Test-Path $configPath) {
 #     Write-Host "  警告: load_cell 配置文件不存在: $loadCellConfigPath" -ForegroundColor Yellow
 # }
 
-Write-Host "  上传完成" -ForegroundColor Green
+    Write-Host "  上传完成" -ForegroundColor Green
 
-# 重启服务
-ssh $RPI_HOST "echo $RPI_PASS | sudo -S systemctl restart enose-control"
-if ($LASTEXITCODE -ne 0) { throw "重启服务失败" }
+    # 重启服务
+    ssh $RPI_HOST "echo $RPI_PASS | sudo -S systemctl restart enose-control"
+    if ($LASTEXITCODE -ne 0) { throw "重启服务失败" }
+}
 
 # ============================================
-# 步骤 5: 检查服务状态
+# 步骤 5: 检查服务状态 (如果不是 ProtoOnly 模式)
 # ============================================
-Write-Host "`n[5/6] 检查服务状态..." -ForegroundColor Yellow
-Start-Sleep -Seconds 2
-ssh $RPI_HOST "systemctl status enose-control --no-pager"
-
-Write-Host "`n=== 交叉编译部署完成! ===" -ForegroundColor Green
+if ($ProtoOnly) {
+    Write-Host "`n[5/6] 跳过服务状态检查 (ProtoOnly 模式)" -ForegroundColor DarkGray
+} else {
+    Write-Host "`n[5/6] 检查服务状态..." -ForegroundColor Yellow
+    Start-Sleep -Seconds 2
+    ssh $RPI_HOST "systemctl status enose-control --no-pager"
+    Write-Host "`n=== 交叉编译部署完成! ===" -ForegroundColor Green
+}
 
 # ============================================
 # 步骤 6: 复制生成的 TypeScript 类型到前端
@@ -220,4 +233,9 @@ if (Test-Path $genPyPath) {
     Write-Host "  复制完成: $analyticsGenPath" -ForegroundColor Green
 } else {
     Write-Host "`n[7/7] 跳过: 未找到生成的 Python 文件" -ForegroundColor Yellow
+}
+
+# ProtoOnly 模式完成提示
+if ($ProtoOnly) {
+    Write-Host "`n=== Protobuf 生成完成! ===" -ForegroundColor Green
 }

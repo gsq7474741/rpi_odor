@@ -35,6 +35,14 @@ def serve() -> None:
     logger.info("Starting enose-analytics service...")
     logger.info(f"gRPC server: {settings.grpc.host}:{settings.grpc.port}")
 
+    # 运行依赖服务健康检查
+    from .health import run_health_checks, print_health_status
+    results = run_health_checks(required_only=False)
+    all_healthy = print_health_status(results)
+    
+    if not all_healthy:
+        logger.warning("Some required services are unavailable, but continuing startup...")
+
     # 创建 gRPC 服务器
     server = grpc.server(
         futures.ThreadPoolExecutor(max_workers=settings.grpc.max_workers),
@@ -45,10 +53,12 @@ def serve() -> None:
     )
 
     # 注册 gRPC 服务
-    from .grpc import add_analytics_service, add_label_service, add_model_service
+    from .grpc import add_analytics_service, add_label_service, add_model_service, add_data_service, add_sample_service
     add_analytics_service(server)
     add_label_service(server)
     add_model_service(server)
+    add_data_service(server)
+    add_sample_service(server)
 
     # 绑定端口
     address = f"{settings.grpc.host}:{settings.grpc.port}"

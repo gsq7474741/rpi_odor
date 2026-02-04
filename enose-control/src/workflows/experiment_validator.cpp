@@ -25,6 +25,9 @@ ValidationResultInfo ExperimentValidator::validate(const experiment::ExperimentP
     check_empty_aspiration_risk();
     check_liquid_sufficiency();
     
+    // 前后端估算对比
+    cross_validate_compile_estimate();
+    
     // 构建结果
     ValidationResultInfo result;
     result.valid = errors_.empty();
@@ -138,7 +141,7 @@ void ExperimentValidator::validate_hardware_constraints() {
     
     const auto& hw = program_->hardware();
     
-    // 检查是否有清洗液定义
+    // 检查是否有清洗液定义 (只在程序包含清洗步骤时才警告)
     bool has_rinse = false;
     for (const auto& liquid : hw.liquids()) {
         if (liquid.type() == experiment::LIQUID_RINSE) {
@@ -147,9 +150,12 @@ void ExperimentValidator::validate_hardware_constraints() {
         }
     }
     
-    if (!has_rinse) {
-        add_warning("hardware.liquids", "NO_RINSE_LIQUID", 
-                   "未定义清洗液，清洗步骤可能无法执行");
+    // 检查程序是否包含清洗步骤
+    bool has_wash_step = has_wash_step_recursive(program_->steps());
+    
+    if (!has_rinse && has_wash_step) {
+        add_error("hardware.liquids", "NO_RINSE_LIQUID", 
+                 "程序包含清洗步骤但未定义清洗液");
     }
     
     // 检查泵索引唯一性
@@ -164,6 +170,21 @@ void ExperimentValidator::validate_hardware_constraints() {
             pump_to_liquid[liquid.pump_index()] = liquid.id();
         }
     }
+}
+
+bool ExperimentValidator::has_wash_step_recursive(
+    const google::protobuf::RepeatedPtrField<experiment::Step>& steps) {
+    for (const auto& step : steps) {
+        if (step.has_wash()) {
+            return true;
+        }
+        if (step.has_loop()) {
+            if (has_wash_step_recursive(step.loop().steps())) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 void ExperimentValidator::validate_steps(
@@ -508,6 +529,59 @@ double ExperimentValidator::get_inject_volume(const experiment::InjectAction& ac
 const experiment::LiquidInventory* ExperimentValidator::find_liquid(const std::string& liquid_id) {
     auto it = liquid_map_.find(liquid_id);
     return (it != liquid_map_.end()) ? it->second : nullptr;
+}
+
+void ExperimentValidator::cross_validate_compile_estimate() {
+    if (!program_->has_compile_estimate()) {
+        // 没有前端编译估算，跳过对比
+        return;
+    }
+    
+    const auto& fe = program_->compile_estimate();  // frontend estimate
+    constexpr double tolerance = 0.10;  // 允许 10% 误差
+    
+    // 对比总时长
+    if (total_duration_ > 0 && fe.estimated_duration_s() > 0) {
+        double diff = std::abs(fe.estimated_duration_s() - total_duration_) / total_duration_;
+        if (diff > tolerance) {
+            add_warning("_compile_estimate.total_duration_s", "DURATION_MISMATCH",
+                       "前后端时长估算差异超过10%: 前端=" + 
+                       std::to_string(fe.estimated_duration_s()) + 
+                       "s, 后端=" + std::to_string(total_duration_) + "s");
+        }
+    }
+    
+    // 对比峰值液位
+    if (peak_liquid_level_ > 0 && fe.peak_liquid_level_ml() > 0) {
+        double diff = std::abs(fe.peak_liquid_level_ml() - peak_liquid_level_) / peak_liquid_level_;
+        if (diff > tolerance) {
+            add_warning("_compile_estimate.peak_liquid_level_ml", "PEAK_LEVEL_MISMATCH",
+                       "前后端峰值液位估算差异超过10%: 前端=" + 
+                       std::to_string(fe.peak_liquid_level_ml()) + 
+                       "ml, 后端=" + std::to_string(peak_liquid_level_) + "ml");
+        }
+    }
+    
+    // 对比各泵消耗量
+    for (const auto& [pump_idx, backend_volume] : pump_totals_) {
+        auto it = fe.pump_consumption_ml().find(pump_idx);
+        if (it != fe.pump_consumption_ml().end()) {
+            double frontend_volume = it->second;
+            if (backend_volume > 0) {
+                double diff = std::abs(frontend_volume - backend_volume) / backend_volume;
+                if (diff > tolerance) {
+                    add_warning("_compile_estimate.pump_consumption_ml[" + std::to_string(pump_idx) + "]",
+                               "PUMP_VOLUME_MISMATCH",
+                               "泵" + std::to_string(pump_idx) + " 用量估算差异超过10%: 前端=" + 
+                               std::to_string(frontend_volume) + "ml, 后端=" + 
+                               std::to_string(backend_volume) + "ml");
+                }
+            }
+        }
+    }
+    
+    spdlog::debug("前后端估算对比完成: 前端duration={}s, 后端duration={}s",
+                 fe.estimated_duration_s(), total_duration_);
 }
 
 } // namespace enose::workflows

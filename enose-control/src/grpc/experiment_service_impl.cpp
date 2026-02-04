@@ -296,6 +296,11 @@ ExperimentServiceImpl::~ExperimentServiceImpl() {
 void ExperimentServiceImpl::execution_thread_func() {
     spdlog::info("实验执行线程启动");
     
+    // 初始化样本上下文
+    current_sample_ctx_ = db::SampleContext{};
+    // TODO: 从 TestRunRepository 获取当前 run_id
+    // current_run_id_ = test_run_repo_->create_run(...);
+    
     try {
         execute_steps(loaded_program_->steps());
         
@@ -385,6 +390,9 @@ void ExperimentServiceImpl::execute_step(const experiment::Step& step) {
         case experiment::Step::kWash:
             execute_wash(step.wash());
             break;
+        case experiment::Step::kConfigureHeater:
+            execute_configure_heater(step.configure_heater());
+            break;
         default:
             spdlog::warn("未知的步骤动作类型");
             break;
@@ -403,24 +411,41 @@ void ExperimentServiceImpl::execute_inject(const experiment::InjectAction& actio
         "inject"
     );
     
-    // 计算每个泵的进样量
+    // 计算每个泵的进样量 (单位: ml, Klipper 已配置 1mm=1ml)
     double total_volume = action.target_volume_ml();
     workflows::SystemState::InjectionParams params;
-    params.speed = action.flow_rate_ml_min() / 60.0 * 1000;  // 转换为 mm/s (假设 1ml ≈ 1000mm)
+    params.speed = action.flow_rate_ml_min() / 60.0;  // ml/min -> ml/s
     params.accel = params.speed * 2;  // 默认加速度
+    
+    // 更新样本上下文 - 液体参数
+    current_sample_ctx_.liquids.clear();
+    current_sample_ctx_.total_volume_ml = total_volume;
+    current_sample_ctx_.flow_rate_ml_s = params.speed;
     
     // 根据液体配方设置各泵进样量
     for (const auto& comp : action.components()) {
-        double volume_mm = total_volume * comp.ratio() * 1000;  // ml to mm
+        double volume_ml = total_volume * comp.ratio();  // 直接使用 ml
         
         // 查找液体对应的泵
         for (const auto& liquid : loaded_program_->hardware().liquids()) {
             if (liquid.id() == comp.liquid_id()) {
+                // 记录到样本上下文
+                db::LiquidInfo liq_info;
+                liq_info.id = comp.liquid_id();
+                liq_info.name = liquid.name();
+                liq_info.ratio = comp.ratio();
+                liq_info.pump_index = liquid.pump_index();
+                current_sample_ctx_.liquids.push_back(liq_info);
+                
                 switch (liquid.pump_index()) {
-                    case 2: params.pump_2_volume = volume_mm; break;
-                    case 3: params.pump_3_volume = volume_mm; break;
-                    case 4: params.pump_4_volume = volume_mm; break;
-                    case 5: params.pump_5_volume = volume_mm; break;
+                    case 0: params.pump_0_volume = volume_ml; break;
+                    case 1: params.pump_1_volume = volume_ml; break;
+                    case 2: params.pump_2_volume = volume_ml; break;
+                    case 3: params.pump_3_volume = volume_ml; break;
+                    case 4: params.pump_4_volume = volume_ml; break;
+                    case 5: params.pump_5_volume = volume_ml; break;
+                    case 6: params.pump_6_volume = volume_ml; break;
+                    case 7: params.pump_7_volume = volume_ml; break;
                 }
                 break;
             }
@@ -454,17 +479,16 @@ void ExperimentServiceImpl::execute_inject(const experiment::InjectAction& actio
     }
     
     // 泵运行时间由 RuntimeTracker 在 SystemState 层自动统计
-    // 这里只记录液体消耗量 (用于泵容量余量跟踪)
+    // 这里只记录液体消耗量 (用于泵容量余量跟踪) - 单位已经是 ml
     if (consumable_repo_) {
-        constexpr double MM_TO_ML = 0.1;  // 1mm 进样距离 ≈ 0.1ml 液体
-        if (params.pump_0_volume > 0) consumable_repo_->add_pump_consumption(0, params.pump_0_volume * MM_TO_ML);
-        if (params.pump_1_volume > 0) consumable_repo_->add_pump_consumption(1, params.pump_1_volume * MM_TO_ML);
-        if (params.pump_2_volume > 0) consumable_repo_->add_pump_consumption(2, params.pump_2_volume * MM_TO_ML);
-        if (params.pump_3_volume > 0) consumable_repo_->add_pump_consumption(3, params.pump_3_volume * MM_TO_ML);
-        if (params.pump_4_volume > 0) consumable_repo_->add_pump_consumption(4, params.pump_4_volume * MM_TO_ML);
-        if (params.pump_5_volume > 0) consumable_repo_->add_pump_consumption(5, params.pump_5_volume * MM_TO_ML);
-        if (params.pump_6_volume > 0) consumable_repo_->add_pump_consumption(6, params.pump_6_volume * MM_TO_ML);
-        if (params.pump_7_volume > 0) consumable_repo_->add_pump_consumption(7, params.pump_7_volume * MM_TO_ML);
+        if (params.pump_0_volume > 0) consumable_repo_->add_pump_consumption(0, params.pump_0_volume);
+        if (params.pump_1_volume > 0) consumable_repo_->add_pump_consumption(1, params.pump_1_volume);
+        if (params.pump_2_volume > 0) consumable_repo_->add_pump_consumption(2, params.pump_2_volume);
+        if (params.pump_3_volume > 0) consumable_repo_->add_pump_consumption(3, params.pump_3_volume);
+        if (params.pump_4_volume > 0) consumable_repo_->add_pump_consumption(4, params.pump_4_volume);
+        if (params.pump_5_volume > 0) consumable_repo_->add_pump_consumption(5, params.pump_5_volume);
+        if (params.pump_6_volume > 0) consumable_repo_->add_pump_consumption(6, params.pump_6_volume);
+        if (params.pump_7_volume > 0) consumable_repo_->add_pump_consumption(7, params.pump_7_volume);
     }
     
     // 提交事务并恢复到初始状态 (Phase 1.3)
@@ -559,6 +583,53 @@ void ExperimentServiceImpl::execute_acquire(const experiment::AcquireAction& act
         "acquire"
     );
     
+    // 更新样本上下文 - 采集参数
+    current_sample_ctx_.gas_pump_pwm = action.gas_pump_pwm();
+    current_sample_ctx_.max_duration_s = action.max_duration_s();
+    
+    // 解析终止条件
+    switch (action.termination_case()) {
+        case experiment::AcquireAction::kDurationS:
+            current_sample_ctx_.termination_type = "duration";
+            current_sample_ctx_.termination_value = action.duration_s();
+            break;
+        case experiment::AcquireAction::kHeaterCycles:
+            current_sample_ctx_.termination_type = "cycles";
+            current_sample_ctx_.termination_value = action.heater_cycles();
+            break;
+        case experiment::AcquireAction::kStability:
+            current_sample_ctx_.termination_type = "stability";
+            current_sample_ctx_.termination_value = action.stability().threshold_percent();
+            break;
+        default:
+            current_sample_ctx_.termination_type = "duration";
+            current_sample_ctx_.termination_value = action.max_duration_s();
+            break;
+    }
+    
+    // 计算参数哈希并创建样本记录
+    current_sample_ctx_.params_hash = current_sample_ctx_.compute_hash();
+    current_sample_ctx_.start_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    
+    if (sample_repo_ && current_run_id_) {
+        auto sample_id = sample_repo_->create_sample(
+            *current_run_id_,
+            current_sample_ctx_.sample_idx,
+            current_sample_ctx_
+        );
+        if (sample_id) {
+            current_sample_ctx_.sample_id = *sample_id;
+            current_sample_ctx_.sample_idx++;
+            add_log("创建样本记录: id=" + std::to_string(*sample_id));
+            
+            // 设置传感器上下文
+            if (sensor_service_) {
+                // TODO: sensor_service_->set_sample_context(*sample_id);
+            }
+        }
+    }
+    
     // TODO: 设置气泵PWM到指定值
     
     // 根据终止条件等待
@@ -605,6 +676,31 @@ void ExperimentServiceImpl::execute_acquire(const experiment::AcquireAction& act
             break;
         }
     }
+    
+    // 采集结束，完成样本记录
+    if (sample_repo_ && current_sample_ctx_.sample_id >= 0) {
+        int64_t end_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+        
+        // 获取环境参数平均值
+        auto env_stats = sample_repo_->get_environment_stats(
+            current_sample_ctx_.start_time_ms, end_time_ms);
+        current_sample_ctx_.avg_temperature_c = env_stats.avg_temp;
+        current_sample_ctx_.avg_humidity_pct = env_stats.avg_humidity;
+        current_sample_ctx_.avg_pressure_hpa = env_stats.avg_pressure;
+        
+        sample_repo_->complete_sample(
+            current_sample_ctx_.sample_id, end_time_ms, current_sample_ctx_);
+        add_log("完成样本记录: id=" + std::to_string(current_sample_ctx_.sample_id));
+        
+        // 清除传感器上下文
+        if (sensor_service_) {
+            // TODO: sensor_service_->clear_sample_context();
+        }
+    }
+    
+    // 重置清洗计数
+    current_sample_ctx_.reset_wash_count();
     
     add_log("采集完成");
     
@@ -662,6 +758,9 @@ void ExperimentServiceImpl::execute_phase_marker(const experiment::PhaseMarkerAc
     if (action.is_start()) {
         add_log("阶段开始: " + action.phase_name());
         emit_event(experiment::ExperimentEvent::PHASE_STARTED, action.phase_name());
+        
+        // 更新样本上下文 - 阶段信息
+        current_sample_ctx_.phase_name = action.phase_name();
     } else {
         add_log("阶段结束: " + action.phase_name());
         emit_event(experiment::ExperimentEvent::PHASE_ENDED, action.phase_name());
@@ -671,6 +770,11 @@ void ExperimentServiceImpl::execute_phase_marker(const experiment::PhaseMarkerAc
 void ExperimentServiceImpl::execute_wash(const experiment::WashAction& action) {
     add_log("清洗: 目标重量变化=" + std::to_string(action.target_weight_g()) + 
             "g, 重复" + std::to_string(action.repeat_count()) + "次");
+    
+    // 更新样本上下文 - 清洗参数
+    current_sample_ctx_.pre_wash_count += action.repeat_count();
+    current_sample_ctx_.pre_wash_volume_ml = action.target_weight_g();  // 近似
+    // TODO: 获取清洗液 ID（从 loaded_program_->hardware().wash_liquid_id()）
     
     // 使用事务守卫保证状态一致性 (Phase 1.3)
     // 注意: wash 是复合操作，内部有多次状态转换，guard 只保证最终恢复到 INITIAL
@@ -1090,6 +1194,41 @@ bool ExperimentServiceImpl::try_execute_with_executor(const experiment::Step& st
     
     add_log("Executor 执行成功 (耗时 " + std::to_string(result.duration_s) + "s)");
     return true;
+}
+
+void ExperimentServiceImpl::execute_configure_heater(
+    const experiment::ConfigureHeaterAction& action) {
+    add_log("配置加热器");
+    
+    // 更新样本上下文 - 加热器配置
+    current_sample_ctx_.heater_configs.clear();
+    
+    for (const auto& config : action.configs()) {
+        db::HeaterConfigInfo info;
+        
+        // 复制传感器索引
+        for (int idx : config.sensor_indices()) {
+            info.sensor_indices.push_back(idx);
+        }
+        
+        info.profile_name = config.profile_name();
+        
+        // 复制温度和持续时间数组
+        for (int temp : config.temps()) {
+            info.temps.push_back(temp);
+        }
+        for (int dur : config.durs()) {
+            info.durs.push_back(dur);
+        }
+        
+        current_sample_ctx_.heater_configs.push_back(info);
+        
+        add_log("  传感器 " + std::to_string(info.sensor_indices.size()) + 
+                " 个, 配置: " + (info.profile_name.empty() ? "自定义" : info.profile_name));
+    }
+    
+    // TODO: 实际应用加热器配置到硬件
+    // 这部分应该由 HeaterConfigExecutor 处理
 }
 
 } // namespace grpc_service

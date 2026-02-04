@@ -280,6 +280,36 @@ RETURNS BIGINT AS $$
 $$ LANGUAGE SQL IMMUTABLE;
 
 -- ============================================================
+-- 核心视图: sensor_frames
+-- 将8个传感器的单行数据聚合为一行帧数据
+-- 用于可视化和 ML 训练
+-- ============================================================
+CREATE OR REPLACE VIEW sensor_frames AS
+SELECT 
+    ms_to_timestamp(time_ms) AS ts,
+    time_ms AS seq,
+    run_id::TEXT AS experiment_id,
+    phase_name,
+    ARRAY[
+        MAX(CASE WHEN sensor_idx = 0 THEN value END),
+        MAX(CASE WHEN sensor_idx = 1 THEN value END),
+        MAX(CASE WHEN sensor_idx = 2 THEN value END),
+        MAX(CASE WHEN sensor_idx = 3 THEN value END),
+        MAX(CASE WHEN sensor_idx = 4 THEN value END),
+        MAX(CASE WHEN sensor_idx = 5 THEN value END),
+        MAX(CASE WHEN sensor_idx = 6 THEN value END),
+        MAX(CASE WHEN sensor_idx = 7 THEN value END)
+    ]::DOUBLE PRECISION[] AS mox_readings,
+    AVG(temperature)::DOUBLE PRECISION AS temp_c,
+    AVG(humidity)::DOUBLE PRECISION AS rh,
+    AVG(pressure)::DOUBLE PRECISION AS pressure
+FROM sensor_readings_v2
+GROUP BY time_ms, run_id, phase_name
+ORDER BY time_ms DESC;
+
+COMMENT ON VIEW sensor_frames IS '传感器帧数据视图 - 聚合8个传感器读数为一行';
+
+-- ============================================================
 -- 便捷视图: 最近数据 (带可读时间)
 -- ============================================================
 CREATE OR REPLACE VIEW recent_sensor_readings AS

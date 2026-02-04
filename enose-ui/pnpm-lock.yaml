@@ -119,12 +119,18 @@ importers:
       react-resizable-panels:
         specifier: ^3.0.6
         version: 3.0.6(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      scatter-gl:
+        specifier: ^0.0.13
+        version: 0.0.13
       sonner:
         specifier: ^2.0.7
         version: 2.0.7(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       tailwind-merge:
         specifier: ^3.4.0
         version: 3.4.0
+      three:
+        specifier: ^0.182.0
+        version: 0.182.0
       zustand:
         specifier: ^5.0.10
         version: 5.0.10(@types/react@19.2.8)(react@19.2.3)(use-sync-external-store@1.6.0(react@19.2.3))
@@ -2926,6 +2932,9 @@ packages:
     resolution: {integrity: sha512-1n3r/tGXO6b6VXMdFT54SHzT9ytu9yr7TaELowdYpMqY/Ao7EnlQGmAQ1+RatX7Tkkdm6hONI2owqNx2aZj5Sw==, tarball: https://registry.npmmirror.com/sax/-/sax-1.4.4.tgz}
     engines: {node: '>=11.0.0'}
 
+  scatter-gl@0.0.13:
+    resolution: {integrity: sha512-304ftr2ND7RSZ5tmnnPNEGc6D9DH+xSP5OJU6DrwvDLA19We8icrVWmdpJbORC9hh0cZ/gYsn+/6H+WONdUGeQ==, tarball: https://registry.npmmirror.com/scatter-gl/-/scatter-gl-0.0.13.tgz}
+
   scheduler@0.27.0:
     resolution: {integrity: sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q==, tarball: https://registry.npmmirror.com/scheduler/-/scheduler-0.27.0.tgz}
 
@@ -3087,6 +3096,12 @@ packages:
   tapable@2.3.0:
     resolution: {integrity: sha512-g9ljZiwki/LfxmQADO3dEY1CbpmXT5Hm2fJ+QaGKwSXUylMybePR7/67YW7jOrrvjEgL1Fmz5kzyAjWVWLlucg==, tarball: https://registry.npmmirror.com/tapable/-/tapable-2.3.0.tgz}
     engines: {node: '>=6'}
+
+  three@0.125.2:
+    resolution: {integrity: sha512-7rIRO23jVKWcAPFdW/HREU2NZMGWPBZ4XwEMt0Ak0jwLUKVJhcKM55eCBWyGZq/KiQbeo1IeuAoo/9l2dzhTXA==, tarball: https://registry.npmmirror.com/three/-/three-0.125.2.tgz}
+
+  three@0.182.0:
+    resolution: {integrity: sha512-GbHabT+Irv+ihI1/f5kIIsZ+Ef9Sl5A1Y7imvS5RQjWgtTPfPnZ43JmlYI7NtCRDK9zir20lQpfg8/9Yd02OvQ==, tarball: https://registry.npmmirror.com/three/-/three-0.182.0.tgz}
 
   through2@4.0.2:
     resolution: {integrity: sha512-iOqSav00cVxEEICeD7TjLB1sueEL+81Wpzp2bY17uZjZN0pWZPuo4suZ/61VujxmqSGFfgOcNuTZ85QJwNZQpw==, tarball: https://registry.npmmirror.com/through2/-/through2-4.0.2.tgz}
@@ -6253,6 +6268,10 @@ snapshots:
 
   sax@1.4.4: {}
 
+  scatter-gl@0.0.13:
+    dependencies:
+      three: 0.125.2
+
   scheduler@0.27.0: {}
 
   semver@6.3.1: {}
@@ -6461,6 +6480,10 @@ snapshots:
   tailwindcss@4.1.18: {}
 
   tapable@2.3.0: {}
+
+  three@0.125.2: {}
+
+  three@0.182.0: {}
 
   through2@4.0.2:
     dependencies:

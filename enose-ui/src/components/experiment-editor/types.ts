@@ -148,7 +148,7 @@ export const NODE_META: Record<NodeType, {
     icon: 'Sparkles',
     hasFlowIn: true,
     hasFlowOut: true,
-    hasLiquidIn: true,
+    // 清洗液直接在属性面板设置，不需要连接液体源
   },
   [NodeType.PARAM_SWEEP]: {
     label: '参数扫描',
@@ -270,7 +270,7 @@ export interface InjectNodeData {
   targetVolumeMl?: number;
   targetWeightG?: number;
   tolerance: number;
-  flowRateMlMin: number;
+  flowRateMlS: number;  // ml/s
   stableTimeoutS: number;
 }
 
@@ -291,10 +291,11 @@ export interface LiquidSourceNodeData {
 export interface WashNodeData {
   name: string;
   washLiquidId: string;
+  washLiquidName?: string;  // 清洗液名称（用于显示）
   washVolumeMl: number;
   repeatCount: number;
   gasPumpPwm: number;
-  drainAfter: boolean;
+  // drainAfter 已废弃：后端每次清洗循环都会排废
 }
 
 // 单个扫描点的液体比例配置
@@ -499,7 +500,7 @@ const FLOW_NODES = [
 ];
 
 // 可接收液体输入的节点
-const LIQUID_ACCEPTING_NODES = [NodeType.INJECT, NodeType.WASH];
+const LIQUID_ACCEPTING_NODES = [NodeType.INJECT];  // 清洗节点直接在属性面板设置清洗液
 
 // 节点连接规则
 export const CONNECTION_RULES: Record<NodeType, ConnectionRule> = {

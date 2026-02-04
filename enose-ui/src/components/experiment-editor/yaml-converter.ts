@@ -1,5 +1,6 @@
 import YAML from 'js-yaml';
 import { ExperimentNode, ExperimentEdge, NodeType, HANDLE_TYPES, PARAM_TYPE_BINDABLE_FIELDS } from './types';
+import { CompiledStep, CompilationResult } from './compiler';
 
 // =============== 编译警告系统 ===============
 
@@ -142,7 +143,8 @@ interface YamlStep {
     target_volume_ml?: number;
     target_weight_g?: number;
     tolerance?: number;
-    flow_rate_ml_min?: number;
+    flow_rate_ml_s?: number;  // ml/s
+    stable_timeout_s?: number;  // 稳定超时
   };
   drain?: {
     gas_pump_pwm?: number;
@@ -181,6 +183,168 @@ interface YamlLiquid {
   type: string;
 }
 
+/**
+ * 将编译器输出的 CompiledStep 转换为 YAML 步骤
+ * 这是实现编译器和 YAML 生成器统一的核心函数
+ */
+export function compiledStepToYamlStep(step: CompiledStep): YamlStep | null {
+  // 跳过非原子步骤（循环/扫描容器节点）
+  if (!step.isAtomic) {
+    return null;
+  }
+
+  const params = step.params;
+  const name = step.name;
+
+  switch (step.type) {
+    case NodeType.PHASE_MARKER:
+      return {
+        name,
+        phase_marker: {
+          phase_name: String(params.phaseName || 'SAMPLE'),
+          is_start: Boolean(params.isStart),
+        },
+      };
+
+    case NodeType.INJECT: {
+      // 从编译后的 components 获取液体配置（已包含扫描后的比例）
+      const components = (params.components as Array<{
+        liquidId: string;
+        liquidName?: string;
+        ratio: number;
+      }>) || [];
+      
+      const yamlComponents = components.map(c => ({
+        liquid_id: String(c.liquidId),
+        ratio: Number(c.ratio || 1),
+      }));
+
+      // 如果没有组件，使用默认配置
+      if (yamlComponents.length === 0) {
+        yamlComponents.push({ liquid_id: 'default', ratio: 1 });
+      }
+
+      const inject: Record<string, unknown> = {
+        components: yamlComponents,
+        tolerance: Number(params.tolerance ?? 0.5),
+        flow_rate_ml_s: Number(params.flowRateMlS ?? 0.5),
+        stable_timeout_s: Number(params.stableTimeoutS ?? 5),
+      };
+
+      if (params.targetType === 'weight') {
+        inject.target_weight_g = Number(params.targetWeightG || 0);
+      } else {
+        inject.target_volume_ml = Number(params.targetVolumeMl ?? step.liquidChangeMl ?? 15);
+      }
+
+      return { name, inject };
+    }
+
+    case NodeType.DRAIN:
+      return {
+        name,
+        drain: {
+          gas_pump_pwm: Number(params.gasPumpPwm ?? 80),
+          timeout_s: Number(params.timeoutS ?? 60),
+        },
+      };
+
+    case NodeType.WASH:
+      return {
+        name,
+        wash: {
+          wash_liquid_id: String(params.washLiquidId || params.washLiquidName || 'distilled_water'),
+          wash_volume_ml: Number(params.washVolumeMl ?? 20),
+          repeat_count: Number(params.repeatCount ?? 2),
+          gas_pump_pwm: Number(params.gasPumpPwm ?? 50),
+        },
+      };
+
+    case NodeType.ACQUIRE: {
+      const acquire: Record<string, unknown> = {
+        gas_pump_pwm: Number(params.gasPumpPwm ?? 50),
+      };
+
+      const terminationType = params.terminationType as string;
+      if (terminationType === 'duration') {
+        acquire.duration_s = Number(params.durationS ?? 60);
+      } else if (terminationType === 'cycles') {
+        acquire.heater_cycles = Number(params.heaterCycles ?? 10);
+        acquire.max_duration_s = Number(params.maxDurationS ?? 300);
+      } else if (terminationType === 'stability') {
+        acquire.stability = {
+          window_s: Number(params.stabilityWindowS ?? 30),
+          threshold_percent: Number(params.stabilityThresholdPercent ?? 5),
+        };
+        acquire.max_duration_s = Number(params.maxDurationS ?? 300);
+      } else {
+        acquire.max_duration_s = Number(params.maxDurationS ?? 300);
+      }
+
+      return { name, acquire };
+    }
+
+    case NodeType.WAIT_TIME:
+      return {
+        name,
+        wait: {
+          duration_s: Number(params.durationS ?? 60),
+          timeout_s: Number(params.timeoutS ?? 120),
+        },
+      };
+
+    case NodeType.WAIT_CYCLES:
+      return {
+        name,
+        wait: {
+          heater_cycles: Number(params.heaterCycles ?? 5),
+          timeout_s: Number(params.timeoutS ?? 300),
+        },
+      };
+
+    case NodeType.WAIT_STABILITY:
+      return {
+        name,
+        wait: {
+          stability: {
+            window_s: Number(params.windowS ?? 30),
+            threshold_percent: Number(params.thresholdPercent ?? 5),
+          },
+          timeout_s: Number(params.timeoutS ?? 300),
+        },
+      };
+
+    case NodeType.SET_STATE:
+      return {
+        name,
+        set_state: {
+          state: String(params.state || 'STATE_INITIAL'),
+        },
+      };
+
+    case NodeType.SET_GAS_PUMP:
+      return {
+        name,
+        set_gas_pump: {
+          pwm_percent: Number(params.pwmPercent ?? 0),
+        },
+      };
+
+    default:
+      // 未知类型，跳过
+      return null;
+  }
+}
+
+/**
+ * 将编译器输出的步骤数组转换为 YAML 步骤数组
+ */
+export function compiledStepsToYamlSteps(steps: CompiledStep[]): YamlStep[] {
+  return steps
+    .map(step => compiledStepToYamlStep(step))
+    .filter((step): step is YamlStep => step !== null);
+}
+
 interface EditorLayout {
   nodes: {
     id: string;
@@ -197,6 +361,27 @@ interface EditorLayout {
   }[];
 }
 
+// 编译估算信息 (YAML 输出)
+interface YamlCompileEstimate {
+  total_duration_s: number;
+  peak_liquid_level_ml: number;
+  peak_liquid_level_ml_with_wash: number;
+  total_inject_ml: number;
+  total_drain_ml: number;
+  total_wash_volume_ml: number;
+  liquid_consumption: Array<{
+    liquid_id: string;
+    liquid_name: string;
+    pump_index: number;
+    required_ml: number;
+  }>;
+  pump_estimates: Array<{
+    pump_index: number;
+    volume_ml: number;
+    runtime_s: number;
+  }>;
+}
+
 interface YamlProgram {
   id: string;
   name: string;
@@ -208,9 +393,14 @@ interface YamlProgram {
     liquids: YamlLiquid[];
   };
   steps: YamlStep[];
+  _compile_estimate?: YamlCompileEstimate;
   _editor_layout?: EditorLayout;
 }
 
+/**
+ * 从编译结果生成 YAML
+ * 统一架构：YAML 生成基于编译器输出，确保 UI 显示和导出一致
+ */
 export function graphToYaml(
   nodes: ExperimentNode[],
   edges: ExperimentEdge[],
@@ -221,38 +411,9 @@ export function graphToYaml(
     programVersion: string;
     bottleCapacityMl: number;
     maxFillMl: number;
-  }
+  },
+  compilationResult?: CompilationResult  // 使用编译器的完整输出
 ): string {
-  // 找到开始节点
-  const startNode = nodes.find((n) => n.type === NodeType.START);
-  if (!startNode) {
-    throw new Error('缺少开始节点');
-  }
-
-  // 找到结束节点
-  const endNode = nodes.find((n) => n.type === NodeType.END);
-  if (!endNode) {
-    throw new Error('缺少结束节点');
-  }
-
-  // 构建邻接表（flow 连接）
-  const flowEdges = edges.filter(
-    (e) => e.sourceHandle === HANDLE_TYPES.FLOW || !e.sourceHandle
-  );
-  const adjacency = new Map<string, string>();
-  for (const edge of flowEdges) {
-    adjacency.set(edge.source, edge.target);
-  }
-
-  // 构建液体连接（liquid 连接）
-  const liquidEdges = edges.filter((e) => e.sourceHandle === HANDLE_TYPES.LIQUID);
-  const liquidConnections = new Map<string, string[]>();
-  for (const edge of liquidEdges) {
-    const existing = liquidConnections.get(edge.target) || [];
-    existing.push(edge.source);
-    liquidConnections.set(edge.target, existing);
-  }
-
   // 收集液体源节点信息
   const liquidSources = nodes.filter((n) => n.type === NodeType.LIQUID_SOURCE);
   const liquids: YamlLiquid[] = liquidSources.map((n) => {
@@ -265,35 +426,10 @@ export function graphToYaml(
     };
   });
 
-  // 拓扑排序获取步骤顺序
-  const steps: YamlStep[] = [];
-  let currentId: string | undefined = startNode.id;
-  const visited = new Set<string>();
-
-  while (currentId && !visited.has(currentId)) {
-    visited.add(currentId);
-    const node = nodes.find((n) => n.id === currentId);
-    if (!node) break;
-
-    // 跳过开始和结束节点
-    if (node.type !== NodeType.START && node.type !== NodeType.END) {
-      // 参数扫描节点需要特殊处理：编译期展开
-      if (node.type === NodeType.PARAM_SWEEP) {
-        const sweepSteps = expandParamSweep(node, adjacency, liquidConnections, nodes, edges, visited);
-        steps.push(...sweepSteps);
-        // 跳过已处理的扫描体节点，继续从扫描体末尾后的节点
-        currentId = adjacency.get(currentId);
-        continue;
-      }
-      
-      const step = nodeToStep(node, liquidConnections, nodes, edges);
-      if (step) {
-        steps.push(step);
-      }
-    }
-
-    currentId = adjacency.get(currentId);
-  }
+  // 从编译结果生成 YAML 步骤（统一架构的核心）
+  const steps: YamlStep[] = compilationResult 
+    ? compiledStepsToYamlSteps(compilationResult.steps)
+    : [];
 
   // 构建编辑器布局信息（包含完整节点数据）
   const editorLayout: EditorLayout = {
@@ -312,6 +448,27 @@ export function graphToYaml(
     })),
   };
 
+  // 构建编译估算 (snake_case for YAML)
+  const yamlCompileEstimate: YamlCompileEstimate | undefined = compilationResult ? {
+    total_duration_s: compilationResult.totalDurationS,
+    peak_liquid_level_ml: compilationResult.peakLiquidLevelMl,
+    peak_liquid_level_ml_with_wash: compilationResult.peakLiquidLevelMlWithWash,
+    total_inject_ml: compilationResult.totalInjectMl,
+    total_drain_ml: compilationResult.totalDrainMl,
+    total_wash_volume_ml: compilationResult.totalWashVolumeMl,
+    liquid_consumption: compilationResult.liquidConsumption.map(lc => ({
+      liquid_id: lc.liquidId,
+      liquid_name: lc.liquidName,
+      pump_index: lc.pumpIndex,
+      required_ml: lc.requiredMl,
+    })),
+    pump_estimates: compilationResult.pumpEstimates.map(pe => ({
+      pump_index: pe.pumpIndex,
+      volume_ml: pe.volumeMl,
+      runtime_s: pe.runtimeS,
+    })),
+  } : undefined;
+
   // 构建 YAML 程序
   const program: YamlProgram = {
     id: programMeta.programId,
@@ -326,6 +483,7 @@ export function graphToYaml(
       ],
     },
     steps,
+    _compile_estimate: yamlCompileEstimate,
     _editor_layout: editorLayout,
   };
 
@@ -386,11 +544,12 @@ function generateSweepValues(data: Record<string, unknown>): number[] {
 
 // 变量上下文：记录当前作用域内的扫描变量值
 interface VariableContext {
-  // variableId -> { value, label }
+  // variableId -> { value, label, sweepNodeId, ... }
   [variableId: string]: {
     value: number;
     label: string;        // 如 "[外层扫描 #1/5]"
     paramType: string;
+    sweepNodeId: string;  // 扫描节点的 ID，用于匹配节点的 boundVariables
     ratioConfig?: Record<string, number>;  // 比例扫描时的比例配置
   };
 }
@@ -480,7 +639,7 @@ function expandBodyNodes(
         const loopLabel = `[${loopName} #${i + 1}/${loopCount}]`;
         const loopContext: VariableContext = {
           ...varContext,
-          [`loop_${node.id}`]: { value: i, label: loopLabel, paramType: 'loop' }
+          [`loop_${node.id}`]: { value: i, label: loopLabel, paramType: 'loop', sweepNodeId: node.id }
         };
         const loopSteps = expandBodyNodes(
           loopBodyNodes, loopContext, liquidConnections, allNodes, allEdges
@@ -501,6 +660,18 @@ function expandBodyNodes(
   return steps;
 }
 
+// 获取参数类型对应的绑定字段名
+function getBindingFieldForParamType(paramType: string): string | null {
+  switch (paramType) {
+    case 'volume': return 'targetVolumeMl';
+    case 'ratio': return 'ratio';
+    case 'gasPumpPwm': return 'gasPumpPwm';
+    case 'duration': return 'durationS';
+    case 'cycles': return 'heaterCycles';
+    default: return null;
+  }
+}
+
 // 应用变量上下文到节点并转换为步骤
 function applyContextAndConvert(
   node: ExperimentNode,
@@ -514,14 +685,24 @@ function applyContextAndConvert(
   const clonedNode = JSON.parse(JSON.stringify(node)) as ExperimentNode;
   const clonedData = clonedNode.data as Record<string, unknown>;
   
+  // 获取节点的绑定配置
+  const boundVariables = (clonedData.boundVariables || {}) as Record<string, string>;
+  
   // 收集应用的参数信息
   const appliedParams: string[] = [];
   
-  // 遍历变量上下文，应用匹配的变量
+  // 遍历变量上下文，应用匹配的变量（只有明确绑定的才应用）
   for (const [varId, varInfo] of Object.entries(varContext)) {
     if (varInfo.paramType === 'loop') continue; // 跳过循环计数器
     
-    const { value, paramType, ratioConfig } = varInfo;
+    const { value, paramType, ratioConfig, sweepNodeId } = varInfo;
+    
+    // 获取该参数类型对应的绑定字段
+    const bindingField = getBindingFieldForParamType(paramType);
+    
+    // 检查节点是否明确绑定了这个扫描变量
+    const isBound = bindingField && boundVariables[bindingField] === sweepNodeId;
+    if (!isBound) continue; // 未绑定则跳过
     
     switch (paramType) {
       case 'volume':
@@ -583,7 +764,8 @@ function applyContextAndConvert(
                 components,
                 target_volume_ml: Number(clonedData.targetVolumeMl ?? 10),
                 tolerance: Number(clonedData.tolerance ?? 0.5),
-                flow_rate_ml_min: Number(clonedData.flowRateMlMin ?? 2),
+                flow_rate_ml_s: Number(clonedData.flowRateMlS ?? 0.5),
+                stable_timeout_s: Number(clonedData.stableTimeoutS ?? 5),
               },
             };
           }
@@ -646,6 +828,7 @@ function expandParamSweepRecursive(
         value,
         label: iterLabel,
         paramType,
+        sweepNodeId: sweepNode.id,  // 扫描节点 ID，用于匹配 boundVariables
         ratioConfig: paramType === 'ratio' ? ratioPoints[i]?.ratios : undefined,
       },
     };
@@ -739,7 +922,8 @@ function nodeToStep(
       const inject: Record<string, unknown> = {
         components,
         tolerance: Number(data.tolerance || 0.5),
-        flow_rate_ml_min: Number(data.flowRateMlMin || 5),
+        flow_rate_ml_s: Number(data.flowRateMlS || 0.5),
+        stable_timeout_s: Number(data.stableTimeoutS || 5),
       };
 
       if (data.targetType === 'weight') {
@@ -761,21 +945,15 @@ function nodeToStep(
       };
 
     case NodeType.WASH: {
-      // 获取连接的清洗液源
-      const washLiquidNodeIds = liquidConnections.get(node.id) || [];
-      const washLiquid = washLiquidNodeIds.length > 0
-        ? allNodes.find(n => n.id === washLiquidNodeIds[0])
-        : null;
-      const washLiquidData = washLiquid?.data as Record<string, unknown> | undefined;
-      
+      // 清洗液直接从节点属性获取，不再需要连接液体源
       return {
         name,
         wash: {
-          wash_liquid_id: String(washLiquidData?.liquidId || data.washLiquidId || 'distilled_water'),
+          wash_liquid_id: String(data.washLiquidId || 'distilled_water'),
           wash_volume_ml: Number(data.washVolumeMl || 20),
           repeat_count: Number(data.repeatCount || 2),
           gas_pump_pwm: Number(data.gasPumpPwm || 50),
-          drain_after: Boolean(data.drainAfter ?? true),
+          // 注：后端每次清洗循环都会排废，drain_after 字段已废弃
         },
       };
     }
@@ -1149,7 +1327,8 @@ function stepToNodeData(step: YamlStep): { type: NodeType; data: Record<string, 
         targetVolumeMl: step.inject.target_volume_ml,
         targetWeightG: step.inject.target_weight_g,
         tolerance: step.inject.tolerance,
-        flowRateMlMin: step.inject.flow_rate_ml_min,
+        flowRateMlS: step.inject.flow_rate_ml_s,
+        stableTimeoutS: step.inject.stable_timeout_s,
       },
     };
   }
@@ -1175,7 +1354,7 @@ function stepToNodeData(step: YamlStep): { type: NodeType; data: Record<string, 
         washVolumeMl: wash.wash_volume_ml,
         repeatCount: wash.repeat_count,
         gasPumpPwm: wash.gas_pump_pwm,
-        drainAfter: wash.drain_after ?? true,
+        // drainAfter 已废弃，后端每次循环都会排废
       },
     };
   }
@@ -1339,19 +1518,29 @@ function yamlToGraphWithLayout(program: YamlProgram): {
     data: n.data || getNodeDataFromProgram(n.id, n.type as NodeType, program),
   }));
 
-  // 从布局信息恢复边
-  const edges: ExperimentEdge[] = layout.edges.map(e => ({
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    sourceHandle: e.sourceHandle,
-    targetHandle: e.targetHandle,
-    type: 'smoothstep',
-    animated: e.sourceHandle === HANDLE_TYPES.LIQUID,
-    style: e.sourceHandle === HANDLE_TYPES.LIQUID 
-      ? { stroke: '#22c55e', strokeDasharray: '5,5' }
-      : undefined,
-  }));
+  // 从布局信息恢复边（根据类型设置样式）
+  const edges: ExperimentEdge[] = layout.edges.map(e => {
+    const isLiquid = e.sourceHandle === HANDLE_TYPES.LIQUID;
+    const isLoopBody = e.sourceHandle === HANDLE_TYPES.LOOP_BODY || e.targetHandle === HANDLE_TYPES.LOOP_BODY;
+    
+    let style: React.CSSProperties | undefined;
+    if (isLiquid) {
+      style = { stroke: '#22c55e', strokeDasharray: '5,5' };
+    } else if (isLoopBody) {
+      style = { stroke: '#f59e0b', strokeDasharray: '5,5' };
+    }
+    
+    return {
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      sourceHandle: e.sourceHandle,
+      targetHandle: e.targetHandle,
+      type: 'smoothstep',
+      animated: isLiquid || isLoopBody,
+      style,
+    };
+  });
 
   return { nodes, edges, programMeta };
 }

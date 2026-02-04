@@ -1522,6 +1522,27 @@ export default function ConsumablesPage() {
                       />
                     </div>
                     <div className="space-y-2">
+                      <Label>类型</Label>
+                      <Select
+                        value={editingLiquid.type === 1 ? "sample" : editingLiquid.type === 2 ? "rinse" : "other"}
+                        onValueChange={(value) => setEditingLiquid({ 
+                          ...editingLiquid, 
+                          type: value === "sample" ? 1 : value === "rinse" ? 2 : 3 
+                        })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="sample">样品</SelectItem>
+                          <SelectItem value="rinse">清洗液</SelectItem>
+                          <SelectItem value="other">其他</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
                       <Label>密度 (g/ml)</Label>
                       <Input
                         type="number"

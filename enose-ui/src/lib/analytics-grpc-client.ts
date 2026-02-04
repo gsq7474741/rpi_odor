@@ -1,5 +1,5 @@
 import * as grpc from "@grpc/grpc-js";
-import { AnalyticsServiceClient, LabelServiceClient, ModelServiceClient } from "../generated/enose_analytics.grpc-client";
+import { AnalyticsServiceClient, LabelServiceClient, ModelServiceClient, DataServiceClient, SampleServiceClient } from "../generated/enose_analytics.grpc-client";
 import { Empty } from "../generated/google/protobuf/empty";
 import type {
   VisualizationRequest,
@@ -19,6 +19,24 @@ import type {
   ModelInfo,
   LoadModelRequest,
   DeleteModelRequest,
+  ListExperimentsRequest,
+  ListExperimentsResponse,
+  QuerySensorDataRequest,
+  QuerySensorDataResponse,
+  AggregatedStatsRequest,
+  AggregatedStatsResponse,
+  GetExperimentDetailRequest,
+  ExperimentDetail,
+  NormalizedFramesStatusRequest,
+  NormalizedFramesStatusResponse,
+  GenerateNormalizedFramesRequest,
+  GenerateNormalizedFramesResponse,
+  ListSamplesRequest,
+  ListSamplesResponse,
+  GetSampleRequest,
+  Sample,
+  GetSampleGroupsRequest,
+  GetSampleGroupsResponse,
 } from "../generated/enose_analytics";
 
 // Analytics gRPC 服务器地址 (从环境变量读取，默认与控制服务同机)
@@ -29,6 +47,8 @@ const ANALYTICS_GRPC_PORT = process.env.ANALYTICS_GRPC_PORT || "50052";
 let analyticsClient: AnalyticsServiceClient | null = null;
 let labelClient: LabelServiceClient | null = null;
 let modelClient: ModelServiceClient | null = null;
+let dataClient: DataServiceClient | null = null;
+let sampleClient: SampleServiceClient | null = null;
 
 function getAnalyticsClient(): AnalyticsServiceClient {
   if (!analyticsClient) {
@@ -140,6 +160,24 @@ export async function updateQualityConfig(config: QualityConfig): Promise<Qualit
   );
 }
 
+export async function getNormalizedFramesStatus(request: NormalizedFramesStatusRequest): Promise<NormalizedFramesStatusResponse> {
+  const client = getAnalyticsClient();
+  return analyticsPromisify(
+    client,
+    client.getNormalizedFramesStatus.bind(client),
+    request
+  );
+}
+
+export async function generateNormalizedFrames(request: GenerateNormalizedFramesRequest): Promise<GenerateNormalizedFramesResponse> {
+  const client = getAnalyticsClient();
+  return analyticsPromisify(
+    client,
+    client.generateNormalizedFrames.bind(client),
+    request
+  );
+}
+
 // ============================================================
 // Label Service API
 // ============================================================
@@ -246,4 +284,127 @@ export async function checkAnalyticsConnection(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// ============================================================
+// Data Service API
+// ============================================================
+
+function getDataClient(): DataServiceClient {
+  if (!dataClient) {
+    dataClient = new DataServiceClient(
+      `${ANALYTICS_GRPC_HOST}:${ANALYTICS_GRPC_PORT}`,
+      grpc.credentials.createInsecure()
+    );
+  }
+  return dataClient;
+}
+
+function dataPromisify<TReq, TRes>(
+  client: DataServiceClient,
+  method: (input: TReq, callback: (err: grpc.ServiceError | null, value?: TRes) => void) => grpc.ClientUnaryCall,
+  request: TReq
+): Promise<TRes> {
+  return new Promise((resolve, reject) => {
+    method.call(client, request, (error: grpc.ServiceError | null, response?: TRes) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(response!);
+      }
+    });
+  });
+}
+
+export async function listExperiments(request: ListExperimentsRequest): Promise<ListExperimentsResponse> {
+  const client = getDataClient();
+  return dataPromisify(
+    client,
+    client.listExperiments.bind(client),
+    request
+  );
+}
+
+export async function querySensorData(request: QuerySensorDataRequest): Promise<QuerySensorDataResponse> {
+  const client = getDataClient();
+  return dataPromisify(
+    client,
+    client.querySensorData.bind(client),
+    request
+  );
+}
+
+export async function getAggregatedStats(request: AggregatedStatsRequest): Promise<AggregatedStatsResponse> {
+  const client = getDataClient();
+  return dataPromisify(
+    client,
+    client.getAggregatedStats.bind(client),
+    request
+  );
+}
+
+export async function getExperimentDetail(request: GetExperimentDetailRequest): Promise<ExperimentDetail> {
+  const client = getDataClient();
+  return dataPromisify(
+    client,
+    client.getExperimentDetail.bind(client),
+    request
+  );
+}
+
+// ============================================================
+// Sample Service API
+// ============================================================
+
+function getSampleClient(): SampleServiceClient {
+  if (!sampleClient) {
+    sampleClient = new SampleServiceClient(
+      `${ANALYTICS_GRPC_HOST}:${ANALYTICS_GRPC_PORT}`,
+      grpc.credentials.createInsecure()
+    );
+  }
+  return sampleClient;
+}
+
+function samplePromisify<TReq, TRes>(
+  client: SampleServiceClient,
+  method: (input: TReq, callback: (err: grpc.ServiceError | null, value?: TRes) => void) => grpc.ClientUnaryCall,
+  request: TReq
+): Promise<TRes> {
+  return new Promise((resolve, reject) => {
+    method.call(client, request, (error: grpc.ServiceError | null, response?: TRes) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(response!);
+      }
+    });
+  });
+}
+
+export async function listSamples(request: ListSamplesRequest): Promise<ListSamplesResponse> {
+  const client = getSampleClient();
+  return samplePromisify(
+    client,
+    client.listSamples.bind(client),
+    request
+  );
+}
+
+export async function getSample(request: GetSampleRequest): Promise<Sample> {
+  const client = getSampleClient();
+  return samplePromisify(
+    client,
+    client.getSample.bind(client),
+    request
+  );
+}
+
+export async function getSampleGroups(request: GetSampleGroupsRequest): Promise<GetSampleGroupsResponse> {
+  const client = getSampleClient();
+  return samplePromisify(
+    client,
+    client.getSampleGroups.bind(client),
+    request
+  );
 }

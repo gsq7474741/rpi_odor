@@ -114,7 +114,7 @@ const getDefaultNodeData = (type: NodeType): Record<string, unknown> => {
         targetType: 'volume',
         targetVolumeMl: 15,
         tolerance: 0.5,
-        flowRateMlMin: 5,
+        flowRateMlS: 0.5,  // ml/s (原 5 ml/min ≈ 0.083 ml/s，提高到 0.5)
         stableTimeoutS: 60,
       };
     case NodeType.DRAIN:

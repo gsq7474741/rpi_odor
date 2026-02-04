@@ -49,7 +49,8 @@ def get_connection() -> Generator[psycopg.Connection, None, None]:
 
 @contextmanager
 def get_cursor() -> Generator[psycopg.Cursor, None, None]:
-    """获取数据库游标 (上下文管理器)"""
+    """获取数据库游标 (上下文管理器)，自动提交事务"""
     with get_connection() as conn:
         with conn.cursor() as cur:
             yield cur
+        conn.commit()

@@ -27,6 +27,12 @@ service AnalyticsService {
   
   // 更新质检配置
   rpc UpdateQualityConfig(QualityConfig) returns (QualityConfig);
+  
+  // 检查归一化帧状态
+  rpc GetNormalizedFramesStatus(NormalizedFramesStatusRequest) returns (NormalizedFramesStatusResponse);
+  
+  // 生成归一化帧
+  rpc GenerateNormalizedFrames(GenerateNormalizedFramesRequest) returns (GenerateNormalizedFramesResponse);
 }
 
 // ============================================================================
@@ -219,6 +225,42 @@ message VisPoint {
 }
 
 // ============================================================================
+// 归一化帧消息
+// ============================================================================
+
+message NormalizedFramesStatusRequest {
+  int32 run_id = 1;        // 实验 run_id
+  string phase_name = 2;   // 阶段名称（可选，为空时检查所有阶段）
+}
+
+message NormalizedFramesStatusResponse {
+  bool exists = 1;                        // 是否存在归一化帧
+  repeated NormalizedFramesMeta meta = 2; // 每种方法的元数据
+  int32 total_frames = 3;                 // 总帧数
+}
+
+message NormalizedFramesMeta {
+  string method = 1;           // linear 或 pchip
+  int32 n_samples = 2;         // 采样点数
+  repeated int32 original_point_counts = 3;  // 每个传感器的原始点数
+  int64 time_range_ms = 4;     // 原始时间跨度
+  string phase_name = 5;       // 阶段名称
+}
+
+message GenerateNormalizedFramesRequest {
+  int32 run_id = 1;                // 实验 run_id
+  repeated string phase_names = 2; // 阶段名称列表（可选，为空时处理所有阶段）
+  int32 n_samples = 3;             // 采样点数 (默认 100)
+  repeated string methods = 4;     // 插值方法列表 (默认 ["linear", "pchip"])
+}
+
+message GenerateNormalizedFramesResponse {
+  bool success = 1;
+  string message = 2;
+  map<string, int32> frames_generated = 3;  // 每个阶段+方法生成的帧数
+}
+
+// ============================================================================
 // 模型训练消息
 // ============================================================================
 
@@ -405,4 +447,337 @@ message BatchLabelRequest {
 
 message BatchLabelResponse {
   int32 added_count = 1;
+}
+
+// ============================================================================
+// Data Service - 实验数据查询与浏览
+// ============================================================================
+
+service DataService {
+  // 列出实验
+  rpc ListExperiments(ListExperimentsRequest) returns (ListExperimentsResponse);
+  
+  // 查询传感器数据 (分页)
+  rpc QuerySensorData(QuerySensorDataRequest) returns (QuerySensorDataResponse);
+  
+  // 获取聚合统计
+  rpc GetAggregatedStats(AggregatedStatsRequest) returns (AggregatedStatsResponse);
+  
+  // 获取实验详情
+  rpc GetExperimentDetail(GetExperimentDetailRequest) returns (ExperimentDetail);
+}
+
+// ============================================================================
+// 实验列表
+// ============================================================================
+
+message ListExperimentsRequest {
+  int32 limit = 1;
+  int32 offset = 2;
+  optional google.protobuf.Timestamp start_time = 3;
+  optional google.protobuf.Timestamp end_time = 4;
+  optional string label_id = 5;  // 过滤包含特定标签的实验
+}
+
+message ListExperimentsResponse {
+  repeated ExperimentSummary experiments = 1;
+  int32 total = 2;
+}
+
+message ExperimentSummary {
+  string experiment_id = 1;
+  google.protobuf.Timestamp start_time = 2;
+  google.protobuf.Timestamp end_time = 3;
+  int32 frame_count = 4;
+  repeated string phases = 5;
+  repeated string labels = 6;  // 关联的标签名称
+  string status = 7;  // running, completed, error
+}
+
+// ============================================================================
+// 传感器数据查询
+// ============================================================================
+
+message QuerySensorDataRequest {
+  // 过滤条件
+  optional string experiment_id = 1;
+  optional string label_id = 2;
+  optional string phase = 3;
+  optional google.protobuf.Timestamp start_time = 4;
+  optional google.protobuf.Timestamp end_time = 5;
+  
+  // 分页
+  int32 limit = 6;
+  int32 offset = 7;
+  
+  // 降采样 (用于大数据量)
+  int32 downsample_factor = 8;  // 每 N 条取 1 条
+  
+  // 选择返回的字段
+  repeated string fields = 9;  // 空表示全部
+}
+
+message QuerySensorDataResponse {
+  repeated SensorDataRow rows = 1;
+  int32 total = 2;
+  int32 returned = 3;
+  
+  // 列信息
+  repeated ColumnInfo columns = 4;
+}
+
+message SensorDataRow {
+  google.protobuf.Timestamp ts = 1;
+  int64 seq = 2;
+  string experiment_id = 3;
+  string phase = 4;
+  repeated double mox_readings = 5;  // 8 个传感器值
+  double temperature = 6;
+  double humidity = 7;
+  double pressure = 8;
+  optional string label = 9;  // 如果有标签
+  int32 heater_step = 10;
+}
+
+message ColumnInfo {
+  string name = 1;
+  string type = 2;  // number, string, timestamp
+  string unit = 3;
+}
+
+// ============================================================================
+// 聚合统计
+// ============================================================================
+
+message AggregatedStatsRequest {
+  // 分组维度
+  AggregationDimension dimension = 1;
+  
+  // 过滤条件
+  optional string experiment_id = 2;
+  optional string label_id = 3;
+  optional google.protobuf.Timestamp start_time = 4;
+  optional google.protobuf.Timestamp end_time = 5;
+  
+  // 时间桶大小 (用于时间维度)
+  string time_bucket = 6;  // 1m, 5m, 1h, 1d
+  
+  // 选择的传感器 (空表示全部)
+  repeated int32 sensor_indices = 7;
+}
+
+enum AggregationDimension {
+  AGG_UNKNOWN = 0;
+  AGG_BY_EXPERIMENT = 1;   // 按实验分组
+  AGG_BY_LABEL = 2;        // 按标签分组
+  AGG_BY_PHASE = 3;        // 按阶段分组
+  AGG_BY_TIME = 4;         // 按时间分组
+  AGG_BY_HEATER_STEP = 5;  // 按加热器步骤分组
+  AGG_BY_SENSOR = 6;       // 按传感器分组
+}
+
+message AggregatedStatsResponse {
+  repeated AggregatedGroup groups = 1;
+  AggregationDimension dimension = 2;
+}
+
+message AggregatedGroup {
+  string key = 1;  // 分组键
+  string label = 2;  // 显示标签
+  int32 sample_count = 3;
+  
+  // 传感器统计 (每个传感器)
+  repeated SensorStats sensor_stats = 4;
+  
+  // 环境统计
+  double avg_temperature = 5;
+  double avg_humidity = 6;
+  
+  // 时间范围
+  google.protobuf.Timestamp start_time = 7;
+  google.protobuf.Timestamp end_time = 8;
+}
+
+message SensorStats {
+  int32 sensor_idx = 1;
+  double min = 2;
+  double max = 3;
+  double mean = 4;
+  double std = 5;
+  double median = 6;
+}
+
+// ============================================================================
+// 实验详情
+// ============================================================================
+
+message GetExperimentDetailRequest {
+  string experiment_id = 1;
+}
+
+message ExperimentDetail {
+  string experiment_id = 1;
+  google.protobuf.Timestamp start_time = 2;
+  google.protobuf.Timestamp end_time = 3;
+  int32 frame_count = 4;
+  string status = 5;
+  
+  // 阶段信息
+  repeated PhaseInfo phases = 6;
+  
+  // 关联标签
+  repeated SampleLabel labels = 7;
+  
+  // 统计摘要
+  repeated SensorStats sensor_summary = 8;
+  double avg_temperature = 9;
+  double avg_humidity = 10;
+  
+  // 质检结果摘要
+  int32 total_alerts = 11;
+  int32 critical_alerts = 12;
+  int32 warning_alerts = 13;
+}
+
+message PhaseInfo {
+  string name = 1;
+  google.protobuf.Timestamp start_time = 2;
+  google.protobuf.Timestamp end_time = 3;
+  int32 frame_count = 4;
+}
+
+// ============================================================================
+// Sample Service - 样本分割与聚合查询
+// ============================================================================
+
+service SampleService {
+  // 列出样本
+  rpc ListSamples(ListSamplesRequest) returns (ListSamplesResponse);
+  
+  // 获取样本详情
+  rpc GetSample(GetSampleRequest) returns (Sample);
+  
+  // 按参数哈希聚合样本（跨 run 聚合）
+  rpc GetSampleGroups(GetSampleGroupsRequest) returns (GetSampleGroupsResponse);
+  
+  // 获取样本的传感器数据
+  rpc GetSampleSensorData(GetSampleSensorDataRequest) returns (GetSampleSensorDataResponse);
+}
+
+// ============================================================================
+// 样本消息
+// ============================================================================
+
+message Sample {
+  int32 id = 1;
+  int32 run_id = 2;
+  int32 sample_idx = 3;
+  
+  // 时间范围
+  int64 start_time_ms = 4;
+  int64 end_time_ms = 5;
+  
+  // 参数哈希
+  string params_hash = 6;
+  
+  // 液体参数
+  repeated LiquidComponent liquids = 7;
+  double total_volume_ml = 8;
+  double flow_rate_ml_s = 9;
+  
+  // 采集参数
+  int32 gas_pump_pwm = 10;
+  string termination_type = 11;
+  double termination_value = 12;
+  double max_duration_s = 13;
+  
+  // 加热器配置
+  repeated HeaterConfigInfo heater_configs = 14;
+  
+  // 清洗参数
+  int32 pre_wash_count = 15;
+  double pre_wash_volume_ml = 16;
+  string wash_liquid_id = 17;
+  
+  // 阶段
+  string phase_name = 18;
+  
+  // 环境参数
+  double avg_temperature_c = 19;
+  double avg_humidity_pct = 20;
+  double avg_pressure_hpa = 21;
+  
+  // 元数据
+  google.protobuf.Timestamp created_at = 22;
+}
+
+message LiquidComponent {
+  string id = 1;
+  string name = 2;
+  double ratio = 3;
+  int32 pump_index = 4;
+}
+
+message HeaterConfigInfo {
+  repeated int32 sensor_indices = 1;
+  string profile_name = 2;
+  repeated int32 temps = 3;
+  repeated int32 durs = 4;
+}
+
+message ListSamplesRequest {
+  optional int32 run_id = 1;          // 按 run 过滤
+  optional string phase_name = 2;     // 按阶段过滤
+  optional string params_hash = 3;    // 按参数哈希过滤
+  repeated string liquid_ids = 4;     // 按液体过滤
+  int32 limit = 5;
+  int32 offset = 6;
+}
+
+message ListSamplesResponse {
+  repeated Sample samples = 1;
+  int32 total = 2;
+}
+
+message GetSampleRequest {
+  int32 sample_id = 1;
+}
+
+message GetSampleGroupsRequest {
+  optional string phase_name = 1;     // 按阶段过滤
+  repeated string liquid_ids = 2;     // 按液体过滤
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message GetSampleGroupsResponse {
+  repeated SampleGroup groups = 1;
+  int32 total = 2;
+}
+
+message SampleGroup {
+  string params_hash = 1;
+  
+  // 共同参数
+  repeated LiquidComponent liquids = 2;
+  int32 gas_pump_pwm = 3;
+  string phase_name = 4;
+  
+  // 聚合统计
+  int32 sample_count = 5;
+  repeated int32 run_ids = 6;
+  google.protobuf.Timestamp first_created = 7;
+  google.protobuf.Timestamp last_created = 8;
+}
+
+message GetSampleSensorDataRequest {
+  int32 sample_id = 1;
+  repeated int32 sensor_indices = 2;  // 空表示全部
+  int32 downsample_factor = 3;        // 降采样因子
+}
+
+message GetSampleSensorDataResponse {
+  int32 sample_id = 1;
+  repeated SensorDataRow rows = 2;
+  int32 total_points = 3;
 }

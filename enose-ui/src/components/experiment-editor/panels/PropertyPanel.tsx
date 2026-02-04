@@ -435,7 +435,102 @@ function generateSequence(type: SeqGenType, min: number, max: number, steps: num
   return [...new Set(result)].sort((a, b) => a - b);
 }
 
-// 查找包含指定节点的所有父级扫描/循环节点
+// 查找液体源节点连接的进样节点ID列表
+function findConnectedInjectNodes(
+  liquidSourceId: string,
+  edges: Array<{ source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }>
+): string[] {
+  // 液体源通过 liquid 类型边连接到进样节点
+  return edges
+    .filter(e => e.source === liquidSourceId && e.sourceHandle === HANDLE_TYPES.LIQUID)
+    .map(e => e.target);
+}
+
+// 递归查找包含指定节点的所有父级扫描节点（支持嵌套扫描穿透）
+function findParentSweepNodesRecursive(
+  nodeId: string,
+  nodes: Array<{ id: string; type?: string; data: unknown }>,
+  edges: Array<{ source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }>,
+  visited: Set<string> = new Set()
+): Array<{ id: string; name: string; paramType: string; variableName: string }> {
+  const parentSweeps: Array<{ id: string; name: string; paramType: string; variableName: string }> = [];
+  const loopBodyEdges = edges.filter(e => e.sourceHandle === HANDLE_TYPES.LOOP_BODY);
+  const sweepNodes = nodes.filter(n => n.type === NodeType.PARAM_SWEEP);
+  
+  for (const sweepNode of sweepNodes) {
+    if (visited.has(sweepNode.id)) continue;
+    
+    const bodyStartEdge = loopBodyEdges.find(e => e.source === sweepNode.id);
+    if (!bodyStartEdge) continue;
+    
+    // 检查扫描体是否包含目标节点（包括嵌套的扫描/循环内部）
+    if (isNodeInSweepBody(nodeId, sweepNode.id, nodes, edges)) {
+      const data = sweepNode.data as ParamSweepNodeData;
+      parentSweeps.push({
+        id: sweepNode.id,
+        name: data.name || '参数扫描',
+        paramType: data.paramType || 'volume',
+        variableName: data.variableName || `${data.name || '扫描'}.${data.paramType || 'value'}`,
+      });
+      
+      // 递归查找外层扫描节点
+      visited.add(sweepNode.id);
+      const outerSweeps = findParentSweepNodesRecursive(sweepNode.id, nodes, edges, visited);
+      parentSweeps.push(...outerSweeps);
+    }
+  }
+  
+  return parentSweeps;
+}
+
+// 检查节点是否在扫描体内（支持嵌套穿透）
+function isNodeInSweepBody(
+  nodeId: string,
+  sweepNodeId: string,
+  nodes: Array<{ id: string; type?: string; data: unknown }>,
+  edges: Array<{ source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }>
+): boolean {
+  const bodyStartEdge = edges.find(e => e.source === sweepNodeId && e.sourceHandle === HANDLE_TYPES.LOOP_BODY);
+  if (!bodyStartEdge) return false;
+  
+  const flowEdges = edges.filter(e => !e.sourceHandle || e.sourceHandle === HANDLE_TYPES.FLOW);
+  const visited = new Set<string>();
+  const queue: string[] = [bodyStartEdge.target];
+  
+  while (queue.length > 0) {
+    const currentId = queue.shift()!;
+    if (visited.has(currentId)) continue;
+    visited.add(currentId);
+    
+    // 先检查是否找到目标节点
+    if (currentId === nodeId) return true;
+    
+    // 如果是嵌套的扫描/循环节点，也检查其内部
+    const currentNode = nodes.find(n => n.id === currentId);
+    if (currentNode?.type === NodeType.PARAM_SWEEP || currentNode?.type === NodeType.LOOP) {
+      const nestedBodyEdge = edges.find(e => e.source === currentId && e.sourceHandle === HANDLE_TYPES.LOOP_BODY);
+      if (nestedBodyEdge) {
+        queue.push(nestedBodyEdge.target);
+      }
+    }
+    
+    // 检查是否回到扫描节点（在处理嵌套节点之后）
+    const returnEdge = edges.find(e => 
+      e.source === currentId && 
+      e.targetHandle === HANDLE_TYPES.LOOP_BODY && 
+      e.target === sweepNodeId
+    );
+    if (returnEdge) continue; // 不继续沿 flow 边，但继续处理队列中的其他节点
+    
+    // 继续沿 flow 边
+    const nextEdge = flowEdges.find(e => e.source === currentId);
+    if (nextEdge) queue.push(nextEdge.target);
+  }
+  
+  return false;
+}
+
+// 查找包含指定节点的所有父级扫描/循环节点（支持嵌套穿透）
 function findParentSweepNodes(
   nodeId: string,
   nodes: Array<{ id: string; type?: string; data: unknown }>,
@@ -443,46 +538,19 @@ function findParentSweepNodes(
 ): Array<{ id: string; name: string; paramType: string; variableName: string }> {
   const parentSweeps: Array<{ id: string; name: string; paramType: string; variableName: string }> = [];
   
-  // 找到所有 loopBody 类型的边
-  const loopBodyEdges = edges.filter(e => e.sourceHandle === HANDLE_TYPES.LOOP_BODY);
-  
-  // 对于每个扫描节点，检查其扫描体是否包含目标节点
+  // 对于每个扫描节点，检查其扫描体是否包含目标节点（使用穿透逻辑）
   const sweepNodes = nodes.filter(n => n.type === NodeType.PARAM_SWEEP);
   
   for (const sweepNode of sweepNodes) {
-    // 找到从扫描节点出发的 loopBody 边
-    const bodyStartEdge = loopBodyEdges.find(e => e.source === sweepNode.id);
-    if (!bodyStartEdge) continue;
-    
-    // 遍历扫描体，检查是否包含目标节点
-    const flowEdges = edges.filter(e => !e.sourceHandle || e.sourceHandle === HANDLE_TYPES.FLOW);
-    const visited = new Set<string>();
-    let currentId: string | undefined = bodyStartEdge.target;
-    
-    while (currentId && !visited.has(currentId)) {
-      if (currentId === nodeId) {
-        const data = sweepNode.data as ParamSweepNodeData;
-        parentSweeps.push({
-          id: sweepNode.id,
-          name: data.name || '参数扫描',
-          paramType: data.paramType || 'volume',
-          variableName: data.variableName || `${data.name || '扫描'}.${data.paramType || 'value'}`,
-        });
-        break;
-      }
-      visited.add(currentId);
-      
-      // 检查是否回到了扫描节点（扫描体结束）
-      const returnEdge = edges.find(e => 
-        e.source === currentId && 
-        e.targetHandle === HANDLE_TYPES.LOOP_BODY && 
-        e.target === sweepNode.id
-      );
-      if (returnEdge) break;
-      
-      // 继续沿 flow 边遍历
-      const nextEdge = flowEdges.find(e => e.source === currentId);
-      currentId = nextEdge?.target;
+    // 使用穿透逻辑检查节点是否在扫描体内（包括嵌套的扫描/循环内部）
+    if (isNodeInSweepBody(nodeId, sweepNode.id, nodes, edges)) {
+      const data = sweepNode.data as ParamSweepNodeData;
+      parentSweeps.push({
+        id: sweepNode.id,
+        name: data.name || '参数扫描',
+        paramType: data.paramType || 'volume',
+        variableName: data.variableName || `${data.name || '扫描'}.${data.paramType || 'value'}`,
+      });
     }
   }
   
@@ -549,6 +617,16 @@ export function PropertyPanel() {
   useEffect(() => {
     loadLiquids();
   }, [loadLiquids]);
+  
+  // 筛选清洗液（category 为 cleaning 或 name 包含清洗/水/乙醇）
+  const washLiquids = useMemo(() => {
+    return liquids.filter(l => 
+      l.category === 'cleaning' || 
+      l.name.includes('水') || 
+      l.name.includes('清洗') ||
+      l.name.includes('乙醇')
+    );
+  }, [liquids]);
   
   if (!selectedNode || !nodeType) {
     return (
@@ -649,7 +727,18 @@ export function PropertyPanel() {
           </>
         );
         
-      case NodeType.INJECT:
+      case NodeType.INJECT: {
+        // 检测节点数据中的绑定状态（只有明确绑定才禁用）
+        const injectBoundVars = (data.boundVariables || {}) as Record<string, string>;
+        const isVolumeBound = !!injectBoundVars.targetVolumeMl;
+        const isRatioBound = !!injectBoundVars.ratio;
+        
+        // 获取绑定的扫描节点名称
+        const volumeBoundSweep = isVolumeBound ? nodes.find(n => n.id === injectBoundVars.targetVolumeMl) : null;
+        const ratioBoundSweep = isRatioBound ? nodes.find(n => n.id === injectBoundVars.ratio) : null;
+        const volumeBoundName = volumeBoundSweep ? (volumeBoundSweep.data as Record<string, unknown>).name as string || '参数扫描' : '';
+        const ratioBoundName = ratioBoundSweep ? (ratioBoundSweep.data as Record<string, unknown>).name as string || '参数扫描' : '';
+        
         return (
           <>
             <Field label="步骤名称">
@@ -658,6 +747,20 @@ export function PropertyPanel() {
                 onChange={(e) => handleChange('name', e.target.value)}
               />
             </Field>
+            
+            {/* 已绑定的扫描变量提示 */}
+            {(isVolumeBound || isRatioBound) && (
+              <div className="p-2 bg-pink-500/10 border border-pink-500/30 rounded text-xs space-y-1">
+                <div className="font-medium text-pink-600">⟳ 已绑定扫描变量</div>
+                {isVolumeBound && (
+                  <div className="text-pink-500">进样量 ← {volumeBoundName}</div>
+                )}
+                {isRatioBound && (
+                  <div className="text-pink-500">混合比例 ← {ratioBoundName}</div>
+                )}
+              </div>
+            )}
+            
             <Field label="目标类型">
               <Select
                 value={String(data.targetType || 'volume')}
@@ -673,13 +776,20 @@ export function PropertyPanel() {
               </Select>
             </Field>
             {data.targetType === 'volume' ? (
-              <Field label="目标体积 (ml)">
+              <Field label={`目标体积 (ml)${isVolumeBound ? ' - 由扫描控制' : ''}`}>
                 <Input
                   type="number"
                   step={0.1}
                   value={Number(data.targetVolumeMl || 0)}
                   onChange={(e) => handleChange('targetVolumeMl', parseFloat(e.target.value) || 0)}
+                  disabled={isVolumeBound}
+                  className={isVolumeBound ? 'opacity-50 cursor-not-allowed' : ''}
                 />
+                {isVolumeBound && (
+                  <p className="text-[10px] text-pink-500 mt-1">
+                    由「{volumeBoundName}」扫描控制
+                  </p>
+                )}
               </Field>
             ) : (
               <Field label="目标重量 (g)">
@@ -699,17 +809,31 @@ export function PropertyPanel() {
                 onChange={(e) => handleChange('tolerance', parseFloat(e.target.value) || 0.5)}
               />
             </Field>
-            <Field label="流速 (ml/min)">
+            <Field label="流速 (ml/s)">
               <Input
                 type="number"
-                step={0.5}
-                value={Number(data.flowRateMlMin || 5)}
-                onChange={(e) => handleChange('flowRateMlMin', parseFloat(e.target.value) || 5)}
+                step={0.1}
+                value={Number(data.flowRateMlS || 0.5)}
+                onChange={(e) => handleChange('flowRateMlS', parseFloat(e.target.value) || 0.5)}
               />
+            </Field>
+            <Field label="稳定超时 (s)">
+              <Input
+                type="number"
+                step={1}
+                min={5}
+                max={300}
+                value={Number(data.stableTimeoutS || 5)}
+                onChange={(e) => handleChange('stableTimeoutS', parseFloat(e.target.value) || 5)}
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                进样完成后等待称重稳定的超时时间
+              </p>
             </Field>
           </>
         );
-        
+      }
+      
       case NodeType.DRAIN:
         return (
           <>
@@ -738,7 +862,28 @@ export function PropertyPanel() {
           </>
         );
         
-      case NodeType.LIQUID_SOURCE:
+      case NodeType.LIQUID_SOURCE: {
+        // 检测连接的进样节点是否明确绑定了 ratio 扫描变量
+        const connectedInjectIds = findConnectedInjectNodes(selectedNode.id, edges);
+        let ratioBindingForLiquid: { sweepName: string; injectName: string } | undefined;
+        
+        for (const injectId of connectedInjectIds) {
+          const injectNode = nodes.find(n => n.id === injectId);
+          if (injectNode) {
+            const injectData = injectNode.data as Record<string, unknown>;
+            const injectBoundVars = (injectData.boundVariables || {}) as Record<string, string>;
+            // 只有当进样节点明确绑定了 ratio 扫描时才禁用
+            if (injectBoundVars.ratio) {
+              const boundSweep = nodes.find(n => n.id === injectBoundVars.ratio);
+              ratioBindingForLiquid = {
+                sweepName: boundSweep ? (boundSweep.data as Record<string, unknown>).name as string || '参数扫描' : '参数扫描',
+                injectName: injectData.name as string || '进样',
+              };
+              break;
+            }
+          }
+        }
+        
         return (
           <>
             <Field label="从液体库选择">
@@ -786,13 +931,26 @@ export function PropertyPanel() {
                 placeholder="手动输入或从上方选择"
               />
             </Field>
-            <Field label={`比例 (${((Number(data.ratio) || 1) * 100).toFixed(0)}%)`}>
+            
+            {/* 比例扫描绑定提示 - 只有明确绑定时才显示 */}
+            {ratioBindingForLiquid && (
+              <div className="p-2 bg-pink-500/10 border border-pink-500/30 rounded text-xs">
+                <div className="font-medium text-pink-600">⟳ 比例由扫描控制</div>
+                <div className="text-pink-500 text-[10px] mt-1">
+                  「{ratioBindingForLiquid.sweepName}」→「{ratioBindingForLiquid.injectName}」
+                </div>
+              </div>
+            )}
+            
+            <Field label={`比例 (${((Number(data.ratio) || 1) * 100).toFixed(0)}%)${ratioBindingForLiquid ? ' - 由扫描控制' : ''}`}>
               <Slider
                 value={[Number(data.ratio || 1) * 100]}
                 min={0}
                 max={100}
                 step={5}
                 onValueChange={([v]) => handleChange('ratio', v / 100)}
+                disabled={!!ratioBindingForLiquid}
+                className={ratioBindingForLiquid ? 'opacity-50' : ''}
               />
             </Field>
             <p className="text-xs text-muted-foreground mt-2">
@@ -800,7 +958,8 @@ export function PropertyPanel() {
             </p>
           </>
         );
-        
+      }
+      
       case NodeType.WASH:
         return (
           <>
@@ -810,20 +969,46 @@ export function PropertyPanel() {
                 onChange={(e) => handleChange('name', e.target.value)}
               />
             </Field>
-            <Field label="清洗液ID">
-              <Select
-                value={String(data.washLiquidId || 'distilled_water')}
-                onValueChange={(v) => handleChange('washLiquidId', v)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="distilled_water">蒸馏水</SelectItem>
-                  <SelectItem value="ethanol">乙醇</SelectItem>
-                  <SelectItem value="cleaning_solution">清洗液</SelectItem>
-                </SelectContent>
-              </Select>
+            <Field label="清洗液">
+              <div className="flex gap-2">
+                <Select
+                  value={String(data.washLiquidId || '')}
+                  onValueChange={(v) => {
+                    const liquid = washLiquids.find(l => l.id === v);
+                    if (liquid) {
+                      handleChange('washLiquidId', liquid.id);
+                      handleChange('washLiquidName', liquid.name);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="选择清洗液..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {washLiquids.length === 0 ? (
+                      <SelectItem value="_empty" disabled>暂无清洗液</SelectItem>
+                    ) : (
+                      washLiquids.map((liquid) => (
+                        <SelectItem key={liquid.id} value={liquid.id}>
+                          {liquid.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={loadLiquids}
+                  disabled={loadingLiquids}
+                >
+                  <RefreshCw className={`w-4 h-4 ${loadingLiquids ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                需要在耗材管理页面添加清洗液（类别设为 cleaning）
+              </p>
             </Field>
             <Field label="每次清洗量 (ml)">
               <Input
@@ -851,15 +1036,11 @@ export function PropertyPanel() {
                 onValueChange={([v]) => handleChange('gasPumpPwm', v)}
               />
             </Field>
-            <Field label="清洗后排废">
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={Boolean(data.drainAfter ?? true)}
-                  onCheckedChange={(checked) => handleChange('drainAfter', checked)}
-                />
-                <span className="text-sm">{data.drainAfter !== false ? '是' : '否'}</span>
-              </div>
-            </Field>
+            <div className="p-2 bg-blue-500/10 border border-blue-500/30 rounded text-xs text-blue-600 mt-2">
+              <p className="font-medium mb-1">清洗流程说明：</p>
+              <p>每次清洗循环：排废确认空瓶 → 注入清洗液 → 排废</p>
+              <p className="mt-1">多次清洗时，每次循环之间都会排废以防止溢出。</p>
+            </div>
           </>
         );
         
@@ -1546,11 +1727,11 @@ export function PropertyPanel() {
           </div>
         )}
         
-        {/* 显示所在扫描体信息 */}
-        {parentSweeps.length > 0 && bindableFields.length === 0 && (
+        {/* 显示所在扫描体信息（调试） */}
+        {parentSweeps.length > 0 && (
           <div className="pt-3 border-t">
             <p className="text-xs text-muted-foreground">
-              位于扫描体内: {parentSweeps.map(s => s.name).join(', ')}
+              所在扫描体 ({parentSweeps.length}): {parentSweeps.map(s => `${s.name}(${s.paramType})`).join(', ')}
             </p>
           </div>
         )}

@@ -69,6 +69,12 @@ export interface ExperimentProgram {
      * @generated from protobuf field: enose.experiment.Metadata metadata = 10
      */
     metadata?: Metadata;
+    /**
+     * 前端编译期估算 (可选，用于后端校验对比)
+     *
+     * @generated from protobuf field: enose.experiment.ResourceEstimate compile_estimate = 11
+     */
+    compileEstimate?: ResourceEstimate;
 }
 /**
  * ============================================================
@@ -1262,7 +1268,8 @@ class ExperimentProgram$Type extends MessageType<ExperimentProgram> {
             { no: 4, name: "version", kind: "scalar", T: 9 /*ScalarType.STRING*/, options: { "buf.validate.field": { string: { pattern: "^\\d+\\.\\d+\\.\\d+$" } } } },
             { no: 5, name: "hardware", kind: "message", T: () => HardwareConstraints, options: { "buf.validate.field": { required: true } } },
             { no: 6, name: "steps", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => Step, options: { "buf.validate.field": { repeated: { minItems: "1" } } } },
-            { no: 10, name: "metadata", kind: "message", T: () => Metadata }
+            { no: 10, name: "metadata", kind: "message", T: () => Metadata },
+            { no: 11, name: "compile_estimate", kind: "message", T: () => ResourceEstimate }
         ]);
     }
     create(value?: PartialMessage<ExperimentProgram>): ExperimentProgram {
@@ -1302,6 +1309,9 @@ class ExperimentProgram$Type extends MessageType<ExperimentProgram> {
                 case /* enose.experiment.Metadata metadata */ 10:
                     message.metadata = Metadata.internalBinaryRead(reader, reader.uint32(), options, message.metadata);
                     break;
+                case /* enose.experiment.ResourceEstimate compile_estimate */ 11:
+                    message.compileEstimate = ResourceEstimate.internalBinaryRead(reader, reader.uint32(), options, message.compileEstimate);
+                    break;
                 default:
                     let u = options.readUnknownField;
                     if (u === "throw")
@@ -1335,6 +1345,9 @@ class ExperimentProgram$Type extends MessageType<ExperimentProgram> {
         /* enose.experiment.Metadata metadata = 10; */
         if (message.metadata)
             Metadata.internalBinaryWrite(message.metadata, writer.tag(10, WireType.LengthDelimited).fork(), options).join();
+        /* enose.experiment.ResourceEstimate compile_estimate = 11; */
+        if (message.compileEstimate)
+            ResourceEstimate.internalBinaryWrite(message.compileEstimate, writer.tag(11, WireType.LengthDelimited).fork(), options).join();
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);

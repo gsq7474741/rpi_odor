@@ -25,6 +25,9 @@ export interface CompiledStep {
   depth: number;              // 嵌套深度，0=顶层
   loopPath: LoopPathEntry[];  // 从外到内的循环/扫描路径
   isAtomic: boolean;          // 是否原子步骤（非循环/扫描节点）
+  
+  // 扫描变量绑定（用于确定是否应用扫描参数）
+  boundVariables?: Record<string, string>;  // field -> sweepNodeId
 }
 
 // 循环/扫描路径条目
@@ -43,6 +46,21 @@ export interface CompilerDiagnostic {
   code: string;
 }
 
+// 液体消耗信息
+export interface LiquidConsumption {
+  liquidId: string;
+  liquidName: string;
+  pumpIndex: number;
+  requiredMl: number;
+}
+
+// 泵估算信息
+export interface PumpEstimate {
+  pumpIndex: number;
+  volumeMl: number;
+  runtimeS: number;  // 基于流速计算的预估运行时间
+}
+
 // 编译结果
 export interface CompilationResult {
   success: boolean;
@@ -51,10 +69,16 @@ export interface CompilationResult {
   
   // 估算数据
   totalDurationS: number;
-  peakLiquidLevelMl: number;
+  peakLiquidLevelMl: number;          // 峰值样品液位（只看进样和排废，不含清洗）
+  peakLiquidLevelMlWithWash: number;  // 考虑清洗节点的峰值液位（废弃，保留兼容）
   totalInjectMl: number;
-  totalDrainMl: number;
+  totalDrainMl: number;               // 废液桶总量 = 进样量 + 清洗液量
+  totalWashVolumeMl: number;          // 清洗液总量
   loopExpansionCount: number;
+  
+  // 新增：详细用量估算
+  liquidConsumption: LiquidConsumption[];
+  pumpEstimates: PumpEstimate[];
   
   // 执行路径
   executionPath: string[]; // nodeId 序列
@@ -93,10 +117,16 @@ export function compile(
   
   let totalDurationS = 0;
   let currentLiquidMl = 0;
-  let peakLiquidLevelMl = 0;
+  let currentLiquidMlWithWash = 0;  // 考虑清洗的液位
+  let peakLiquidLevelMl = 0;         // 只考虑进样
+  let peakLiquidLevelMlWithWash = 0; // 考虑清洗
   let totalInjectMl = 0;
-  let totalDrainMl = 0;
+  let totalWashVolumeMl = 0;         // 清洗液总量
   let loopExpansionCount = 0;
+  
+  // 液体和泵用量追踪
+  const liquidConsumptionMap = new Map<string, LiquidConsumption>();
+  const pumpConsumptionMap = new Map<number, { volumeMl: number; runtimeS: number }>();
   
   // 1. 结构验证
   const structureErrors = validateStructure(nodes, edges);
@@ -109,9 +139,13 @@ export function compile(
       diagnostics,
       totalDurationS: 0,
       peakLiquidLevelMl: 0,
+      peakLiquidLevelMlWithWash: 0,
       totalInjectMl: 0,
       totalDrainMl: 0,
+      totalWashVolumeMl: 0,
       loopExpansionCount: 0,
+      liquidConsumption: [],
+      pumpEstimates: [],
       executionPath: [],
       compiledAt: Date.now(),
     };
@@ -136,9 +170,13 @@ export function compile(
       diagnostics,
       totalDurationS: 0,
       peakLiquidLevelMl: 0,
+      peakLiquidLevelMlWithWash: 0,
       totalInjectMl: 0,
       totalDrainMl: 0,
+      totalWashVolumeMl: 0,
       loopExpansionCount: 0,
+      liquidConsumption: [],
+      pumpEstimates: [],
       executionPath: [],
       compiledAt: Date.now(),
     };
@@ -203,10 +241,12 @@ export function compile(
                   // 更新液位
                   currentLiquidMl += expandedStep.liquidChangeMl;
                   peakLiquidLevelMl = Math.max(peakLiquidLevelMl, currentLiquidMl);
-                  if (expandedStep.liquidChangeMl > 0) {
+                  if (expandedStep.type === NodeType.INJECT && expandedStep.liquidChangeMl > 0) {
                     totalInjectMl += expandedStep.liquidChangeMl;
-                  } else {
-                    totalDrainMl += Math.abs(expandedStep.liquidChangeMl);
+                  } else if (expandedStep.type === NodeType.WASH) {
+                    const wv = (expandedStep.params.washVolumeMl as number) || 20;
+                    const rc = (expandedStep.params.repeatCount as number) || 2;
+                    totalWashVolumeMl += wv * rc;
                   }
                 }
               }
@@ -267,9 +307,11 @@ export function compile(
           } else if (cfg.expandLoops && sweepValues.length <= cfg.maxLoopExpansion) {
             // 展开参数扫描
             const paramType = sweepData.paramType as string || 'volume';
+            const ratioSweepPoints = (sweepData.ratioSweepPoints as Array<{ ratios: Record<string, number> }>) || [];
             
             for (let i = 0; i < sweepValues.length; i++) {
               const value = sweepValues[i];
+              const ratioConfig = paramType === 'ratio' && ratioSweepPoints[i] ? ratioSweepPoints[i].ratios : undefined;
               const currentLoopEntry: LoopPathEntry = {
                 loopId: node.id,
                 loopName: sweepName,
@@ -288,8 +330,8 @@ export function compile(
                   depth: bodyStep.depth + 1,
                 };
                 
-                // 根据参数类型修改对应字段
-                applySweptParameter(expandedStep, paramType, value);
+                // 根据参数类型修改对应字段（只有明确绑定时才应用）
+                applySweptParameter(expandedStep, paramType, value, node.id, ratioConfig);
                 
                 steps.push(expandedStep);
                 
@@ -299,10 +341,12 @@ export function compile(
                   // 更新液位
                   currentLiquidMl += expandedStep.liquidChangeMl;
                   peakLiquidLevelMl = Math.max(peakLiquidLevelMl, currentLiquidMl);
-                  if (expandedStep.liquidChangeMl > 0) {
+                  if (expandedStep.type === NodeType.INJECT && expandedStep.liquidChangeMl > 0) {
                     totalInjectMl += expandedStep.liquidChangeMl;
-                  } else {
-                    totalDrainMl += Math.abs(expandedStep.liquidChangeMl);
+                  } else if (expandedStep.type === NodeType.WASH) {
+                    const wv = (expandedStep.params.washVolumeMl as number) || 20;
+                    const rc = (expandedStep.params.repeatCount as number) || 2;
+                    totalWashVolumeMl += wv * rc;
                   }
                 }
               }
@@ -327,13 +371,26 @@ export function compile(
           steps.push(compiledStep);
           totalDurationS += compiledStep.estimatedDurationS;
           
-          // 更新液位
-          currentLiquidMl += compiledStep.liquidChangeMl;
-          peakLiquidLevelMl = Math.max(peakLiquidLevelMl, currentLiquidMl);
-          if (compiledStep.liquidChangeMl > 0) {
+          // 更新液位（只考虑进样）
+          if (compiledStep.type === NodeType.INJECT && compiledStep.liquidChangeMl > 0) {
+            currentLiquidMl += compiledStep.liquidChangeMl;
+            peakLiquidLevelMl = Math.max(peakLiquidLevelMl, currentLiquidMl);
             totalInjectMl += compiledStep.liquidChangeMl;
-          } else {
-            totalDrainMl += Math.abs(compiledStep.liquidChangeMl);
+          } else if (compiledStep.type === NodeType.DRAIN) {
+            currentLiquidMl = 0;
+          } else if (compiledStep.type === NodeType.WASH) {
+            const wv = (compiledStep.params.washVolumeMl as number) || 20;
+            const rc = (compiledStep.params.repeatCount as number) || 2;
+            totalWashVolumeMl += wv * rc;
+            // 清洗节点会先排废，液位归零，然后注入清洗液
+            currentLiquidMlWithWash = wv;
+            peakLiquidLevelMlWithWash = Math.max(peakLiquidLevelMlWithWash, currentLiquidMlWithWash);
+            currentLiquidMl = 0;
+          }
+          // 同步考虑清洗的液位
+          if (compiledStep.type !== NodeType.WASH) {
+            currentLiquidMlWithWash = currentLiquidMl;
+            peakLiquidLevelMlWithWash = Math.max(peakLiquidLevelMlWithWash, currentLiquidMlWithWash);
           }
         }
         
@@ -390,15 +447,119 @@ export function compile(
     }
   });
   
+  // 从编译后的步骤中提取液体和泵用量（包括清洗液）
+  for (const step of steps) {
+    // 追踪清洗液消耗
+    if (step.type === NodeType.WASH && step.isAtomic) {
+      const washLiquidId = (step.params.washLiquidId as string) || 'distilled_water';
+      const washLiquidName = (step.params.washLiquidName as string) || washLiquidId;
+      const washVolume = (step.params.washVolumeMl as number) || 20;
+      const repeatCount = (step.params.repeatCount as number) || 2;
+      const totalWashVol = washVolume * repeatCount;
+      
+      const existing = liquidConsumptionMap.get(washLiquidId);
+      if (existing) {
+        existing.requiredMl += totalWashVol;
+      } else {
+        liquidConsumptionMap.set(washLiquidId, {
+          liquidId: washLiquidId,
+          liquidName: washLiquidName,
+          pumpIndex: -1,  // 清洗液使用清洗泵，不是蠕动泵
+          requiredMl: totalWashVol,
+        });
+      }
+    }
+    
+    // 追踪进样液体消耗
+    if (step.type === NodeType.INJECT && step.isAtomic) {
+      const components = step.params.components as Array<{
+        liquidId: string;
+        liquidName: string;
+        pumpIndex?: number;
+        ratio: number;
+      }> | undefined;
+      const flowRateMlS = (step.params.flowRateMlS as number) || 0.5; // ml/s
+      const volumeMl = step.liquidChangeMl;
+      
+      if (components) {
+        // 计算比例总和和每个泵的流量
+        const totalRatio = components.reduce((sum, c) => sum + (c.ratio || 1), 0);
+        const pumpVolumes = components.map(c => volumeMl * ((c.ratio || 1) / totalRatio));
+        const maxPumpVolume = Math.max(...pumpVolumes, volumeMl);
+        
+        // 多泵并行：所有泵运行时间相同，由最大流量泵决定
+        const sharedRuntimeS = flowRateMlS > 0 ? maxPumpVolume / flowRateMlS : 0;
+        
+        for (let i = 0; i < components.length; i++) {
+          const comp = components[i];
+          const compVolume = pumpVolumes[i];
+          const pumpIndex = comp.pumpIndex ?? -1;
+          
+          // 累加液体消耗
+          const existing = liquidConsumptionMap.get(comp.liquidId);
+          if (existing) {
+            existing.requiredMl += compVolume;
+          } else {
+            liquidConsumptionMap.set(comp.liquidId, {
+              liquidId: comp.liquidId,
+              liquidName: comp.liquidName || comp.liquidId,
+              pumpIndex: pumpIndex,
+              requiredMl: compVolume,
+            });
+          }
+          
+          // 累加泵消耗（所有泵运行时间相同）
+          if (pumpIndex >= 0) {
+            const pumpData = pumpConsumptionMap.get(pumpIndex);
+            if (pumpData) {
+              pumpData.volumeMl += compVolume;
+              pumpData.runtimeS += sharedRuntimeS;
+            } else {
+              pumpConsumptionMap.set(pumpIndex, { volumeMl: compVolume, runtimeS: sharedRuntimeS });
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // 转换为数组
+  const liquidConsumption = Array.from(liquidConsumptionMap.values());
+  const pumpEstimates: PumpEstimate[] = Array.from(pumpConsumptionMap.entries()).map(
+    ([pumpIndex, data]) => ({ pumpIndex, ...data })
+  );
+  
+  // 废液桶总量 = 进样量 + 清洗液量
+  const totalDrainMl = totalInjectMl + totalWashVolumeMl;
+  
+  // 从展开后的步骤序列计算峰值样品液位（只看进样和排废，不含清洗）
+  let computedPeakLiquidMl = 0;
+  let runningLiquidMl = 0;
+  for (const step of steps) {
+    if (!step.isAtomic) continue;
+    
+    if (step.type === NodeType.INJECT && step.liquidChangeMl > 0) {
+      runningLiquidMl += step.liquidChangeMl;
+      computedPeakLiquidMl = Math.max(computedPeakLiquidMl, runningLiquidMl);
+    } else if (step.type === NodeType.DRAIN) {
+      runningLiquidMl = 0;
+    }
+    // 清洗节点不影响样品液位计算
+  }
+  
   return {
     success: !diagnostics.some(d => d.level === 'error'),
     steps,
     diagnostics,
     totalDurationS,
-    peakLiquidLevelMl,
+    peakLiquidLevelMl: computedPeakLiquidMl,  // 使用展开后步骤计算的峰值
+    peakLiquidLevelMlWithWash,
     totalInjectMl,
     totalDrainMl,
+    totalWashVolumeMl,
     loopExpansionCount,
+    liquidConsumption,
+    pumpEstimates,
     executionPath,
     compiledAt: Date.now(),
   };
@@ -668,13 +829,14 @@ function compileNode(
     depth: 0,
     loopPath: [],
     isAtomic: !isLoopType,
+    boundVariables: (data.boundVariables as Record<string, string>) || {},
   };
   
   switch (node.type) {
     case NodeType.INJECT: {
       const targetVolume = (data.targetVolumeMl as number) || 15;
-      const flowRate = (data.flowRateMlMin as number) || 5;
-      const stableTimeout = (data.stableTimeoutS as number) || 60;
+      const flowRateMlS = (data.flowRateMlS as number) || 0.5; // ml/s
+      const stableTimeout = (data.stableTimeoutS as number) || 5;
       
       // 获取连接的液体
       const liquidNodeIds = liquidConnections.get(node.id) || [];
@@ -686,12 +848,25 @@ function compileNode(
           return {
             liquidId: d.liquidId as string,
             liquidName: d.liquidName as string,
+            pumpIndex: (d.pumpIndex as number) ?? -1,  // 获取泵索引
             ratio: d.ratio as number || 1,
           };
         });
       
       baseStep.params.components = liquids;
-      baseStep.estimatedDurationS = (targetVolume / flowRate) * 60 + stableTimeout;
+      
+      // 多泵并行进样：时长由流量最大的泵决定（所有泵同时开始同时结束）
+      // 每个泵的流量 = targetVolume * ratio，时长 = maxPumpVolume / flowRate
+      // 其他泵会自动放慢速度匹配最慢的泵
+      let maxPumpVolume = targetVolume; // 默认单泵
+      if (liquids.length > 0) {
+        const totalRatio = liquids.reduce((sum, l) => sum + l.ratio, 0);
+        maxPumpVolume = liquids.reduce((max, l) => {
+          const pumpVolume = targetVolume * (l.ratio / totalRatio);
+          return Math.max(max, pumpVolume);
+        }, 0);
+      }
+      baseStep.estimatedDurationS = (maxPumpVolume / flowRateMlS) + stableTimeout;
       baseStep.liquidChangeMl = targetVolume;
       break;
     }
@@ -706,11 +881,14 @@ function compileNode(
     case NodeType.WASH: {
       const washVolume = (data.washVolumeMl as number) || 20;
       const repeatCount = (data.repeatCount as number) || 2;
-      const drainAfter = (data.drainAfter as boolean) ?? true;
+      const washFlowRate = (data.flowRateMlS as number) || 5; // ml/s，清洗流速
+      const drainTimeS = 30; // 排放时间估计
       
-      // 每次清洗：注入 + 排出
-      baseStep.estimatedDurationS = repeatCount * (washVolume / 5 * 60 + 30); // 假设 5ml/min 流速 + 30s 排放
-      baseStep.liquidChangeMl = drainAfter ? 0 : washVolume; // 如果排放则液位不变
+      // 后端清洗流程：每次循环都是 排废→注入→排废
+      // 每次循环时间：排废 + 注入 + 排废
+      baseStep.estimatedDurationS = repeatCount * (drainTimeS + washVolume / washFlowRate + drainTimeS);
+      // 清洗后液位始终为0（最后一次循环会排废）
+      baseStep.liquidChangeMl = -config.maxFillMl; // 清洗会先排废，液位归零
       break;
     }
     
@@ -888,9 +1066,11 @@ function compileLoopBody(
       if (config.expandLoops && sweepValues.length <= config.maxLoopExpansion && nestedBodySteps.length > 0) {
         // 展开嵌套参数扫描
         const paramType = sweepData.paramType as string || 'volume';
+        const ratioSweepPoints = (sweepData.ratioSweepPoints as Array<{ ratios: Record<string, number> }>) || [];
         
         for (let i = 0; i < sweepValues.length; i++) {
           const value = sweepValues[i];
+          const ratioConfig = paramType === 'ratio' && ratioSweepPoints[i] ? ratioSweepPoints[i].ratios : undefined;
           const currentLoopEntry: LoopPathEntry = {
             loopId: node.id,
             loopName: sweepName,
@@ -908,7 +1088,7 @@ function compileLoopBody(
               depth: bodyStep.depth + 1,
             };
             
-            applySweptParameter(expandedStep, paramType, value);
+            applySweptParameter(expandedStep, paramType, value, node.id, ratioConfig);
             steps.push(expandedStep);
           }
         }
@@ -1047,19 +1227,59 @@ function generateSweepValues(data: Record<string, unknown>): number[] {
 }
 
 /**
- * 应用扫描参数值到步骤
+ * 获取参数类型对应的绑定字段名
+ */
+function getBindingFieldForParamType(paramType: string): string | null {
+  switch (paramType) {
+    case 'volume': return 'targetVolumeMl';
+    case 'ratio': return 'ratio';
+    case 'gasPumpPwm': return 'gasPumpPwm';
+    case 'duration': return 'durationS';
+    case 'cycles': return 'heaterCycles';
+    default: return null;
+  }
+}
+
+/**
+ * 应用扫描参数值到步骤（只有明确绑定时才应用）
  */
 function applySweptParameter(
   step: CompiledStep,
   paramType: string,
-  value: number
+  value: number,
+  sweepNodeId: string,
+  ratioConfig?: Record<string, number>  // 比例扫描配置：liquidId -> ratio
 ): void {
+  // 获取该参数类型对应的绑定字段
+  const bindingField = getBindingFieldForParamType(paramType);
+  
+  // 检查步骤是否明确绑定了这个扫描变量
+  const boundVariables = step.boundVariables || {};
+  const isBound = bindingField && boundVariables[bindingField] === sweepNodeId;
+  
+  if (!isBound) return; // 未绑定则跳过
+  
   switch (paramType) {
     case 'volume':
       if (step.type === NodeType.INJECT) {
         step.params.targetVolumeMl = value;
         step.liquidChangeMl = value;
         step.name = `${step.name} (${value}ml)`;
+        
+        // 重新计算时间预估：时长 = maxPumpVolume / flowRate + stableTimeout
+        const flowRateMlS = (step.params.flowRateMlS as number) || 0.5;
+        const stableTimeout = (step.params.stableTimeoutS as number) || 5;
+        const components = step.params.components as Array<{ ratio: number }> | undefined;
+        
+        let maxPumpVolume = value;
+        if (components && components.length > 0) {
+          const totalRatio = components.reduce((sum, c) => sum + (c.ratio || 1), 0);
+          maxPumpVolume = components.reduce((max, c) => {
+            const pumpVolume = value * ((c.ratio || 1) / totalRatio);
+            return Math.max(max, pumpVolume);
+          }, 0);
+        }
+        step.estimatedDurationS = (maxPumpVolume / flowRateMlS) + stableTimeout;
       }
       break;
     case 'gasPumpPwm':
@@ -1083,7 +1303,30 @@ function applySweptParameter(
       }
       break;
     case 'ratio':
-      // 比例扫描在 yaml-converter 中特殊处理
+      // 比例扫描：更新组件比例
+      if (step.type === NodeType.INJECT && ratioConfig) {
+        const components = step.params.components as Array<{
+          liquidId: string;
+          liquidName: string;
+          pumpIndex?: number;
+          ratio: number;
+        }> | undefined;
+        
+        if (components && components.length > 0) {
+          // 更新每个组件的比例
+          const updatedComponents = components.map(comp => ({
+            ...comp,
+            ratio: ratioConfig[comp.liquidId] ?? comp.ratio,
+          }));
+          step.params.components = updatedComponents;
+          
+          // 更新名称显示比例
+          const ratioLabel = updatedComponents
+            .map(c => `${c.ratio.toFixed(0)}%`)
+            .join(':');
+          step.name = `${step.name} (${ratioLabel})`;
+        }
+      }
       break;
   }
 }

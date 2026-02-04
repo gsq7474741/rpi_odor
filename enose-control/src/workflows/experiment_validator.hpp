@@ -113,6 +113,12 @@ private:
     void check_empty_aspiration_risk();
     void check_liquid_sufficiency();
     
+    // 辅助：递归检查是否包含清洗步骤
+    bool has_wash_step_recursive(const google::protobuf::RepeatedPtrField<experiment::Step>& steps);
+    
+    // 前后端估算对比
+    void cross_validate_compile_estimate();
+    
     // 辅助函数
     void add_error(const std::string& path, const std::string& code, const std::string& message);
     void add_warning(const std::string& path, const std::string& code, const std::string& message);

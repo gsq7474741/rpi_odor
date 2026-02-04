@@ -18,8 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RefreshCw, Download, Play, Pause } from "lucide-react";
+import { RefreshCw, Download, Play, Pause, Cpu, Sparkles, AlertTriangle, Loader2, Database } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import * as echarts from "echarts";
+import { ScatterGLPanel } from "./ScatterGLPanel";
 
 interface VisPoint {
   id: string;
@@ -49,7 +51,30 @@ const CLUSTER_COLORS = [
   "#9a60b4",
 ];
 
-export function VisualizationPanel() {
+type RenderEngine = "echarts" | "scattergl";
+
+interface NormalizedFramesMeta {
+  method: string;
+  nSamples: number;
+  originalPointCounts: number[];
+  timeRangeMs: number;
+  phaseName: string;
+}
+
+interface NormalizedFramesStatus {
+  exists: boolean;
+  totalFrames: number;
+  meta: NormalizedFramesMeta[];
+}
+
+interface VisualizationPanelProps {
+  experimentId?: string | null;
+  labelId?: string | null;
+  sampleIds?: number[];
+  paramsHashes?: string[];
+}
+
+export function VisualizationPanel({ experimentId, labelId, sampleIds, paramsHashes }: VisualizationPanelProps = {}) {
   const [visType, setVisType] = useState<string>("PCA");
   const [nComponents, setNComponents] = useState<number>(2);
   const [perplexity, setPerplexity] = useState<number>(30);
@@ -58,9 +83,59 @@ export function VisualizationPanel() {
   const [result, setResult] = useState<VisualizationResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
+  const [renderEngine, setRenderEngine] = useState<RenderEngine>("scattergl");
+  const [framesStatus, setFramesStatus] = useState<NormalizedFramesStatus | null>(null);
+  const [checkingFrames, setCheckingFrames] = useState(false);
+  const [generatingFrames, setGeneratingFrames] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
+
+  const checkNormalizedFrames = useCallback(async () => {
+    if (!experimentId) {
+      setFramesStatus(null);
+      return;
+    }
+
+    setCheckingFrames(true);
+    try {
+      const response = await fetch(
+        `/api/analytics/normalized-frames?runId=${experimentId}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setFramesStatus(data);
+      }
+    } catch (error) {
+      console.error("Failed to check normalized frames:", error);
+    } finally {
+      setCheckingFrames(false);
+    }
+  }, [experimentId]);
+
+  const generateFrames = async () => {
+    if (!experimentId) return;
+
+    setGeneratingFrames(true);
+    try {
+      const response = await fetch("/api/analytics/normalized-frames", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          runId: parseInt(experimentId),
+          nSamples: 100,
+          methods: ["linear", "pchip"],
+        }),
+      });
+      if (response.ok) {
+        await checkNormalizedFrames();
+      }
+    } catch (error) {
+      console.error("Failed to generate normalized frames:", error);
+    } finally {
+      setGeneratingFrames(false);
+    }
+  };
 
   const fetchVisualization = async () => {
     setLoading(true);
@@ -73,6 +148,19 @@ export function VisualizationPanel() {
         maxPoints: maxPoints.toString(),
       });
 
+      if (experimentId) {
+        params.set("experimentId", experimentId);
+      }
+      if (labelId) {
+        params.set("labelId", labelId);
+      }
+      if (sampleIds && sampleIds.length > 0) {
+        params.set("sampleIds", sampleIds.join(","));
+      }
+      if (paramsHashes && paramsHashes.length > 0) {
+        params.set("paramsHashes", paramsHashes.join(","));
+      }
+
       const response = await fetch(`/api/analytics/visualization?${params}`);
       if (response.ok) {
         const data = await response.json();
@@ -84,6 +172,10 @@ export function VisualizationPanel() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    checkNormalizedFrames();
+  }, [checkNormalizedFrames]);
 
   useEffect(() => {
     if (autoRefresh) {
@@ -101,11 +193,11 @@ export function VisualizationPanel() {
     };
   }, [autoRefresh, visType, nComponents, perplexity, nClusters, maxPoints]);
 
-  // 初始化 ECharts
+  // 初始化 ECharts - DOM 始终存在，组件挂载时初始化
   useEffect(() => {
-    if (chartRef.current && !chartInstance.current) {
-      chartInstance.current = echarts.init(chartRef.current);
-    }
+    if (!chartRef.current) return;
+
+    chartInstance.current = echarts.init(chartRef.current);
 
     const handleResize = () => {
       chartInstance.current?.resize();
@@ -199,6 +291,7 @@ export function VisualizationPanel() {
     chartInstance.current.setOption(option, true);
   }, [result, visType]);
 
+  // 数据变化时更新图表
   useEffect(() => {
     updateChart();
   }, [updateChart]);
@@ -264,10 +357,73 @@ export function VisualizationPanel() {
             />
           </div>
 
+          <div className="space-y-2">
+            <Label>渲染引擎</Label>
+            <div className="flex gap-2">
+              <Button
+                variant={renderEngine === "scattergl" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setRenderEngine("scattergl")}
+                className="flex-1"
+              >
+                <Sparkles className="h-4 w-4 mr-1" />
+                WebGL
+              </Button>
+              <Button
+                variant={renderEngine === "echarts" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setRenderEngine("echarts")}
+                className="flex-1"
+              >
+                <Cpu className="h-4 w-4 mr-1" />
+                ECharts
+              </Button>
+            </div>
+          </div>
+
+          {experimentId && framesStatus && !framesStatus.exists && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>未生成归一化帧</AlertTitle>
+              <AlertDescription>
+                需要先生成归一化帧才能进行可视化计算
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {experimentId && framesStatus && framesStatus.exists && (
+            <Alert className="mb-4">
+              <Database className="h-4 w-4" />
+              <AlertTitle>归一化帧就绪</AlertTitle>
+              <AlertDescription>
+                共 {framesStatus.totalFrames} 帧，
+                {framesStatus.meta.length > 0 && 
+                  `${framesStatus.meta.map(m => m.phaseName).filter((v, i, a) => a.indexOf(v) === i).join(", ")} 阶段`
+                }
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {experimentId && (!framesStatus?.exists) && (
+            <Button
+              onClick={generateFrames}
+              disabled={generatingFrames || checkingFrames}
+              variant="secondary"
+              className="w-full mb-4"
+            >
+              {generatingFrames ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Database className="h-4 w-4 mr-2" />
+              )}
+              生成归一化帧
+            </Button>
+          )}
+
           <div className="flex gap-2">
             <Button
               onClick={fetchVisualization}
-              disabled={loading}
+              disabled={loading || (experimentId ? !framesStatus?.exists : false)}
               className="flex-1"
             >
               <RefreshCw
@@ -323,13 +479,38 @@ export function VisualizationPanel() {
           </Button>
         </CardHeader>
         <CardContent>
-          <div className="h-[500px]">
-            {!result ? (
-              <div className="h-full flex items-center justify-center text-muted-foreground">
-                点击"计算"按钮生成可视化
-              </div>
+          <div className="h-[500px] relative">
+            {renderEngine === "scattergl" ? (
+              <ScatterGLPanel
+                points={
+                  result?.points.map((p) => ({
+                    id: p.id,
+                    x: p.coords[0] || 0,
+                    y: p.coords[1] || 0,
+                    z: p.coords[2],
+                    cluster: p.cluster >= 0 ? p.cluster : 0,
+                    label: p.label,
+                  })) || []
+                }
+                centers={
+                  result?.centers.map((c) => ({
+                    x: c.coords[0] || 0,
+                    y: c.coords[1] || 0,
+                    z: c.coords[2],
+                    cluster: c.cluster,
+                  })) || []
+                }
+                title={`${visType} 可视化`}
+              />
             ) : (
-              <div ref={chartRef} className="w-full h-full" />
+              <>
+                <div ref={chartRef} className="w-full h-full" />
+                {!result && (
+                  <div className="absolute inset-0 flex items-center justify-center text-muted-foreground bg-background">
+                    点击"计算"按钮生成可视化
+                  </div>
+                )}
+              </>
             )}
           </div>
         </CardContent>

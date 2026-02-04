@@ -70,8 +70,11 @@ function StepNode({ step, index, currentStep, depth = 0, isLast = false }: StepN
   const [expanded, setExpanded] = useState(true);
   const config = actionConfig[step.action.type] || actionConfig.wait;
   const Icon = config.icon;
-  const isActive = currentStep === index;
-  const isCompleted = currentStep !== undefined && index < currentStep;
+  // currentStep 是 1-indexed（来自UI显示），index 是 0-indexed
+  // 转换为 0-indexed 进行比较：currentStep - 1 是当前正在执行的步骤索引
+  const currentStepIndex = currentStep !== undefined ? currentStep - 1 : undefined;
+  const isActive = currentStepIndex === index;
+  const isCompleted = currentStepIndex !== undefined && index < currentStepIndex;
 
   if (step.action.type === "loop" && step.action.steps) {
     return (

@@ -33,11 +33,12 @@ steps:
           ratio: 95
       target_volume_ml: 10
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #1/5] [参数扫描 #1/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #1/5] [参数扫描 #1/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -54,11 +55,12 @@ steps:
           ratio: 90
       target_volume_ml: 10
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #1/5] [参数扫描 #2/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #1/5] [参数扫描 #2/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -75,11 +77,12 @@ steps:
           ratio: 85
       target_volume_ml: 10
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #1/5] [参数扫描 #3/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #1/5] [参数扫描 #3/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -96,11 +99,12 @@ steps:
           ratio: 80
       target_volume_ml: 10
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #1/5] [参数扫描 #4/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #1/5] [参数扫描 #4/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -117,11 +121,12 @@ steps:
           ratio: 75
       target_volume_ml: 10
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #1/5] [参数扫描 #5/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #1/5] [参数扫描 #5/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -138,11 +143,12 @@ steps:
           ratio: 70
       target_volume_ml: 10
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #1/5] [参数扫描 #6/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #1/5] [参数扫描 #6/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -159,11 +165,12 @@ steps:
           ratio: 95
       target_volume_ml: 15
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #2/5] [参数扫描 #1/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #2/5] [参数扫描 #1/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -180,11 +187,12 @@ steps:
           ratio: 90
       target_volume_ml: 15
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #2/5] [参数扫描 #2/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #2/5] [参数扫描 #2/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -201,11 +209,12 @@ steps:
           ratio: 85
       target_volume_ml: 15
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #2/5] [参数扫描 #3/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #2/5] [参数扫描 #3/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -222,11 +231,12 @@ steps:
           ratio: 80
       target_volume_ml: 15
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #2/5] [参数扫描 #4/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #2/5] [参数扫描 #4/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -243,11 +253,12 @@ steps:
           ratio: 75
       target_volume_ml: 15
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #2/5] [参数扫描 #5/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #2/5] [参数扫描 #5/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -264,11 +275,12 @@ steps:
           ratio: 70
       target_volume_ml: 15
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #2/5] [参数扫描 #6/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #2/5] [参数扫描 #6/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -285,11 +297,12 @@ steps:
           ratio: 95
       target_volume_ml: 20
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #3/5] [参数扫描 #1/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #3/5] [参数扫描 #1/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -306,11 +319,12 @@ steps:
           ratio: 90
       target_volume_ml: 20
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #3/5] [参数扫描 #2/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #3/5] [参数扫描 #2/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -327,11 +341,12 @@ steps:
           ratio: 85
       target_volume_ml: 20
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #3/5] [参数扫描 #3/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #3/5] [参数扫描 #3/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -348,11 +363,12 @@ steps:
           ratio: 80
       target_volume_ml: 20
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #3/5] [参数扫描 #4/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #3/5] [参数扫描 #4/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -369,11 +385,12 @@ steps:
           ratio: 75
       target_volume_ml: 20
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #3/5] [参数扫描 #5/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #3/5] [参数扫描 #5/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -390,11 +407,12 @@ steps:
           ratio: 70
       target_volume_ml: 20
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #3/5] [参数扫描 #6/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #3/5] [参数扫描 #6/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -411,11 +429,12 @@ steps:
           ratio: 95
       target_volume_ml: 25
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #4/5] [参数扫描 #1/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #4/5] [参数扫描 #1/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -432,11 +451,12 @@ steps:
           ratio: 90
       target_volume_ml: 25
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #4/5] [参数扫描 #2/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #4/5] [参数扫描 #2/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -453,11 +473,12 @@ steps:
           ratio: 85
       target_volume_ml: 25
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #4/5] [参数扫描 #3/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #4/5] [参数扫描 #3/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -474,11 +495,12 @@ steps:
           ratio: 80
       target_volume_ml: 25
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #4/5] [参数扫描 #4/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #4/5] [参数扫描 #4/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -495,11 +517,12 @@ steps:
           ratio: 75
       target_volume_ml: 25
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #4/5] [参数扫描 #5/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #4/5] [参数扫描 #5/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -516,11 +539,12 @@ steps:
           ratio: 70
       target_volume_ml: 25
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #4/5] [参数扫描 #6/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #4/5] [参数扫描 #6/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -537,11 +561,12 @@ steps:
           ratio: 95
       target_volume_ml: 30
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #5/5] [参数扫描 #1/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #5/5] [参数扫描 #1/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -558,11 +583,12 @@ steps:
           ratio: 90
       target_volume_ml: 30
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #5/5] [参数扫描 #2/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #5/5] [参数扫描 #2/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -579,11 +605,12 @@ steps:
           ratio: 85
       target_volume_ml: 30
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #5/5] [参数扫描 #3/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #5/5] [参数扫描 #3/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -600,11 +627,12 @@ steps:
           ratio: 80
       target_volume_ml: 30
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #5/5] [参数扫描 #4/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #5/5] [参数扫描 #4/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -621,11 +649,12 @@ steps:
           ratio: 75
       target_volume_ml: 30
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #5/5] [参数扫描 #5/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #5/5] [参数扫描 #5/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -642,11 +671,12 @@ steps:
           ratio: 70
       target_volume_ml: 30
       tolerance: 0.5
-      flow_rate_ml_min: 5
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
   - name: '[参数扫描 #5/5] [参数扫描 #6/6] 数据采集'
     acquire:
-      gas_pump_pwm: 50
-      duration_s: 61
+      gas_pump_pwm: 80
+      duration_s: 60
   - name: '[参数扫描 #5/5] [参数扫描 #6/6] 清洗'
     wash:
       wash_liquid_id: distilled_water
@@ -715,7 +745,11 @@ _editor_layout:
         targetVolumeMl: 15
         tolerance: 0.5
         flowRateMlMin: 5
-        stableTimeoutS: 60
+        stableTimeoutS: 5
+        boundVariables:
+          ratio: node_1
+          targetVolumeMl: node_6
+        flowRateMlS: 3
     - id: node_4
       type: liquidSource
       position:
@@ -775,11 +809,11 @@ _editor_layout:
         'y': 285
       data:
         name: 数据采集
-        gasPumpPwm: 50
+        gasPumpPwm: 80
         terminationType: duration
         heaterCycles: 10
         maxDurationS: 300
-        durationS: 61
+        durationS: 60
     - id: node_14
       type: wash
       position:
@@ -793,11 +827,6 @@ _editor_layout:
         gasPumpPwm: 50
         drainAfter: true
   edges:
-    - id: xy-edge__node_1loopBody-node_3flow
-      source: node_1
-      target: node_3
-      sourceHandle: loopBody
-      targetHandle: flow
     - id: xy-edge__node_4liquid-node_3liquid
       source: node_4
       target: node_3
@@ -813,26 +842,21 @@ _editor_layout:
       target: node_1
       sourceHandle: loopBody
       targetHandle: flow
-    - id: xy-edge__startflow-node_9flow
-      source: start
-      target: node_9
-      sourceHandle: flow
-      targetHandle: flow
-    - id: xy-edge__node_9flow-node_10flow
-      source: node_9
-      target: node_10
-      sourceHandle: flow
-      targetHandle: flow
-    - id: xy-edge__node_10flow-node_6flow
-      source: node_10
+    - id: xy-edge__node_1flow-node_6loopBody
+      source: node_1
       target: node_6
       sourceHandle: flow
+      targetHandle: loopBody
+    - id: xy-edge__node_1loopBody-node_3flow
+      source: node_1
+      target: node_3
+      sourceHandle: loopBody
       targetHandle: flow
-    - id: xy-edge__node_11hardware-starthardware
-      source: node_11
-      target: start
-      sourceHandle: hardware
-      targetHandle: hardware
+    - id: xy-edge__node_14flow-node_1loopBody
+      source: node_14
+      target: node_1
+      sourceHandle: flow
+      targetHandle: loopBody
     - id: xy-edge__node_3flow-node_12flow
       source: node_3
       target: node_12
@@ -843,18 +867,28 @@ _editor_layout:
       target: node_14
       sourceHandle: flow
       targetHandle: flow
-    - id: xy-edge__node_14flow-node_1loopBody
-      source: node_14
-      target: node_1
-      sourceHandle: flow
-      targetHandle: loopBody
-    - id: xy-edge__node_1flow-node_6loopBody
-      source: node_1
-      target: node_6
-      sourceHandle: flow
-      targetHandle: loopBody
     - id: xy-edge__node_6flow-endflow
       source: node_6
       target: end
       sourceHandle: flow
       targetHandle: flow
+    - id: xy-edge__node_10flow-node_6flow
+      source: node_10
+      target: node_6
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_9flow-node_10flow
+      source: node_9
+      target: node_10
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__startflow-node_9flow
+      source: start
+      target: node_9
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_11hardware-starthardware
+      source: node_11
+      target: start
+      sourceHandle: hardware
+      targetHandle: hardware

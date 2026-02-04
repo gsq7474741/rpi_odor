@@ -46,7 +46,7 @@ export const templates: Template[] = [
         id: 'inject_1',
         type: NodeType.INJECT,
         position: { x: 250, y: 150 },
-        data: { name: '进样', targetType: 'volume', targetVolumeMl: 15, tolerance: 0.5, flowRateMlMin: 5 },
+        data: { name: '进样', targetType: 'volume', targetVolumeMl: 15, tolerance: 0.5, flowRateMlS: 0.5 },
       },
       {
         id: 'wait_1',
@@ -117,7 +117,7 @@ export const templates: Template[] = [
         id: 'inject_1',
         type: NodeType.INJECT,
         position: { x: 250, y: 230 },
-        data: { name: '进样', targetType: 'volume', targetVolumeMl: 15, tolerance: 0.5, flowRateMlMin: 5 },
+        data: { name: '进样', targetType: 'volume', targetVolumeMl: 15, tolerance: 0.5, flowRateMlS: 0.5 },
       },
       {
         id: 'phase_dose_end',
@@ -207,17 +207,12 @@ export const templates: Template[] = [
         position: { x: 50, y: 200 },
         data: { liquidId: 'sample', liquidName: '样品', ratio: 1 },
       },
-      {
-        id: 'liquid_wash',
-        type: NodeType.LIQUID_SOURCE,
-        position: { x: 50, y: 500 },
-        data: { liquidId: 'distilled_water', liquidName: '蒸馏水', ratio: 1 },
-      },
+      // 清洗液直接在清洗节点属性中设置，不再需要液体源节点
       {
         id: 'inject_1',
         type: NodeType.INJECT,
         position: { x: 250, y: 150 },
-        data: { name: '进样', targetType: 'volume', targetVolumeMl: 15, tolerance: 0.5, flowRateMlMin: 5 },
+        data: { name: '进样', targetType: 'volume', targetVolumeMl: 15, tolerance: 0.5, flowRateMlS: 0.5 },
       },
       {
         id: 'wait_1',
@@ -241,7 +236,7 @@ export const templates: Template[] = [
         id: 'wash_1',
         type: NodeType.WASH,
         position: { x: 250, y: 550 },
-        data: { name: '清洗', washLiquidId: 'distilled_water', washVolumeMl: 20, repeatCount: 2, gasPumpPwm: 50, drainAfter: true },
+        data: { name: '清洗', washLiquidId: 'distilled_water', washVolumeMl: 20, repeatCount: 2, gasPumpPwm: 50 },
       },
       {
         id: 'end',
@@ -257,7 +252,7 @@ export const templates: Template[] = [
       { id: 'e3', source: 'wait_1', target: 'acquire_1', sourceHandle: HANDLE_TYPES.FLOW, targetHandle: HANDLE_TYPES.FLOW, type: 'smoothstep' },
       { id: 'e4', source: 'acquire_1', target: 'drain_1', sourceHandle: HANDLE_TYPES.FLOW, targetHandle: HANDLE_TYPES.FLOW, type: 'smoothstep' },
       { id: 'e5', source: 'drain_1', target: 'wash_1', sourceHandle: HANDLE_TYPES.FLOW, targetHandle: HANDLE_TYPES.FLOW, type: 'smoothstep' },
-      { id: 'e_liq2', source: 'liquid_wash', target: 'wash_1', sourceHandle: HANDLE_TYPES.LIQUID, targetHandle: HANDLE_TYPES.LIQUID, type: 'smoothstep', animated: true, style: { stroke: '#22c55e', strokeDasharray: '5,5' } },
+      // 清洗节点不再需要液体源连接
       { id: 'e6', source: 'wash_1', target: 'end', sourceHandle: HANDLE_TYPES.FLOW, targetHandle: HANDLE_TYPES.FLOW, type: 'smoothstep' },
     ],
   },
