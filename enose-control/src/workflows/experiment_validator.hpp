@@ -1,10 +1,12 @@
 #pragma once
 
 #include "enose_experiment.pb.h"
+#include "../db/consumable_repository.hpp"
 #include <string>
 #include <vector>
 #include <map>
 #include <optional>
+#include <memory>
 
 namespace enose::workflows {
 
@@ -80,6 +82,11 @@ private:
     // 液体ID到库存的映射
     std::map<std::string, const experiment::LiquidInventory*> liquid_map_;
     
+    // 从数据库查询的泵绑定（液体ID -> 泵索引列表）
+    // 支持多个泵绑定同一液体，使用 vector 存储
+    std::map<std::string, std::vector<int32_t>> sample_pump_bindings_;  // 样品泵绑定
+    std::map<std::string, std::vector<int32_t>> wash_pump_bindings_;    // 清洗泵绑定
+    
     // 资源追踪
     std::map<int32_t, double> pump_totals_;  // 每个泵的累计消耗
     double current_liquid_level_ = 0;         // 当前液位
@@ -107,6 +114,8 @@ private:
     void calculate_drain_resources(const experiment::DrainAction& action);
     void calculate_wait_resources(const experiment::WaitAction& action);
     void calculate_acquire_resources(const experiment::AcquireAction& action);
+    void calculate_wash_resources(const experiment::WashAction& action);
+    void calculate_preheat_resources(const experiment::PreheatAction& action);
     
     // 安全检查
     void check_overflow_risk();

@@ -9,7 +9,12 @@ export async function GET(request: NextRequest) {
   const perplexity = parseInt(searchParams.get("perplexity") || "30");
   const nClusters = parseInt(searchParams.get("nClusters") || "5");
   const maxPoints = parseInt(searchParams.get("maxPoints") || "500");
-  const experimentId = searchParams.get("experimentId") || undefined;
+  
+  // 支持多个 run ID（逗号分隔）
+  const experimentIds = searchParams.get("experimentIds");
+  const experimentId = searchParams.get("experimentId");
+  const phaseNames = searchParams.get("phaseNames");
+  const sampleIds = searchParams.get("sampleIds");  // 优先使用 sample IDs
 
   // 映射类型字符串到枚举
   const typeMap: Record<string, VisualizationType> = {
@@ -20,14 +25,31 @@ export async function GET(request: NextRequest) {
   };
 
   try {
-    const response = await getVisualization({
+    // 合并多个 run 的结果
+    const runIds = experimentIds 
+      ? experimentIds.split(",").map(id => id.trim()).filter(Boolean)
+      : experimentId 
+        ? [experimentId] 
+        : [];
+
+    if (runIds.length === 0) {
+      return NextResponse.json({ error: "No experiment IDs provided" }, { status: 400 });
+    }
+
+    // 优先使用 sampleIds（每个 sample 一个点）
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const request: any = {
       type: typeMap[type] || VisualizationType.VIS_PCA,
       nComponents,
       perplexity,
       nClusters,
       maxPoints,
-      experimentId,
-    });
+      experimentId: runIds[0] || "",
+    };
+    if (sampleIds) {
+      request.sampleIds = sampleIds;  // 传递 sample IDs（Proto 9 号字段）
+    }
+    const response = await getVisualization(request);
 
     // 转换响应格式
     const points = response.points.map((p) => ({

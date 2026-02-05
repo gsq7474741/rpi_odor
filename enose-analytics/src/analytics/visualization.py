@@ -1,6 +1,5 @@
 """在线可视化模块 - PCA/t-SNE/聚类/UMAP"""
 
-import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -14,9 +13,9 @@ from sklearn.manifold import TSNE
 from sklearn.preprocessing import StandardScaler
 
 from ..config import VisualizationConfig, get_settings
+from ..logger import logger
 from ..db.sample_reader import SampleReader
 
-logger = logging.getLogger(__name__)
 
 
 class VisualizationType(Enum):

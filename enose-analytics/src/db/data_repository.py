@@ -1,14 +1,13 @@
 """实验数据查询仓库"""
 
-import logging
 from datetime import datetime
 from typing import Any
 
 import numpy as np
 
 from .connection import get_cursor
+from ..logger import logger
 
-logger = logging.getLogger(__name__)
 
 
 class DataRepository:
@@ -36,6 +35,11 @@ class DataRepository:
                 WHERE run_id IS NOT NULL
                 GROUP BY run_id
             ),
+            exp_samples AS (
+                SELECT run_id, COUNT(*) as sample_count
+                FROM samples
+                GROUP BY run_id
+            ),
             exp_labels AS (
                 SELECT DISTINCT
                     lr.experiment_id,
@@ -49,9 +53,11 @@ class DataRepository:
                 ed.start_time_ms,
                 ed.end_time_ms,
                 ed.frame_count,
+                COALESCE(es.sample_count, 0) as sample_count,
                 ed.phases,
                 COALESCE(el.labels, ARRAY[]::text[]) as labels
             FROM exp_data ed
+            LEFT JOIN exp_samples es ON ed.experiment_id = es.run_id
             LEFT JOIN exp_labels el ON ed.experiment_id::text = el.experiment_id
             WHERE 1=1
         """
@@ -90,6 +96,7 @@ class DataRepository:
                 "start_time_ms": row["start_time_ms"],
                 "end_time_ms": row["end_time_ms"],
                 "frame_count": row["frame_count"],
+                "sample_count": row["sample_count"],
                 "phases": row["phases"] or [],
                 "labels": row["labels"] or [],
                 "status": "completed",

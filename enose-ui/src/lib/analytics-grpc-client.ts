@@ -37,6 +37,16 @@ import type {
   Sample,
   GetSampleGroupsRequest,
   GetSampleGroupsResponse,
+  SampleFramesStatusRequest,
+  SampleFramesStatusResponse,
+  BatchSampleFramesStatusRequest,
+  BatchSampleFramesStatusResponse,
+  GenerateSampleFramesRequest,
+  GenerateSampleFramesResponse,
+  BatchGenerateSampleFramesRequest,
+  BatchGenerateSampleFramesResponse,
+  GetSampleFramesRequest,
+  GetSampleFramesResponse,
 } from "../generated/enose_analytics";
 
 // Analytics gRPC 服务器地址 (从环境变量读取，默认与控制服务同机)
@@ -405,6 +415,55 @@ export async function getSampleGroups(request: GetSampleGroupsRequest): Promise<
   return samplePromisify(
     client,
     client.getSampleGroups.bind(client),
+    request
+  );
+}
+
+// ============================================================
+// Sample-based Normalized Frames API (新 sample_id 接口)
+// ============================================================
+
+export async function getSampleFramesStatus(request: SampleFramesStatusRequest): Promise<SampleFramesStatusResponse> {
+  const client = getAnalyticsClient();
+  return analyticsPromisify(
+    client,
+    client.getSampleFramesStatus.bind(client),
+    request
+  );
+}
+
+export async function getBatchSampleFramesStatus(request: BatchSampleFramesStatusRequest): Promise<BatchSampleFramesStatusResponse> {
+  const client = getAnalyticsClient();
+  return analyticsPromisify(
+    client,
+    client.getBatchSampleFramesStatus.bind(client),
+    request
+  );
+}
+
+export async function generateSampleFrames(request: GenerateSampleFramesRequest): Promise<GenerateSampleFramesResponse> {
+  const client = getAnalyticsClient();
+  return analyticsPromisify(
+    client,
+    client.generateSampleFrames.bind(client),
+    request
+  );
+}
+
+export async function generateBatchSampleFrames(request: BatchGenerateSampleFramesRequest): Promise<BatchGenerateSampleFramesResponse> {
+  const client = getAnalyticsClient();
+  return analyticsPromisify(
+    client,
+    client.generateBatchSampleFrames.bind(client),
+    request
+  );
+}
+
+export async function getSampleFrames(request: GetSampleFramesRequest): Promise<GetSampleFramesResponse> {
+  const client = getAnalyticsClient();
+  return analyticsPromisify(
+    client,
+    client.getSampleFrames.bind(client),
     request
   );
 }

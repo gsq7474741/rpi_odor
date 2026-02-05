@@ -1,62 +1,65 @@
-# 硬件连接指南 - BTT Octopus Pro V1.1 for RPi Odor
+# 硬件连接指南 - BTT Octopus Pro V1.0 for RPi Odor
 
-本文档基于 `ARCHITECTURE.md` 和 BTT Octopus Pro V1.1 引脚定义，详细说明电子鼻系统的硬件连接方案。
+本文档基于 `ARCHITECTURE.md` 和 BTT Octopus Pro V1.0 引脚定义，详细说明电子鼻系统的硬件连接方案。
 
 ## 1. 步进电机 (蠕动泵)
 
 系统使用 8 个蠕动泵，分别对应 Octopus Pro 的 8 个电机接口。
-**驱动器设置**: 推荐使用 TMC2209，跳线帽设置为 UART 模式。
+**驱动器设置**: 使用 TMC2209，跳线帽设置为 UART 模式。
 
-| 泵编号 | 功能 | Octopus 接口 | 步进引脚 (STEP) | 方向引脚 (DIR) | 使能引脚 (EN) | 备注 |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Pump 0** | (未安装) | **MOTOR 0** | PF13 | PF12 | PF14 | 可以在 printer.cfg 中注释掉 |
-| **Pump 1** | (未安装) | **MOTOR 1** | PG0 | PG1 | PF15 | 可以在 printer.cfg 中注释掉 |
-| **Pump 2** | 样品泵 0 (Sample 0) | **MOTOR 2** | PF11 | PG3 | PG5 | 有两个接口 (MOTOR 2-1/2-2)，内部并联，任选一个即可 |
-| **Pump 3** | 样品泵 1 (Sample 1) | **MOTOR 3** | PG4 | PC1 | PA0 | |
-| **Pump 4** | 样品泵 2 (Sample 2) | **MOTOR 4** | PF9 | PF10 | PG2 | |
-| **Pump 5** | 样品泵 3 (Sample 3) | **MOTOR 5** | PC13 | PF0 | PF1 | |
-| **Pump 6** | (未安装) | **MOTOR 6** | PE2 | PE3 | PD4 | 可以在 printer.cfg 中注释掉 |
-| **Pump 7** | (未安装) | **MOTOR 7** | PE6 | PA14 | PE0 | 可以在 printer.cfg 中注释掉 |
+| 泵编号 | 功能 | Octopus 接口 | 步进引脚 (STEP) | 方向引脚 (DIR) | 使能引脚 (EN) | UART 引脚 | G1 轴映射 |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Pump 0** | 样品泵 0 | **MOTOR 0** | PF13 | PF12 | PF14 | PC4 | A |
+| **Pump 1** | 样品泵 1 | **MOTOR 1** | PG0 | PG1 | PF15 | PD11 | B |
+| **Pump 2** | 样品泵 2 | **MOTOR 2** | PF11 | PG3 | PG5 | PC6 | C |
+| **Pump 3** | 样品泵 3 | **MOTOR 3** | PG4 | PC1 | PA0 | PC7 | D |
+| **Pump 4** | 样品泵 4 | **MOTOR 4** | PF9 | PF10 | PG2 | PF2 | H |
+| **Pump 5** | 样品泵 5 | **MOTOR 5** | PC13 | PF0 | PF1 | PE4 | I |
+| **Pump 6** | 样品泵 6 | **MOTOR 6** | PE2 | PE3 | PD4 | PE1 | J |
+| **Pump 7** | 样品泵 7 | **MOTOR 7** | PE6 | PA14 | PE0 | PD3 | K |
 
 > **提示**: 
-> 1. **未使用的电机位**: 可以不插驱动模块，也不插电机。建议在 Klipper 配置中注释掉对应的 `[manual_stepper]` 部分，以免报错。
-> 2. **MOTOR 2 双接口**: 这是为了方便双 Z 轴打印机设计的（两个电机同步转动）。对于蠕动泵应用，这两个口是完全并联的，插任意一个都可以，效果一样。
-> 3. **堵转检测 (Diag) 跳线**: **不需要插**。这是用于无传感器归位 (Sensorless Homing) 的，蠕动泵不需要归位，也不需要检测堵转。如果不小心插了，可能会导致限位开关引脚信号异常。
+> 1. **驱动器配置**: 所有泵使用 TMC2209 驱动器，通过 UART 模式通信，运行电流 0.8A，启用静音模式 (StealthChop)。
+> 2. **并行控制**: 通过 `REGISTER_PUMPS_TO_AXIS` 宏将泵注册到 G1 坐标轴 (A/B/C/D/H/I/J/K)，支持单条 G1 命令同时控制多个泵。
+> 3. **单位转换**: `rotation_distance=1.492` 配置使得 1mm = 1ml，速度单位为 ml/s，最大速度 6.0 ml/s (约 240 RPM)。
+> 4. **MOTOR 2 双接口**: 为双 Z 轴打印机设计，内部并联，对于蠕动泵应用任选一个接口即可。
+> 5. **堵转检测 (Diag) 跳线**: **不需要插**。蠕动泵不需要归位或堵转检测，插入该跳线可能导致信号异常。
 
 ## 2. 功率设备 (加热/气泵/阀门)
 
 请确保输入电压 (POWER IN) 与您的外设电压匹配 (通常为 24V)。
 
-| 设备名称 | 架构标识 | Octopus 接口 | 控制引脚 | 类型 | 备注 |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **气室加热带** | `heater_chamber` | **BED_OUT** | PA1 | 热床接口 | 功率大，需配合 T0 热敏电阻 |
-| **废液阀** | `valve_waste` | **HE0** | PA2 | 加热棒接口 | 原 HE0 接口 |
-| **夹管三通阀** | `valve_pinch` | **HE1** | PA3 | 加热棒接口 | 用于切换 气路/液路 |
-| **三通气阀** | `valve_air` | **HE2** | PB10 | 加热棒接口 | 用于切换 排气/气室 |
-| **出气阀** | `valve_outlet` | **HE3** | PB11 | 加热棒接口 | 气路通断控制 |
+| 设备名称 | 架构标识 | Octopus 接口 | 控制引脚 | 类型 | 逻辑 | 备注 |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **气室加热带** | `heater_chamber` | **BED_OUT** | PA1 | 热床接口 | - | 已禁用，预留用于温控加热 |
+| **废液阀** | `valve_waste` | **HE0** | PA2 | 开关输出 | 0=关闭, 1=开启 | 废液排放阀门 |
+| **夹管三通阀** | `valve_pinch` | **HE1** | PA3 | 开关输出 | 0=气路, 1=液路 | 气液路切换 |
+| **三通气阀** | `valve_air` | **HE2** | PB10 | 开关输出 | 0=排气, 1=气室 | 气路方向控制 |
+| **出气阀** | `valve_outlet` | **HE3** | PB11 | 开关输出 | 0=开启, 1=关闭 | 反向逻辑，默认开启 |
 
 ### 扩展设备连接
 
-**清洗泵** 连接到 **CNC 风扇接口**，使用 24V DC 泵。
-
 | 设备名称 | 架构标识 | Octopus 接口 | 控制引脚 | 类型 | 备注 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **清洗泵** | `cleaning_pump` | **FAN0** | PA8 | CNC风扇接口 | 24V DC 泵，确保 V_FAN 跳线设为 24V |
+| **清洗泵** | `cleaning_pump` | **FAN0** | PA8 | PWM 输出 | 24V DC 泵，确保 V_FAN 跳线设为 24V |
+| **急停指示灯** | `estop_led` | **FAN1** | PE5 | PWM 输出 | 呼吸灯效果，急停时熄灭 |
+| **进样风扇** | `inject_fan` | **FAN2** | PD12 | 开关输出 | 与夹管阀联动，液路时开启 |
+| **进样风扇2** | `inject_fan_2` | **FAN3** | PD13 | 开关输出 | 与夹管阀联动，液路时开启 |
+| **急停按钮** | `estop_button` | **POWER_DET** | PA9 | 数字输入 | NC 常闭开关，按下触发 M112 |
 
-> **提示**: Octopus Pro 拥有 6 个可控风扇接口 (FAN0-FAN5)，它们都是 MOS 管输出，非常适合驱动 24V 直流气泵/水泵 (电流 < 1A)。如果泵的功率很大 (>2A)，建议通过该接口控制外接继电器或 MOS 模块。
-
-> **注意**: 
-> 1. **气泵接线**: 您的气泵为三线制 (VCC, GND, PWM)。请将 VCC/GND 接到常通电源 (如 FAN 接口设为常开)，将 PWM 信号线接到 **BLTouch Servo (PB6)** 引脚。
-> 2. **接口调整**: 已将加热带改至 **BED_OUT (PA1)** 以支持更大功率（如需）；废液阀改至 **HE0 (PA0)**。
+> **提示**: 
+> 1. **风扇接口**: Octopus Pro 拥有 6 个可控风扇接口 (FAN0-FAN5)，均为 MOS 管输出，适合驱动 24V DC 负载 (< 1A)。大功率设备建议通过继电器或外接 MOS 模块。
+> 2. **气泵接线**: 气泵为三线制 (VCC, GND, PWM)，VCC/GND 接 24V 电源，PWM 信号线接 **BLTouch Servo (PB6)** 引脚。
+> 3. **急停系统**: 急停按钮使用 NC (常闭) 开关，按下时触发 Klipper M112 急停；急停指示灯平时呼吸闪烁，急停时熄灭。
 
 ## 3. 传感器
 
-| 传感器名称 | 架构标识 | Octopus 接口 | 信号引脚 | 备注 |
-| :--- | :--- | :--- | :--- | :--- |
-| **气室温度** | `sensor_chamber` | **T0** | PF4 | NTC 100K 热敏电阻 |
-| **称重模块** | `my_hx711` (HX711) | **SPI3_MISO** | PB4 | DOUT (数据) |
-| | | **SPI3_SCK** | PB3 | SCLK (时钟) |
-| **气泵控制** | `air_pump_pwm` | **BL_TOUCH** | PB6 | 伺服引脚，用于 PWM 信号 |
+| 传感器名称 | 架构标识 | Octopus 接口 | 信号引脚 | 类型 | 备注 |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **气室温度** | `sensor_chamber` | **T0** | PF4 | NTC 100K | 已禁用，预留温控加热用 |
+| **称重模块** | `my_hx711` | **SPI3** | PB4 (DOUT) | HX711 | 数据线 |
+| | | | PB3 (SCLK) | | 时钟线，采样率 10Hz |
+| **气泵 PWM** | `air_pump_pwm` | **BL_TOUCH** | PB6 | PWM 输出 | 三线气泵的信号线 |
 
 ## 4. 通信与电源
 
@@ -68,19 +71,45 @@
 
 ## 5. Klipper 配置说明
 
-生成的配置文件位于 `klipper-config/printer.cfg`。
+配置文件位于 `klipper-config/printer.cfg`。
 
-### HX711 称重模块
-Klipper 官方主线已支持 `[load_cell]` 配置，使用 `sensor_type: hx711`。
+### 5.1 泵并行控制
 
-配置示例：
+系统使用 `REGISTER_PUMPS_TO_AXIS` 宏将 8 个泵注册到 G1 坐标轴，实现单条命令并行控制：
+
+```gcode
+REGISTER_PUMPS_TO_AXIS
+G1 A10 B20 C30 D40 H50 I60 J70 K80 F480
+# A~K 对应 pump_0~7，数值为体积 (ml)，F 为速度 (ml/min)
+```
+
+### 5.2 称重传感器
+
+使用 Klipper 原生 `[load_cell]` 支持：
+
 ```ini
 [load_cell my_hx711]
 sensor_type: hx711
-sclk_pin: PB3    # SPI3_SCK
-dout_pin: PB4    # SPI3_MISO
+sclk_pin: PB3
+dout_pin: PB4
+sample_rate: 10
 ```
 
 标定步骤：
-1. 空盘时运行: `LOAD_CELL_DIAGNOSTIC LOAD_CELL=my_hx711`
-2. 放已知重量后运行 `LOAD_CELL_CALIBRATE`
+
+1. 空盘时运行: `QUERY_LOAD_CELL SENSOR=my_hx711`
+2. 放已知重量后运行: `LOAD_CELL_CALIBRATE`
+
+### 5.3 急停系统
+
+* **按钮**: PA9 引脚，NC 常闭开关，按下触发 M112
+* **指示灯**: PE5 引脚，由后端控制呼吸效果 (50ms 周期，正弦波)
+
+### 5.4 WebSocket 通信
+
+C++ 后端通过 Moonraker WebSocket (端口 7125) 与 Klipper 通信：
+
+* 发送 G-code 命令 (`printer.gcode.script`)
+* 订阅状态更新 (`notify_status_update`)
+* 监听固件状态 (`notify_klippy_ready/shutdown`)
+* 查询称重数据 (`load_cell my_hx711`)

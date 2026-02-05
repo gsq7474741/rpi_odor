@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertsPanel } from "@/components/analytics/AlertsPanel";
@@ -11,7 +11,7 @@ import { useAnalyticsLatency } from "@/hooks/use-analytics-latency";
 import { Wifi, WifiOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-export default function AnalyticsPage() {
+function AnalyticsPageContent() {
   const searchParams = useSearchParams();
   const experimentId = searchParams.get("experimentId");
   const labelId = searchParams.get("labelId");
@@ -95,5 +95,13 @@ export default function AnalyticsPage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+export default function AnalyticsPage() {
+  return (
+    <Suspense fallback={<div className="container mx-auto p-6">加载中...</div>}>
+      <AnalyticsPageContent />
+    </Suspense>
   );
 }

@@ -7,22 +7,32 @@ grpc:
   max_workers: 4
 
 # enose-control gRPC 连接 (用于推送通知)
+# 本地开发时连接 RPi5，Docker 部署时使用 enose-control
 control_service:
-  host: "enose-control"
+  host: "192.168.1.235"  # RPi5 IP，Docker 部署改为 enose-control
   port: 50051
 
 # 数据库配置
+# 本地开发时连接 RPi5，Docker 部署时使用 timescaledb
 database:
-  host: "timescaledb"
+  host: "192.168.1.235"  # RPi5 IP，Docker 部署改为 timescaledb
   port: 5432
   database: "enose"
   user: "enose"
   password: "enose_secure_password_change_me"
   pool_size: 5
 
+# Redis 配置
+# 本地开发时连接 RPi5，Docker 部署时使用 redis
+redis:
+  host: "192.168.1.235"  # RPi5 IP，Docker 部署改为 redis
+  port: 6379
+  db: 0
+
 # MinIO 配置
+# 本地开发时连接 RPi5，Docker 部署时使用 minio:9000
 minio:
-  endpoint: "minio:9000"
+  endpoint: "192.168.1.235:9000"  # RPi5 IP，Docker 部署改为 minio:9000
   access_key: "minioadmin"
   secret_key: "minioadmin123"
   secure: false

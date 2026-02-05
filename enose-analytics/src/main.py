@@ -1,35 +1,23 @@
-"""enose-analytics 服务主入口"""
+"""enose-analytics 服务主入口
 
-import logging
+配置全部来自 config/analytics.yaml 文件。
+本地开发时直接修改 YAML 文件中的 IP 地址。
+"""
+
 import signal
 import sys
 from concurrent import futures
 from pathlib import Path
 
 import grpc
-from dotenv import load_dotenv
 
 from .config import get_settings, reload_settings
-
-# 加载环境变量 (.env.local 优先于 .env)
-load_dotenv(".env.local", override=True)
-load_dotenv(".env", override=False)
-
-logger = logging.getLogger(__name__)
-
-
-def setup_logging() -> None:
-    """配置日志"""
-    settings = get_settings()
-    logging.basicConfig(
-        level=getattr(logging, settings.logging.level),
-        format=settings.logging.format,
-    )
+from .logger import logger, setup_logger
 
 
 def serve() -> None:
     """启动 gRPC 服务"""
-    setup_logging()
+    setup_logger()
     settings = get_settings()
 
     logger.info("Starting enose-analytics service...")
@@ -157,7 +145,7 @@ def serve_with_reload() -> None:
                 self.process.terminate()
                 self.process.wait()
 
-    setup_logging()
+    setup_logger()
     logger.info("Starting development server with hot reload...")
 
     src_path = Path(__file__).parent

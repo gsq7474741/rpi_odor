@@ -411,6 +411,75 @@ std::optional<PumpAssignmentRecord> ConsumableRepository::get_pump_assignment(in
     }
 }
 
+std::vector<PumpAssignmentRecord> ConsumableRepository::get_pumps_by_liquid_id(int liquid_id) {
+    std::vector<PumpAssignmentRecord> results;
+    
+    try {
+        auto conn = ConnectionPool::instance().acquire();
+        if (!conn.valid()) return results;
+        
+        pqxx::work txn(conn.get());
+        pqxx::result res = txn.exec_params(
+            "SELECT pump_index, liquid_id, notes, updated_at, "
+            "COALESCE(initial_volume_ml, 0), COALESCE(consumed_volume_ml, 0), "
+            "COALESCE(low_volume_threshold_ml, 10) "
+            "FROM pump_assignments WHERE liquid_id = $1 ORDER BY pump_index",
+            liquid_id);
+        
+        for (const auto& row : res) {
+            PumpAssignmentRecord record;
+            record.pump_index = row[0].as<int>();
+            record.liquid_id = row[1].is_null() ? std::nullopt : std::optional<int>(row[1].as<int>());
+            record.notes = row[2].is_null() ? "" : row[2].as<std::string>();
+            record.updated_at = parse_timestamp(row[3].as<std::string>());
+            record.initial_volume_ml = row[4].as<double>();
+            record.consumed_volume_ml = row[5].as<double>();
+            record.low_volume_threshold_ml = row[6].as<double>();
+            results.push_back(record);
+        }
+        
+        txn.commit();
+        spdlog::debug("Found {} pumps for liquid_id={}", results.size(), liquid_id);
+    } catch (const std::exception& e) {
+        spdlog::error("ConsumableRepository::get_pumps_by_liquid_id error: {}", e.what());
+    }
+    
+    return results;
+}
+
+double ConsumableRepository::get_liquid_available_volume(int liquid_id) {
+    double total = 0.0;
+    
+    // 查询样品泵
+    auto pumps = get_pumps_by_liquid_id(liquid_id);
+    for (const auto& pump : pumps) {
+        total += pump.remaining_volume_ml();
+    }
+    
+    // 也查询清洗泵（同一液体可能用于清洗）
+    try {
+        auto conn = ConnectionPool::instance().acquire();
+        if (!conn.valid()) return total;
+        
+        pqxx::work txn(conn.get());
+        pqxx::result res = txn.exec_params(
+            "SELECT COALESCE(initial_volume_ml, 0) - COALESCE(consumed_volume_ml, 0) "
+            "FROM wash_pump_assignments WHERE liquid_id = $1",
+            liquid_id);
+        
+        for (const auto& row : res) {
+            total += std::max(0.0, row[0].as<double>());
+        }
+        
+        txn.commit();
+    } catch (const std::exception& e) {
+        spdlog::error("ConsumableRepository::get_liquid_available_volume error: {}", e.what());
+    }
+    
+    spdlog::debug("Total available volume for liquid_id={}: {} ml", liquid_id, total);
+    return total;
+}
+
 // ============================================================
 // 清洗泵配置管理
 // ============================================================

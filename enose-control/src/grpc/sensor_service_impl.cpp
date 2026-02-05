@@ -67,8 +67,8 @@ void SensorServiceImpl::on_sensor_packet(const nlohmann::json& packet) {
             }
         }
         
-        // 数据持久化 (如果启用)
-        if (persistence_enabled_ && sensor_repo_) {
+        // 数据持久化 (如果启用或 run_id 已设置)
+        if (sensor_repo_ && (persistence_enabled_ || sensor_repo_->should_persist())) {
             db::SensorReadingRecord record;
             // 使用当前时间戳 (毫秒)
             auto now = std::chrono::system_clock::now();

@@ -1,12 +1,10 @@
 """特征提取模块"""
 
-import logging
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
-logger = logging.getLogger(__name__)
 
 
 class FeatureExtractor:

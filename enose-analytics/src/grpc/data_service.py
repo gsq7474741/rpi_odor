@@ -1,16 +1,15 @@
 """DataService gRPC 服务实现"""
 
-import logging
 from datetime import datetime
 
 import grpc
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from ..db.data_repository import DataRepository
+from ..logger import logger
 from ..generated import enose_analytics_pb2 as pb
 from ..generated import enose_analytics_pb2_grpc as pb_grpc
 
-logger = logging.getLogger(__name__)
 
 
 class DataServiceServicer(pb_grpc.DataServiceServicer):
@@ -59,6 +58,7 @@ class DataServiceServicer(pb_grpc.DataServiceServicer):
                     start_time=start_ts,
                     end_time=end_ts,
                     frame_count=exp["frame_count"],
+                    sample_count=exp["sample_count"],
                     phases=exp["phases"],
                     labels=exp["labels"],
                     status=exp["status"],

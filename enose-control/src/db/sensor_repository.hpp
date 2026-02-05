@@ -141,8 +141,12 @@ public:
     void flush();
     
     // 设置运行上下文 (用于自动填充 run_id 和 phase_name)
+    // 当设置有效 run_id 时自动启用持久化
     void set_run_context(std::optional<int32_t> run_id, const std::string& phase_name = "");
     void clear_run_context();
+    
+    // 检查是否应该持久化数据 (有有效的 run_id 时返回 true)
+    bool should_persist() const;
     
     // 设置样本上下文 (用于自动填充 sample_id)
     void set_sample_context(int32_t sample_id);
@@ -257,7 +261,7 @@ private:
     std::optional<int32_t> current_run_id_;
     std::string current_phase_;
     std::optional<int32_t> current_sample_id_;  // 样本 ID
-    std::mutex context_mutex_;
+    mutable std::mutex context_mutex_;
     
     // 配置
     size_t batch_size_{100};

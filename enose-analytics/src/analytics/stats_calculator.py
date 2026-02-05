@@ -1,12 +1,10 @@
 """在线统计计算模块"""
 
-import logging
 from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
 
-logger = logging.getLogger(__name__)
 
 
 @dataclass

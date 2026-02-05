@@ -1,13 +1,11 @@
 """依赖服务健康检查模块"""
 
-import logging
 import socket
 from dataclasses import dataclass
 from typing import Optional
 
 from .config import get_settings
-
-logger = logging.getLogger(__name__)
+from .logger import logger
 
 
 @dataclass
@@ -169,18 +167,11 @@ def check_control_service() -> HealthCheckResult:
 
 
 def check_redis() -> HealthCheckResult:
-    """检查 Redis 连接 (如果配置了)"""
-    import os
-    
-    redis_host = os.environ.get("REDIS_HOST")
-    if not redis_host:
-        return HealthCheckResult(
-            service="Redis",
-            healthy=True,
-            error="(not configured)"
-        )
-    
-    redis_port = int(os.environ.get("REDIS_PORT", "6379"))
+    """检查 Redis 连接"""
+    settings = get_settings()
+    redis_cfg = settings.redis
+    redis_host = redis_cfg.host
+    redis_port = redis_cfg.port
     
     connected, latency, error = check_tcp_connection(redis_host, redis_port)
     if not connected:

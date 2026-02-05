@@ -1,6 +1,5 @@
 """数据库连接池管理"""
 
-import logging
 from contextlib import contextmanager
 from typing import Generator
 
@@ -9,8 +8,8 @@ from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
 from ..config import get_settings
+from ..logger import logger
 
-logger = logging.getLogger(__name__)
 
 _pool: ConnectionPool | None = None
 

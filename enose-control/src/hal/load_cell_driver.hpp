@@ -11,6 +11,7 @@
 #include <atomic>
 #include <filesystem>
 #include <optional>
+#include <functional>
 
 namespace hal {
 
@@ -121,10 +122,17 @@ public:
     // 动态空瓶值
     struct WaitForEmptyResult {
         bool success = false;
+        bool stopped = false;       // 被外部中断
         float empty_weight = 0.0f;
         std::string error_message;
     };
-    WaitForEmptyResult wait_for_empty_bottle(float tolerance = 30.0f, float timeout_sec = 60.0f, float stability_window_sec = 5.0f);
+    // stop_check: 返回 true 表示应该停止
+    using StopCheckCallback = std::function<bool()>;
+    WaitForEmptyResult wait_for_empty_bottle(
+        float tolerance = 30.0f, 
+        float timeout_sec = 60.0f, 
+        float stability_window_sec = 5.0f,
+        StopCheckCallback stop_check = nullptr);
     void reset_dynamic_empty_weight();
     std::optional<float> get_dynamic_empty_weight() const;
     

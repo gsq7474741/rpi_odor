@@ -14,11 +14,15 @@ import {
   ChevronDown,
   ChevronRight,
   Beaker,
+  Sparkles,
+  Flame,
+  Thermometer,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { Progress } from "@/components/ui/progress";
 
 export interface StepAction {
-  type: "inject" | "drain" | "wait" | "acquire" | "set_state" | "set_gas_pump" | "phase_marker" | "loop";
+  type: "inject" | "drain" | "wait" | "acquire" | "set_state" | "set_gas_pump" | "phase_marker" | "loop" | "wash" | "preheat" | "configure_heater";
   details?: Record<string, unknown>;
   steps?: ExperimentStep[];
   count?: number;
@@ -56,17 +60,21 @@ const actionConfig: Record<string, { icon: React.ElementType; color: string; bgC
   set_gas_pump: { icon: Wind, color: "text-cyan-600", bgColor: "bg-cyan-100", label: "气泵" },
   phase_marker: { icon: Flag, color: "text-pink-600", bgColor: "bg-pink-100", label: "标记" },
   loop: { icon: Repeat, color: "text-amber-600", bgColor: "bg-amber-100", label: "循环" },
+  wash: { icon: Sparkles, color: "text-emerald-600", bgColor: "bg-emerald-100", label: "清洗" },
+  preheat: { icon: Flame, color: "text-red-600", bgColor: "bg-red-100", label: "预热" },
+  configure_heater: { icon: Thermometer, color: "text-violet-600", bgColor: "bg-violet-100", label: "加热器" },
 };
 
 interface StepNodeProps {
   step: ExperimentStep;
   index: number;
   currentStep?: number;
+  stepElapsedSeconds?: number;
   depth?: number;
   isLast?: boolean;
 }
 
-function StepNode({ step, index, currentStep, depth = 0, isLast = false }: StepNodeProps) {
+function StepNode({ step, index, currentStep, stepElapsedSeconds = 0, depth = 0, isLast = false }: StepNodeProps) {
   const [expanded, setExpanded] = useState(true);
   const config = actionConfig[step.action.type] || actionConfig.wait;
   const Icon = config.icon;
@@ -75,6 +83,12 @@ function StepNode({ step, index, currentStep, depth = 0, isLast = false }: StepN
   const currentStepIndex = currentStep !== undefined ? currentStep - 1 : undefined;
   const isActive = currentStepIndex === index;
   const isCompleted = currentStepIndex !== undefined && index < currentStepIndex;
+  
+  // 获取步骤时间信息
+  const timeInfo = getStepTimeInfo(step.action);
+  const progressPercent = isActive && timeInfo.fixedDuration 
+    ? Math.min(100, (stepElapsedSeconds / timeInfo.fixedDuration) * 100)
+    : 0;
 
   if (step.action.type === "loop" && step.action.steps) {
     return (
@@ -155,23 +169,158 @@ function StepNode({ step, index, currentStep, depth = 0, isLast = false }: StepN
           <Icon className={cn("h-5 w-5", config.color)} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-medium text-sm truncate">{step.name}</div>
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-sm truncate">{step.name}</span>
+            {(() => {
+              const duration = getStepDuration(step.action);
+              if (duration) {
+                return (
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">
+                    <Timer className="h-3 w-3" />
+                    {formatDuration(duration)}
+                  </span>
+                );
+              }
+              return null;
+            })()}
+          </div>
           <div className="text-xs text-muted-foreground">
             {getStepDescription(step.action)}
           </div>
         </div>
         {isActive && (
-          <div className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <span className="text-xs text-primary font-medium">运行中</span>
+          <div className="flex items-center gap-2">
+            {timeInfo.fixedDuration ? (
+              // 固定时间步骤：显示进度和时间
+              <div className="flex items-center gap-2 min-w-[120px]">
+                <span className="text-xs text-primary font-mono whitespace-nowrap">
+                  {formatDuration(Math.floor(stepElapsedSeconds))}/{formatDuration(timeInfo.fixedDuration)}
+                </span>
+              </div>
+            ) : timeInfo.maxTimeout ? (
+              // 浮动时间步骤：显示当前时间和最大超时
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-orange-600 font-mono">
+                  {formatDuration(Math.floor(stepElapsedSeconds))}
+                </span>
+                <span className="text-xs text-muted-foreground">/</span>
+                <span className="text-xs text-muted-foreground font-mono">
+                  {formatDuration(timeInfo.maxTimeout)}
+                </span>
+              </div>
+            ) : (
+              // 无时间信息的步骤
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                <span className="text-xs text-primary font-medium">运行中</span>
+              </div>
+            )}
           </div>
         )}
         {isCompleted && (
           <div className="text-xs text-green-600 font-medium">已完成</div>
         )}
       </div>
+      {/* 固定时间步骤的进度条 */}
+      {isActive && timeInfo.fixedDuration && (
+        <Progress value={progressPercent} className="h-1 mt-1" />
+      )}
     </div>
   );
+}
+
+// 步骤时间信息
+interface StepTimeInfo {
+  fixedDuration: number | null;  // 固定时间（可精确计算进度）
+  maxTimeout: number | null;     // 最大超时（时间不确定）
+  displayDuration: number | null; // 显示用时间
+}
+
+// 获取步骤的时间信息
+function getStepTimeInfo(action: StepAction): StepTimeInfo {
+  const details = action.details || {};
+  
+  switch (action.type) {
+    case "wait":
+      // 等待是固定时间
+      const waitDuration = (details as { duration_s?: number }).duration_s || null;
+      return { fixedDuration: waitDuration, maxTimeout: null, displayDuration: waitDuration };
+    
+    case "acquire": {
+      // 数据采集：检查是否有固定 duration_s
+      const acquireDuration = (details as { duration_s?: number }).duration_s;
+      const maxDuration = (details as { max_duration_s?: number }).max_duration_s;
+      if (acquireDuration) {
+        // 有 duration_s 是固定时间
+        return { fixedDuration: acquireDuration, maxTimeout: null, displayDuration: acquireDuration };
+      }
+      // 否则是浮动时间，有最大超时
+      return { fixedDuration: null, maxTimeout: maxDuration || null, displayDuration: maxDuration || null };
+    }
+    
+    case "preheat": {
+      // 预热：检查是否有固定 duration_s
+      const preheatDuration = (details as { duration_s?: number }).duration_s;
+      const preheatMaxDuration = (details as { max_duration_s?: number }).max_duration_s;
+      if (preheatDuration) {
+        return { fixedDuration: preheatDuration, maxTimeout: null, displayDuration: preheatDuration };
+      }
+      return { fixedDuration: null, maxTimeout: preheatMaxDuration || null, displayDuration: preheatMaxDuration || null };
+    }
+    
+    case "inject": {
+      // 进样时间 = 进样时间 + 稳定时间
+      // 进样时间 = target_volume_ml / flow_rate_ml_s
+      const targetVolume = (details as { target_volume_ml?: number }).target_volume_ml;
+      const flowRate = (details as { flow_rate_ml_s?: number }).flow_rate_ml_s || 3; // 默认 3 ml/s
+      const stableTimeout = (details as { stable_timeout_s?: number }).stable_timeout_s || 5;
+      
+      if (targetVolume && flowRate > 0) {
+        const injectTime = Math.ceil(targetVolume / flowRate);
+        const totalTime = injectTime + stableTimeout;
+        // 进样是浮动时间（实际可能提前完成），显示估算总时间
+        return { fixedDuration: null, maxTimeout: totalTime, displayDuration: totalTime };
+      }
+      // 如果没有体积信息，只显示稳定超时
+      return { fixedDuration: null, maxTimeout: stableTimeout, displayDuration: stableTimeout };
+    }
+    
+    case "drain":
+      // 排废是浮动时间，有最大超时
+      const drainTimeout = (details as { timeout_s?: number }).timeout_s || null;
+      return { fixedDuration: null, maxTimeout: drainTimeout, displayDuration: drainTimeout };
+    
+    case "wash": {
+      // 清洗是浮动时间，估算最大时间
+      const fillTimeout = (details as { fill_timeout_s?: number }).fill_timeout_s || 30;
+      const washDrainTimeout = (details as { drain_timeout_s?: number }).drain_timeout_s || 60;
+      const repeatCount = (details as { repeat_count?: number }).repeat_count || 1;
+      const totalTimeout = (fillTimeout + washDrainTimeout) * repeatCount;
+      return { fixedDuration: null, maxTimeout: totalTimeout, displayDuration: totalTimeout };
+    }
+    
+    default:
+      return { fixedDuration: null, maxTimeout: null, displayDuration: null };
+  }
+}
+
+// 获取步骤的预估耗时（秒）- 用于显示徽章
+function getStepDuration(action: StepAction): number | null {
+  const timeInfo = getStepTimeInfo(action);
+  return timeInfo.displayDuration;
+}
+
+// 格式化耗时显示
+function formatDuration(seconds: number): string {
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (secs === 0) {
+    return `${minutes}m`;
+  }
+  return `${minutes}m${secs}s`;
 }
 
 function getStepDescription(action: StepAction): string {
@@ -205,6 +354,19 @@ function getStepDescription(action: StepAction): string {
       return phase ? `${phase} ${isStart ? "开始" : "结束"}` : "阶段标记";
     case "loop":
       return `循环 ${action.count || 1} 次`;
+    case "wash":
+      const washVolume = (details as { wash_volume_ml?: number }).wash_volume_ml;
+      const washRepeatCount = (details as { repeat_count?: number }).repeat_count;
+      return washVolume ? `${washVolume}ml × ${washRepeatCount || 1}次` : "清洗操作";
+    case "preheat":
+      const preheatDuration = (details as { duration_s?: number }).duration_s;
+      const preheatCycles = (details as { cycles?: number }).cycles;
+      if (preheatCycles) return `${preheatCycles} 个周期`;
+      if (preheatDuration) return `${preheatDuration}s`;
+      return "传感器预热";
+    case "configure_heater":
+      const configs = (details as { configs?: unknown[] }).configs;
+      return configs ? `${configs.length} 个配置` : "配置加热器";
     default:
       return "";
   }
@@ -213,10 +375,40 @@ function getStepDescription(action: StepAction): string {
 interface ExperimentFlowProps {
   program: ExperimentProgram;
   currentStep?: number;
+  stepElapsedSeconds?: number;
   className?: string;
 }
 
-export function ExperimentFlow({ program, currentStep, className }: ExperimentFlowProps) {
+export function ExperimentFlow({ program, currentStep, stepElapsedSeconds, className }: ExperimentFlowProps) {
+  // 本地计时器：当 currentStep 变化时重置
+  const [localElapsed, setLocalElapsed] = useState(0);
+  const stepStartTimeRef = useRef<number>(Date.now());
+  const lastStepRef = useRef<number | undefined>(undefined);
+  
+  useEffect(() => {
+    if (currentStep !== lastStepRef.current) {
+      // 步骤变化，重置计时器
+      stepStartTimeRef.current = Date.now();
+      setLocalElapsed(0);
+      lastStepRef.current = currentStep;
+    }
+  }, [currentStep]);
+  
+  // 本地计时器更新
+  useEffect(() => {
+    if (currentStep === undefined) return;
+    
+    const interval = setInterval(() => {
+      const elapsed = (Date.now() - stepStartTimeRef.current) / 1000;
+      setLocalElapsed(elapsed);
+    }, 100);
+    
+    return () => clearInterval(interval);
+  }, [currentStep]);
+  
+  // 使用外部传入的时间或本地计时
+  const effectiveElapsed = stepElapsedSeconds ?? localElapsed;
+  
   // 解析阶段
   const phases = extractPhases(program.steps);
 
@@ -256,13 +448,14 @@ export function ExperimentFlow({ program, currentStep, className }: ExperimentFl
       </div>
 
       {/* 步骤流程 */}
-      <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
+      <div className="space-y-2 max-h-[500px] overflow-y-auto px-1 py-1">
         {program.steps.map((step, index) => (
           <StepNode
             key={index}
             step={step}
             index={index}
             currentStep={currentStep}
+            stepElapsedSeconds={effectiveElapsed}
             isLast={index === program.steps.length - 1}
           />
         ))}
@@ -387,6 +580,12 @@ function parseSteps(rawSteps: Array<Record<string, unknown>>): ExperimentStep[] 
           steps: parseSteps(loopData.steps as Array<Record<string, unknown>> || []),
         },
       };
+    } else if (raw.wash) {
+      return { name, action: { type: "wash", details: raw.wash as Record<string, unknown> } };
+    } else if (raw.preheat) {
+      return { name, action: { type: "preheat", details: raw.preheat as Record<string, unknown> } };
+    } else if (raw.configure_heater) {
+      return { name, action: { type: "configure_heater", details: raw.configure_heater as Record<string, unknown> } };
     }
     
     return { name, action: { type: "wait" } };

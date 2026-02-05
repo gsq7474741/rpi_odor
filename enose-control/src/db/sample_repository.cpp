@@ -539,6 +539,131 @@ bool SampleRepository::delete_samples_by_run(int32_t run_id) {
     return false;
 }
 
+// ============================================================
+// Phase 转换管理
+// ============================================================
+
+std::optional<int32_t> SampleRepository::create_phase_transition(
+    int32_t sample_id,
+    const std::string& phase_name,
+    int64_t start_time_ms,
+    int16_t phase_order) {
+    
+    try {
+        auto conn = ConnectionPool::instance().acquire();
+        pqxx::work txn(conn.get());
+        
+        auto result = txn.exec_params(R"(
+            INSERT INTO sample_phase_transitions (
+                sample_id, phase_name, start_time_ms, phase_order
+            ) VALUES ($1, $2, $3, $4)
+            ON CONFLICT (sample_id, phase_order) DO UPDATE
+                SET phase_name = $2, start_time_ms = $3, end_time_ms = NULL
+            RETURNING id
+        )",
+            sample_id, phase_name, start_time_ms, phase_order
+        );
+        
+        txn.commit();
+        
+        if (!result.empty()) {
+            int32_t id = result[0][0].as<int32_t>();
+            spdlog::debug("SampleRepository: created phase transition id={} for sample={} phase={} order={}",
+                         id, sample_id, phase_name, phase_order);
+            return id;
+        }
+        
+    } catch (const std::exception& e) {
+        spdlog::error("SampleRepository::create_phase_transition failed: {}", e.what());
+    }
+    
+    return std::nullopt;
+}
+
+bool SampleRepository::complete_phase_transition(int32_t sample_id, int16_t phase_order, int64_t end_time_ms) {
+    try {
+        auto conn = ConnectionPool::instance().acquire();
+        pqxx::work txn(conn.get());
+        
+        auto result = txn.exec_params(R"(
+            UPDATE sample_phase_transitions
+            SET end_time_ms = $3
+            WHERE sample_id = $1 AND phase_order = $2
+        )",
+            sample_id, phase_order, end_time_ms
+        );
+        
+        txn.commit();
+        
+        spdlog::debug("SampleRepository: completed phase transition sample={} order={} end_time={}",
+                     sample_id, phase_order, end_time_ms);
+        return result.affected_rows() > 0;
+        
+    } catch (const std::exception& e) {
+        spdlog::error("SampleRepository::complete_phase_transition failed: {}", e.what());
+    }
+    
+    return false;
+}
+
+std::vector<PhaseTransitionRecord> SampleRepository::get_phase_transitions(int32_t sample_id) {
+    std::vector<PhaseTransitionRecord> transitions;
+    
+    try {
+        auto conn = ConnectionPool::instance().acquire();
+        pqxx::work txn(conn.get());
+        
+        auto result = txn.exec_params(R"(
+            SELECT id, sample_id, phase_name, start_time_ms, end_time_ms, phase_order
+            FROM sample_phase_transitions
+            WHERE sample_id = $1
+            ORDER BY phase_order
+        )", sample_id);
+        
+        txn.commit();
+        
+        for (const auto& row : result) {
+            PhaseTransitionRecord rec;
+            rec.id = row[0].as<int32_t>();
+            rec.sample_id = row[1].as<int32_t>();
+            rec.phase_name = row[2].as<std::string>();
+            rec.start_time_ms = row[3].as<int64_t>();
+            rec.end_time_ms = row[4].is_null() ? std::nullopt : std::optional<int64_t>(row[4].as<int64_t>());
+            rec.phase_order = row[5].as<int16_t>();
+            transitions.push_back(rec);
+        }
+        
+    } catch (const std::exception& e) {
+        spdlog::error("SampleRepository::get_phase_transitions failed: {}", e.what());
+    }
+    
+    return transitions;
+}
+
+int16_t SampleRepository::get_current_phase_order(int32_t sample_id) {
+    try {
+        auto conn = ConnectionPool::instance().acquire();
+        pqxx::work txn(conn.get());
+        
+        auto result = txn.exec_params(R"(
+            SELECT COALESCE(MAX(phase_order), -1)
+            FROM sample_phase_transitions
+            WHERE sample_id = $1
+        )", sample_id);
+        
+        txn.commit();
+        
+        if (!result.empty() && !result[0][0].is_null()) {
+            return result[0][0].as<int16_t>();
+        }
+        
+    } catch (const std::exception& e) {
+        spdlog::error("SampleRepository::get_current_phase_order failed: {}", e.what());
+    }
+    
+    return -1;
+}
+
 // 显式实例化模板
 template std::string SampleRepository::to_pg_array<std::string>(const std::vector<std::string>&);
 template std::string SampleRepository::to_pg_array<double>(const std::vector<double>&);

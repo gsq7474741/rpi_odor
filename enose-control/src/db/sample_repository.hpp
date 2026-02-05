@@ -1,6 +1,7 @@
 #pragma once
 
 #include "connection_pool.hpp"
+#include "phase_transition_repository.hpp"
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <vector>
@@ -158,6 +159,8 @@ struct EnvironmentStats {
     double avg_pressure{0.0};
 };
 
+// PhaseTransitionRecord 已移动到 phase_transition_repository.hpp
+
 // ============================================================
 // 样本仓库
 // ============================================================
@@ -196,6 +199,27 @@ public:
     
     // 删除 run 的所有样本
     bool delete_samples_by_run(int32_t run_id);
+    
+    // ============================================================
+    // Phase 转换管理 (Sample 内部的 Phase 切换记录)
+    // ============================================================
+    
+    // 创建 Phase 转换记录 (Phase 开始时调用)
+    // 返回新创建的 transition id
+    std::optional<int32_t> create_phase_transition(
+        int32_t sample_id,
+        const std::string& phase_name,
+        int64_t start_time_ms,
+        int16_t phase_order);
+    
+    // 完成 Phase 转换记录 (Phase 结束时调用)
+    bool complete_phase_transition(int32_t sample_id, int16_t phase_order, int64_t end_time_ms);
+    
+    // 获取 Sample 的所有 Phase 转换
+    std::vector<PhaseTransitionRecord> get_phase_transitions(int32_t sample_id);
+    
+    // 获取当前活跃的 Phase 序号 (最大的 phase_order)
+    int16_t get_current_phase_order(int32_t sample_id);
     
 private:
     // 辅助函数：将 vector 转换为 PostgreSQL 数组字符串

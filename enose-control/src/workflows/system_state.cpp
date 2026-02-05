@@ -146,7 +146,8 @@ void SystemState::start_inject(const InjectionParams& params) {
     actuator_->send_gcode("REGISTER_PUMPS_TO_AXIS");
     
     // 2. 使用单条 G1 命令同时驱动所有泵
-    // 速度转换: params.speed (mm/s) -> F (mm/min) = speed * 60
+    // 速度转换: params.speed (ml/s) -> F (ml/min) = speed * 60
+    // 注: Klipper 配置 rotation_distance=1.492 使 1mm=1ml，所以 ml/s 等价于 mm/s
     // 轴映射: A=pump_0, B=pump_1, C=pump_2, D=pump_3, H=pump_4, I=pump_5, J=pump_6, K=pump_7
     // 注意: 跳过E(挤出机专用)/F(feedrate)/G(G-code前缀)
     float feedrate = params.speed * 60.0f;

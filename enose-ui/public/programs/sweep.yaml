@@ -8,682 +8,760 @@ hardware:
   liquids:
     - id: '31'
       name: 95%乙醇
-      pump_index: 0
       type: LIQUID_SAMPLE
     - id: '6'
       name: 蒸馏水
-      pump_index: 0
       type: LIQUID_SAMPLE
+    - id: '37'
+      name: 纯净水
+      type: LIQUID_RINSE
 steps:
   - name: 配置加热器
     configure_heater:
-      configs: []
+      configs:
+        - profile_name: constant_320
+          temps:
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+          durs:
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+          sensor_indices:
+            - 0
+            - 2
+        - profile_name: pulse_fast__3
+          temps:
+            - 320
+            - 100
+            - 320
+            - 100
+            - 320
+            - 100
+            - 320
+            - 100
+            - 320
+            - 100
+          durs:
+            - 2
+            - 1
+            - 2
+            - 1
+            - 2
+            - 1
+            - 2
+            - 1
+            - 2
+            - 1
+          sensor_indices:
+            - 1
+            - 4
+        - profile_name: temp_scan_100_350__2
+          temps:
+            - 100
+            - 150
+            - 200
+            - 250
+            - 300
+            - 350
+            - 320
+            - 280
+            - 240
+            - 200
+          durs:
+            - 3
+            - 3
+            - 3
+            - 3
+            - 3
+            - 3
+            - 3
+            - 3
+            - 3
+            - 3
+          sensor_indices:
+            - 3
+            - 5
+            - 6
+            - 7
   - name: 传感器预热
     preheat:
       max_duration_s: 120
       record_data: false
       gas_pump_pwm: 50
       duration_s: 60
-  - name: '[参数扫描 #1/5] [参数扫描 #1/6] 进样 (95%:5%)'
+  - name: '[参数扫描 #1/5] [参数扫描 #1/6] 进样 (5%:95%) (10ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 5
         - liquid_id: '6'
           ratio: 95
-      target_volume_ml: 10
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 10
   - name: '[参数扫描 #1/5] [参数扫描 #1/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #1/5] [参数扫描 #1/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #1/5] [参数扫描 #2/6] 进样 (90%:10%)'
+  - name: '[参数扫描 #1/5] [参数扫描 #2/6] 进样 (10%:90%) (10ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 10
         - liquid_id: '6'
           ratio: 90
-      target_volume_ml: 10
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 10
   - name: '[参数扫描 #1/5] [参数扫描 #2/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #1/5] [参数扫描 #2/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #1/5] [参数扫描 #3/6] 进样 (85%:15%)'
+  - name: '[参数扫描 #1/5] [参数扫描 #3/6] 进样 (15%:85%) (10ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 15
         - liquid_id: '6'
           ratio: 85
-      target_volume_ml: 10
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 10
   - name: '[参数扫描 #1/5] [参数扫描 #3/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #1/5] [参数扫描 #3/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #1/5] [参数扫描 #4/6] 进样 (80%:20%)'
+  - name: '[参数扫描 #1/5] [参数扫描 #4/6] 进样 (20%:80%) (10ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 20
         - liquid_id: '6'
           ratio: 80
-      target_volume_ml: 10
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 10
   - name: '[参数扫描 #1/5] [参数扫描 #4/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #1/5] [参数扫描 #4/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #1/5] [参数扫描 #5/6] 进样 (75%:25%)'
+  - name: '[参数扫描 #1/5] [参数扫描 #5/6] 进样 (25%:75%) (10ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 25
         - liquid_id: '6'
           ratio: 75
-      target_volume_ml: 10
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 10
   - name: '[参数扫描 #1/5] [参数扫描 #5/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #1/5] [参数扫描 #5/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #1/5] [参数扫描 #6/6] 进样 (70%:30%)'
+  - name: '[参数扫描 #1/5] [参数扫描 #6/6] 进样 (30%:70%) (10ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 30
         - liquid_id: '6'
           ratio: 70
-      target_volume_ml: 10
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 10
   - name: '[参数扫描 #1/5] [参数扫描 #6/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #1/5] [参数扫描 #6/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #2/5] [参数扫描 #1/6] 进样 (95%:5%)'
+  - name: '[参数扫描 #2/5] [参数扫描 #1/6] 进样 (5%:95%) (15ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 5
         - liquid_id: '6'
           ratio: 95
-      target_volume_ml: 15
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 15
   - name: '[参数扫描 #2/5] [参数扫描 #1/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #2/5] [参数扫描 #1/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #2/5] [参数扫描 #2/6] 进样 (90%:10%)'
+  - name: '[参数扫描 #2/5] [参数扫描 #2/6] 进样 (10%:90%) (15ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 10
         - liquid_id: '6'
           ratio: 90
-      target_volume_ml: 15
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 15
   - name: '[参数扫描 #2/5] [参数扫描 #2/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #2/5] [参数扫描 #2/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #2/5] [参数扫描 #3/6] 进样 (85%:15%)'
+  - name: '[参数扫描 #2/5] [参数扫描 #3/6] 进样 (15%:85%) (15ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 15
         - liquid_id: '6'
           ratio: 85
-      target_volume_ml: 15
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 15
   - name: '[参数扫描 #2/5] [参数扫描 #3/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #2/5] [参数扫描 #3/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #2/5] [参数扫描 #4/6] 进样 (80%:20%)'
+  - name: '[参数扫描 #2/5] [参数扫描 #4/6] 进样 (20%:80%) (15ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 20
         - liquid_id: '6'
           ratio: 80
-      target_volume_ml: 15
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 15
   - name: '[参数扫描 #2/5] [参数扫描 #4/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #2/5] [参数扫描 #4/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #2/5] [参数扫描 #5/6] 进样 (75%:25%)'
+  - name: '[参数扫描 #2/5] [参数扫描 #5/6] 进样 (25%:75%) (15ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 25
         - liquid_id: '6'
           ratio: 75
-      target_volume_ml: 15
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 15
   - name: '[参数扫描 #2/5] [参数扫描 #5/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #2/5] [参数扫描 #5/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #2/5] [参数扫描 #6/6] 进样 (70%:30%)'
+  - name: '[参数扫描 #2/5] [参数扫描 #6/6] 进样 (30%:70%) (15ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 30
         - liquid_id: '6'
           ratio: 70
-      target_volume_ml: 15
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 15
   - name: '[参数扫描 #2/5] [参数扫描 #6/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #2/5] [参数扫描 #6/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #3/5] [参数扫描 #1/6] 进样 (95%:5%)'
+  - name: '[参数扫描 #3/5] [参数扫描 #1/6] 进样 (5%:95%) (20ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 5
         - liquid_id: '6'
           ratio: 95
-      target_volume_ml: 20
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 20
   - name: '[参数扫描 #3/5] [参数扫描 #1/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #3/5] [参数扫描 #1/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #3/5] [参数扫描 #2/6] 进样 (90%:10%)'
+  - name: '[参数扫描 #3/5] [参数扫描 #2/6] 进样 (10%:90%) (20ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 10
         - liquid_id: '6'
           ratio: 90
-      target_volume_ml: 20
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 20
   - name: '[参数扫描 #3/5] [参数扫描 #2/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #3/5] [参数扫描 #2/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #3/5] [参数扫描 #3/6] 进样 (85%:15%)'
+  - name: '[参数扫描 #3/5] [参数扫描 #3/6] 进样 (15%:85%) (20ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 15
         - liquid_id: '6'
           ratio: 85
-      target_volume_ml: 20
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 20
   - name: '[参数扫描 #3/5] [参数扫描 #3/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #3/5] [参数扫描 #3/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #3/5] [参数扫描 #4/6] 进样 (80%:20%)'
+  - name: '[参数扫描 #3/5] [参数扫描 #4/6] 进样 (20%:80%) (20ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 20
         - liquid_id: '6'
           ratio: 80
-      target_volume_ml: 20
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 20
   - name: '[参数扫描 #3/5] [参数扫描 #4/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #3/5] [参数扫描 #4/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #3/5] [参数扫描 #5/6] 进样 (75%:25%)'
+  - name: '[参数扫描 #3/5] [参数扫描 #5/6] 进样 (25%:75%) (20ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 25
         - liquid_id: '6'
           ratio: 75
-      target_volume_ml: 20
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 20
   - name: '[参数扫描 #3/5] [参数扫描 #5/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #3/5] [参数扫描 #5/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #3/5] [参数扫描 #6/6] 进样 (70%:30%)'
+  - name: '[参数扫描 #3/5] [参数扫描 #6/6] 进样 (30%:70%) (20ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 30
         - liquid_id: '6'
           ratio: 70
-      target_volume_ml: 20
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 20
   - name: '[参数扫描 #3/5] [参数扫描 #6/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #3/5] [参数扫描 #6/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #4/5] [参数扫描 #1/6] 进样 (95%:5%)'
+  - name: '[参数扫描 #4/5] [参数扫描 #1/6] 进样 (5%:95%) (25ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 5
         - liquid_id: '6'
           ratio: 95
-      target_volume_ml: 25
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 25
   - name: '[参数扫描 #4/5] [参数扫描 #1/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #4/5] [参数扫描 #1/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #4/5] [参数扫描 #2/6] 进样 (90%:10%)'
+  - name: '[参数扫描 #4/5] [参数扫描 #2/6] 进样 (10%:90%) (25ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 10
         - liquid_id: '6'
           ratio: 90
-      target_volume_ml: 25
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 25
   - name: '[参数扫描 #4/5] [参数扫描 #2/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #4/5] [参数扫描 #2/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #4/5] [参数扫描 #3/6] 进样 (85%:15%)'
+  - name: '[参数扫描 #4/5] [参数扫描 #3/6] 进样 (15%:85%) (25ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 15
         - liquid_id: '6'
           ratio: 85
-      target_volume_ml: 25
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 25
   - name: '[参数扫描 #4/5] [参数扫描 #3/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #4/5] [参数扫描 #3/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #4/5] [参数扫描 #4/6] 进样 (80%:20%)'
+  - name: '[参数扫描 #4/5] [参数扫描 #4/6] 进样 (20%:80%) (25ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 20
         - liquid_id: '6'
           ratio: 80
-      target_volume_ml: 25
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 25
   - name: '[参数扫描 #4/5] [参数扫描 #4/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #4/5] [参数扫描 #4/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #4/5] [参数扫描 #5/6] 进样 (75%:25%)'
+  - name: '[参数扫描 #4/5] [参数扫描 #5/6] 进样 (25%:75%) (25ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 25
         - liquid_id: '6'
           ratio: 75
-      target_volume_ml: 25
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 25
   - name: '[参数扫描 #4/5] [参数扫描 #5/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #4/5] [参数扫描 #5/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #4/5] [参数扫描 #6/6] 进样 (70%:30%)'
+  - name: '[参数扫描 #4/5] [参数扫描 #6/6] 进样 (30%:70%) (25ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 30
         - liquid_id: '6'
           ratio: 70
-      target_volume_ml: 25
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 25
   - name: '[参数扫描 #4/5] [参数扫描 #6/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #4/5] [参数扫描 #6/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #5/5] [参数扫描 #1/6] 进样 (95%:5%)'
+  - name: '[参数扫描 #5/5] [参数扫描 #1/6] 进样 (5%:95%) (30ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 5
         - liquid_id: '6'
           ratio: 95
-      target_volume_ml: 30
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 30
   - name: '[参数扫描 #5/5] [参数扫描 #1/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #5/5] [参数扫描 #1/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #5/5] [参数扫描 #2/6] 进样 (90%:10%)'
+  - name: '[参数扫描 #5/5] [参数扫描 #2/6] 进样 (10%:90%) (30ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 10
         - liquid_id: '6'
           ratio: 90
-      target_volume_ml: 30
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 30
   - name: '[参数扫描 #5/5] [参数扫描 #2/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #5/5] [参数扫描 #2/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #5/5] [参数扫描 #3/6] 进样 (85%:15%)'
+  - name: '[参数扫描 #5/5] [参数扫描 #3/6] 进样 (15%:85%) (30ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 15
         - liquid_id: '6'
           ratio: 85
-      target_volume_ml: 30
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 30
   - name: '[参数扫描 #5/5] [参数扫描 #3/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #5/5] [参数扫描 #3/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #5/5] [参数扫描 #4/6] 进样 (80%:20%)'
+  - name: '[参数扫描 #5/5] [参数扫描 #4/6] 进样 (20%:80%) (30ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 20
         - liquid_id: '6'
           ratio: 80
-      target_volume_ml: 30
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 30
   - name: '[参数扫描 #5/5] [参数扫描 #4/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #5/5] [参数扫描 #4/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #5/5] [参数扫描 #5/6] 进样 (75%:25%)'
+  - name: '[参数扫描 #5/5] [参数扫描 #5/6] 进样 (25%:75%) (30ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 25
         - liquid_id: '6'
           ratio: 75
-      target_volume_ml: 30
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 30
   - name: '[参数扫描 #5/5] [参数扫描 #5/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #5/5] [参数扫描 #5/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
-  - name: '[参数扫描 #5/5] [参数扫描 #6/6] 进样 (70%:30%)'
+  - name: '[参数扫描 #5/5] [参数扫描 #6/6] 进样 (30%:70%) (30ml)'
     inject:
       components:
         - liquid_id: '31'
           ratio: 30
         - liquid_id: '6'
           ratio: 70
-      target_volume_ml: 30
       tolerance: 0.5
       flow_rate_ml_s: 3
       stable_timeout_s: 5
+      target_volume_ml: 30
   - name: '[参数扫描 #5/5] [参数扫描 #6/6] 数据采集'
     acquire:
       gas_pump_pwm: 80
       duration_s: 60
   - name: '[参数扫描 #5/5] [参数扫描 #6/6] 清洗'
     wash:
-      wash_liquid_id: distilled_water
+      wash_liquid_id: '37'
       wash_volume_ml: 100
       repeat_count: 2
       gas_pump_pwm: 50
-      drain_after: true
+_compile_estimate:
+  total_duration_s: 6975
+  peak_liquid_level_ml: 30
+  peak_liquid_level_ml_with_wash: 0
+  total_inject_ml: 600
+  total_drain_ml: 6600
+  total_wash_volume_ml: 6000
+  liquid_consumption:
+    - liquid_id: 31
+      liquid_name: 95%乙醇
+      pump_index: 1
+      required_ml: 105
+    - liquid_id: 6
+      liquid_name: 蒸馏水
+      pump_index: 0
+      required_ml: 495
+    - liquid_id: 37
+      liquid_name: 纯净水
+      pump_index: -1
+      required_ml: 6000
+  pump_estimates:
+    - pump_index: 1
+      volume_ml: 105
+      runtime_s: 200
+    - pump_index: 0
+      volume_ml: 495
+      runtime_s: 200
 _editor_layout:
   nodes:
     - id: start
@@ -787,7 +865,19 @@ _editor_layout:
       position:
         x: 480
         'y': -435
-      data: {}
+      data:
+        sensorProfiles:
+          '0': constant_320
+          '1': pulse_fast__3
+          '2': constant_320
+          '3': temp_scan_100_350__2
+          '4': pulse_fast__3
+          '5': temp_scan_100_350__2
+          '6': temp_scan_100_350__2
+          '7': temp_scan_100_350__2
+          '8': ''
+          '9': ''
+          '10': ''
     - id: node_10
       type: preheat
       position:
@@ -801,7 +891,7 @@ _editor_layout:
         'y': -660
       data:
         bottleCapacityMl: 150
-        maxFillMl: 100
+        maxFillMl: 110
     - id: node_12
       type: acquire
       position:
@@ -821,11 +911,12 @@ _editor_layout:
         'y': 285
       data:
         name: 清洗
-        washLiquidId: distilled_water
+        washLiquidId: 37
         washVolumeMl: 100
         repeatCount: 2
         gasPumpPwm: 50
         drainAfter: true
+        washLiquidName: 纯净水
   edges:
     - id: xy-edge__node_4liquid-node_3liquid
       source: node_4

@@ -1,16 +1,15 @@
 """Sample Service - 样本分割与聚合查询"""
 
-import logging
 from typing import Any
 
 import grpc
 from google.protobuf import timestamp_pb2
 
 from ..db.sample_reader import SampleReader
+from ..logger import logger
 from ..generated import enose_analytics_pb2 as pb
 from ..generated import enose_analytics_pb2_grpc as pb_grpc
 
-logger = logging.getLogger(__name__)
 
 
 class SampleServiceImpl(pb_grpc.SampleServiceServicer):

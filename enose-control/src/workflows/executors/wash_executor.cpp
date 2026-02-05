@@ -77,10 +77,14 @@ ExecuteResult WashExecutor::execute(const enose::experiment::Step& step) {
             auto empty_result = load_cell_->wait_for_empty_bottle(
                 action.empty_tolerance_g(),
                 action.drain_timeout_s(),
-                action.empty_stability_window_s()
+                action.empty_stability_window_s(),
+                [this]() { return check_stop_or_pause(); }
             );
             
-            if (!empty_result.success) {
+            if (empty_result.stopped) {
+                add_log("排废被中断");
+                return ExecuteResult::fail("清洗被用户中断");
+            } else if (!empty_result.success) {
                 add_log("排废超时，继续清洗");
             }
             
@@ -133,10 +137,14 @@ ExecuteResult WashExecutor::execute(const enose::experiment::Step& step) {
             auto drain_result = load_cell_->wait_for_empty_bottle(
                 action.empty_tolerance_g(),
                 action.drain_timeout_s(),
-                action.empty_stability_window_s()
+                action.empty_stability_window_s(),
+                [this]() { return check_stop_or_pause(); }
             );
             
-            if (drain_result.success) {
+            if (drain_result.stopped) {
+                add_log("排废被中断");
+                return ExecuteResult::fail("清洗被用户中断");
+            } else if (drain_result.success) {
                 add_log("排废完成: " + std::to_string(drain_result.empty_weight) + "g");
             } else {
                 add_log("排废超时");

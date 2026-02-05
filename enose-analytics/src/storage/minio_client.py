@@ -1,7 +1,6 @@
 """MinIO 客户端模块"""
 
 import io
-import logging
 from pathlib import Path
 from typing import Any, BinaryIO
 
@@ -9,8 +8,8 @@ from minio import Minio
 from minio.error import S3Error
 
 from ..config import MinioConfig, get_settings
+from ..logger import logger
 
-logger = logging.getLogger(__name__)
 
 
 class MinioClient:

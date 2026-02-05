@@ -1026,22 +1026,22 @@ function EditorToolbar() {
     // 如果有未保存的更改，提示保存
     if (isDirty) {
       setLoadResultDialogType('confirmSave');
-      setLoadResultMessage('有未保存的更改，是否先保存后再跳转到实验管理？');
+      setLoadResultMessage('有未保存的更改，是否先保存后再跳转到实验执行？');
       setPendingLoadAfterSave(true);
       setShowLoadResultDialog(true);
       return;
     }
     
-    // 跳转到实验管理页面，带上文件名参数让用户在那里加载
+    // 跳转到实验执行页面，带上文件名参数让用户在那里加载
     doLoadToExperiment();
   };
   
   const doLoadToExperiment = () => {
     if (!currentFilename) return;
     
-    // 跳转到实验管理页面，带上文件名参数，由用户在实验管理页面点击加载
+    // 跳转到实验执行页面，带上文件名参数，由用户在实验执行页面点击加载
     setLoadResultDialogType('success');
-    setLoadResultMessage(`文件已保存！\n\n点击确定跳转到实验管理页面，在那里选择 "${currentFilename}" 并点击加载按钮。`);
+    setLoadResultMessage(`文件已保存！\n\n点击确定跳转到实验执行页面，在那里选择 "${currentFilename}" 并点击加载按钮。`);
     setShowLoadResultDialog(true);
   };
   
@@ -1080,7 +1080,7 @@ function EditorToolbar() {
         setLoadResultMessage(`保存失败: ${error instanceof Error ? error.message : '未知错误'}`);
       }
     } else if (loadResultDialogType === 'success') {
-      // 加载成功，跳转到实验管理页面
+      // 加载成功，跳转到实验执行页面
       setShowLoadResultDialog(false);
       window.location.href = '/experiment';
     } else {
@@ -1121,7 +1121,7 @@ function EditorToolbar() {
       
       const startData = await startRes.json();
       if (startData.state === 3) { // EXP_RUNNING
-        alert('✅ 实验已启动！\n\n请在实验管理页面查看进度。');
+        alert('✅ 实验已启动！\n\n请在实验执行页面查看进度。');
         window.open('/experiment', '_blank');
       } else {
         alert(`启动失败: ${startData.message || '未知错误'}`);
@@ -1553,7 +1553,7 @@ function EditorToolbar() {
         description={loadResultMessage}
         confirmText={
           loadResultDialogType === 'confirmSave' ? '保存并加载' :
-          loadResultDialogType === 'success' ? '跳转到实验管理' : '确定'
+          loadResultDialogType === 'success' ? '跳转到实验执行' : '确定'
         }
         cancelText={loadResultDialogType === 'confirmSave' ? '取消' : undefined}
         variant={loadResultDialogType === 'error' ? 'destructive' : 'default'}

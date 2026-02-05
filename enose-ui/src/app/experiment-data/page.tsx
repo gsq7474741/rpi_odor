@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,12 +17,14 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Wifi,
   WifiOff,
   Eye,
   LineChart,
   Beaker,
   Layers,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -115,6 +117,11 @@ export default function ExperimentDataPage() {
   const [runsTotal, setRunsTotal] = useState(0);
   const [runsPage, setRunsPage] = useState(0);
   const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
+  
+  // 展开的运行及其样本
+  const [expandedRuns, setExpandedRuns] = useState<Set<number>>(new Set());
+  const [runSamples, setRunSamples] = useState<Record<number, Sample[]>>({});
+  const [runSamplesLoading, setRunSamplesLoading] = useState<Set<number>>(new Set());
 
   // Samples state (样本列表)
   const [samples, setSamples] = useState<Sample[]>([]);
@@ -168,6 +175,41 @@ export default function ExperimentDataPage() {
       setRunsLoading(false);
     }
   }, [runsPage]);
+
+  // 切换运行展开状态并加载样本
+  const toggleRunExpand = useCallback(async (runId: number) => {
+    const newExpanded = new Set(expandedRuns);
+    
+    if (newExpanded.has(runId)) {
+      // 收起
+      newExpanded.delete(runId);
+      setExpandedRuns(newExpanded);
+    } else {
+      // 展开并加载样本
+      newExpanded.add(runId);
+      setExpandedRuns(newExpanded);
+      
+      // 如果还没加载过样本，加载它们
+      if (!runSamples[runId]) {
+        setRunSamplesLoading(prev => new Set(prev).add(runId));
+        try {
+          const response = await fetch(`/api/samples?runId=${runId}&limit=100`);
+          const data = await response.json();
+          if (data.samples) {
+            setRunSamples(prev => ({ ...prev, [runId]: data.samples }));
+          }
+        } catch (error) {
+          console.error(`Failed to fetch samples for run ${runId}:`, error);
+        } finally {
+          setRunSamplesLoading(prev => {
+            const next = new Set(prev);
+            next.delete(runId);
+            return next;
+          });
+        }
+      }
+    }
+  }, [expandedRuns, runSamples]);
 
   // Fetch samples (样本列表)
   const fetchSamples = useCallback(async () => {
@@ -345,6 +387,7 @@ export default function ExperimentDataPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-8"></TableHead>
                         <TableHead>运行 ID</TableHead>
                         <TableHead>开始时间</TableHead>
                         <TableHead>结束时间</TableHead>
@@ -354,55 +397,124 @@ export default function ExperimentDataPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {runs.map((run) => (
-                        <TableRow 
-                          key={run.id}
-                          className={selectedRunId === run.id ? "bg-muted" : ""}
-                        >
-                          <TableCell className="font-mono text-sm">
-                            {run.id}
-                          </TableCell>
-                          <TableCell>{formatDateTime(run.createdAt)}</TableCell>
-                          <TableCell>{formatDateTime(run.completedAt)}</TableCell>
-                          <TableCell>
-                            <Badge variant={run.state === "completed" ? "default" : run.state === "error" ? "destructive" : "secondary"}>
-                              {run.state}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{run.sampleCount}</TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedRunId(run.id);
-                                  setSelectedExperiment(run.id.toString());
-                                  setActiveTab("samples");
-                                }}
-                              >
-                                <Beaker className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedRunId(run.id);
-                                  setSelectedExperiment(run.id.toString());
-                                  setActiveTab("raw-data");
-                                }}
-                              >
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                              <Link href={`/analytics?experimentId=${run.id}`}>
-                                <Button variant="ghost" size="sm">
-                                  <LineChart className="w-4 h-4" />
-                                </Button>
-                              </Link>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {runs.map((run) => {
+                        const isExpanded = expandedRuns.has(run.id);
+                        const isLoadingSamples = runSamplesLoading.has(run.id);
+                        const samples = runSamples[run.id] || [];
+                        
+                        return (
+                          <React.Fragment key={run.id}>
+                            <TableRow
+                              className={`cursor-pointer hover:bg-muted/50 ${selectedRunId === run.id ? "bg-muted" : ""}`}
+                              onClick={() => toggleRunExpand(run.id)}
+                            >
+                              <TableCell className="w-8 p-2">
+                                {isLoadingSamples ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <ChevronRight className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+                                )}
+                              </TableCell>
+                              <TableCell className="font-mono text-sm">
+                                {run.id}
+                              </TableCell>
+                              <TableCell>{formatDateTime(run.createdAt)}</TableCell>
+                              <TableCell>{formatDateTime(run.completedAt)}</TableCell>
+                              <TableCell>
+                                <Badge variant={run.state === "completed" ? "default" : run.state === "error" ? "destructive" : "secondary"}>
+                                  {run.state}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{run.sampleCount}</TableCell>
+                              <TableCell onClick={(e) => e.stopPropagation()}>
+                                <div className="flex gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedRunId(run.id);
+                                      setSelectedExperiment(run.id.toString());
+                                      setActiveTab("samples");
+                                    }}
+                                  >
+                                    <Beaker className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedRunId(run.id);
+                                      setSelectedExperiment(run.id.toString());
+                                      setActiveTab("raw-data");
+                                    }}
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </Button>
+                                  <Link href={`/analytics?experimentId=${run.id}`}>
+                                    <Button variant="ghost" size="sm">
+                                      <LineChart className="w-4 h-4" />
+                                    </Button>
+                                  </Link>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                            {/* 展开的样本列表 */}
+                            {isExpanded && (
+                              <TableRow key={`${run.id}-samples`}>
+                                <TableCell colSpan={7} className="p-0 bg-muted/30">
+                                  <div className="max-h-80 overflow-y-auto border-l-4 border-primary/20 ml-4">
+                                    {isLoadingSamples ? (
+                                      <div className="p-4 flex items-center gap-2 text-muted-foreground">
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        加载样本中...
+                                      </div>
+                                    ) : samples.length === 0 ? (
+                                      <div className="p-4 text-muted-foreground text-sm">
+                                        暂无样本数据
+                                      </div>
+                                    ) : (
+                                      <table className="w-full text-sm">
+                                        <thead className="bg-muted/50 sticky top-0">
+                                          <tr>
+                                            <th className="text-left p-2 font-medium">序号</th>
+                                            <th className="text-left p-2 font-medium">液体</th>
+                                            <th className="text-left p-2 font-medium">体积</th>
+                                            <th className="text-left p-2 font-medium">气泵 PWM</th>
+                                            <th className="text-left p-2 font-medium">阶段</th>
+                                            <th className="text-left p-2 font-medium">时长</th>
+                                            <th className="text-left p-2 font-medium">参数哈希</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {samples.map((sample: Sample, idx: number) => (
+                                            <tr key={sample.id} className={idx % 2 === 0 ? "bg-background/50" : ""}>
+                                              <td className="p-2">{sample.sampleIdx}</td>
+                                              <td className="p-2">
+                                                {sample.liquidNames?.join(", ") || "-"}
+                                              </td>
+                                              <td className="p-2">{sample.totalVolumeMl?.toFixed(1) || "-"} ml</td>
+                                              <td className="p-2">{sample.gasPumpPwm}</td>
+                                              <td className="p-2">
+                                                <Badge variant="outline" className="text-xs">
+                                                  {sample.phaseName}
+                                                </Badge>
+                                              </td>
+                                              <td className="p-2">{sample.durationS?.toFixed(1) || "-"}s</td>
+                                              <td className="p-2 font-mono text-xs text-muted-foreground">
+                                                {sample.paramsHash?.substring(0, 8)}...
+                                              </td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
                     </TableBody>
                   </Table>
 

@@ -16,6 +16,9 @@
 #include "../hal/sensor_driver.hpp"
 #include "../db/consumable_repository.hpp"
 #include "../db/sample_repository.hpp"
+#include "../db/experiment_repository.hpp"
+#include "../db/sensor_repository.hpp"
+#include "../db/phase_transition_repository.hpp"
 
 // 前向声明
 namespace grpc_service { class SensorServiceImpl; }
@@ -85,6 +88,9 @@ private:
     std::shared_ptr<hal::SensorDriver> sensor_driver_;
     std::shared_ptr<db::ConsumableRepository> consumable_repo_;
     std::shared_ptr<db::SampleRepository> sample_repo_;
+    std::shared_ptr<db::ExperimentRepository> experiment_repo_;
+    std::shared_ptr<db::SensorRepository> sensor_repo_;  // 用于设置运行上下文
+    std::shared_ptr<db::PhaseTransitionRepository> phase_transition_repo_;  // 记录 sample 内的 phase 转换
     SensorServiceImpl* sensor_service_{nullptr};  // 弱引用，不拥有
     enose::workflows::ExperimentValidator validator_;
     
@@ -92,6 +98,8 @@ private:
     std::mutex mutex_;
     ::enose::experiment::ExperimentState state_ = ::enose::experiment::EXP_IDLE;
     std::unique_ptr<::enose::experiment::ExperimentProgram> loaded_program_;
+    std::string loaded_program_yaml_;      // 原始 YAML 内容
+    std::string loaded_program_yaml_hash_; // YAML 内容的 SHA256 hash
     enose::workflows::ValidationResultInfo validation_result_;
     
     // 执行线程
@@ -113,6 +121,7 @@ private:
     // 当前 run 和样本上下文
     std::optional<int32_t> current_run_id_;
     db::SampleContext current_sample_ctx_;
+    int16_t current_phase_order_ = 0;  // 当前 sample 内的 phase 序号
     
     // 事件队列 (用于订阅者)
     std::mutex event_mutex_;
@@ -136,6 +145,7 @@ private:
     void execute_phase_marker(const ::enose::experiment::PhaseMarkerAction& action);
     void execute_wash(const ::enose::experiment::WashAction& action);
     void execute_configure_heater(const ::enose::experiment::ConfigureHeaterAction& action);
+    void execute_preheat(const ::enose::experiment::PreheatAction& action);
     
 public:
     // 设置传感器服务引用（用于设置 sample_id 上下文）
@@ -143,6 +153,15 @@ public:
     
     // 设置样本仓库
     void set_sample_repository(std::shared_ptr<db::SampleRepository> repo) { sample_repo_ = repo; }
+    
+    // 设置实验仓库
+    void set_experiment_repository(std::shared_ptr<db::ExperimentRepository> repo) { experiment_repo_ = repo; }
+    
+    // 设置传感器仓库（用于关联传感器数据与 run_id/phase）
+    void set_sensor_repository(std::shared_ptr<db::SensorRepository> repo) { sensor_repo_ = repo; }
+    
+    // 设置 Phase 转换仓库
+    void set_phase_transition_repository(std::shared_ptr<db::PhaseTransitionRepository> repo) { phase_transition_repo_ = repo; }
     
 private:
     

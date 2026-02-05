@@ -1,13 +1,12 @@
 """样品标签存储模块"""
 
-import logging
 from datetime import datetime
 from typing import Any
 from uuid import UUID
 
 from .connection import get_connection, get_cursor
+from ..logger import logger
 
-logger = logging.getLogger(__name__)
 
 
 class LabelRepository:

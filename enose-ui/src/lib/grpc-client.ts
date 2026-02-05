@@ -228,9 +228,14 @@ export async function checkConnection(): Promise<boolean> {
 function sensorPromisify<TReq, TRes>(
   method: (input: TReq, callback: (err: grpc.ServiceError | null, value?: TRes) => void) => grpc.ClientUnaryCall,
   request: TReq
+): Promise<TRes>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function sensorPromisify<TRes>(
+  method: any,
+  request: any
 ): Promise<TRes> {
   return new Promise((resolve, reject) => {
-    method.call(getSensorClient(), request, (error: grpc.ServiceError | null, response?: TRes) => {
+    (method as Function).call(getSensorClient(), request, (error: grpc.ServiceError | null, response?: TRes) => {
       if (error) {
         reject(error);
       } else {
@@ -278,10 +283,10 @@ export async function getHeaterProfile(idOrName: number | string): Promise<Heate
     const request = typeof idOrName === 'number' 
       ? { identifier: { oneofKind: 'id' as const, id: idOrName } }
       : { identifier: { oneofKind: 'name' as const, name: idOrName } };
-    const response = await sensorPromisify<object, { profile: HeaterProfile }>(
-      getSensorClient().getHeaterProfile.bind(getSensorClient()),
+    const response = await sensorPromisify(
+      getSensorClient().getHeaterProfile.bind(getSensorClient()) as any,
       request
-    );
+    ) as { profile?: HeaterProfile };
     return response.profile || null;
   } catch {
     return null;
@@ -289,19 +294,19 @@ export async function getHeaterProfile(idOrName: number | string): Promise<Heate
 }
 
 export async function createHeaterProfile(profile: Omit<HeaterProfile, 'id'>): Promise<HeaterProfile> {
-  const response = await sensorPromisify<object, { profile: HeaterProfile }>(
-    getSensorClient().createHeaterProfile.bind(getSensorClient()),
+  const response = await sensorPromisify(
+    getSensorClient().createHeaterProfile.bind(getSensorClient()) as any,
     { profile: { ...profile, id: 0 } }
-  );
-  return response.profile;
+  ) as { profile?: HeaterProfile };
+  return response.profile!;
 }
 
 export async function updateHeaterProfile(profile: HeaterProfile): Promise<HeaterProfile> {
-  const response = await sensorPromisify<object, { profile: HeaterProfile }>(
-    getSensorClient().updateHeaterProfile.bind(getSensorClient()),
+  const response = await sensorPromisify(
+    getSensorClient().updateHeaterProfile.bind(getSensorClient()) as any,
     { profile }
-  );
-  return response.profile;
+  ) as { profile?: HeaterProfile };
+  return response.profile!;
 }
 
 export async function deleteHeaterProfile(id: number): Promise<void> {

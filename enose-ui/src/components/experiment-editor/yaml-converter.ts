@@ -179,7 +179,7 @@ interface YamlStep {
 interface YamlLiquid {
   id: string;
   name: string;
-  pump_index: number;
+  pump_index?: number;  // [DEPRECATED] 运行时从数据库查询泵绑定
   type: string;
 }
 
@@ -194,7 +194,15 @@ export function compiledStepToYamlStep(step: CompiledStep): YamlStep | null {
   }
 
   const params = step.params;
-  const name = step.name;
+  
+  // 构建带循环路径前缀的名称
+  let name = step.name;
+  if (step.loopPath && step.loopPath.length > 0) {
+    const prefix = step.loopPath
+      .map(lp => `[${lp.loopName} #${lp.iteration}/${lp.total}]`)
+      .join(' ');
+    name = `${prefix} ${name}`;
+  }
 
   switch (step.type) {
     case NodeType.PHASE_MARKER:
@@ -330,6 +338,50 @@ export function compiledStepToYamlStep(step: CompiledStep): YamlStep | null {
         },
       };
 
+    case NodeType.PREHEAT: {
+      const preheat: Record<string, unknown> = {
+        max_duration_s: Number(params.maxDurationS ?? 120),
+        record_data: Boolean(params.recordData ?? false),
+        gas_pump_pwm: Number(params.gasPumpPwm ?? 50),
+      };
+
+      // 预热模式
+      if (params.mode === 'cycles') {
+        preheat.cycles = Number(params.cycles ?? 5);
+      } else {
+        preheat.duration_s = Number(params.durationS ?? 60);
+      }
+
+      // 目标传感器
+      const sensorIndices = params.sensorIndices as number[] | undefined;
+      if (sensorIndices && sensorIndices.length > 0) {
+        preheat.sensor_indices = sensorIndices;
+      }
+
+      return { name, preheat };
+    }
+
+    case NodeType.CONFIGURE_HEATER: {
+      const configs = (params.configs as Array<{
+        profileName?: string;
+        temps?: number[];
+        durs?: number[];
+        sensorIndices?: number[];
+      }>) || [];
+
+      return {
+        name,
+        configure_heater: {
+          configs: configs.map(c => ({
+            profile_name: c.profileName || '',
+            temps: c.temps || [],
+            durs: c.durs || [],
+            sensor_indices: c.sensorIndices || [],
+          })),
+        },
+      };
+    }
+
     default:
       // 未知类型，跳过
       return null;
@@ -414,17 +466,38 @@ export function graphToYaml(
   },
   compilationResult?: CompilationResult  // 使用编译器的完整输出
 ): string {
-  // 收集液体源节点信息
+  // 收集液体源节点信息（样品液体）
   const liquidSources = nodes.filter((n) => n.type === NodeType.LIQUID_SOURCE);
   const liquids: YamlLiquid[] = liquidSources.map((n) => {
     const data = n.data as Record<string, unknown>;
+    // 注意: pump_index 已废弃，不再输出到 YAML
+    // 泵绑定在耗材管理中配置，运行时从数据库查询
     return {
       id: String(data.liquidId || `liquid_${n.id}`),
       name: String(data.liquidName || '未命名'),
-      pump_index: Number(data.pumpIndex || 0),
       type: 'LIQUID_SAMPLE',
     };
   });
+
+  // 收集清洗节点使用的清洗液（去重）
+  const washNodes = nodes.filter((n) => n.type === NodeType.WASH);
+  const washLiquidIds = new Set<string>();
+  for (const washNode of washNodes) {
+    const data = washNode.data as Record<string, unknown>;
+    const washLiquidId = String(data.washLiquidId || 'distilled_water');
+    if (washLiquidId && !washLiquidIds.has(washLiquidId)) {
+      washLiquidIds.add(washLiquidId);
+      // 检查是否已在样品液体列表中
+      const existsInSamples = liquids.some(l => l.id === washLiquidId);
+      if (!existsInSamples) {
+        liquids.push({
+          id: washLiquidId,
+          name: String(data.washLiquidName || `清洗液 ${washLiquidId}`),
+          type: 'LIQUID_RINSE',
+        });
+      }
+    }
+  }
 
   // 从编译结果生成 YAML 步骤（统一架构的核心）
   const steps: YamlStep[] = compilationResult 
@@ -479,7 +552,7 @@ export function graphToYaml(
       bottle_capacity_ml: programMeta.bottleCapacityMl,
       max_fill_ml: programMeta.maxFillMl,
       liquids: liquids.length > 0 ? liquids : [
-        { id: 'default', name: '默认液体', pump_index: 2, type: 'LIQUID_SAMPLE' }
+        { id: 'default', name: '默认液体', type: 'LIQUID_SAMPLE' }
       ],
     },
     steps,

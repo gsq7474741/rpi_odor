@@ -1,16 +1,15 @@
 """ModelService gRPC 服务实现"""
 
-import logging
 from typing import Iterator
 
 import grpc
 from google.protobuf import empty_pb2, timestamp_pb2
 
 from ..db.model_repository import ModelRepository
+from ..logger import logger
 from ..generated import enose_analytics_pb2 as pb
 from ..generated import enose_analytics_pb2_grpc as pb_grpc
 
-logger = logging.getLogger(__name__)
 
 
 class ModelServiceImpl(pb_grpc.ModelServiceServicer):

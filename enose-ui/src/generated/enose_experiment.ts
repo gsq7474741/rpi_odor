@@ -118,32 +118,36 @@ export interface HardwareConstraints {
 }
 /**
  * 液体库存
+ * 注意: pump_index 已废弃，泵绑定应在耗材管理中配置，运行时从数据库查询
  *
  * @generated from protobuf message enose.experiment.LiquidInventory
  */
 export interface LiquidInventory {
     /**
-     * 液体ID
+     * 液体ID (数据库中的液体主键，字符串形式)
      *
      * @generated from protobuf field: string id = 1
      */
     id: string;
     /**
-     * 液体名称
+     * 液体名称 (仅用于显示，运行时从数据库获取最新名称)
      *
      * @generated from protobuf field: string name = 2
      */
     name: string;
     /**
-     * 泵编号 (0=清洗泵, 2-5=样品泵)
+     * [DEPRECATED] 泵编号 - 请在耗材管理中配置泵绑定
+     * 运行时会忽略此字段，改为从 pump_assignments 表查询
      *
-     * @generated from protobuf field: int32 pump_index = 3
+     * @deprecated
+     * @generated from protobuf field: int32 pump_index = 3 [deprecated = true]
      */
     pumpIndex: number;
     /**
-     * 可用量 (ml)
+     * [DEPRECATED] 可用量 - 运行时从数据库查询
      *
-     * @generated from protobuf field: double available_ml = 4
+     * @deprecated
+     * @generated from protobuf field: double available_ml = 4 [deprecated = true]
      */
     availableMl: number;
     /**
@@ -1016,6 +1020,30 @@ export interface ExperimentStatusResponse {
      * @generated from protobuf field: string error = 12
      */
     error: string;
+    /**
+     * 程序 YAML 内容的 SHA256 哈希 (用于追溯和版本比对)
+     *
+     * @generated from protobuf field: string program_yaml_hash = 20
+     */
+    programYamlHash: string;
+    /**
+     * 当前运行 ID
+     *
+     * @generated from protobuf field: int64 run_id = 21
+     */
+    runId: string;
+    /**
+     * 总步骤数
+     *
+     * @generated from protobuf field: int32 total_steps = 22
+     */
+    totalSteps: number;
+    /**
+     * 程序名称
+     *
+     * @generated from protobuf field: string program_name = 23
+     */
+    programName: string;
 }
 /**
  * 实验事件
@@ -1441,10 +1469,10 @@ export const HardwareConstraints = new HardwareConstraints$Type();
 class LiquidInventory$Type extends MessageType<LiquidInventory> {
     constructor() {
         super("enose.experiment.LiquidInventory", [
-            { no: 1, name: "id", kind: "scalar", T: 9 /*ScalarType.STRING*/, options: { "buf.validate.field": { string: { minLen: "1", maxLen: "64", pattern: "^[a-z][a-z0-9_]*$" } } } },
+            { no: 1, name: "id", kind: "scalar", T: 9 /*ScalarType.STRING*/, options: { "buf.validate.field": { string: { minLen: "1", maxLen: "64", pattern: "^[a-zA-Z0-9_-]+$" } } } },
             { no: 2, name: "name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
-            { no: 3, name: "pump_index", kind: "scalar", T: 5 /*ScalarType.INT32*/, options: { "buf.validate.field": { int32: { lte: 7, gte: 0 } } } },
-            { no: 4, name: "available_ml", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { gte: 0 } } } },
+            { no: 3, name: "pump_index", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "available_ml", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
             { no: 5, name: "type", kind: "enum", T: () => ["enose.experiment.LiquidType", LiquidType] },
             { no: 6, name: "density_g_ml", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 2, gte: 0.5 } } } }
         ]);
@@ -1472,10 +1500,10 @@ class LiquidInventory$Type extends MessageType<LiquidInventory> {
                 case /* string name */ 2:
                     message.name = reader.string();
                     break;
-                case /* int32 pump_index */ 3:
+                case /* int32 pump_index = 3 [deprecated = true] */ 3:
                     message.pumpIndex = reader.int32();
                     break;
-                case /* double available_ml */ 4:
+                case /* double available_ml = 4 [deprecated = true] */ 4:
                     message.availableMl = reader.double();
                     break;
                 case /* enose.experiment.LiquidType type */ 5:
@@ -1502,10 +1530,10 @@ class LiquidInventory$Type extends MessageType<LiquidInventory> {
         /* string name = 2; */
         if (message.name !== "")
             writer.tag(2, WireType.LengthDelimited).string(message.name);
-        /* int32 pump_index = 3; */
+        /* int32 pump_index = 3 [deprecated = true]; */
         if (message.pumpIndex !== 0)
             writer.tag(3, WireType.Varint).int32(message.pumpIndex);
-        /* double available_ml = 4; */
+        /* double available_ml = 4 [deprecated = true]; */
         if (message.availableMl !== 0)
             writer.tag(4, WireType.Bit64).double(message.availableMl);
         /* enose.experiment.LiquidType type = 5; */
@@ -3389,7 +3417,11 @@ class ExperimentStatusResponse$Type extends MessageType<ExperimentStatusResponse
             { no: 9, name: "remaining_s", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
             { no: 10, name: "message", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 11, name: "logs", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
-            { no: 12, name: "error", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+            { no: 12, name: "error", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 20, name: "program_yaml_hash", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 21, name: "run_id", kind: "scalar", T: 3 /*ScalarType.INT64*/ },
+            { no: 22, name: "total_steps", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 23, name: "program_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
         ]);
     }
     create(value?: PartialMessage<ExperimentStatusResponse>): ExperimentStatusResponse {
@@ -3406,6 +3438,10 @@ class ExperimentStatusResponse$Type extends MessageType<ExperimentStatusResponse
         message.message = "";
         message.logs = [];
         message.error = "";
+        message.programYamlHash = "";
+        message.runId = "0";
+        message.totalSteps = 0;
+        message.programName = "";
         if (value !== undefined)
             reflectionMergePartial<ExperimentStatusResponse>(this, message, value);
         return message;
@@ -3450,6 +3486,18 @@ class ExperimentStatusResponse$Type extends MessageType<ExperimentStatusResponse
                     break;
                 case /* string error */ 12:
                     message.error = reader.string();
+                    break;
+                case /* string program_yaml_hash */ 20:
+                    message.programYamlHash = reader.string();
+                    break;
+                case /* int64 run_id */ 21:
+                    message.runId = reader.int64().toString();
+                    break;
+                case /* int32 total_steps */ 22:
+                    message.totalSteps = reader.int32();
+                    break;
+                case /* string program_name */ 23:
+                    message.programName = reader.string();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -3499,6 +3547,18 @@ class ExperimentStatusResponse$Type extends MessageType<ExperimentStatusResponse
         /* string error = 12; */
         if (message.error !== "")
             writer.tag(12, WireType.LengthDelimited).string(message.error);
+        /* string program_yaml_hash = 20; */
+        if (message.programYamlHash !== "")
+            writer.tag(20, WireType.LengthDelimited).string(message.programYamlHash);
+        /* int64 run_id = 21; */
+        if (message.runId !== "0")
+            writer.tag(21, WireType.Varint).int64(message.runId);
+        /* int32 total_steps = 22; */
+        if (message.totalSteps !== 0)
+            writer.tag(22, WireType.Varint).int32(message.totalSteps);
+        /* string program_name = 23; */
+        if (message.programName !== "")
+            writer.tag(23, WireType.LengthDelimited).string(message.programName);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);

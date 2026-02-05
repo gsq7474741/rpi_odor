@@ -372,13 +372,15 @@ export default function ConsumablesPage() {
   const handleUpdateLiquid = async () => {
     if (!editingLiquid) return;
     try {
+      // 将数字类型转换为字符串类型 (API 期望字符串)
+      const typeStr = editingLiquid.type === 1 ? "sample" : editingLiquid.type === 2 ? "rinse" : "other";
       const res = await fetch("/api/consumables?action=update-liquid", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: editingLiquid.id,
           name: editingLiquid.name,
-          type: editingLiquid.type,
+          type: typeStr,
           description: editingLiquid.description,
           density: editingLiquid.density,
           metadataJson: JSON.stringify(editLiquidMetadata),
@@ -389,6 +391,8 @@ export default function ConsumablesPage() {
         setEditingLiquid(null);
         setEditLiquidMetadata({});
         fetchData();
+      } else {
+        console.error("更新失败:", await res.text());
       }
     } catch (error) {
       console.error("更新失败:", error);
@@ -1151,7 +1155,7 @@ export default function ConsumablesPage() {
                 <Beaker className="h-5 w-5" />
                 液体库
               </CardTitle>
-              <CardDescription>管理所有样品和清洗液，支持搜索、排序和筛选</CardDescription>
+              <CardDescription>管理所有样品和清洗液，支持搜索、排序和筛选，右键查看更多选项</CardDescription>
             </CardHeader>
             <CardContent>
               <DataTable

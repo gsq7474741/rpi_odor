@@ -1,17 +1,15 @@
-"""配置管理模块"""
+"""配置管理模块
 
-import os
+配置全部来自 config/analytics.yaml 文件，不使用环境变量覆盖。
+本地开发时直接修改 YAML 文件中的 IP 地址。
+"""
+
 from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
 from pydantic_settings import BaseSettings
-
-
-def _env(key: str, default: str) -> str:
-    """从环境变量获取值，支持 .env.local 文件"""
-    return os.environ.get(key, default)
 
 
 class GrpcConfig(BaseModel):
@@ -21,32 +19,12 @@ class GrpcConfig(BaseModel):
     port: int = 50052
     max_workers: int = 4
 
-    @field_validator("host", mode="before")
-    @classmethod
-    def resolve_host(cls, v: str) -> str:
-        return _env("GRPC_HOST", v)
-
-    @field_validator("port", mode="before")
-    @classmethod
-    def resolve_port(cls, v: int) -> int:
-        return int(_env("GRPC_PORT", str(v)))
-
 
 class ControlServiceConfig(BaseModel):
     """enose-control 服务配置"""
 
     host: str = "enose-control"
     port: int = 50051
-
-    @field_validator("host", mode="before")
-    @classmethod
-    def resolve_host(cls, v: str) -> str:
-        return _env("CONTROL_SERVICE_HOST", v)
-
-    @field_validator("port", mode="before")
-    @classmethod
-    def resolve_port(cls, v: int) -> int:
-        return int(_env("CONTROL_SERVICE_PORT", str(v)))
 
 
 class DatabaseConfig(BaseModel):
@@ -59,34 +37,25 @@ class DatabaseConfig(BaseModel):
     password: str = "enose_secure_password_change_me"
     pool_size: int = 5
 
-    @field_validator("host", mode="before")
-    @classmethod
-    def resolve_host(cls, v: str) -> str:
-        return _env("DATABASE_HOST", v)
-
-    @field_validator("port", mode="before")
-    @classmethod
-    def resolve_port(cls, v: int) -> int:
-        return int(_env("DATABASE_PORT", str(v)))
-
-    @field_validator("database", mode="before")
-    @classmethod
-    def resolve_database(cls, v: str) -> str:
-        return _env("DATABASE_NAME", v)
-
-    @field_validator("user", mode="before")
-    @classmethod
-    def resolve_user(cls, v: str) -> str:
-        return _env("DATABASE_USER", v)
-
-    @field_validator("password", mode="before")
-    @classmethod
-    def resolve_password(cls, v: str) -> str:
-        return _env("DATABASE_PASSWORD", v)
-
     @property
     def dsn(self) -> str:
         return f"postgresql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
+
+
+class RedisConfig(BaseModel):
+    """Redis 配置"""
+
+    host: str = "redis"
+    port: int = 6379
+    db: int = 0
+    password: str | None = None
+    default_ttl: int = 3600 * 24 * 7  # 7 天
+
+    @property
+    def url(self) -> str:
+        if self.password:
+            return f"redis://:{self.password}@{self.host}:{self.port}/{self.db}"
+        return f"redis://{self.host}:{self.port}/{self.db}"
 
 
 class MinioConfig(BaseModel):
@@ -102,29 +71,6 @@ class MinioConfig(BaseModel):
         datasets: str = "datasets"
 
     buckets: Buckets = Buckets()
-
-    @field_validator("endpoint", mode="before")
-    @classmethod
-    def resolve_endpoint(cls, v: str) -> str:
-        return _env("MINIO_ENDPOINT", v)
-
-    @field_validator("access_key", mode="before")
-    @classmethod
-    def resolve_access_key(cls, v: str) -> str:
-        return _env("MINIO_ACCESS_KEY", v)
-
-    @field_validator("secret_key", mode="before")
-    @classmethod
-    def resolve_secret_key(cls, v: str) -> str:
-        return _env("MINIO_SECRET_KEY", v)
-
-    @field_validator("secure", mode="before")
-    @classmethod
-    def resolve_secure(cls, v: bool) -> bool:
-        env_val = os.environ.get("MINIO_SECURE")
-        if env_val is not None:
-            return env_val.lower() in ("true", "1", "yes")
-        return v
 
 
 class QualityConfig(BaseModel):
@@ -193,6 +139,7 @@ class Settings(BaseSettings):
     grpc: GrpcConfig = GrpcConfig()
     control_service: ControlServiceConfig = ControlServiceConfig()
     database: DatabaseConfig = DatabaseConfig()
+    redis: RedisConfig = RedisConfig()
     minio: MinioConfig = MinioConfig()
     quality: QualityConfig = QualityConfig()
     model: ModelConfig = ModelConfig()

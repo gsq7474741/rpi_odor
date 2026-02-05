@@ -42,6 +42,7 @@ export interface LoopPathEntry {
 export interface CompilerDiagnostic {
   level: 'error' | 'warning' | 'info';
   nodeId?: string;
+  stepIndex?: number;  // 对应的展开步骤索引（用于双向跳转）
   message: string;
   code: string;
 }
@@ -52,6 +53,7 @@ export interface LiquidConsumption {
   liquidName: string;
   pumpIndex: number;
   requiredMl: number;
+  isWashPump?: boolean;  // 是否为清洗泵（区分清洗液和未绑定的样品）
 }
 
 // 泵估算信息
@@ -87,12 +89,30 @@ export interface CompilationResult {
   compiledAt: number;
 }
 
+// 加热器预设信息
+export interface HeaterProfileInfo {
+  name: string;
+  temps: number[];
+  durs: number[];
+}
+
+// 泵绑定信息
+export interface PumpBindingInfo {
+  pumpIndex: number;
+  liquidId: number;
+  liquidName: string;
+}
+
 // 编译器配置
 export interface CompilerConfig {
   bottleCapacityMl: number;
   maxFillMl: number;
   expandLoops: boolean; // 是否展开循环
   maxLoopExpansion: number; // 最大循环展开数
+  
+  // 外部数据（用于查询加热器预设和泵绑定）
+  heaterProfiles?: HeaterProfileInfo[];
+  pumpBindings?: PumpBindingInfo[];
 }
 
 const DEFAULT_CONFIG: CompilerConfig = {
@@ -393,26 +413,7 @@ export function compile(
             peakLiquidLevelMlWithWash = Math.max(peakLiquidLevelMlWithWash, currentLiquidMlWithWash);
           }
         }
-        
-        // 检查液位溢出
-        if (currentLiquidMl > cfg.maxFillMl) {
-          diagnostics.push({
-            level: 'warning',
-            nodeId: node.id,
-            message: `液位可能超过最大填充量 (${currentLiquidMl.toFixed(1)}ml > ${cfg.maxFillMl}ml)`,
-            code: 'W001',
-          });
-        }
-        
-        if (currentLiquidMl < 0) {
-          diagnostics.push({
-            level: 'info',
-            nodeId: node.id,
-            message: '排废量可能超过当前液位',
-            code: 'I001',
-          });
-          currentLiquidMl = 0;
-        }
+        // 注意：液位检查已移至 validateExpandedSteps，基于展开后的完整步骤序列进行
       }
     }
     
@@ -466,6 +467,7 @@ export function compile(
           liquidName: washLiquidName,
           pumpIndex: -1,  // 清洗液使用清洗泵，不是蠕动泵
           requiredMl: totalWashVol,
+          isWashPump: true,  // 标识为清洗泵
         });
       }
     }
@@ -493,7 +495,17 @@ export function compile(
         for (let i = 0; i < components.length; i++) {
           const comp = components[i];
           const compVolume = pumpVolumes[i];
-          const pumpIndex = comp.pumpIndex ?? -1;
+          
+          // 优先从配置中查询泵绑定，否则使用节点数据中的 pumpIndex
+          let pumpIndex = comp.pumpIndex ?? -1;
+          if (cfg.pumpBindings && cfg.pumpBindings.length > 0) {
+            const binding = cfg.pumpBindings.find(
+              (b: PumpBindingInfo) => String(b.liquidId) === String(comp.liquidId)
+            );
+            if (binding) {
+              pumpIndex = binding.pumpIndex;
+            }
+          }
           
           // 累加液体消耗
           const existing = liquidConsumptionMap.get(comp.liquidId);
@@ -505,6 +517,7 @@ export function compile(
               liquidName: comp.liquidName || comp.liquidId,
               pumpIndex: pumpIndex,
               requiredMl: compVolume,
+              isWashPump: false,  // 样品液体，不是清洗泵
             });
           }
           
@@ -532,7 +545,8 @@ export function compile(
   // 废液桶总量 = 进样量 + 清洗液量
   const totalDrainMl = totalInjectMl + totalWashVolumeMl;
   
-  // 从展开后的步骤序列计算峰值样品液位（只看进样和排废，不含清洗）
+  // 从展开后的步骤序列计算峰值样品液位
+  // 只看样品进样，清洗和排废都会清空液位
   let computedPeakLiquidMl = 0;
   let runningLiquidMl = 0;
   for (const step of steps) {
@@ -541,11 +555,22 @@ export function compile(
     if (step.type === NodeType.INJECT && step.liquidChangeMl > 0) {
       runningLiquidMl += step.liquidChangeMl;
       computedPeakLiquidMl = Math.max(computedPeakLiquidMl, runningLiquidMl);
-    } else if (step.type === NodeType.DRAIN) {
+    } else if (step.type === NodeType.DRAIN || step.type === NodeType.WASH) {
+      // 排废和清洗都会清空瓶中液体
       runningLiquidMl = 0;
     }
-    // 清洗节点不影响样品液位计算
   }
+  
+  // 6. 验证展开后的步骤序列（检查比例和液位）
+  // 收集比例类型的参数扫描节点 ID
+  const ratioSweepNodeIds = new Set<string>();
+  nodes.filter(n => n.type === NodeType.PARAM_SWEEP).forEach(sweepNode => {
+    const sweepData = sweepNode.data as Record<string, unknown>;
+    if (sweepData.paramType === 'ratio') {
+      ratioSweepNodeIds.add(sweepNode.id);
+    }
+  });
+  validateExpandedSteps(steps, cfg, diagnostics, ratioSweepNodeIds);
   
   return {
     success: !diagnostics.some(d => d.level === 'error'),
@@ -639,7 +664,30 @@ function validateStructure(
     }
   });
   
-  // 检查液体源比例总和
+  // 检查液体源比例总和（考虑参数扫描接管）
+  // 首先找出所有参数扫描节点的 ratio 接管目标
+  const ratioSweptLiquidIds = new Set<string>();
+  const sweepNodes = nodes.filter(n => n.type === NodeType.PARAM_SWEEP);
+  sweepNodes.forEach(sweepNode => {
+    const sweepData = sweepNode.data as Record<string, unknown>;
+    if (sweepData.paramType === 'ratio') {
+      // ratio 类型的参数扫描会接管所有连接的液体源的比例
+      const sweepEdges = edges.filter(e => e.source === sweepNode.id && e.sourceHandle === 'loop-body');
+      sweepEdges.forEach(e => {
+        // 找到扫描体内的所有进样节点连接的液体源
+        const bodyNodes = findNodesInLoopBody(e.target, nodes, edges);
+        bodyNodes.forEach(bodyNode => {
+          if (bodyNode.type === NodeType.INJECT) {
+            const injectLiquids = liquidEdges
+              .filter(le => le.target === bodyNode.id)
+              .map(le => le.source);
+            injectLiquids.forEach(id => ratioSweptLiquidIds.add(id));
+          }
+        });
+      });
+    }
+  });
+  
   injectNodes.forEach(injectNode => {
     const connectedLiquids = liquidEdges
       .filter(e => e.target === injectNode.id)
@@ -647,17 +695,30 @@ function validateStructure(
       .filter(Boolean) as ExperimentNode[];
     
     if (connectedLiquids.length > 1) {
-      const totalRatio = connectedLiquids.reduce((sum, n) => {
-        return sum + ((n.data as Record<string, unknown>).ratio as number || 0);
-      }, 0);
+      // 检查是否有液体源被参数扫描接管
+      const hasSweptRatio = connectedLiquids.some(n => ratioSweptLiquidIds.has(n.id));
       
-      if (Math.abs(totalRatio - 1.0) > 0.01) {
+      if (hasSweptRatio) {
+        // 比例被参数扫描接管，跳过静态检查，改为信息提示
         diagnostics.push({
-          level: 'warning',
+          level: 'info',
           nodeId: injectNode.id,
-          message: `液体比例总和 ${(totalRatio * 100).toFixed(0)}% ≠ 100%`,
-          code: 'W005',
+          message: `液体比例由参数扫描动态控制`,
+          code: 'I002',
         });
+      } else {
+        const totalRatio = connectedLiquids.reduce((sum, n) => {
+          return sum + ((n.data as Record<string, unknown>).ratio as number || 0);
+        }, 0);
+        
+        if (Math.abs(totalRatio - 1.0) > 0.01) {
+          diagnostics.push({
+            level: 'warning',
+            nodeId: injectNode.id,
+            message: `液体比例总和 ${(totalRatio * 100).toFixed(0)}% ≠ 100%`,
+            code: 'W005',
+          });
+        }
       }
     }
   });
@@ -669,6 +730,45 @@ function validateStructure(
   }
   
   return diagnostics;
+}
+
+/**
+ * 查找循环/扫描体内的所有节点
+ */
+function findNodesInLoopBody(
+  startNodeId: string,
+  nodes: ExperimentNode[],
+  edges: ExperimentEdge[]
+): ExperimentNode[] {
+  const result: ExperimentNode[] = [];
+  const visited = new Set<string>();
+  const queue = [startNodeId];
+  
+  // 只考虑 flow 类型的边
+  const flowEdges = edges.filter(e => 
+    !e.sourceHandle || 
+    e.sourceHandle === HANDLE_TYPES.FLOW
+  );
+  
+  while (queue.length > 0) {
+    const nodeId = queue.shift()!;
+    if (visited.has(nodeId)) continue;
+    visited.add(nodeId);
+    
+    const node = nodes.find(n => n.id === nodeId);
+    if (node) {
+      result.push(node);
+      // 查找后续节点
+      const nextEdges = flowEdges.filter(e => e.source === nodeId);
+      nextEdges.forEach(e => {
+        if (!visited.has(e.target)) {
+          queue.push(e.target);
+        }
+      });
+    }
+  }
+  
+  return result;
 }
 
 /**
@@ -939,6 +1039,60 @@ function compileNode(
     case NodeType.PARAM_SWEEP: {
       // 参数扫描节点本身不产生时间，由扫描体决定
       baseStep.estimatedDurationS = 0;
+      break;
+    }
+    
+    case NodeType.PREHEAT: {
+      // 预热模式
+      if (data.mode === 'cycles') {
+        const cycles = (data.cycles as number) || 5;
+        baseStep.estimatedDurationS = cycles * 20; // 假设每周期 20s
+      } else {
+        baseStep.estimatedDurationS = (data.durationS as number) || 60;
+      }
+      // 预热有最大时长限制
+      const maxDuration = (data.maxDurationS as number) || 120;
+      baseStep.estimatedDurationS = Math.min(baseStep.estimatedDurationS, maxDuration);
+      break;
+    }
+    
+    case NodeType.CONFIGURE_HEATER: {
+      // 配置加热器是即时操作
+      baseStep.estimatedDurationS = 0;
+      
+      // 将 sensorProfiles 格式转换为 configs 格式
+      // sensorProfiles: { [sensorIdx]: profileName }
+      // configs: [{ profileName, temps, durs, sensorIndices }]
+      const sensorProfiles = (data.sensorProfiles as Record<number, string>) || {};
+      const profileToSensors: Record<string, number[]> = {};
+      
+      for (const [sensorIdxStr, profileName] of Object.entries(sensorProfiles)) {
+        const sensorIdx = parseInt(sensorIdxStr);
+        if (profileName && sensorIdx < 8) { // 只包含真实传感器 (0-7)
+          if (!profileToSensors[profileName]) {
+            profileToSensors[profileName] = [];
+          }
+          profileToSensors[profileName].push(sensorIdx);
+        }
+      }
+      
+      // 从配置中查找加热器预设详情
+      const heaterProfiles = config.heaterProfiles || [];
+      
+      // 转换为 configs 数组，填充 temps 和 durs
+      // 注意：profileName 可能有 __N 后缀用于区分多个配置组，需要去除后缀匹配数据库中的原始名称
+      const configs = Object.entries(profileToSensors).map(([profileName, sensorIndices]) => {
+        const baseProfileName = profileName.replace(/__\d+$/, '');
+        const profile = heaterProfiles.find((p: HeaterProfileInfo) => p.name === baseProfileName);
+        return {
+          profileName,
+          temps: profile?.temps || [],
+          durs: profile?.durs || [],
+          sensorIndices: sensorIndices.sort((a, b) => a - b),
+        };
+      });
+      
+      baseStep.params.configs = configs;
       break;
     }
     
@@ -1328,5 +1482,89 @@ function applySweptParameter(
         }
       }
       break;
+  }
+}
+
+/**
+ * 验证展开后的步骤序列
+ * 在编译完成后运行，检查基于实际执行序列的问题
+ */
+function validateExpandedSteps(
+  steps: CompiledStep[],
+  config: CompilerConfig,
+  diagnostics: CompilerDiagnostic[],
+  ratioSweepNodeIds: Set<string>
+): void {
+  let currentLiquidMl = 0;
+  
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    if (!step.isAtomic) continue;
+    
+    // 检查进样步骤的比例总和
+    if (step.type === NodeType.INJECT) {
+      // 检查步骤是否在比例类型的参数扫描内
+      const isInsideRatioSweep = step.loopPath.some(entry => ratioSweepNodeIds.has(entry.loopId));
+      // 或者检查 boundVariables 中是否有 ratio 绑定
+      const isRatioControlled = isInsideRatioSweep || (step.boundVariables && 'ratio' in step.boundVariables);
+      
+      if (isRatioControlled) {
+        // 比例由参数扫描动态控制，不需要静态检查
+        // I002 已在 validateStructure 中添加
+      } else {
+        const components = step.params.components as Array<{
+          liquidId: string;
+          liquidName: string;
+          ratio: number;
+        }> | undefined;
+        
+        if (components && components.length > 1) {
+          const totalRatio = components.reduce((sum, c) => sum + (c.ratio || 0), 0);
+          if (Math.abs(totalRatio - 1.0) > 0.01) {
+            // 检查是否已有相同 nodeId 的警告（避免重复）
+            const existingWarning = diagnostics.find(
+              d => d.nodeId === step.nodeId && d.code === 'W005'
+            );
+            if (!existingWarning) {
+              diagnostics.push({
+                level: 'warning',
+                nodeId: step.nodeId,
+                stepIndex: i,
+                message: `液体比例总和 ${(totalRatio * 100).toFixed(0)}% ≠ 100%`,
+                code: 'W005',
+              });
+            }
+          }
+        }
+      }
+      
+      // 更新液位
+      currentLiquidMl += step.liquidChangeMl;
+      
+      // 检查液位溢出
+      if (currentLiquidMl > config.maxFillMl) {
+        diagnostics.push({
+          level: 'warning',
+          nodeId: step.nodeId,
+          stepIndex: i,
+          message: `液位可能超过最大填充量 (${currentLiquidMl.toFixed(1)}ml > ${config.maxFillMl}ml)`,
+          code: 'W001',
+        });
+      }
+    } else if (step.type === NodeType.DRAIN) {
+      // 检查排废量是否超过当前液位
+      if (currentLiquidMl <= 0) {
+        diagnostics.push({
+          level: 'info',
+          nodeId: step.nodeId,
+          stepIndex: i,
+          message: '排废量可能超过当前液位',
+          code: 'I001',
+        });
+      }
+      currentLiquidMl = 0;
+    } else if (step.type === NodeType.WASH) {
+      currentLiquidMl = 0;
+    }
   }
 }

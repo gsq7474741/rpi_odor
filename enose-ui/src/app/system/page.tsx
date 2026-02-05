@@ -1,12 +1,13 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ControlPanel } from "@/components/control-panel";
 import { SensorPanel } from "@/components/sensor-panel";
 import { LoadCellPanel } from "@/components/load-cell-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-export default function SystemPage() {
+function SystemPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const currentTab = searchParams.get("tab") || "control";
@@ -37,5 +38,13 @@ export default function SystemPage() {
         </Tabs>
       </div>
     </div>
+  );
+}
+
+export default function SystemPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background p-4">加载中...</div>}>
+      <SystemPageContent />
+    </Suspense>
   );
 }

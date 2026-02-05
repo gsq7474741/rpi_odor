@@ -93,6 +93,11 @@ void SensorRepository::clear_sample_context() {
     spdlog::debug("SensorRepository: cleared sample context");
 }
 
+bool SensorRepository::should_persist() const {
+    std::lock_guard<std::mutex> lock(context_mutex_);
+    return current_run_id_.has_value();
+}
+
 // ============================================================
 // 批量写入实现
 // ============================================================

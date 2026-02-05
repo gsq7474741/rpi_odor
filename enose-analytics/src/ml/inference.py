@@ -1,6 +1,5 @@
 """模型推理模块"""
 
-import logging
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -8,11 +7,11 @@ import numpy as np
 import torch
 
 from .mlp_model import MLPClassifier
+from ..logger import logger
 from .feature_extractor import FeatureExtractor
 from ..storage.minio_client import MinioClient
 from ..db.model_repository import ModelRepository
 
-logger = logging.getLogger(__name__)
 
 
 @dataclass

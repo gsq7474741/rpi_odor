@@ -38,6 +38,9 @@ static bool parse_step(const YAML::Node& node, experiment::Step* step, std::stri
         }
         if (inject["flow_rate_ml_min"]) {
             action->set_flow_rate_ml_min(inject["flow_rate_ml_min"].as<double>());
+        } else if (inject["flow_rate_ml_s"]) {
+            // 兼容前端使用的 ml/s 单位，转换为 ml/min
+            action->set_flow_rate_ml_min(inject["flow_rate_ml_s"].as<double>() * 60.0);
         } else {
             action->set_flow_rate_ml_min(5.0);
         }
@@ -232,6 +235,77 @@ static bool parse_step(const YAML::Node& node, experiment::Step* step, std::stri
             action->set_empty_stability_window_s(wash["empty_stability_window_s"].as<double>());
         } else {
             action->set_empty_stability_window_s(2.0);
+        }
+    }
+    else if (node["preheat"]) {
+        auto* action = step->mutable_preheat();
+        auto preheat = node["preheat"];
+        
+        // 预热模式: cycles 或 duration_s (二选一)
+        if (preheat["cycles"]) {
+            action->set_cycles(preheat["cycles"].as<int>());
+        } else if (preheat["duration_s"]) {
+            action->set_duration_s(preheat["duration_s"].as<double>());
+        }
+        
+        // 最大等待时间
+        if (preheat["max_duration_s"]) {
+            action->set_max_duration_s(preheat["max_duration_s"].as<double>());
+        } else {
+            action->set_max_duration_s(300.0);  // 默认5分钟
+        }
+        
+        // 目标传感器索引
+        if (preheat["sensor_indices"] && preheat["sensor_indices"].IsSequence()) {
+            for (const auto& idx : preheat["sensor_indices"]) {
+                action->add_sensor_indices(idx.as<int>());
+            }
+        }
+        
+        // 是否记录预热数据
+        if (preheat["record_data"]) {
+            action->set_record_data(preheat["record_data"].as<bool>());
+        }
+        
+        // 气泵PWM
+        if (preheat["gas_pump_pwm"]) {
+            action->set_gas_pump_pwm(preheat["gas_pump_pwm"].as<int>());
+        }
+    }
+    else if (node["configure_heater"]) {
+        auto* action = step->mutable_configure_heater();
+        auto ch = node["configure_heater"];
+        
+        if (ch["configs"] && ch["configs"].IsSequence()) {
+            for (const auto& cfg_node : ch["configs"]) {
+                auto* config = action->add_configs();
+                
+                // 配置预设名称
+                if (cfg_node["profile_name"]) {
+                    config->set_profile_name(cfg_node["profile_name"].as<std::string>());
+                }
+                
+                // 温度序列
+                if (cfg_node["temps"] && cfg_node["temps"].IsSequence()) {
+                    for (const auto& t : cfg_node["temps"]) {
+                        config->add_temps(t.as<int>());
+                    }
+                }
+                
+                // 持续时间序列
+                if (cfg_node["durs"] && cfg_node["durs"].IsSequence()) {
+                    for (const auto& d : cfg_node["durs"]) {
+                        config->add_durs(d.as<int>());
+                    }
+                }
+                
+                // 目标传感器索引
+                if (cfg_node["sensor_indices"] && cfg_node["sensor_indices"].IsSequence()) {
+                    for (const auto& idx : cfg_node["sensor_indices"]) {
+                        config->add_sensor_indices(idx.as<int>());
+                    }
+                }
+            }
         }
     }
     else {

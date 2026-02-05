@@ -42,6 +42,16 @@ import type { TrainModelRequest } from "./enose_analytics";
 import { AnalyticsService } from "./enose_analytics";
 import type { BinaryWriteOptions } from "@protobuf-ts/runtime";
 import type { BinaryReadOptions } from "@protobuf-ts/runtime";
+import type { GetSampleFramesResponse } from "./enose_analytics";
+import type { GetSampleFramesRequest } from "./enose_analytics";
+import type { BatchGenerateSampleFramesResponse } from "./enose_analytics";
+import type { BatchGenerateSampleFramesRequest } from "./enose_analytics";
+import type { GenerateSampleFramesResponse } from "./enose_analytics";
+import type { GenerateSampleFramesRequest } from "./enose_analytics";
+import type { BatchSampleFramesStatusResponse } from "./enose_analytics";
+import type { BatchSampleFramesStatusRequest } from "./enose_analytics";
+import type { SampleFramesStatusResponse } from "./enose_analytics";
+import type { SampleFramesStatusRequest } from "./enose_analytics";
 import type { GenerateNormalizedFramesResponse } from "./enose_analytics";
 import type { GenerateNormalizedFramesRequest } from "./enose_analytics";
 import type { NormalizedFramesStatusResponse } from "./enose_analytics";
@@ -120,6 +130,53 @@ export interface IAnalyticsServiceClient {
     generateNormalizedFrames(input: GenerateNormalizedFramesRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: GenerateNormalizedFramesResponse) => void): grpc.ClientUnaryCall;
     generateNormalizedFrames(input: GenerateNormalizedFramesRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: GenerateNormalizedFramesResponse) => void): grpc.ClientUnaryCall;
     generateNormalizedFrames(input: GenerateNormalizedFramesRequest, callback: (err: grpc.ServiceError | null, value?: GenerateNormalizedFramesResponse) => void): grpc.ClientUnaryCall;
+    // ========== 基于 sample_id 的新接口 ==========
+
+    /**
+     * 检查样本帧状态（含缓存状态）
+     *
+     * @generated from protobuf rpc: GetSampleFramesStatus
+     */
+    getSampleFramesStatus(input: SampleFramesStatusRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: SampleFramesStatusResponse) => void): grpc.ClientUnaryCall;
+    getSampleFramesStatus(input: SampleFramesStatusRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: SampleFramesStatusResponse) => void): grpc.ClientUnaryCall;
+    getSampleFramesStatus(input: SampleFramesStatusRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: SampleFramesStatusResponse) => void): grpc.ClientUnaryCall;
+    getSampleFramesStatus(input: SampleFramesStatusRequest, callback: (err: grpc.ServiceError | null, value?: SampleFramesStatusResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 批量检查样本帧状态（减少网络往返）
+     *
+     * @generated from protobuf rpc: GetBatchSampleFramesStatus
+     */
+    getBatchSampleFramesStatus(input: BatchSampleFramesStatusRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: BatchSampleFramesStatusResponse) => void): grpc.ClientUnaryCall;
+    getBatchSampleFramesStatus(input: BatchSampleFramesStatusRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: BatchSampleFramesStatusResponse) => void): grpc.ClientUnaryCall;
+    getBatchSampleFramesStatus(input: BatchSampleFramesStatusRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: BatchSampleFramesStatusResponse) => void): grpc.ClientUnaryCall;
+    getBatchSampleFramesStatus(input: BatchSampleFramesStatusRequest, callback: (err: grpc.ServiceError | null, value?: BatchSampleFramesStatusResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 生成样本帧（支持 Redis 缓存）
+     *
+     * @generated from protobuf rpc: GenerateSampleFrames
+     */
+    generateSampleFrames(input: GenerateSampleFramesRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: GenerateSampleFramesResponse) => void): grpc.ClientUnaryCall;
+    generateSampleFrames(input: GenerateSampleFramesRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: GenerateSampleFramesResponse) => void): grpc.ClientUnaryCall;
+    generateSampleFrames(input: GenerateSampleFramesRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: GenerateSampleFramesResponse) => void): grpc.ClientUnaryCall;
+    generateSampleFrames(input: GenerateSampleFramesRequest, callback: (err: grpc.ServiceError | null, value?: GenerateSampleFramesResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 批量生成样本帧（减少网络往返）
+     *
+     * @generated from protobuf rpc: GenerateBatchSampleFrames
+     */
+    generateBatchSampleFrames(input: BatchGenerateSampleFramesRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: BatchGenerateSampleFramesResponse) => void): grpc.ClientUnaryCall;
+    generateBatchSampleFrames(input: BatchGenerateSampleFramesRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: BatchGenerateSampleFramesResponse) => void): grpc.ClientUnaryCall;
+    generateBatchSampleFrames(input: BatchGenerateSampleFramesRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: BatchGenerateSampleFramesResponse) => void): grpc.ClientUnaryCall;
+    generateBatchSampleFrames(input: BatchGenerateSampleFramesRequest, callback: (err: grpc.ServiceError | null, value?: BatchGenerateSampleFramesResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 获取样本帧数据
+     *
+     * @generated from protobuf rpc: GetSampleFrames
+     */
+    getSampleFrames(input: GetSampleFramesRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: GetSampleFramesResponse) => void): grpc.ClientUnaryCall;
+    getSampleFrames(input: GetSampleFramesRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: GetSampleFramesResponse) => void): grpc.ClientUnaryCall;
+    getSampleFrames(input: GetSampleFramesRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: GetSampleFramesResponse) => void): grpc.ClientUnaryCall;
+    getSampleFrames(input: GetSampleFramesRequest, callback: (err: grpc.ServiceError | null, value?: GetSampleFramesResponse) => void): grpc.ClientUnaryCall;
 }
 // ============================================================================
 // Analytics Service - 质量检测与在线分析
@@ -196,6 +253,53 @@ export class AnalyticsServiceClient extends grpc.Client implements IAnalyticsSer
     generateNormalizedFrames(input: GenerateNormalizedFramesRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GenerateNormalizedFramesResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GenerateNormalizedFramesResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: GenerateNormalizedFramesResponse) => void)): grpc.ClientUnaryCall {
         const method = AnalyticsService.methods[6];
         return this.makeUnaryRequest<GenerateNormalizedFramesRequest, GenerateNormalizedFramesResponse>(`/${AnalyticsService.typeName}/${method.name}`, (value: GenerateNormalizedFramesRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): GenerateNormalizedFramesResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    // ========== 基于 sample_id 的新接口 ==========
+
+    /**
+     * 检查样本帧状态（含缓存状态）
+     *
+     * @generated from protobuf rpc: GetSampleFramesStatus
+     */
+    getSampleFramesStatus(input: SampleFramesStatusRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: SampleFramesStatusResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: SampleFramesStatusResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: SampleFramesStatusResponse) => void)): grpc.ClientUnaryCall {
+        const method = AnalyticsService.methods[7];
+        return this.makeUnaryRequest<SampleFramesStatusRequest, SampleFramesStatusResponse>(`/${AnalyticsService.typeName}/${method.name}`, (value: SampleFramesStatusRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): SampleFramesStatusResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 批量检查样本帧状态（减少网络往返）
+     *
+     * @generated from protobuf rpc: GetBatchSampleFramesStatus
+     */
+    getBatchSampleFramesStatus(input: BatchSampleFramesStatusRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: BatchSampleFramesStatusResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: BatchSampleFramesStatusResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: BatchSampleFramesStatusResponse) => void)): grpc.ClientUnaryCall {
+        const method = AnalyticsService.methods[8];
+        return this.makeUnaryRequest<BatchSampleFramesStatusRequest, BatchSampleFramesStatusResponse>(`/${AnalyticsService.typeName}/${method.name}`, (value: BatchSampleFramesStatusRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): BatchSampleFramesStatusResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 生成样本帧（支持 Redis 缓存）
+     *
+     * @generated from protobuf rpc: GenerateSampleFrames
+     */
+    generateSampleFrames(input: GenerateSampleFramesRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GenerateSampleFramesResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GenerateSampleFramesResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: GenerateSampleFramesResponse) => void)): grpc.ClientUnaryCall {
+        const method = AnalyticsService.methods[9];
+        return this.makeUnaryRequest<GenerateSampleFramesRequest, GenerateSampleFramesResponse>(`/${AnalyticsService.typeName}/${method.name}`, (value: GenerateSampleFramesRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): GenerateSampleFramesResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 批量生成样本帧（减少网络往返）
+     *
+     * @generated from protobuf rpc: GenerateBatchSampleFrames
+     */
+    generateBatchSampleFrames(input: BatchGenerateSampleFramesRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: BatchGenerateSampleFramesResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: BatchGenerateSampleFramesResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: BatchGenerateSampleFramesResponse) => void)): grpc.ClientUnaryCall {
+        const method = AnalyticsService.methods[10];
+        return this.makeUnaryRequest<BatchGenerateSampleFramesRequest, BatchGenerateSampleFramesResponse>(`/${AnalyticsService.typeName}/${method.name}`, (value: BatchGenerateSampleFramesRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): BatchGenerateSampleFramesResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 获取样本帧数据
+     *
+     * @generated from protobuf rpc: GetSampleFrames
+     */
+    getSampleFrames(input: GetSampleFramesRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GetSampleFramesResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GetSampleFramesResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: GetSampleFramesResponse) => void)): grpc.ClientUnaryCall {
+        const method = AnalyticsService.methods[11];
+        return this.makeUnaryRequest<GetSampleFramesRequest, GetSampleFramesResponse>(`/${AnalyticsService.typeName}/${method.name}`, (value: GetSampleFramesRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): GetSampleFramesResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
 }
 // ============================================================================

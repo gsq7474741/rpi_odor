@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Settings, FlaskConical, ChevronLeft, ChevronRight, ScrollText, Package, Workflow, BarChart3, Database } from "lucide-react";
+import { Settings, FlaskConical, ChevronLeft, ChevronRight, ScrollText, Package, Workflow, BarChart3, Database, Beaker } from "lucide-react";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useEditorStore } from "./experiment-editor/store";
 import {
@@ -30,7 +30,7 @@ const navItems: NavItem[] = [
     icon: Settings,
   },
   {
-    title: "实验管理",
+    title: "实验执行",
     href: "/experiment",
     icon: FlaskConical,
   },
@@ -43,6 +43,11 @@ const navItems: NavItem[] = [
     title: "耗材管理",
     href: "/consumables",
     icon: Package,
+  },
+  {
+    title: "实验中心",
+    href: "/experiments",
+    icon: Beaker,
   },
   {
     title: "实验数据",

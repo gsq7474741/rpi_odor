@@ -7,6 +7,9 @@
 #include "grpc/consumable_service_impl.hpp"
 #include "hal/load_cell_driver.hpp"
 #include "db/consumable_repository.hpp"
+#include "db/experiment_repository.hpp"
+#include "db/sample_repository.hpp"
+#include "db/phase_transition_repository.hpp"
 #include <spdlog/spdlog.h>
 
 namespace enose_grpc {
@@ -57,6 +60,29 @@ void GrpcServer::start(const std::string& address) {
         
         // ConsumableService 不需要外部依赖
         consumable_service = std::make_unique<grpc_service::ConsumableServiceImpl>();
+        
+        // 创建并关联服务之间共享的仓库
+        if (experiment_service) {
+            // 创建实验相关的仓库
+            auto experiment_repo = std::make_shared<db::ExperimentRepository>();
+            auto sample_repo = std::make_shared<db::SampleRepository>();
+            auto phase_transition_repo = std::make_shared<db::PhaseTransitionRepository>();
+            
+            experiment_service->set_experiment_repository(experiment_repo);
+            experiment_service->set_sample_repository(sample_repo);
+            experiment_service->set_phase_transition_repository(phase_transition_repo);
+            spdlog::info("GrpcServer: Initialized ExperimentRepository, SampleRepository, PhaseTransitionRepository");
+            
+            // 共享 SensorRepository，使 ExperimentService 设置的 run_id 能关联到传感器数据
+            if (sensor_service) {
+                auto sensor_repo = sensor_service->sensor_repository();
+                if (sensor_repo) {
+                    experiment_service->set_sensor_repository(
+                        std::shared_ptr<db::SensorRepository>(sensor_repo, [](db::SensorRepository*){}));
+                    spdlog::info("GrpcServer: Shared SensorRepository between ExperimentService and SensorService");
+                }
+            }
+        }
         
         // 构建服务器
         ::grpc::ServerBuilder builder;

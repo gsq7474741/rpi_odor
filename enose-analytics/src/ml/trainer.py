@@ -1,6 +1,5 @@
 """模型训练模块"""
 
-import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterator
 
@@ -10,8 +9,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
 from .mlp_model import MLPClassifier
+from ..logger import logger
 
-logger = logging.getLogger(__name__)
 
 
 @dataclass

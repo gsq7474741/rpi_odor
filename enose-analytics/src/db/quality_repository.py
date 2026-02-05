@@ -1,13 +1,12 @@
 """质检结果存储模块"""
 
 import json
-import logging
 from datetime import datetime
 from typing import Any
 
 from .connection import get_connection, get_cursor
+from ..logger import logger
 
-logger = logging.getLogger(__name__)
 
 
 class QualityRepository:

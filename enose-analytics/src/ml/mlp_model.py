@@ -1,12 +1,10 @@
 """MLP 模型定义"""
 
-import logging
 from typing import Any
 
 import torch
 import torch.nn as nn
 
-logger = logging.getLogger(__name__)
 
 
 class MLPClassifier(nn.Module):

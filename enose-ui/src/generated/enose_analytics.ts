@@ -225,7 +225,13 @@ export interface VisualizationRequest {
      *
      * @generated from protobuf field: int32 max_points = 8
      */
-    maxPoints: number; // 最大点数 (默认 1000)
+    maxPoints: number; // 最大样本数 (默认 1000)
+    /**
+     * 样本 ID 列表（逗号分隔，优先于 experiment_id）
+     *
+     * @generated from protobuf field: optional string sample_ids = 9
+     */
+    sampleIds?: string;
 }
 /**
  * @generated from protobuf message enose.analytics.v1.VisualizationResponse
@@ -391,6 +397,223 @@ export interface GenerateNormalizedFramesResponse {
     framesGenerated: {
         [key: string]: number;
     }; // 每个阶段+方法生成的帧数
+}
+// ============================================================================
+// 基于 sample_id 的归一化帧消息 (新接口)
+// ============================================================================
+
+/**
+ * @generated from protobuf message enose.analytics.v1.SampleFramesStatusRequest
+ */
+export interface SampleFramesStatusRequest {
+    /**
+     * @generated from protobuf field: int32 sample_id = 1
+     */
+    sampleId: number; // 样本 ID
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.SampleFramesStatusResponse
+ */
+export interface SampleFramesStatusResponse {
+    /**
+     * @generated from protobuf field: bool exists = 1
+     */
+    exists: boolean; // 是否存在归一化帧
+    /**
+     * @generated from protobuf field: bool cached = 2
+     */
+    cached: boolean; // 是否在 Redis 缓存中
+    /**
+     * @generated from protobuf field: repeated enose.analytics.v1.SampleFramesMeta variants = 3
+     */
+    variants: SampleFramesMeta[]; // 不同参数的变体
+}
+/**
+ * 批量查询请求
+ *
+ * @generated from protobuf message enose.analytics.v1.BatchSampleFramesStatusRequest
+ */
+export interface BatchSampleFramesStatusRequest {
+    /**
+     * @generated from protobuf field: repeated int32 sample_ids = 1
+     */
+    sampleIds: number[]; // 样本 ID 列表
+}
+/**
+ * 批量查询响应
+ *
+ * @generated from protobuf message enose.analytics.v1.BatchSampleFramesStatusResponse
+ */
+export interface BatchSampleFramesStatusResponse {
+    /**
+     * @generated from protobuf field: map<int32, enose.analytics.v1.SampleFramesStatusResponse> statuses = 1
+     */
+    statuses: {
+        [key: number]: SampleFramesStatusResponse;
+    }; // sample_id -> 状态
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.SampleFramesMeta
+ */
+export interface SampleFramesMeta {
+    /**
+     * @generated from protobuf field: string method = 1
+     */
+    method: string; // linear 或 pchip
+    /**
+     * @generated from protobuf field: int32 n_samples = 2
+     */
+    nSamples: number; // 采样点数
+    /**
+     * @generated from protobuf field: repeated int32 original_point_counts = 3
+     */
+    originalPointCounts: number[]; // 每个传感器的原始点数
+    /**
+     * @generated from protobuf field: int64 time_range_ms = 4
+     */
+    timeRangeMs: string; // 原始时间跨度
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GenerateSampleFramesRequest
+ */
+export interface GenerateSampleFramesRequest {
+    /**
+     * @generated from protobuf field: int32 sample_id = 1
+     */
+    sampleId: number; // 样本 ID
+    /**
+     * @generated from protobuf field: int32 n_samples = 2
+     */
+    nSamples: number; // 采样点数 (默认 100)
+    /**
+     * @generated from protobuf field: repeated string methods = 3
+     */
+    methods: string[]; // 插值方法列表 (默认 ["linear", "pchip"])
+    /**
+     * @generated from protobuf field: optional bool use_cache = 4
+     */
+    useCache?: boolean; // 是否使用 Redis 缓存 (默认 true)
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GenerateSampleFramesResponse
+ */
+export interface GenerateSampleFramesResponse {
+    /**
+     * @generated from protobuf field: bool success = 1
+     */
+    success: boolean;
+    /**
+     * @generated from protobuf field: string message = 2
+     */
+    message: string;
+    /**
+     * @generated from protobuf field: map<string, int32> frames_generated = 3
+     */
+    framesGenerated: {
+        [key: string]: number;
+    }; // 每种方法生成的帧数
+    /**
+     * @generated from protobuf field: bool from_cache = 4
+     */
+    fromCache: boolean; // 是否从缓存获取
+}
+/**
+ * 批量生成样本帧请求
+ *
+ * @generated from protobuf message enose.analytics.v1.BatchGenerateSampleFramesRequest
+ */
+export interface BatchGenerateSampleFramesRequest {
+    /**
+     * @generated from protobuf field: repeated int32 sample_ids = 1
+     */
+    sampleIds: number[]; // 样本 ID 列表
+    /**
+     * @generated from protobuf field: int32 n_samples = 2
+     */
+    nSamples: number; // 采样点数 (默认 100)
+    /**
+     * @generated from protobuf field: repeated string methods = 3
+     */
+    methods: string[]; // 插值方法列表 (默认 ["linear", "pchip"])
+    /**
+     * @generated from protobuf field: optional bool use_cache = 4
+     */
+    useCache?: boolean; // 是否使用 Redis 缓存 (默认 true)
+}
+/**
+ * 批量生成样本帧响应
+ *
+ * @generated from protobuf message enose.analytics.v1.BatchGenerateSampleFramesResponse
+ */
+export interface BatchGenerateSampleFramesResponse {
+    /**
+     * @generated from protobuf field: int32 total_samples = 1
+     */
+    totalSamples: number; // 总样本数
+    /**
+     * @generated from protobuf field: int32 success_count = 2
+     */
+    successCount: number; // 成功数
+    /**
+     * @generated from protobuf field: int32 failed_count = 3
+     */
+    failedCount: number; // 失败数
+    /**
+     * @generated from protobuf field: int32 from_cache_count = 4
+     */
+    fromCacheCount: number; // 从缓存获取的数量
+    /**
+     * @generated from protobuf field: map<int32, string> errors = 5
+     */
+    errors: {
+        [key: number]: string;
+    }; // 失败的样本 ID -> 错误信息
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GetSampleFramesRequest
+ */
+export interface GetSampleFramesRequest {
+    /**
+     * @generated from protobuf field: int32 sample_id = 1
+     */
+    sampleId: number; // 样本 ID
+    /**
+     * @generated from protobuf field: string method = 2
+     */
+    method: string; // 插值方法 (默认 "linear")
+    /**
+     * @generated from protobuf field: int32 n_samples = 3
+     */
+    nSamples: number; // 采样点数 (默认 100)
+    /**
+     * @generated from protobuf field: optional bool use_cache = 4
+     */
+    useCache?: boolean; // 是否使用 Redis 缓存 (默认 true)
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GetSampleFramesResponse
+ */
+export interface GetSampleFramesResponse {
+    /**
+     * @generated from protobuf field: bool success = 1
+     */
+    success: boolean;
+    /**
+     * @generated from protobuf field: repeated double frames = 2
+     */
+    frames: number[]; // 帧数据 (flatten: n_samples * 8)
+    /**
+     * @generated from protobuf field: int32 n_samples = 3
+     */
+    nSamples: number; // 采样点数
+    /**
+     * @generated from protobuf field: int32 n_sensors = 4
+     */
+    nSensors: number; // 传感器数 (固定为 8)
+    /**
+     * @generated from protobuf field: bool from_cache = 5
+     */
+    fromCache: boolean; // 是否从缓存获取
 }
 // ============================================================================
 // 模型训练消息
@@ -932,6 +1155,10 @@ export interface ExperimentSummary {
      * @generated from protobuf field: string status = 7
      */
     status: string; // running, completed, error
+    /**
+     * @generated from protobuf field: int32 sample_count = 8
+     */
+    sampleCount: number; // 真实样本数量（从 samples 表）
 }
 // ============================================================================
 // 传感器数据查询
@@ -2209,7 +2436,8 @@ class VisualizationRequest$Type extends MessageType<VisualizationRequest> {
             { no: 5, name: "n_components", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 6, name: "perplexity", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 7, name: "n_clusters", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 8, name: "max_points", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+            { no: 8, name: "max_points", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 9, name: "sample_ids", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ }
         ]);
     }
     create(value?: PartialMessage<VisualizationRequest>): VisualizationRequest {
@@ -2252,6 +2480,9 @@ class VisualizationRequest$Type extends MessageType<VisualizationRequest> {
                 case /* int32 max_points */ 8:
                     message.maxPoints = reader.int32();
                     break;
+                case /* optional string sample_ids */ 9:
+                    message.sampleIds = reader.string();
+                    break;
                 default:
                     let u = options.readUnknownField;
                     if (u === "throw")
@@ -2288,6 +2519,9 @@ class VisualizationRequest$Type extends MessageType<VisualizationRequest> {
         /* int32 max_points = 8; */
         if (message.maxPoints !== 0)
             writer.tag(8, WireType.Varint).int32(message.maxPoints);
+        /* optional string sample_ids = 9; */
+        if (message.sampleIds !== undefined)
+            writer.tag(9, WireType.LengthDelimited).string(message.sampleIds);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -2841,6 +3075,804 @@ class GenerateNormalizedFramesResponse$Type extends MessageType<GenerateNormaliz
  * @generated MessageType for protobuf message enose.analytics.v1.GenerateNormalizedFramesResponse
  */
 export const GenerateNormalizedFramesResponse = new GenerateNormalizedFramesResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class SampleFramesStatusRequest$Type extends MessageType<SampleFramesStatusRequest> {
+    constructor() {
+        super("enose.analytics.v1.SampleFramesStatusRequest", [
+            { no: 1, name: "sample_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<SampleFramesStatusRequest>): SampleFramesStatusRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.sampleId = 0;
+        if (value !== undefined)
+            reflectionMergePartial<SampleFramesStatusRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: SampleFramesStatusRequest): SampleFramesStatusRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 sample_id */ 1:
+                    message.sampleId = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: SampleFramesStatusRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 sample_id = 1; */
+        if (message.sampleId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.sampleId);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.SampleFramesStatusRequest
+ */
+export const SampleFramesStatusRequest = new SampleFramesStatusRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class SampleFramesStatusResponse$Type extends MessageType<SampleFramesStatusResponse> {
+    constructor() {
+        super("enose.analytics.v1.SampleFramesStatusResponse", [
+            { no: 1, name: "exists", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 2, name: "cached", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 3, name: "variants", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => SampleFramesMeta }
+        ]);
+    }
+    create(value?: PartialMessage<SampleFramesStatusResponse>): SampleFramesStatusResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.exists = false;
+        message.cached = false;
+        message.variants = [];
+        if (value !== undefined)
+            reflectionMergePartial<SampleFramesStatusResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: SampleFramesStatusResponse): SampleFramesStatusResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* bool exists */ 1:
+                    message.exists = reader.bool();
+                    break;
+                case /* bool cached */ 2:
+                    message.cached = reader.bool();
+                    break;
+                case /* repeated enose.analytics.v1.SampleFramesMeta variants */ 3:
+                    message.variants.push(SampleFramesMeta.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: SampleFramesStatusResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* bool exists = 1; */
+        if (message.exists !== false)
+            writer.tag(1, WireType.Varint).bool(message.exists);
+        /* bool cached = 2; */
+        if (message.cached !== false)
+            writer.tag(2, WireType.Varint).bool(message.cached);
+        /* repeated enose.analytics.v1.SampleFramesMeta variants = 3; */
+        for (let i = 0; i < message.variants.length; i++)
+            SampleFramesMeta.internalBinaryWrite(message.variants[i], writer.tag(3, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.SampleFramesStatusResponse
+ */
+export const SampleFramesStatusResponse = new SampleFramesStatusResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class BatchSampleFramesStatusRequest$Type extends MessageType<BatchSampleFramesStatusRequest> {
+    constructor() {
+        super("enose.analytics.v1.BatchSampleFramesStatusRequest", [
+            { no: 1, name: "sample_ids", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<BatchSampleFramesStatusRequest>): BatchSampleFramesStatusRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.sampleIds = [];
+        if (value !== undefined)
+            reflectionMergePartial<BatchSampleFramesStatusRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: BatchSampleFramesStatusRequest): BatchSampleFramesStatusRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated int32 sample_ids */ 1:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.sampleIds.push(reader.int32());
+                    else
+                        message.sampleIds.push(reader.int32());
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: BatchSampleFramesStatusRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated int32 sample_ids = 1; */
+        if (message.sampleIds.length) {
+            writer.tag(1, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.sampleIds.length; i++)
+                writer.int32(message.sampleIds[i]);
+            writer.join();
+        }
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.BatchSampleFramesStatusRequest
+ */
+export const BatchSampleFramesStatusRequest = new BatchSampleFramesStatusRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class BatchSampleFramesStatusResponse$Type extends MessageType<BatchSampleFramesStatusResponse> {
+    constructor() {
+        super("enose.analytics.v1.BatchSampleFramesStatusResponse", [
+            { no: 1, name: "statuses", kind: "map", K: 5 /*ScalarType.INT32*/, V: { kind: "message", T: () => SampleFramesStatusResponse } }
+        ]);
+    }
+    create(value?: PartialMessage<BatchSampleFramesStatusResponse>): BatchSampleFramesStatusResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.statuses = {};
+        if (value !== undefined)
+            reflectionMergePartial<BatchSampleFramesStatusResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: BatchSampleFramesStatusResponse): BatchSampleFramesStatusResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* map<int32, enose.analytics.v1.SampleFramesStatusResponse> statuses */ 1:
+                    this.binaryReadMap1(message.statuses, reader, options);
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    private binaryReadMap1(map: BatchSampleFramesStatusResponse["statuses"], reader: IBinaryReader, options: BinaryReadOptions): void {
+        let len = reader.uint32(), end = reader.pos + len, key: keyof BatchSampleFramesStatusResponse["statuses"] | undefined, val: BatchSampleFramesStatusResponse["statuses"][any] | undefined;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case 1:
+                    key = reader.int32();
+                    break;
+                case 2:
+                    val = SampleFramesStatusResponse.internalBinaryRead(reader, reader.uint32(), options);
+                    break;
+                default: throw new globalThis.Error("unknown map entry field for enose.analytics.v1.BatchSampleFramesStatusResponse.statuses");
+            }
+        }
+        map[key ?? 0] = val ?? SampleFramesStatusResponse.create();
+    }
+    internalBinaryWrite(message: BatchSampleFramesStatusResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* map<int32, enose.analytics.v1.SampleFramesStatusResponse> statuses = 1; */
+        for (let k of globalThis.Object.keys(message.statuses)) {
+            writer.tag(1, WireType.LengthDelimited).fork().tag(1, WireType.Varint).int32(parseInt(k));
+            writer.tag(2, WireType.LengthDelimited).fork();
+            SampleFramesStatusResponse.internalBinaryWrite(message.statuses[k as any], writer, options);
+            writer.join().join();
+        }
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.BatchSampleFramesStatusResponse
+ */
+export const BatchSampleFramesStatusResponse = new BatchSampleFramesStatusResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class SampleFramesMeta$Type extends MessageType<SampleFramesMeta> {
+    constructor() {
+        super("enose.analytics.v1.SampleFramesMeta", [
+            { no: 1, name: "method", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "n_samples", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "original_point_counts", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "time_range_ms", kind: "scalar", T: 3 /*ScalarType.INT64*/ }
+        ]);
+    }
+    create(value?: PartialMessage<SampleFramesMeta>): SampleFramesMeta {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.method = "";
+        message.nSamples = 0;
+        message.originalPointCounts = [];
+        message.timeRangeMs = "0";
+        if (value !== undefined)
+            reflectionMergePartial<SampleFramesMeta>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: SampleFramesMeta): SampleFramesMeta {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string method */ 1:
+                    message.method = reader.string();
+                    break;
+                case /* int32 n_samples */ 2:
+                    message.nSamples = reader.int32();
+                    break;
+                case /* repeated int32 original_point_counts */ 3:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.originalPointCounts.push(reader.int32());
+                    else
+                        message.originalPointCounts.push(reader.int32());
+                    break;
+                case /* int64 time_range_ms */ 4:
+                    message.timeRangeMs = reader.int64().toString();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: SampleFramesMeta, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string method = 1; */
+        if (message.method !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.method);
+        /* int32 n_samples = 2; */
+        if (message.nSamples !== 0)
+            writer.tag(2, WireType.Varint).int32(message.nSamples);
+        /* repeated int32 original_point_counts = 3; */
+        if (message.originalPointCounts.length) {
+            writer.tag(3, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.originalPointCounts.length; i++)
+                writer.int32(message.originalPointCounts[i]);
+            writer.join();
+        }
+        /* int64 time_range_ms = 4; */
+        if (message.timeRangeMs !== "0")
+            writer.tag(4, WireType.Varint).int64(message.timeRangeMs);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.SampleFramesMeta
+ */
+export const SampleFramesMeta = new SampleFramesMeta$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GenerateSampleFramesRequest$Type extends MessageType<GenerateSampleFramesRequest> {
+    constructor() {
+        super("enose.analytics.v1.GenerateSampleFramesRequest", [
+            { no: 1, name: "sample_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "n_samples", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "methods", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "use_cache", kind: "scalar", opt: true, T: 8 /*ScalarType.BOOL*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GenerateSampleFramesRequest>): GenerateSampleFramesRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.sampleId = 0;
+        message.nSamples = 0;
+        message.methods = [];
+        if (value !== undefined)
+            reflectionMergePartial<GenerateSampleFramesRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GenerateSampleFramesRequest): GenerateSampleFramesRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 sample_id */ 1:
+                    message.sampleId = reader.int32();
+                    break;
+                case /* int32 n_samples */ 2:
+                    message.nSamples = reader.int32();
+                    break;
+                case /* repeated string methods */ 3:
+                    message.methods.push(reader.string());
+                    break;
+                case /* optional bool use_cache */ 4:
+                    message.useCache = reader.bool();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GenerateSampleFramesRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 sample_id = 1; */
+        if (message.sampleId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.sampleId);
+        /* int32 n_samples = 2; */
+        if (message.nSamples !== 0)
+            writer.tag(2, WireType.Varint).int32(message.nSamples);
+        /* repeated string methods = 3; */
+        for (let i = 0; i < message.methods.length; i++)
+            writer.tag(3, WireType.LengthDelimited).string(message.methods[i]);
+        /* optional bool use_cache = 4; */
+        if (message.useCache !== undefined)
+            writer.tag(4, WireType.Varint).bool(message.useCache);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GenerateSampleFramesRequest
+ */
+export const GenerateSampleFramesRequest = new GenerateSampleFramesRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GenerateSampleFramesResponse$Type extends MessageType<GenerateSampleFramesResponse> {
+    constructor() {
+        super("enose.analytics.v1.GenerateSampleFramesResponse", [
+            { no: 1, name: "success", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 2, name: "message", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "frames_generated", kind: "map", K: 9 /*ScalarType.STRING*/, V: { kind: "scalar", T: 5 /*ScalarType.INT32*/ } },
+            { no: 4, name: "from_cache", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GenerateSampleFramesResponse>): GenerateSampleFramesResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.success = false;
+        message.message = "";
+        message.framesGenerated = {};
+        message.fromCache = false;
+        if (value !== undefined)
+            reflectionMergePartial<GenerateSampleFramesResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GenerateSampleFramesResponse): GenerateSampleFramesResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* bool success */ 1:
+                    message.success = reader.bool();
+                    break;
+                case /* string message */ 2:
+                    message.message = reader.string();
+                    break;
+                case /* map<string, int32> frames_generated */ 3:
+                    this.binaryReadMap3(message.framesGenerated, reader, options);
+                    break;
+                case /* bool from_cache */ 4:
+                    message.fromCache = reader.bool();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    private binaryReadMap3(map: GenerateSampleFramesResponse["framesGenerated"], reader: IBinaryReader, options: BinaryReadOptions): void {
+        let len = reader.uint32(), end = reader.pos + len, key: keyof GenerateSampleFramesResponse["framesGenerated"] | undefined, val: GenerateSampleFramesResponse["framesGenerated"][any] | undefined;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case 1:
+                    key = reader.string();
+                    break;
+                case 2:
+                    val = reader.int32();
+                    break;
+                default: throw new globalThis.Error("unknown map entry field for enose.analytics.v1.GenerateSampleFramesResponse.frames_generated");
+            }
+        }
+        map[key ?? ""] = val ?? 0;
+    }
+    internalBinaryWrite(message: GenerateSampleFramesResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* bool success = 1; */
+        if (message.success !== false)
+            writer.tag(1, WireType.Varint).bool(message.success);
+        /* string message = 2; */
+        if (message.message !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.message);
+        /* map<string, int32> frames_generated = 3; */
+        for (let k of globalThis.Object.keys(message.framesGenerated))
+            writer.tag(3, WireType.LengthDelimited).fork().tag(1, WireType.LengthDelimited).string(k).tag(2, WireType.Varint).int32(message.framesGenerated[k]).join();
+        /* bool from_cache = 4; */
+        if (message.fromCache !== false)
+            writer.tag(4, WireType.Varint).bool(message.fromCache);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GenerateSampleFramesResponse
+ */
+export const GenerateSampleFramesResponse = new GenerateSampleFramesResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class BatchGenerateSampleFramesRequest$Type extends MessageType<BatchGenerateSampleFramesRequest> {
+    constructor() {
+        super("enose.analytics.v1.BatchGenerateSampleFramesRequest", [
+            { no: 1, name: "sample_ids", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "n_samples", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "methods", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "use_cache", kind: "scalar", opt: true, T: 8 /*ScalarType.BOOL*/ }
+        ]);
+    }
+    create(value?: PartialMessage<BatchGenerateSampleFramesRequest>): BatchGenerateSampleFramesRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.sampleIds = [];
+        message.nSamples = 0;
+        message.methods = [];
+        if (value !== undefined)
+            reflectionMergePartial<BatchGenerateSampleFramesRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: BatchGenerateSampleFramesRequest): BatchGenerateSampleFramesRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated int32 sample_ids */ 1:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.sampleIds.push(reader.int32());
+                    else
+                        message.sampleIds.push(reader.int32());
+                    break;
+                case /* int32 n_samples */ 2:
+                    message.nSamples = reader.int32();
+                    break;
+                case /* repeated string methods */ 3:
+                    message.methods.push(reader.string());
+                    break;
+                case /* optional bool use_cache */ 4:
+                    message.useCache = reader.bool();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: BatchGenerateSampleFramesRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated int32 sample_ids = 1; */
+        if (message.sampleIds.length) {
+            writer.tag(1, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.sampleIds.length; i++)
+                writer.int32(message.sampleIds[i]);
+            writer.join();
+        }
+        /* int32 n_samples = 2; */
+        if (message.nSamples !== 0)
+            writer.tag(2, WireType.Varint).int32(message.nSamples);
+        /* repeated string methods = 3; */
+        for (let i = 0; i < message.methods.length; i++)
+            writer.tag(3, WireType.LengthDelimited).string(message.methods[i]);
+        /* optional bool use_cache = 4; */
+        if (message.useCache !== undefined)
+            writer.tag(4, WireType.Varint).bool(message.useCache);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.BatchGenerateSampleFramesRequest
+ */
+export const BatchGenerateSampleFramesRequest = new BatchGenerateSampleFramesRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class BatchGenerateSampleFramesResponse$Type extends MessageType<BatchGenerateSampleFramesResponse> {
+    constructor() {
+        super("enose.analytics.v1.BatchGenerateSampleFramesResponse", [
+            { no: 1, name: "total_samples", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "success_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "failed_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "from_cache_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 5, name: "errors", kind: "map", K: 5 /*ScalarType.INT32*/, V: { kind: "scalar", T: 9 /*ScalarType.STRING*/ } }
+        ]);
+    }
+    create(value?: PartialMessage<BatchGenerateSampleFramesResponse>): BatchGenerateSampleFramesResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.totalSamples = 0;
+        message.successCount = 0;
+        message.failedCount = 0;
+        message.fromCacheCount = 0;
+        message.errors = {};
+        if (value !== undefined)
+            reflectionMergePartial<BatchGenerateSampleFramesResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: BatchGenerateSampleFramesResponse): BatchGenerateSampleFramesResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 total_samples */ 1:
+                    message.totalSamples = reader.int32();
+                    break;
+                case /* int32 success_count */ 2:
+                    message.successCount = reader.int32();
+                    break;
+                case /* int32 failed_count */ 3:
+                    message.failedCount = reader.int32();
+                    break;
+                case /* int32 from_cache_count */ 4:
+                    message.fromCacheCount = reader.int32();
+                    break;
+                case /* map<int32, string> errors */ 5:
+                    this.binaryReadMap5(message.errors, reader, options);
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    private binaryReadMap5(map: BatchGenerateSampleFramesResponse["errors"], reader: IBinaryReader, options: BinaryReadOptions): void {
+        let len = reader.uint32(), end = reader.pos + len, key: keyof BatchGenerateSampleFramesResponse["errors"] | undefined, val: BatchGenerateSampleFramesResponse["errors"][any] | undefined;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case 1:
+                    key = reader.int32();
+                    break;
+                case 2:
+                    val = reader.string();
+                    break;
+                default: throw new globalThis.Error("unknown map entry field for enose.analytics.v1.BatchGenerateSampleFramesResponse.errors");
+            }
+        }
+        map[key ?? 0] = val ?? "";
+    }
+    internalBinaryWrite(message: BatchGenerateSampleFramesResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 total_samples = 1; */
+        if (message.totalSamples !== 0)
+            writer.tag(1, WireType.Varint).int32(message.totalSamples);
+        /* int32 success_count = 2; */
+        if (message.successCount !== 0)
+            writer.tag(2, WireType.Varint).int32(message.successCount);
+        /* int32 failed_count = 3; */
+        if (message.failedCount !== 0)
+            writer.tag(3, WireType.Varint).int32(message.failedCount);
+        /* int32 from_cache_count = 4; */
+        if (message.fromCacheCount !== 0)
+            writer.tag(4, WireType.Varint).int32(message.fromCacheCount);
+        /* map<int32, string> errors = 5; */
+        for (let k of globalThis.Object.keys(message.errors))
+            writer.tag(5, WireType.LengthDelimited).fork().tag(1, WireType.Varint).int32(parseInt(k)).tag(2, WireType.LengthDelimited).string(message.errors[k as any]).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.BatchGenerateSampleFramesResponse
+ */
+export const BatchGenerateSampleFramesResponse = new BatchGenerateSampleFramesResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetSampleFramesRequest$Type extends MessageType<GetSampleFramesRequest> {
+    constructor() {
+        super("enose.analytics.v1.GetSampleFramesRequest", [
+            { no: 1, name: "sample_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "method", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "n_samples", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "use_cache", kind: "scalar", opt: true, T: 8 /*ScalarType.BOOL*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GetSampleFramesRequest>): GetSampleFramesRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.sampleId = 0;
+        message.method = "";
+        message.nSamples = 0;
+        if (value !== undefined)
+            reflectionMergePartial<GetSampleFramesRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetSampleFramesRequest): GetSampleFramesRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 sample_id */ 1:
+                    message.sampleId = reader.int32();
+                    break;
+                case /* string method */ 2:
+                    message.method = reader.string();
+                    break;
+                case /* int32 n_samples */ 3:
+                    message.nSamples = reader.int32();
+                    break;
+                case /* optional bool use_cache */ 4:
+                    message.useCache = reader.bool();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetSampleFramesRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 sample_id = 1; */
+        if (message.sampleId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.sampleId);
+        /* string method = 2; */
+        if (message.method !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.method);
+        /* int32 n_samples = 3; */
+        if (message.nSamples !== 0)
+            writer.tag(3, WireType.Varint).int32(message.nSamples);
+        /* optional bool use_cache = 4; */
+        if (message.useCache !== undefined)
+            writer.tag(4, WireType.Varint).bool(message.useCache);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GetSampleFramesRequest
+ */
+export const GetSampleFramesRequest = new GetSampleFramesRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetSampleFramesResponse$Type extends MessageType<GetSampleFramesResponse> {
+    constructor() {
+        super("enose.analytics.v1.GetSampleFramesResponse", [
+            { no: 1, name: "success", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 2, name: "frames", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 3, name: "n_samples", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "n_sensors", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 5, name: "from_cache", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GetSampleFramesResponse>): GetSampleFramesResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.success = false;
+        message.frames = [];
+        message.nSamples = 0;
+        message.nSensors = 0;
+        message.fromCache = false;
+        if (value !== undefined)
+            reflectionMergePartial<GetSampleFramesResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetSampleFramesResponse): GetSampleFramesResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* bool success */ 1:
+                    message.success = reader.bool();
+                    break;
+                case /* repeated double frames */ 2:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.frames.push(reader.double());
+                    else
+                        message.frames.push(reader.double());
+                    break;
+                case /* int32 n_samples */ 3:
+                    message.nSamples = reader.int32();
+                    break;
+                case /* int32 n_sensors */ 4:
+                    message.nSensors = reader.int32();
+                    break;
+                case /* bool from_cache */ 5:
+                    message.fromCache = reader.bool();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetSampleFramesResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* bool success = 1; */
+        if (message.success !== false)
+            writer.tag(1, WireType.Varint).bool(message.success);
+        /* repeated double frames = 2; */
+        if (message.frames.length) {
+            writer.tag(2, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.frames.length; i++)
+                writer.double(message.frames[i]);
+            writer.join();
+        }
+        /* int32 n_samples = 3; */
+        if (message.nSamples !== 0)
+            writer.tag(3, WireType.Varint).int32(message.nSamples);
+        /* int32 n_sensors = 4; */
+        if (message.nSensors !== 0)
+            writer.tag(4, WireType.Varint).int32(message.nSensors);
+        /* bool from_cache = 5; */
+        if (message.fromCache !== false)
+            writer.tag(5, WireType.Varint).bool(message.fromCache);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GetSampleFramesResponse
+ */
+export const GetSampleFramesResponse = new GetSampleFramesResponse$Type();
 // @generated message type with reflection information, may provide speed optimized methods
 class TrainModelRequest$Type extends MessageType<TrainModelRequest> {
     constructor() {
@@ -4482,7 +5514,8 @@ class ExperimentSummary$Type extends MessageType<ExperimentSummary> {
             { no: 4, name: "frame_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 5, name: "phases", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
             { no: 6, name: "labels", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
-            { no: 7, name: "status", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+            { no: 7, name: "status", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 8, name: "sample_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
         ]);
     }
     create(value?: PartialMessage<ExperimentSummary>): ExperimentSummary {
@@ -4492,6 +5525,7 @@ class ExperimentSummary$Type extends MessageType<ExperimentSummary> {
         message.phases = [];
         message.labels = [];
         message.status = "";
+        message.sampleCount = 0;
         if (value !== undefined)
             reflectionMergePartial<ExperimentSummary>(this, message, value);
         return message;
@@ -4521,6 +5555,9 @@ class ExperimentSummary$Type extends MessageType<ExperimentSummary> {
                     break;
                 case /* string status */ 7:
                     message.status = reader.string();
+                    break;
+                case /* int32 sample_count */ 8:
+                    message.sampleCount = reader.int32();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -4555,6 +5592,9 @@ class ExperimentSummary$Type extends MessageType<ExperimentSummary> {
         /* string status = 7; */
         if (message.status !== "")
             writer.tag(7, WireType.LengthDelimited).string(message.status);
+        /* int32 sample_count = 8; */
+        if (message.sampleCount !== 0)
+            writer.tag(8, WireType.Varint).int32(message.sampleCount);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -6473,7 +7513,12 @@ export const AnalyticsService = new ServiceType("enose.analytics.v1.AnalyticsSer
     { name: "GetQualityConfig", options: {}, I: Empty, O: QualityConfig },
     { name: "UpdateQualityConfig", options: {}, I: QualityConfig, O: QualityConfig },
     { name: "GetNormalizedFramesStatus", options: {}, I: NormalizedFramesStatusRequest, O: NormalizedFramesStatusResponse },
-    { name: "GenerateNormalizedFrames", options: {}, I: GenerateNormalizedFramesRequest, O: GenerateNormalizedFramesResponse }
+    { name: "GenerateNormalizedFrames", options: {}, I: GenerateNormalizedFramesRequest, O: GenerateNormalizedFramesResponse },
+    { name: "GetSampleFramesStatus", options: {}, I: SampleFramesStatusRequest, O: SampleFramesStatusResponse },
+    { name: "GetBatchSampleFramesStatus", options: {}, I: BatchSampleFramesStatusRequest, O: BatchSampleFramesStatusResponse },
+    { name: "GenerateSampleFrames", options: {}, I: GenerateSampleFramesRequest, O: GenerateSampleFramesResponse },
+    { name: "GenerateBatchSampleFrames", options: {}, I: BatchGenerateSampleFramesRequest, O: BatchGenerateSampleFramesResponse },
+    { name: "GetSampleFrames", options: {}, I: GetSampleFramesRequest, O: GetSampleFramesResponse }
 ]);
 /**
  * @generated ServiceType for protobuf service enose.analytics.v1.ModelService

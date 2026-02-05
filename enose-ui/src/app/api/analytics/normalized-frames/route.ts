@@ -22,11 +22,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       exists: response.exists,
       totalFrames: response.totalFrames,
-      meta: response.meta.map((m: { method: string; nSamples: number; originalPointCounts: number[]; timeRangeMs: bigint; phaseName: string }) => ({
+      meta: response.meta.map((m) => ({
         method: m.method,
         nSamples: m.nSamples,
         originalPointCounts: m.originalPointCounts,
-        timeRangeMs: Number(m.timeRangeMs),
+        timeRangeMs: typeof m.timeRangeMs === 'string' ? parseInt(m.timeRangeMs) : Number(m.timeRangeMs),
         phaseName: m.phaseName,
       })),
     });
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: response.success,
       message: response.message,
-      framesGenerated: Object.fromEntries(response.framesGenerated),
+      framesGenerated: response.framesGenerated,
     });
   } catch (error) {
     console.error("Failed to generate normalized frames:", error);

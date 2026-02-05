@@ -17,8 +17,12 @@
 
 用法:
     cd enose-analytics
-    uv run python scripts/seed_test_data.py
-    uv run python scripts/seed_test_data.py --clean  # 清除测试数据后重新填充
+    uv run python scripts/seed_test_data.py              # 默认清除之前seed的数据后重新填充
+    uv run python scripts/seed_test_data.py --no-clean   # 不清除之前的seed数据（追加）
+
+注意:
+    - 使用 run_id 范围 90000-99999 标识 seed 产生的数据
+    - 清理只删除 seed 产生的数据，不影响真实实验数据
 """
 
 import argparse
@@ -167,6 +171,16 @@ def clean_test_data(conn: psycopg.Connection) -> None:
             logger.info(f"  清除 sensor_readings_v2 (测试数据): {cur.rowcount} 行")
         except Exception as e:
             logger.warning(f"  跳过 sensor_readings_v2: {e}")
+        
+        # 清除 sample_phase_transitions (级联删除会处理，但显式删除更清晰)
+        try:
+            cur.execute("""
+                DELETE FROM sample_phase_transitions 
+                WHERE sample_id IN (SELECT id FROM samples WHERE run_id >= 90000 AND run_id < 100000)
+            """)
+            logger.info(f"  清除 sample_phase_transitions (测试数据): {cur.rowcount} 行")
+        except Exception as e:
+            logger.warning(f"  跳过 sample_phase_transitions: {e}")
         
         # 清除 samples (会级联删除)
         try:
@@ -394,6 +408,60 @@ def seed_runs_and_samples(
     conn.commit()
     logger.info(f"  创建 {len(run_ids)} 个 runs, {len(sample_ids)} 个 samples")
     return run_ids, sample_ids
+
+
+def seed_sample_phase_transitions(
+    conn: psycopg.Connection,
+    sample_ids: list[int]
+) -> None:
+    """为每个 sample 填充 phase transitions 数据"""
+    logger.info(f"填充 sample_phase_transitions ({len(sample_ids)} 个样本)...")
+    
+    # 典型的 phase 序列
+    phase_sequences = [
+        ["BASELINE", "DOSE", "SAMPLE", "PURGE"],
+        ["BASELINE", "SAMPLE", "RECOVERY"],
+        ["DOSE", "EQUILIBRATION", "SAMPLE", "RINSE"],
+    ]
+    
+    with conn.cursor() as cur:
+        for sample_id in sample_ids:
+            # 获取 sample 的时间范围
+            cur.execute(
+                "SELECT start_time_ms, end_time_ms FROM samples WHERE id = %s",
+                (sample_id,)
+            )
+            row = cur.fetchone()
+            if not row or row[1] is None:
+                continue
+            
+            start_ms, end_ms = row
+            duration_ms = end_ms - start_ms
+            
+            # 随机选择一个 phase 序列
+            phases = random.choice(phase_sequences)
+            num_phases = len(phases)
+            phase_duration = duration_ms // num_phases
+            
+            for phase_order, phase_name in enumerate(phases):
+                phase_start = start_ms + phase_order * phase_duration
+                phase_end = start_ms + (phase_order + 1) * phase_duration if phase_order < num_phases - 1 else end_ms
+                
+                try:
+                    cur.execute(
+                        """
+                        INSERT INTO sample_phase_transitions 
+                        (sample_id, phase_name, start_time_ms, end_time_ms, phase_order)
+                        VALUES (%s, %s, %s, %s, %s)
+                        ON CONFLICT (sample_id, phase_order) DO NOTHING
+                        """,
+                        (sample_id, phase_name, phase_start, phase_end, phase_order)
+                    )
+                except Exception as e:
+                    logger.warning(f"  跳过 phase transition {sample_id}/{phase_order}: {e}")
+    
+    conn.commit()
+    logger.info(f"  完成 sample_phase_transitions 填充")
 
 
 def seed_sample_labels(conn: psycopg.Connection) -> dict[str, str]:
@@ -846,7 +914,7 @@ def seed_quality_daily_stats(conn: psycopg.Connection, days: int = 30) -> None:
 # ============================================================================
 def main():
     parser = argparse.ArgumentParser(description="分析服务测试数据填充")
-    parser.add_argument("--clean", action="store_true", help="清除测试数据后重新填充")
+    parser.add_argument("--no-clean", action="store_true", help="不清除之前的seed数据（默认会清除）")
     parser.add_argument("--days", type=int, default=7, help="生成多少天的数据 (默认 7)")
     parser.add_argument("--runs-per-day", type=int, default=3, help="每天生成多少运行 (默认 3)")
     parser.add_argument("--samples-per-run", type=int, default=5, help="每运行生成多少样本 (默认 5)")
@@ -857,7 +925,8 @@ def main():
     
     try:
         with psycopg.connect(dsn) as conn:
-            if args.clean:
+            # 默认清理之前的seed数据（只删除seed产生的数据，不影响真实数据）
+            if not args.no_clean:
                 clean_test_data(conn)
             
             # 1. runs + samples + sensor_readings_v2
@@ -867,6 +936,9 @@ def main():
                 runs_per_day=args.runs_per_day,
                 samples_per_run=args.samples_per_run
             )
+            
+            # 1.5. sample_phase_transitions (Phase 转换记录)
+            seed_sample_phase_transitions(conn, sample_ids)
             
             # 2. 样品标签
             label_ids = seed_sample_labels(conn)

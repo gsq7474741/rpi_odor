@@ -39,6 +39,9 @@ interface DataTableProps<TData, TValue> {
   searchPlaceholder?: string;
   toolbar?: React.ReactNode;
   rowContextMenu?: (row: TData) => React.ReactNode;
+  onRowClick?: (row: TData) => void;
+  selectedRow?: TData | null;
+  getRowId?: (row: TData) => string;
 }
 
 export function DataTable<TData, TValue>({
@@ -48,6 +51,9 @@ export function DataTable<TData, TValue>({
   searchPlaceholder = "搜索...",
   toolbar,
   rowContextMenu,
+  onRowClick,
+  selectedRow,
+  getRowId,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -144,8 +150,8 @@ export function DataTable<TData, TValue>({
       </div>
 
       {/* Table */}
-      <div className="rounded-md border overflow-auto">
-        <table className="w-full table-fixed">
+      <div className="rounded-md border overflow-x-auto">
+        <table className="w-full min-w-max">
           <thead className="bg-muted/50">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
@@ -172,11 +178,15 @@ export function DataTable<TData, TValue>({
           <tbody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => {
+                const isSelected = selectedRow && getRowId 
+                  ? getRowId(selectedRow) === getRowId(row.original)
+                  : false;
                 const rowContent = (
                   <tr
                     key={row.id}
-                    className="border-t hover:bg-muted/50 transition-colors"
+                    className={`border-t hover:bg-muted/50 transition-colors ${onRowClick ? "cursor-pointer" : ""} ${isSelected ? "bg-primary/10" : ""}`}
                     data-state={row.getIsSelected() && "selected"}
+                    onClick={() => onRowClick?.(row.original)}
                   >
                     {row.getVisibleCells().map((cell) => {
                       const size = cell.column.columnDef.size;

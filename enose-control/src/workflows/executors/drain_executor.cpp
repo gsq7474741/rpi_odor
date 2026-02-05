@@ -60,10 +60,14 @@ ExecuteResult DrainExecutor::execute(const enose::experiment::Step& step) {
         auto result = load_cell_->wait_for_empty_bottle(
             action.empty_tolerance_g(),
             action.timeout_s(),
-            action.stability_window_s()
+            action.stability_window_s(),
+            [this]() { return check_stop_or_pause(); }
         );
         
-        if (result.success) {
+        if (result.stopped) {
+            add_log("排废被中断");
+            return ExecuteResult::fail("排废被用户中断");
+        } else if (result.success) {
             add_log("排废完成: " + std::to_string(result.empty_weight) + "g");
         } else {
             add_log("排废超时");

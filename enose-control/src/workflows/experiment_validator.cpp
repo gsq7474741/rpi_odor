@@ -40,16 +40,28 @@ ValidationResultInfo ExperimentValidator::validate(const experiment::ExperimentP
     result.estimate.estimated_duration_s = total_duration_;
     result.estimate.heater_cycles = total_heater_cycles_;
     
-    // 液体消耗详情
+    // 液体消耗详情（根据液体类型选择对应的泵绑定）
     for (const auto& [liquid_id, inventory] : liquid_map_) {
         LiquidConsumptionInfo info;
         info.liquid_id = liquid_id;
         info.liquid_name = inventory->name();
-        info.pump_index = inventory->pump_index();
+        
+        // 根据液体类型选择泵绑定映射，获取第一个泵索引
+        info.pump_index = -1;
+        auto sample_it = sample_pump_bindings_.find(liquid_id);
+        if (sample_it != sample_pump_bindings_.end() && !sample_it->second.empty()) {
+            info.pump_index = sample_it->second.front();
+        } else {
+            auto wash_it = wash_pump_bindings_.find(liquid_id);
+            if (wash_it != wash_pump_bindings_.end() && !wash_it->second.empty()) {
+                // 清洗泵使用 100+ 偏移标记
+                info.pump_index = 100 + wash_it->second.front();
+            }
+        }
         info.available_ml = inventory->available_ml();
         
         // 计算该液体的消耗量 (从泵消耗中提取)
-        auto it = pump_totals_.find(inventory->pump_index());
+        auto it = pump_totals_.find(info.pump_index >= 100 ? info.pump_index - 100 : info.pump_index);
         info.required_ml = (it != pump_totals_.end()) ? it->second : 0.0;
         info.sufficient = info.required_ml <= info.available_ml;
         
@@ -112,6 +124,8 @@ void ExperimentValidator::reset() {
     errors_.clear();
     warnings_.clear();
     liquid_map_.clear();
+    sample_pump_bindings_.clear();
+    wash_pump_bindings_.clear();
     pump_totals_.clear();
     current_liquid_level_ = 0;
     peak_liquid_level_ = 0;
@@ -129,6 +143,29 @@ void ExperimentValidator::build_liquid_map() {
                      "重复的液体ID: " + liquid.id());
         } else {
             liquid_map_[liquid.id()] = &liquid;
+        }
+    }
+    
+    // 从数据库查询泵绑定（YAML 中的 pump_index 已废弃）
+    db::ConsumableRepository repo;
+    
+    // 查询样品泵绑定 (pump 0-7)，支持多个泵绑定同一液体
+    auto pump_assignments = repo.get_pump_assignments();
+    for (const auto& pa : pump_assignments) {
+        if (pa.liquid_id.has_value()) {
+            std::string liquid_id = std::to_string(pa.liquid_id.value());
+            sample_pump_bindings_[liquid_id].push_back(pa.pump_index);
+            spdlog::debug("样品泵绑定: 液体 {} -> 泵 {}", liquid_id, pa.pump_index);
+        }
+    }
+    
+    // 查询清洗泵绑定，支持多个清洗泵绑定同一液体
+    auto wash_pump_assignments = repo.get_wash_pump_assignments();
+    for (const auto& wpa : wash_pump_assignments) {
+        if (wpa.liquid_id.has_value()) {
+            std::string liquid_id = std::to_string(wpa.liquid_id.value());
+            wash_pump_bindings_[liquid_id].push_back(wpa.pump_index);
+            spdlog::debug("清洗泵绑定: 液体 {} -> 清洗泵 {}", liquid_id, wpa.pump_index);
         }
     }
 }
@@ -158,18 +195,29 @@ void ExperimentValidator::validate_hardware_constraints() {
                  "程序包含清洗步骤但未定义清洗液");
     }
     
-    // 检查泵索引唯一性
-    std::map<int32_t, std::string> pump_to_liquid;
+    // 检查液体是否有泵绑定（根据液体类型选择对应的泵表）
     for (const auto& liquid : hw.liquids()) {
-        auto it = pump_to_liquid.find(liquid.pump_index());
-        if (it != pump_to_liquid.end()) {
-            add_error("hardware.liquids", "DUPLICATE_PUMP_INDEX",
-                     "泵" + std::to_string(liquid.pump_index()) + 
-                     "被多个液体使用: " + it->second + ", " + liquid.id());
+        if (liquid.type() == experiment::LIQUID_RINSE) {
+            // 清洗液检查清洗泵绑定
+            auto it = wash_pump_bindings_.find(liquid.id());
+            if (it == wash_pump_bindings_.end() || it->second.empty()) {
+                add_warning("hardware.liquids", "NO_WASH_PUMP_BINDING",
+                           "清洗液 " + liquid.id() + " (" + liquid.name() + 
+                           ") 未在耗材管理中绑定到清洗泵");
+            }
         } else {
-            pump_to_liquid[liquid.pump_index()] = liquid.id();
+            // 样品液检查样品泵绑定
+            auto it = sample_pump_bindings_.find(liquid.id());
+            if (it == sample_pump_bindings_.end() || it->second.empty()) {
+                add_warning("hardware.liquids", "NO_PUMP_BINDING",
+                           "液体 " + liquid.id() + " (" + liquid.name() + 
+                           ") 未在耗材管理中绑定到样品泵");
+            }
         }
     }
+    
+    // 注：泵唯一性检查已移除，因为泵绑定在耗材管理中配置
+    // 一个泵只能绑定一个液体，由数据库约束保证
 }
 
 bool ExperimentValidator::has_wash_step_recursive(
@@ -241,6 +289,20 @@ void ExperimentValidator::validate_step(const experiment::Step& step, const std:
             // PhaseMarker 动作无需额外验证
             break;
             
+        case experiment::Step::kWash:
+            // Wash 动作的资源计算
+            calculate_wash_resources(step.wash());
+            break;
+            
+        case experiment::Step::kConfigureHeater:
+            // ConfigureHeater 动作无需额外验证和时长计算（瞬时操作）
+            break;
+            
+        case experiment::Step::kPreheat:
+            // Preheat 动作的时长计算
+            calculate_preheat_resources(step.preheat());
+            break;
+            
         case experiment::Step::ACTION_NOT_SET:
             add_error(path, "NO_ACTION", "步骤未指定动作");
             break;
@@ -259,6 +321,22 @@ void ExperimentValidator::validate_inject_action(
         if (!liquid) {
             add_error(comp_path + ".liquid_id", "UNKNOWN_LIQUID",
                      "未知的液体ID: " + comp.liquid_id());
+        } else {
+            // 进样只能使用样品泵，检查液体是否绑定到样品泵
+            auto pump_it = sample_pump_bindings_.find(comp.liquid_id());
+            if (pump_it == sample_pump_bindings_.end() || pump_it->second.empty()) {
+                // 检查是否只绑定到清洗泵
+                auto wash_it = wash_pump_bindings_.find(comp.liquid_id());
+                if (wash_it != wash_pump_bindings_.end() && !wash_it->second.empty()) {
+                    add_error(comp_path + ".pump_binding", "WRONG_PUMP_TYPE",
+                             "液体 " + comp.liquid_id() + " (" + liquid->name() + 
+                             ") 只绑定到清洗泵，不能用于进样。请在耗材管理中将该液体绑定到样品泵");
+                } else {
+                    add_error(comp_path + ".pump_binding", "NO_PUMP_BINDING",
+                             "液体 " + comp.liquid_id() + " (" + liquid->name() + 
+                             ") 未在耗材管理中绑定到样品泵");
+                }
+            }
         }
     }
     
@@ -306,8 +384,10 @@ void ExperimentValidator::validate_acquire_action(
         add_error(path, "NO_TERMINATION", "采集动作未指定终止条件");
     }
     
-    // 检查最大时间
-    if (action.max_duration_s() <= 0) {
+    // 检查最大时间 - 只有非固定时间模式才需要
+    // 如果使用 duration_s 固定时间模式，则不需要 max_duration_s
+    bool is_fixed_duration = (action.termination_case() == experiment::AcquireAction::kDurationS);
+    if (!is_fixed_duration && action.max_duration_s() <= 0) {
         add_warning(path + ".max_duration_s", "NO_MAX_DURATION", 
                    "未设置最大时间，可能导致长时间运行");
     }
@@ -361,13 +441,24 @@ void ExperimentValidator::validate_loop_action(
 void ExperimentValidator::calculate_inject_resources(const experiment::InjectAction& action) {
     double volume = get_inject_volume(action);
     
-    // 累加每个泵的消耗
+    // 计算总比例用于归一化
+    double total_ratio = 0;
     for (const auto& comp : action.components()) {
-        const auto* liquid = find_liquid(comp.liquid_id());
-        if (liquid) {
-            double comp_volume = volume * comp.ratio();
-            pump_totals_[liquid->pump_index()] += comp_volume;
+        total_ratio += comp.ratio();
+    }
+    if (total_ratio <= 0) total_ratio = 1.0;
+    
+    // 累加每个泵的消耗（进样使用样品泵，选择编号最小的）
+    for (const auto& comp : action.components()) {
+        auto pump_it = sample_pump_bindings_.find(comp.liquid_id());
+        if (pump_it != sample_pump_bindings_.end() && !pump_it->second.empty()) {
+            // 使用编号最小的泵（已按顺序存储）
+            int32_t pump_index = pump_it->second.front();
+            // 归一化比例后计算实际体积
+            double comp_volume = volume * comp.ratio() / total_ratio;
+            pump_totals_[pump_index] += comp_volume;
         }
+        // 如果没有泵绑定，不累计消耗（验证阶段已警告）
     }
     
     // 更新液位
@@ -439,6 +530,43 @@ void ExperimentValidator::calculate_acquire_resources(const experiment::AcquireA
     }
 }
 
+void ExperimentValidator::calculate_wash_resources(const experiment::WashAction& action) {
+    // 清洗动作的资源计算
+    // 清洗流程: 先排废 → 注入清洗液 → 再排废
+    
+    // 1. 先排废（清空当前液体）
+    current_liquid_level_ = 0;
+    
+    // 2. 注入清洗液 - 使用目标清洗量作为估算
+    double wash_volume = action.target_weight_g();  // 假设密度≈1
+    current_liquid_level_ = wash_volume;  // 从0开始注入
+    if (current_liquid_level_ > peak_liquid_level_) {
+        peak_liquid_level_ = current_liquid_level_;
+    }
+    
+    // 3. 清洗后排废
+    current_liquid_level_ = 0;
+    
+    // 时长估算: (注入超时 + 排废超时) * 重复次数
+    double single_cycle = action.fill_timeout_s() + action.drain_timeout_s();
+    total_duration_ += single_cycle * action.repeat_count();
+}
+
+void ExperimentValidator::calculate_preheat_resources(const experiment::PreheatAction& action) {
+    // 预热动作的时长计算
+    if (action.has_duration_s()) {
+        // 固定时间模式
+        total_duration_ += action.duration_s();
+    } else if (action.has_cycles()) {
+        // 加热器循环模式 - 假设每个周期约 7 秒 (10个温度点 * 140ms * 5)
+        total_duration_ += action.cycles() * 7.0;
+        total_heater_cycles_ += action.cycles();
+    } else {
+        // 使用最大时间
+        total_duration_ += action.max_duration_s();
+    }
+}
+
 void ExperimentValidator::check_overflow_risk() {
     if (!program_->has_hardware()) return;
     
@@ -462,13 +590,56 @@ void ExperimentValidator::check_overflow_risk() {
 }
 
 void ExperimentValidator::check_empty_aspiration_risk() {
+    // 使用数据库查询液体余量
+    db::ConsumableRepository repo;
+    
+    // 统计每个液体ID的总消耗量（根据液体类型选择对应的泵绑定）
+    std::map<std::string, double> liquid_consumption;
+    for (const auto& [liquid_id, inventory] : liquid_map_) {
+        // 根据液体类型选择泵绑定映射
+        const std::vector<int32_t>* pump_list = nullptr;
+        auto sample_it = sample_pump_bindings_.find(liquid_id);
+        if (sample_it != sample_pump_bindings_.end() && !sample_it->second.empty()) {
+            pump_list = &sample_it->second;
+        } else {
+            auto wash_it = wash_pump_bindings_.find(liquid_id);
+            if (wash_it != wash_pump_bindings_.end() && !wash_it->second.empty()) {
+                pump_list = &wash_it->second;
+            }
+        }
+        
+        if (pump_list) {
+            // 使用第一个泵（编号最小的）
+            auto it = pump_totals_.find(pump_list->front());
+            if (it != pump_totals_.end()) {
+                liquid_consumption[liquid_id] += it->second;
+            }
+        }
+    }
+    
     // 检查每个液体的消耗是否超过可用量的90%
     for (const auto& [liquid_id, inventory] : liquid_map_) {
-        auto it = pump_totals_.find(inventory->pump_index());
-        if (it == pump_totals_.end()) continue;
+        // 尝试将液体ID转换为整数
+        int liquid_id_int = 0;
+        try {
+            liquid_id_int = std::stoi(liquid_id);
+        } catch (...) {
+            continue;
+        }
         
-        double required = it->second;
-        double available = inventory->available_ml();
+        // 获取该液体的消耗量
+        double required = 0;
+        auto it = liquid_consumption.find(liquid_id);
+        if (it != liquid_consumption.end()) {
+            required = it->second;
+        }
+        if (required <= 0) continue;
+        
+        // 从数据库查询余量
+        double available = repo.get_liquid_available_volume(liquid_id_int);
+        if (available <= 0 && inventory->available_ml() > 0) {
+            available = inventory->available_ml();
+        }
         
         if (required > available * 0.9 && required <= available) {
             add_warning("hardware.liquids", "LOW_LIQUID_MARGIN",
@@ -478,19 +649,67 @@ void ExperimentValidator::check_empty_aspiration_risk() {
 }
 
 void ExperimentValidator::check_liquid_sufficiency() {
+    // 使用 ConsumableRepository 从数据库查询液体的实际余量
+    db::ConsumableRepository repo;
+    
+    // 统计每个液体ID的总消耗量（根据液体类型选择对应的泵绑定）
+    std::map<std::string, double> liquid_consumption;
     for (const auto& [liquid_id, inventory] : liquid_map_) {
-        auto it = pump_totals_.find(inventory->pump_index());
-        if (it == pump_totals_.end()) continue;
+        // 根据液体类型选择泵绑定映射
+        const std::vector<int32_t>* pump_list = nullptr;
+        auto sample_it = sample_pump_bindings_.find(liquid_id);
+        if (sample_it != sample_pump_bindings_.end() && !sample_it->second.empty()) {
+            pump_list = &sample_it->second;
+        } else {
+            auto wash_it = wash_pump_bindings_.find(liquid_id);
+            if (wash_it != wash_pump_bindings_.end() && !wash_it->second.empty()) {
+                pump_list = &wash_it->second;
+            }
+        }
         
-        double required = it->second;
-        double available = inventory->available_ml();
+        if (pump_list) {
+            // 使用第一个泵（编号最小的）
+            auto it = pump_totals_.find(pump_list->front());
+            if (it != pump_totals_.end()) {
+                liquid_consumption[liquid_id] += it->second;
+            }
+        }
+    }
+    
+    for (const auto& [liquid_id, inventory] : liquid_map_) {
+        // 尝试将液体ID转换为整数，用于数据库查询
+        int liquid_id_int = 0;
+        try {
+            liquid_id_int = std::stoi(liquid_id);
+        } catch (...) {
+            // 非数字ID，跳过数据库查询，使用YAML中的available_ml
+            continue;
+        }
         
-        if (required > available) {
+        // 从数据库查询该液体绑定的所有泵的总余量
+        double available = repo.get_liquid_available_volume(liquid_id_int);
+        
+        // 如果数据库没有余量信息，回退到YAML中的值
+        if (available <= 0 && inventory->available_ml() > 0) {
+            available = inventory->available_ml();
+        }
+        
+        // 获取该液体的消耗量
+        double required = 0;
+        auto it = liquid_consumption.find(liquid_id);
+        if (it != liquid_consumption.end()) {
+            required = it->second;
+        }
+        
+        if (required > 0 && required > available) {
             add_error("hardware.liquids", "INSUFFICIENT_LIQUID",
                      "液体 " + liquid_id + " 不足: 需要 " + 
                      std::to_string(required) + " ml，仅有 " + 
                      std::to_string(available) + " ml");
         }
+        
+        spdlog::debug("液体余量检查: id={}, required={} ml, available={} ml", 
+                     liquid_id, required, available);
     }
 }
 
@@ -510,17 +729,19 @@ double ExperimentValidator::get_inject_volume(const experiment::InjectAction& ac
     if (action.has_target_volume_ml()) {
         return action.target_volume_ml();
     } else if (action.has_target_weight_g()) {
-        // 使用平均密度估算体积
-        double total_density = 0;
-        int count = 0;
+        // 使用加权平均密度估算体积
+        double total_ratio = 0;
+        double weighted_density = 0;
         for (const auto& comp : action.components()) {
+            total_ratio += comp.ratio();
             const auto* liquid = find_liquid(comp.liquid_id());
             if (liquid && liquid->density_g_ml() > 0) {
-                total_density += liquid->density_g_ml() * comp.ratio();
-                count++;
+                weighted_density += liquid->density_g_ml() * comp.ratio();
+            } else {
+                weighted_density += 1.0 * comp.ratio();  // 默认密度 1.0
             }
         }
-        double avg_density = (count > 0) ? total_density : 1.0;  // 默认密度 1.0
+        double avg_density = (total_ratio > 0) ? weighted_density / total_ratio : 1.0;
         return action.target_weight_g() / avg_density;
     }
     return 0;

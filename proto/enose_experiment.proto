@@ -89,25 +89,24 @@ message HardwareConstraints {
 }
 
 // 液体库存
+// 注意: pump_index 已废弃，泵绑定应在耗材管理中配置，运行时从数据库查询
 message LiquidInventory {
-  // 液体ID
+  // 液体ID (数据库中的液体主键，字符串形式)
   string id = 1 [(buf.validate.field).string = {
-    pattern: "^[a-z][a-z0-9_]*$",
+    pattern: "^[a-zA-Z0-9_-]+$",
     min_len: 1,
     max_len: 64
   }];
   
-  // 液体名称
+  // 液体名称 (仅用于显示，运行时从数据库获取最新名称)
   string name = 2;
   
-  // 泵编号 (0=清洗泵, 2-5=样品泵)
-  int32 pump_index = 3 [(buf.validate.field).int32 = {
-    gte: 0,
-    lte: 7
-  }];
+  // [DEPRECATED] 泵编号 - 请在耗材管理中配置泵绑定
+  // 运行时会忽略此字段，改为从 pump_assignments 表查询
+  int32 pump_index = 3 [deprecated = true];
   
-  // 可用量 (ml)
-  double available_ml = 4 [(buf.validate.field).double.gte = 0];
+  // [DEPRECATED] 可用量 - 运行时从数据库查询
+  double available_ml = 4 [deprecated = true];
   
   // 液体类型
   LiquidType type = 5;
@@ -629,6 +628,18 @@ message ExperimentStatusResponse {
   
   // 错误信息 (如果有)
   string error = 12;
+  
+  // 程序 YAML 内容的 SHA256 哈希 (用于追溯和版本比对)
+  string program_yaml_hash = 20;
+  
+  // 当前运行 ID
+  int64 run_id = 21;
+  
+  // 总步骤数
+  int32 total_steps = 22;
+  
+  // 程序名称
+  string program_name = 23;
 }
 
 // 实验事件

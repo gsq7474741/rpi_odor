@@ -35,6 +35,16 @@ import { ListModelsResponse } from "./enose_analytics";
 import { ListModelsRequest } from "./enose_analytics";
 import { TrainProgress } from "./enose_analytics";
 import { TrainModelRequest } from "./enose_analytics";
+import { GetSampleFramesResponse } from "./enose_analytics";
+import { GetSampleFramesRequest } from "./enose_analytics";
+import { BatchGenerateSampleFramesResponse } from "./enose_analytics";
+import { BatchGenerateSampleFramesRequest } from "./enose_analytics";
+import { GenerateSampleFramesResponse } from "./enose_analytics";
+import { GenerateSampleFramesRequest } from "./enose_analytics";
+import { BatchSampleFramesStatusResponse } from "./enose_analytics";
+import { BatchSampleFramesStatusRequest } from "./enose_analytics";
+import { SampleFramesStatusResponse } from "./enose_analytics";
+import { SampleFramesStatusRequest } from "./enose_analytics";
 import { GenerateNormalizedFramesResponse } from "./enose_analytics";
 import { GenerateNormalizedFramesRequest } from "./enose_analytics";
 import { NormalizedFramesStatusResponse } from "./enose_analytics";
@@ -96,6 +106,38 @@ export interface IAnalyticsService extends grpc.UntypedServiceImplementation {
      * @generated from protobuf rpc: GenerateNormalizedFrames
      */
     generateNormalizedFrames: grpc.handleUnaryCall<GenerateNormalizedFramesRequest, GenerateNormalizedFramesResponse>;
+    // ========== 基于 sample_id 的新接口 ==========
+
+    /**
+     * 检查样本帧状态（含缓存状态）
+     *
+     * @generated from protobuf rpc: GetSampleFramesStatus
+     */
+    getSampleFramesStatus: grpc.handleUnaryCall<SampleFramesStatusRequest, SampleFramesStatusResponse>;
+    /**
+     * 批量检查样本帧状态（减少网络往返）
+     *
+     * @generated from protobuf rpc: GetBatchSampleFramesStatus
+     */
+    getBatchSampleFramesStatus: grpc.handleUnaryCall<BatchSampleFramesStatusRequest, BatchSampleFramesStatusResponse>;
+    /**
+     * 生成样本帧（支持 Redis 缓存）
+     *
+     * @generated from protobuf rpc: GenerateSampleFrames
+     */
+    generateSampleFrames: grpc.handleUnaryCall<GenerateSampleFramesRequest, GenerateSampleFramesResponse>;
+    /**
+     * 批量生成样本帧（减少网络往返）
+     *
+     * @generated from protobuf rpc: GenerateBatchSampleFrames
+     */
+    generateBatchSampleFrames: grpc.handleUnaryCall<BatchGenerateSampleFramesRequest, BatchGenerateSampleFramesResponse>;
+    /**
+     * 获取样本帧数据
+     *
+     * @generated from protobuf rpc: GetSampleFrames
+     */
+    getSampleFrames: grpc.handleUnaryCall<GetSampleFramesRequest, GetSampleFramesResponse>;
 }
 /**
  * @grpc/grpc-js definition for the protobuf service enose.analytics.v1.AnalyticsService.
@@ -178,6 +220,56 @@ export const analyticsServiceDefinition: grpc.ServiceDefinition<IAnalyticsServic
         requestDeserialize: bytes => GenerateNormalizedFramesRequest.fromBinary(bytes),
         responseSerialize: value => Buffer.from(GenerateNormalizedFramesResponse.toBinary(value)),
         requestSerialize: value => Buffer.from(GenerateNormalizedFramesRequest.toBinary(value))
+    },
+    getSampleFramesStatus: {
+        path: "/enose.analytics.v1.AnalyticsService/GetSampleFramesStatus",
+        originalName: "GetSampleFramesStatus",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => SampleFramesStatusResponse.fromBinary(bytes),
+        requestDeserialize: bytes => SampleFramesStatusRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(SampleFramesStatusResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(SampleFramesStatusRequest.toBinary(value))
+    },
+    getBatchSampleFramesStatus: {
+        path: "/enose.analytics.v1.AnalyticsService/GetBatchSampleFramesStatus",
+        originalName: "GetBatchSampleFramesStatus",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => BatchSampleFramesStatusResponse.fromBinary(bytes),
+        requestDeserialize: bytes => BatchSampleFramesStatusRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(BatchSampleFramesStatusResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(BatchSampleFramesStatusRequest.toBinary(value))
+    },
+    generateSampleFrames: {
+        path: "/enose.analytics.v1.AnalyticsService/GenerateSampleFrames",
+        originalName: "GenerateSampleFrames",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => GenerateSampleFramesResponse.fromBinary(bytes),
+        requestDeserialize: bytes => GenerateSampleFramesRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(GenerateSampleFramesResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(GenerateSampleFramesRequest.toBinary(value))
+    },
+    generateBatchSampleFrames: {
+        path: "/enose.analytics.v1.AnalyticsService/GenerateBatchSampleFrames",
+        originalName: "GenerateBatchSampleFrames",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => BatchGenerateSampleFramesResponse.fromBinary(bytes),
+        requestDeserialize: bytes => BatchGenerateSampleFramesRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(BatchGenerateSampleFramesResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(BatchGenerateSampleFramesRequest.toBinary(value))
+    },
+    getSampleFrames: {
+        path: "/enose.analytics.v1.AnalyticsService/GetSampleFrames",
+        originalName: "GetSampleFrames",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => GetSampleFramesResponse.fromBinary(bytes),
+        requestDeserialize: bytes => GetSampleFramesRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(GetSampleFramesResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(GetSampleFramesRequest.toBinary(value))
     }
 };
 // ============================================================================

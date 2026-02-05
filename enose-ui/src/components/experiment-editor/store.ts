@@ -12,6 +12,7 @@ import {
 } from '@xyflow/react';
 import { NodeType, ExperimentNode, ExperimentEdge, isConnectionValid, HANDLE_TYPES } from './types';
 import { compile, CompilationResult } from './compiler';
+import { fetchCompilerData } from './data-fetcher';
 
 interface HistoryState {
   nodes: ExperimentNode[];
@@ -453,20 +454,33 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     });
   },
   
-  // 实时编译
-  recompile: () => {
+  // 实时编译（异步获取外部数据）
+  recompile: async () => {
     const { nodes, edges, bottleCapacityMl, maxFillMl } = get();
     set({ isCompiling: true });
     
-    // 使用 setTimeout 确保 UI 更新
-    setTimeout(() => {
+    try {
+      // 使用数据获取模块获取编译所需的外部数据
+      const { heaterProfiles, pumpBindings } = await fetchCompilerData();
+      
       const result = compile(nodes, edges, {
         bottleCapacityMl,
         maxFillMl,
         expandLoops: true,  // 展开循环显示真实编译产物
+        heaterProfiles,
+        pumpBindings,
       });
       set({ compilationResult: result, isCompiling: false });
-    }, 0);
+    } catch (error) {
+      console.error('编译失败:', error);
+      // 即使获取外部数据失败，也尝试编译（不含外部数据）
+      const result = compile(nodes, edges, {
+        bottleCapacityMl,
+        maxFillMl,
+        expandLoops: true,
+      });
+      set({ compilationResult: result, isCompiling: false });
+    }
   },
   
   setAutoCompile: (enabled) => {

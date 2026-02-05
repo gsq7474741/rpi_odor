@@ -200,6 +200,12 @@ public:
     
     std::optional<PumpAssignmentRecord> get_pump_assignment(int pump_index);
     
+    // 根据液体ID查询绑定的泵（可能有多个泵绑定同一液体）
+    std::vector<PumpAssignmentRecord> get_pumps_by_liquid_id(int liquid_id);
+    
+    // 获取液体的总可用余量（汇总所有绑定该液体的泵）
+    double get_liquid_available_volume(int liquid_id);
+    
     // === 清洗泵配置管理 ===
     std::vector<WashPumpAssignmentRecord> get_wash_pump_assignments();
     

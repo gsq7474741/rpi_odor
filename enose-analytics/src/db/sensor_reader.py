@@ -1,6 +1,5 @@
 """传感器数据读取模块"""
 
-import logging
 from datetime import datetime
 from typing import Any
 
@@ -8,8 +7,8 @@ import numpy as np
 import pandas as pd
 
 from .connection import get_cursor
+from ..logger import logger
 
-logger = logging.getLogger(__name__)
 
 
 class SensorReader:

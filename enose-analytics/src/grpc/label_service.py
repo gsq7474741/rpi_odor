@@ -1,16 +1,15 @@
 """LabelService gRPC 服务实现"""
 
-import logging
 from datetime import datetime
 
 import grpc
 from google.protobuf import empty_pb2, timestamp_pb2
 
 from ..db.label_repository import LabelRepository
+from ..logger import logger
 from ..generated import enose_analytics_pb2 as pb
 from ..generated import enose_analytics_pb2_grpc as pb_grpc
 
-logger = logging.getLogger(__name__)
 
 
 class LabelServiceImpl(pb_grpc.LabelServiceServicer):

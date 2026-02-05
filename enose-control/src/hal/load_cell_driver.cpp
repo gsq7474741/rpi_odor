@@ -338,7 +338,8 @@ void LoadCellDriver::set_pump_calibration(float slope, float offset) {
 // ============================================================
 
 LoadCellDriver::WaitForEmptyResult LoadCellDriver::wait_for_empty_bottle(
-    float tolerance, float timeout_sec, float stability_window_sec) {
+    float tolerance, float timeout_sec, float stability_window_sec,
+    StopCheckCallback stop_check) {
     
     WaitForEmptyResult result;
     
@@ -355,6 +356,15 @@ LoadCellDriver::WaitForEmptyResult LoadCellDriver::wait_for_empty_bottle(
     float stable_weight = 0.0f;
     
     while (true) {
+        // 检查是否被外部中断
+        if (stop_check && stop_check()) {
+            result.success = false;
+            result.stopped = true;
+            result.error_message = "被外部中断";
+            spdlog::info("LoadCellDriver: Wait for empty bottle stopped by external request");
+            return result;
+        }
+        
         auto elapsed = std::chrono::duration<float>(std::chrono::steady_clock::now() - start_time).count();
         if (elapsed >= timeout_sec) {
             result.success = false;

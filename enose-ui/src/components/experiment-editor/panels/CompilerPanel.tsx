@@ -80,9 +80,33 @@ export function CompilerPanel() {
     }
   }, [setCenter, getNode, setSelectedNodeId]);
 
+  // 高亮的步骤索引（用于双向跳转）
+  const [highlightedStepIndex, setHighlightedStepIndex] = useState<number | null>(null);
+  const stepRefs = React.useRef<Map<number, HTMLDivElement>>(new Map());
+  
   const handleDiagnosticClick = (diagnostic: CompilerDiagnostic) => {
+    // 跳转到图中的节点
     if (diagnostic.nodeId) {
       focusNode(diagnostic.nodeId);
+    }
+    
+    // 如果有 stepIndex，同时滚动到步骤列表中的对应步骤
+    if (diagnostic.stepIndex !== undefined) {
+      setHighlightedStepIndex(diagnostic.stepIndex);
+      setStepsExpanded(true);  // 展开步骤列表
+      
+      // 滚动到对应步骤
+      setTimeout(() => {
+        const stepElement = stepRefs.current.get(diagnostic.stepIndex!);
+        if (stepElement) {
+          stepElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+      
+      // 3秒后取消高亮
+      setTimeout(() => {
+        setHighlightedStepIndex(null);
+      }, 3000);
     }
   };
 
@@ -225,20 +249,31 @@ export function CompilerPanel() {
             <div className="p-2 rounded-lg border bg-muted/30">
               <div className="text-xs font-medium text-muted-foreground mb-2">液体消耗明细</div>
               <div className="space-y-1">
-                {result.liquidConsumption.map((lc) => (
-                  <div key={lc.liquidId} className="flex justify-between items-center text-xs">
-                    <span className="truncate" title={lc.liquidName}>
-                      {lc.liquidName}
-                      {lc.pumpIndex >= 0 && (
-                        <span className="text-muted-foreground ml-1">(泵{lc.pumpIndex})</span>
-                      )}
-                      {lc.pumpIndex < 0 && (
-                        <span className="text-muted-foreground ml-1">(清洗泵)</span>
-                      )}
-                    </span>
-                    <span className="font-medium ml-2">{lc.requiredMl.toFixed(1)} ml</span>
-                  </div>
-                ))}
+                {result.liquidConsumption.map((lc) => {
+                  // pumpIndex >= 0: 蠕动泵 (已绑定)
+                  // pumpIndex = -1: 可能是清洗泵，也可能是未绑定的样品
+                  // isWashPump 标识是否为清洗节点使用的液体
+                  const isWashPump = lc.pumpIndex === -1 && lc.isWashPump;
+                  const isUnbound = lc.pumpIndex === -1 && !lc.isWashPump;
+                  
+                  return (
+                    <div key={`${lc.liquidId}-${lc.pumpIndex}`} className="flex justify-between items-center text-xs">
+                      <span className="truncate" title={lc.liquidName}>
+                        {lc.liquidName}
+                        {lc.pumpIndex >= 0 && (
+                          <span className="text-muted-foreground ml-1">(蠕动泵{lc.pumpIndex})</span>
+                        )}
+                        {isWashPump && (
+                          <span className="text-muted-foreground ml-1">(清洗泵)</span>
+                        )}
+                        {isUnbound && (
+                          <span className="text-yellow-600 ml-1">(未绑定泵)</span>
+                        )}
+                      </span>
+                      <span className="font-medium ml-2">{lc.requiredMl.toFixed(1)} ml</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -296,6 +331,8 @@ export function CompilerPanel() {
                     expandedLoops={expandedLoops}
                     toggleLoop={toggleLoop}
                     focusNode={focusNode}
+                    highlightedStepIndex={highlightedStepIndex}
+                    stepRefs={stepRefs}
                   />
                 </div>
               </CollapsibleContent>
@@ -363,27 +400,39 @@ interface StepTreeViewProps {
   expandedLoops: Set<string>;
   toggleLoop: (key: string) => void;
   focusNode: (nodeId: string) => void;
+  highlightedStepIndex: number | null;
+  stepRefs: React.MutableRefObject<Map<number, HTMLDivElement>>;
 }
 
-function StepTreeView({ steps, expandedLoops, toggleLoop, focusNode }: StepTreeViewProps) {
+function StepTreeView({ steps, expandedLoops, toggleLoop, focusNode, highlightedStepIndex, stepRefs }: StepTreeViewProps) {
   // 构建树形结构
   const tree = useMemo(() => {
     return buildStepTree(steps);
   }, [steps]);
   
+  // 计算每个树节点对应的原始步骤索引
+  let stepCounter = 0;
+  const getStepIndex = () => stepCounter++;
+  
   return (
     <div className="space-y-0.5">
-      {tree.map((item, index) => (
-        <StepTreeNode 
-          key={item.type === 'loop' ? item.key : item.step.id}
-          item={item}
-          index={index}
-          expandedLoops={expandedLoops}
-          toggleLoop={toggleLoop}
-          focusNode={focusNode}
-          depth={0}
-        />
-      ))}
+      {tree.map((item, index) => {
+        const stepIndex = item.type === 'step' ? getStepIndex() : -1;
+        return (
+          <StepTreeNode 
+            key={item.type === 'loop' ? item.key : item.step.id}
+            item={item}
+            index={index}
+            expandedLoops={expandedLoops}
+            toggleLoop={toggleLoop}
+            focusNode={focusNode}
+            depth={0}
+            highlightedStepIndex={highlightedStepIndex}
+            stepRefs={stepRefs}
+            stepIndex={stepIndex}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -466,14 +515,24 @@ interface StepTreeNodeProps {
   toggleLoop: (key: string) => void;
   focusNode: (nodeId: string) => void;
   depth: number;
+  highlightedStepIndex: number | null;
+  stepRefs: React.MutableRefObject<Map<number, HTMLDivElement>>;
+  stepIndex: number;
 }
 
-function StepTreeNode({ item, index, expandedLoops, toggleLoop, focusNode, depth }: StepTreeNodeProps) {
+function StepTreeNode({ item, index: _index, expandedLoops, toggleLoop, focusNode, depth, highlightedStepIndex, stepRefs, stepIndex }: StepTreeNodeProps) {
   if (item.type === 'step') {
     const step = item.step;
+    const isHighlighted = highlightedStepIndex === stepIndex;
     return (
       <div
-        className="flex items-center gap-2 py-1 px-2 rounded hover:bg-muted/50 cursor-pointer transition-colors text-sm"
+        ref={(el) => {
+          if (el) stepRefs.current.set(stepIndex, el);
+        }}
+        className={cn(
+          "flex items-center gap-2 py-1 px-2 rounded hover:bg-muted/50 cursor-pointer transition-colors text-sm",
+          isHighlighted && "bg-yellow-200 dark:bg-yellow-900 ring-2 ring-yellow-500"
+        )}
         style={{ paddingLeft: `${depth * 16 + 8}px` }}
         onClick={() => step.nodeId && focusNode(step.nodeId)}
       >
@@ -522,6 +581,9 @@ function StepTreeNode({ item, index, expandedLoops, toggleLoop, focusNode, depth
               toggleLoop={toggleLoop}
               focusNode={focusNode}
               depth={depth + 1}
+              highlightedStepIndex={highlightedStepIndex}
+              stepRefs={stepRefs}
+              stepIndex={child.type === 'step' ? stepIndex + i : -1}
             />
           ))}
         </div>

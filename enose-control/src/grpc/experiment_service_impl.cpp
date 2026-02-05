@@ -4,6 +4,9 @@
 #include "../workflows/executors/executors.hpp"
 #include <spdlog/spdlog.h>
 #include <google/protobuf/util/time_util.h>
+#include <openssl/sha.h>
+#include <iomanip>
+#include <sstream>
 
 namespace grpc_service {
 
@@ -41,12 +44,30 @@ ExperimentServiceImpl::~ExperimentServiceImpl() {
     const experiment::ValidateProgramRequest* request,
     experiment::ValidationResult* response) {
     
-    spdlog::info("收到验证请求: {}", request->program().id());
-    
-    auto result = validator_.validate(request->program());
-    *response = enose::workflows::ExperimentValidator::to_proto(result);
-    
-    return ::grpc::Status::OK;
+    try {
+        spdlog::info("收到验证请求: {}", request->program().id());
+        
+        auto result = validator_.validate(request->program());
+        *response = enose::workflows::ExperimentValidator::to_proto(result);
+        
+        return ::grpc::Status::OK;
+    } catch (const std::exception& e) {
+        spdlog::error("验证程序时发生异常: {}", e.what());
+        response->set_valid(false);
+        auto* err = response->add_errors();
+        err->set_path("");
+        err->set_code("INTERNAL_ERROR");
+        err->set_message(std::string("验证异常: ") + e.what());
+        return ::grpc::Status::OK;
+    } catch (...) {
+        spdlog::error("验证程序时发生未知异常");
+        response->set_valid(false);
+        auto* err = response->add_errors();
+        err->set_path("");
+        err->set_code("INTERNAL_ERROR");
+        err->set_message("验证时发生未知异常");
+        return ::grpc::Status::OK;
+    }
 }
 
 ::grpc::Status ExperimentServiceImpl::LoadProgram(
@@ -54,58 +75,90 @@ ExperimentServiceImpl::~ExperimentServiceImpl() {
     const experiment::LoadProgramRequest* request,
     experiment::LoadProgramResponse* response) {
     
-    std::lock_guard<std::mutex> lock(mutex_);
-    
-    // 检查当前状态
-    if (state_ == experiment::EXP_RUNNING || state_ == experiment::EXP_PAUSED) {
-        response->set_success(false);
-        response->set_error_message("实验正在运行中，无法加载新程序");
-        return ::grpc::Status::OK;
-    }
-    
-    // 获取程序 (支持 YAML 字符串或结构化程序)
-    experiment::ExperimentProgram program;
-    
-    if (request->has_yaml_content()) {
-        spdlog::info("从 YAML 加载实验程序");
-        auto parse_result = enose::workflows::YamlParser::parse(request->yaml_content());
-        if (!parse_result.success) {
+    try {
+        std::lock_guard<std::mutex> lock(mutex_);
+        
+        // 检查当前状态
+        if (state_ == experiment::EXP_RUNNING || state_ == experiment::EXP_PAUSED) {
             response->set_success(false);
-            response->set_error_message("YAML 解析失败: " + parse_result.error_message);
+            response->set_error_message("实验正在运行中，无法加载新程序");
             return ::grpc::Status::OK;
         }
-        program = std::move(parse_result.program);
-    } else if (request->has_program()) {
-        program = request->program();
-    } else {
+        
+        // 获取程序 (支持 YAML 字符串或结构化程序)
+        experiment::ExperimentProgram program;
+        
+        std::string yaml_content;
+        if (request->has_yaml_content()) {
+            spdlog::info("从 YAML 加载实验程序");
+            yaml_content = request->yaml_content();
+            auto parse_result = enose::workflows::YamlParser::parse(yaml_content);
+            if (!parse_result.success) {
+                response->set_success(false);
+                response->set_error_message("YAML 解析失败: " + parse_result.error_message);
+                return ::grpc::Status::OK;
+            }
+            program = std::move(parse_result.program);
+        } else if (request->has_program()) {
+            program = request->program();
+            // 结构化程序转换为 YAML 字符串用于 hash 计算
+            yaml_content = program.SerializeAsString();  // 使用序列化作为 hash 输入
+        } else {
+            response->set_success(false);
+            response->set_error_message("请求中没有程序数据");
+            return ::grpc::Status::OK;
+        }
+        
+        spdlog::info("加载实验程序: {}", program.id());
+        
+        // 验证程序
+        validation_result_ = validator_.validate(program);
+        *response->mutable_validation() = enose::workflows::ExperimentValidator::to_proto(validation_result_);
+        
+        if (!validation_result_.valid) {
+            response->set_success(false);
+            response->set_error_message("程序验证失败");
+            state_ = experiment::EXP_IDLE;
+            return ::grpc::Status::OK;
+        }
+        
+        // 保存程序和 YAML 内容
+        loaded_program_ = std::make_unique<experiment::ExperimentProgram>(std::move(program));
+        loaded_program_yaml_ = std::move(yaml_content);
+        
+        // 计算 SHA256 hash
+        unsigned char hash[SHA256_DIGEST_LENGTH];
+        SHA256(reinterpret_cast<const unsigned char*>(loaded_program_yaml_.c_str()),
+               loaded_program_yaml_.size(), hash);
+        
+        // 转换为 32 字符的十六进制字符串
+        std::stringstream ss;
+        for (int i = 0; i < 16; i++) {
+            ss << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
+        }
+        loaded_program_yaml_hash_ = ss.str();
+        
+        state_ = experiment::EXP_LOADED;
+        response->set_success(true);
+        
+        spdlog::info("程序 hash: {}", loaded_program_yaml_hash_);
+        
+        emit_event(experiment::ExperimentEvent::PROGRAM_LOADED, 
+                   "程序已加载: " + loaded_program_->name());
+        
+        spdlog::info("程序加载成功: {}", loaded_program_->id());
+        return ::grpc::Status::OK;
+    } catch (const std::exception& e) {
+        spdlog::error("加载程序时发生异常: {}", e.what());
         response->set_success(false);
-        response->set_error_message("请求中没有程序数据");
+        response->set_error_message(std::string("加载异常: ") + e.what());
+        return ::grpc::Status::OK;
+    } catch (...) {
+        spdlog::error("加载程序时发生未知异常");
+        response->set_success(false);
+        response->set_error_message("加载时发生未知异常");
         return ::grpc::Status::OK;
     }
-    
-    spdlog::info("加载实验程序: {}", program.id());
-    
-    // 验证程序
-    validation_result_ = validator_.validate(program);
-    *response->mutable_validation() = enose::workflows::ExperimentValidator::to_proto(validation_result_);
-    
-    if (!validation_result_.valid) {
-        response->set_success(false);
-        response->set_error_message("程序验证失败");
-        state_ = experiment::EXP_IDLE;
-        return ::grpc::Status::OK;
-    }
-    
-    // 保存程序
-    loaded_program_ = std::make_unique<experiment::ExperimentProgram>(std::move(program));
-    state_ = experiment::EXP_LOADED;
-    response->set_success(true);
-    
-    emit_event(experiment::ExperimentEvent::PROGRAM_LOADED, 
-               "程序已加载: " + loaded_program_->name());
-    
-    spdlog::info("程序加载成功: {}", loaded_program_->id());
-    return ::grpc::Status::OK;
 }
 
 ::grpc::Status ExperimentServiceImpl::StartExperiment(
@@ -113,7 +166,7 @@ ExperimentServiceImpl::~ExperimentServiceImpl() {
     const google::protobuf::Empty* request,
     experiment::ExperimentStatusResponse* response) {
     
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::unique_lock<std::mutex> lock(mutex_);
     
     if (state_ != experiment::EXP_LOADED) {
         fill_status_response(response);
@@ -122,6 +175,17 @@ ExperimentServiceImpl::~ExperimentServiceImpl() {
     }
     
     spdlog::info("启动实验: {}", loaded_program_->id());
+    
+    // 确保之前的执行线程已结束
+    if (execution_thread_ && execution_thread_->joinable()) {
+        spdlog::warn("等待之前的执行线程结束...");
+        // 先释放锁再等待，避免死锁
+        lock.unlock();
+        execution_thread_->join();
+        lock.lock();
+        spdlog::info("之前的执行线程已结束");
+    }
+    execution_thread_.reset();
     
     // 重置状态
     stop_requested_ = false;
@@ -133,6 +197,21 @@ ExperimentServiceImpl::~ExperimentServiceImpl() {
     logs_.clear();
     error_message_.clear();
     start_time_ = std::chrono::steady_clock::now();
+    
+    // 创建实验运行记录（用于断点续作）
+    if (experiment_repo_) {
+        auto run_id = experiment_repo_->create_run(
+            loaded_program_->id(),
+            loaded_program_->name(),
+            loaded_program_yaml_,       // program_yaml
+            loaded_program_yaml_hash_,  // program_yaml_hash
+            "{}",                        // config_json
+            loaded_program_->steps_size());
+        if (run_id) {
+            current_run_id_ = static_cast<int32_t>(*run_id);
+            spdlog::info("创建实验运行记录: run_id={}, hash={}", *run_id, loaded_program_yaml_hash_);
+        }
+    }
     
     // 启动执行线程
     state_ = experiment::EXP_RUNNING;
@@ -298,8 +377,12 @@ void ExperimentServiceImpl::execution_thread_func() {
     
     // 初始化样本上下文
     current_sample_ctx_ = db::SampleContext{};
-    // TODO: 从 TestRunRepository 获取当前 run_id
-    // current_run_id_ = test_run_repo_->create_run(...);
+    
+    // 设置传感器数据的运行上下文（关联 run_id）
+    if (sensor_repo_ && current_run_id_) {
+        sensor_repo_->set_run_context(*current_run_id_, "");
+        spdlog::info("传感器数据关联到 run_id={}", *current_run_id_);
+    }
     
     try {
         execute_steps(loaded_program_->steps());
@@ -319,9 +402,17 @@ void ExperimentServiceImpl::execution_thread_func() {
         // 在 mutex_ 释放后调用 add_log 和 emit_event
         if (was_stopped) {
             add_log("实验已中止");
+            // 更新数据库状态
+            if (experiment_repo_ && current_run_id_) {
+                experiment_repo_->abort_run(*current_run_id_);
+            }
         } else {
             add_log("实验完成");
             emit_event(experiment::ExperimentEvent::EXPERIMENT_COMPLETED, "实验已完成");
+            // 更新数据库状态
+            if (experiment_repo_ && current_run_id_) {
+                experiment_repo_->complete_run(*current_run_id_);
+            }
         }
     } catch (const std::exception& e) {
         std::string err_msg = e.what();
@@ -334,6 +425,16 @@ void ExperimentServiceImpl::execution_thread_func() {
         add_log("实验错误: " + err_msg);
         emit_event(experiment::ExperimentEvent::EXPERIMENT_ERROR, err_msg);
         spdlog::error("实验执行错误: {}", err_msg);
+        // 更新数据库状态
+        if (experiment_repo_ && current_run_id_) {
+            experiment_repo_->fail_run(*current_run_id_, err_msg);
+        }
+    }
+    
+    // 清除传感器数据的运行上下文
+    if (sensor_repo_) {
+        sensor_repo_->clear_run_context();
+        spdlog::info("传感器数据运行上下文已清除");
     }
     
     // 恢复系统状态
@@ -355,6 +456,14 @@ void ExperimentServiceImpl::execute_steps(
         }
         
         execute_step(steps[i]);
+        
+        // 更新数据库进度（断点续作）
+        if (experiment_repo_ && current_run_id_) {
+            auto elapsed = std::chrono::steady_clock::now() - start_time_;
+            double elapsed_s = std::chrono::duration<double>(elapsed).count();
+            experiment_repo_->update_progress(
+                *current_run_id_, i, steps[i].name(), elapsed_s);
+        }
     }
 }
 
@@ -393,6 +502,9 @@ void ExperimentServiceImpl::execute_step(const experiment::Step& step) {
         case experiment::Step::kConfigureHeater:
             execute_configure_heater(step.configure_heater());
             break;
+        case experiment::Step::kPreheat:
+            execute_preheat(step.preheat());
+            break;
         default:
             spdlog::warn("未知的步骤动作类型");
             break;
@@ -423,59 +535,106 @@ void ExperimentServiceImpl::execute_inject(const experiment::InjectAction& actio
     current_sample_ctx_.flow_rate_ml_s = params.speed;
     
     // 根据液体配方设置各泵进样量
+    // 注意: 泵绑定从数据库 pump_assignments 表查询，不再使用 YAML 中的 pump_index
     for (const auto& comp : action.components()) {
-        double volume_ml = total_volume * comp.ratio();  // 直接使用 ml
+        double volume_ml = total_volume * comp.ratio();
         
-        // 查找液体对应的泵
+        // 从数据库查询液体绑定的泵
+        int liquid_id = 0;
+        try {
+            liquid_id = std::stoi(comp.liquid_id());
+        } catch (...) {
+            add_log("警告: 无法解析液体ID: " + comp.liquid_id());
+            continue;
+        }
+        
+        // 查询绑定到该液体的所有泵
+        std::vector<db::PumpAssignmentRecord> pumps;
+        if (consumable_repo_) {
+            pumps = consumable_repo_->get_pumps_by_liquid_id(liquid_id);
+        }
+        
+        if (pumps.empty()) {
+            add_log("错误: 液体 " + comp.liquid_id() + " 未绑定到任何泵，请在耗材管理中配置");
+            continue;
+        }
+        
+        // 选择余量最多的泵
+        auto best_pump = std::max_element(pumps.begin(), pumps.end(),
+            [](const db::PumpAssignmentRecord& a, const db::PumpAssignmentRecord& b) {
+                return a.remaining_volume_ml() < b.remaining_volume_ml();
+            });
+        
+        int pump_index = best_pump->pump_index;
+        double remaining = best_pump->remaining_volume_ml();
+        
+        // 检查余量是否足够
+        if (remaining < volume_ml) {
+            add_log("警告: 泵 " + std::to_string(pump_index) + " 余量不足 (" + 
+                    std::to_string(remaining) + "ml < " + std::to_string(volume_ml) + "ml)");
+        }
+        
+        // 获取液体名称（从 YAML 或数据库）
+        std::string liquid_name = comp.liquid_id();
         for (const auto& liquid : loaded_program_->hardware().liquids()) {
             if (liquid.id() == comp.liquid_id()) {
-                // 记录到样本上下文
-                db::LiquidInfo liq_info;
-                liq_info.id = comp.liquid_id();
-                liq_info.name = liquid.name();
-                liq_info.ratio = comp.ratio();
-                liq_info.pump_index = liquid.pump_index();
-                current_sample_ctx_.liquids.push_back(liq_info);
-                
-                switch (liquid.pump_index()) {
-                    case 0: params.pump_0_volume = volume_ml; break;
-                    case 1: params.pump_1_volume = volume_ml; break;
-                    case 2: params.pump_2_volume = volume_ml; break;
-                    case 3: params.pump_3_volume = volume_ml; break;
-                    case 4: params.pump_4_volume = volume_ml; break;
-                    case 5: params.pump_5_volume = volume_ml; break;
-                    case 6: params.pump_6_volume = volume_ml; break;
-                    case 7: params.pump_7_volume = volume_ml; break;
-                }
+                liquid_name = liquid.name();
                 break;
             }
+        }
+        
+        add_log("液体 " + liquid_name + " -> 泵 " + std::to_string(pump_index) + 
+                " (" + std::to_string(volume_ml) + "ml)");
+        
+        // 记录到样本上下文
+        db::LiquidInfo liq_info;
+        liq_info.id = comp.liquid_id();
+        liq_info.name = liquid_name;
+        liq_info.ratio = comp.ratio();
+        liq_info.pump_index = pump_index;
+        current_sample_ctx_.liquids.push_back(liq_info);
+        
+        // 设置泵进样量
+        switch (pump_index) {
+            case 0: params.pump_0_volume = volume_ml; break;
+            case 1: params.pump_1_volume = volume_ml; break;
+            case 2: params.pump_2_volume = volume_ml; break;
+            case 3: params.pump_3_volume = volume_ml; break;
+            case 4: params.pump_4_volume = volume_ml; break;
+            case 5: params.pump_5_volume = volume_ml; break;
+            case 6: params.pump_6_volume = volume_ml; break;
+            case 7: params.pump_7_volume = volume_ml; break;
         }
     }
     
     // 启动进样
     system_state_->start_inject(params);
     
-    // 等待进样完成 (通过称重反馈)
-    double target_weight = action.has_target_weight_g() ? 
-                          action.target_weight_g() : 
-                          total_volume;  // 假设密度≈1
-    double tolerance = action.tolerance();
-    auto timeout = std::chrono::seconds(static_cast<int>(action.stable_timeout_s()));
-    auto start = std::chrono::steady_clock::now();
+    // 开环控制: 根据体积和流速计算等待时间
+    // 步进电机精确控制体积，无需称重反馈
+    double flow_rate_ml_s = action.flow_rate_ml_min() / 60.0;  // ml/min -> ml/s
     
-    while (!check_stop_or_pause()) {
-        float current_weight = load_cell_->get_filtered_weight();
-        if (current_weight >= target_weight - tolerance) {
-            add_log("进样完成: " + std::to_string(current_weight) + "g");
-            break;
-        }
-        
-        if (std::chrono::steady_clock::now() - start > timeout) {
-            add_log("进样超时");
-            break;
-        }
-        
+    // 计算最大泵体积（多泵并行时取最大值）
+    double max_pump_volume = std::max({
+        params.pump_0_volume, params.pump_1_volume,
+        params.pump_2_volume, params.pump_3_volume,
+        params.pump_4_volume, params.pump_5_volume,
+        params.pump_6_volume, params.pump_7_volume
+    });
+    
+    // 等待时间 = 最大体积 / 速度 + 2秒余量
+    int wait_ms = static_cast<int>(max_pump_volume / params.speed * 1000) + 2000;
+    add_log("等待进样完成 (" + std::to_string(wait_ms / 1000.0) + "s)...");
+    
+    // 分段等待，以便可以响应停止请求
+    int waited = 0;
+    while (waited < wait_ms && !check_stop_or_pause()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        waited += 100;
+    }
+    
+    if (!check_stop_or_pause()) {
+        add_log("进样完成: " + std::to_string(total_volume) + "ml");
     }
     
     // 泵运行时间由 RuntimeTracker 在 SystemState 层自动统计
@@ -527,9 +686,12 @@ void ExperimentServiceImpl::execute_wait(const experiment::WaitAction& action) {
             auto result = load_cell_->wait_for_empty_bottle(
                 action.empty().tolerance_g(),
                 action.timeout_s(),
-                action.empty().stability_window_s()
+                action.empty().stability_window_s(),
+                [this]() { return check_stop_or_pause(); }
             );
-            if (result.success) {
+            if (result.stopped) {
+                add_log("空瓶检测被中断");
+            } else if (result.success) {
                 add_log("空瓶检测完成: " + std::to_string(result.empty_weight) + "g");
             } else {
                 add_log("空瓶检测超时");
@@ -544,7 +706,8 @@ void ExperimentServiceImpl::execute_wait(const experiment::WaitAction& action) {
 }
 
 void ExperimentServiceImpl::execute_drain(const experiment::DrainAction& action) {
-    add_log("排废");
+    add_log("排废: 气泵PWM=" + std::to_string(action.gas_pump_pwm()) + "%, " +
+            "稳定窗口=" + std::to_string(action.stability_window_s()) + "s");
     
     // 使用事务守卫保证状态一致性 (Phase 1.3)
     workflows::StateTransactionGuard guard(
@@ -553,17 +716,26 @@ void ExperimentServiceImpl::execute_drain(const experiment::DrainAction& action)
         "drain"
     );
     
-    // 设置气泵PWM
-    // TODO: 实现气泵PWM控制
+    // 设置气泵PWM（排废时需要气流辅助）
+    if (action.gas_pump_pwm() > 0) {
+        float pwm = action.gas_pump_pwm() / 100.0f;
+        system_state_->set_air_pump_pwm(pwm);
+    }
     
-    // 等待空瓶
+    // 等待空瓶稳定（重量不再下降 + 稳定窗口）
+    // wait_for_empty_bottle 已实现:
+    // 1. 检测重量是否稳定（连续3次读数变化<1g）
+    // 2. 稳定后等待 stability_window_s，期间重量变化<0.5g
     auto result = load_cell_->wait_for_empty_bottle(
         action.empty_tolerance_g(),
         action.timeout_s(),
-        action.stability_window_s()
+        action.stability_window_s(),
+        [this]() { return check_stop_or_pause(); }
     );
     
-    if (result.success) {
+    if (result.stopped) {
+        add_log("排废被中断");
+    } else if (result.success) {
         add_log("排废完成: " + std::to_string(result.empty_weight) + "g");
     } else {
         add_log("排废超时");
@@ -623,9 +795,10 @@ void ExperimentServiceImpl::execute_acquire(const experiment::AcquireAction& act
             current_sample_ctx_.sample_idx++;
             add_log("创建样本记录: id=" + std::to_string(*sample_id));
             
-            // 设置传感器上下文
-            if (sensor_service_) {
-                // TODO: sensor_service_->set_sample_context(*sample_id);
+            // 设置传感器上下文 - 使后续的 sensor_readings 关联到此 sample_id
+            if (sensor_repo_) {
+                sensor_repo_->set_sample_context(*sample_id);
+                spdlog::debug("传感器数据关联到 sample_id={}", *sample_id);
             }
         }
     }
@@ -694,8 +867,8 @@ void ExperimentServiceImpl::execute_acquire(const experiment::AcquireAction& act
         add_log("完成样本记录: id=" + std::to_string(current_sample_ctx_.sample_id));
         
         // 清除传感器上下文
-        if (sensor_service_) {
-            // TODO: sensor_service_->clear_sample_context();
+        if (sensor_repo_) {
+            sensor_repo_->clear_sample_context();
         }
     }
     
@@ -755,25 +928,78 @@ void ExperimentServiceImpl::execute_loop(const experiment::LoopAction& action) {
 }
 
 void ExperimentServiceImpl::execute_phase_marker(const experiment::PhaseMarkerAction& action) {
+    int64_t now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    
     if (action.is_start()) {
         add_log("阶段开始: " + action.phase_name());
         emit_event(experiment::ExperimentEvent::PHASE_STARTED, action.phase_name());
         
         // 更新样本上下文 - 阶段信息
         current_sample_ctx_.phase_name = action.phase_name();
+        
+        // 更新传感器数据的阶段上下文
+        if (sensor_repo_ && current_run_id_) {
+            sensor_repo_->set_run_context(*current_run_id_, action.phase_name());
+            spdlog::debug("传感器数据阶段更新: {}", action.phase_name());
+        }
+        
+        // 记录 Phase 转换到 sample_phase_transitions 表
+        // 只在有活跃 sample 时记录（sample_id >= 0）
+        if (sample_repo_ && current_sample_ctx_.sample_id >= 0) {
+            // 先完成上一个 phase（如果有）
+            int16_t current_order = sample_repo_->get_current_phase_order(current_sample_ctx_.sample_id);
+            if (current_order >= 0) {
+                sample_repo_->complete_phase_transition(
+                    current_sample_ctx_.sample_id, current_order, now_ms);
+            }
+            
+            // 创建新的 phase 转换记录
+            int16_t new_order = current_order + 1;
+            sample_repo_->create_phase_transition(
+                current_sample_ctx_.sample_id,
+                action.phase_name(),
+                now_ms,
+                new_order);
+            
+            spdlog::debug("Phase 转换记录: sample_id={} phase={} order={}",
+                         current_sample_ctx_.sample_id, action.phase_name(), new_order);
+        }
     } else {
         add_log("阶段结束: " + action.phase_name());
         emit_event(experiment::ExperimentEvent::PHASE_ENDED, action.phase_name());
+        
+        // 阶段结束时清除阶段名（但保留 run_id）
+        if (sensor_repo_ && current_run_id_) {
+            sensor_repo_->set_run_context(*current_run_id_, "");
+        }
+        
+        // 完成当前 Phase 转换记录
+        if (sample_repo_ && current_sample_ctx_.sample_id >= 0) {
+            int16_t current_order = sample_repo_->get_current_phase_order(current_sample_ctx_.sample_id);
+            if (current_order >= 0) {
+                sample_repo_->complete_phase_transition(
+                    current_sample_ctx_.sample_id, current_order, now_ms);
+            }
+        }
     }
 }
 
 void ExperimentServiceImpl::execute_wash(const experiment::WashAction& action) {
-    add_log("清洗: 目标重量变化=" + std::to_string(action.target_weight_g()) + 
-            "g, 重复" + std::to_string(action.repeat_count()) + "次");
+    // target_weight_g 实际存储的是目标注入量 (ml)，需要转换为期望的测量重量变化
+    // 由于瓶子斜挂在称重传感器上，测量的重量变化 ≠ 实际注入量
+    // 线性校正: expected_weight_change = target_ml * pump_mm_to_ml
+    const auto& lc_config = load_cell_->get_config();
+    float target_ml = action.target_weight_g();  // YAML 中配置的是 ml
+    float expected_weight_change = target_ml * lc_config.pump_mm_to_ml;
+    
+    add_log("清洗: 目标注入量=" + std::to_string(target_ml) + 
+            "ml (期望重量变化=" + std::to_string(expected_weight_change) + 
+            "g), 重复" + std::to_string(action.repeat_count()) + "次");
     
     // 更新样本上下文 - 清洗参数
     current_sample_ctx_.pre_wash_count += action.repeat_count();
-    current_sample_ctx_.pre_wash_volume_ml = action.target_weight_g();  // 近似
+    current_sample_ctx_.pre_wash_volume_ml = target_ml;
     // TODO: 获取清洗液 ID（从 loaded_program_->hardware().wash_liquid_id()）
     
     // 使用事务守卫保证状态一致性 (Phase 1.3)
@@ -796,10 +1022,14 @@ void ExperimentServiceImpl::execute_wash(const experiment::WashAction& action) {
         auto empty_result = load_cell_->wait_for_empty_bottle(
             action.empty_tolerance_g(),
             action.drain_timeout_s(),
-            action.empty_stability_window_s()
+            action.empty_stability_window_s(),
+            [this]() { return check_stop_or_pause(); }
         );
         
-        if (!empty_result.success) {
+        if (empty_result.stopped) {
+            add_log("排废被中断");
+            return;
+        } else if (!empty_result.success) {
             add_log("排废超时，继续清洗");
         }
         
@@ -813,6 +1043,7 @@ void ExperimentServiceImpl::execute_wash(const experiment::WashAction& action) {
         system_state_->transition_to(workflows::SystemState::State::CLEAN);
         
         // 3. 监测重量变化，达到阈值立即切换到排废
+        // 使用线性校正后的期望重量变化值进行比较
         auto fill_start = std::chrono::steady_clock::now();
         auto fill_timeout = std::chrono::seconds(static_cast<int>(action.fill_timeout_s()));
         bool target_reached = false;
@@ -821,14 +1052,20 @@ void ExperimentServiceImpl::execute_wash(const experiment::WashAction& action) {
             float current_weight = load_cell_->get_filtered_weight();
             float weight_change = current_weight - baseline_weight;
             
-            if (weight_change >= action.target_weight_g()) {
-                add_log("达到目标重量变化: " + std::to_string(weight_change) + "g");
+            // 使用校正后的期望重量变化值进行比较
+            if (weight_change >= expected_weight_change) {
+                // 反推实际注入量用于日志
+                float actual_ml = weight_change / lc_config.pump_mm_to_ml;
+                add_log("达到目标: 重量变化=" + std::to_string(weight_change) + 
+                        "g (约" + std::to_string(actual_ml) + "ml)");
                 target_reached = true;
                 break;
             }
             
             if (std::chrono::steady_clock::now() - fill_start > fill_timeout) {
-                add_log("清洗注入超时，当前重量变化: " + std::to_string(weight_change) + "g");
+                float actual_ml = weight_change / lc_config.pump_mm_to_ml;
+                add_log("清洗注入超时: 重量变化=" + std::to_string(weight_change) + 
+                        "g (约" + std::to_string(actual_ml) + "ml, 目标" + std::to_string(target_ml) + "ml)");
                 break;
             }
             
@@ -844,10 +1081,14 @@ void ExperimentServiceImpl::execute_wash(const experiment::WashAction& action) {
         auto drain_result = load_cell_->wait_for_empty_bottle(
             action.empty_tolerance_g(),
             action.drain_timeout_s(),
-            action.empty_stability_window_s()
+            action.empty_stability_window_s(),
+            [this]() { return check_stop_or_pause(); }
         );
         
-        if (drain_result.success) {
+        if (drain_result.stopped) {
+            add_log("排废被中断");
+            return;
+        } else if (drain_result.success) {
             add_log("排废完成: " + std::to_string(drain_result.empty_weight) + "g");
         } else {
             add_log("排废超时");
@@ -1064,6 +1305,18 @@ void ExperimentServiceImpl::fill_status_response(experiment::ExperimentStatusRes
     
     if (loaded_program_) {
         response->set_program_id(loaded_program_->id());
+        response->set_program_name(loaded_program_->name());
+        response->set_total_steps(loaded_program_->steps_size());
+    }
+    
+    // 设置 YAML hash
+    if (!loaded_program_yaml_hash_.empty()) {
+        response->set_program_yaml_hash(loaded_program_yaml_hash_);
+    }
+    
+    // 设置 run_id
+    if (current_run_id_.has_value()) {
+        response->set_run_id(current_run_id_.value());
     }
     
     response->set_current_step_index(current_step_index_);
@@ -1229,6 +1482,71 @@ void ExperimentServiceImpl::execute_configure_heater(
     
     // TODO: 实际应用加热器配置到硬件
     // 这部分应该由 HeaterConfigExecutor 处理
+}
+
+void ExperimentServiceImpl::execute_preheat(const experiment::PreheatAction& action) {
+    add_log("传感器预热");
+    
+    // 使用事务守卫切换到 SAMPLE 状态（让气体流经传感器）
+    workflows::StateTransactionGuard guard(
+        system_state_.get(),
+        workflows::SystemState::State::SAMPLE,
+        "preheat"
+    );
+    
+    // 设置气泵PWM (预热时需要通气)
+    if (action.gas_pump_pwm() > 0) {
+        float pwm = action.gas_pump_pwm() / 100.0f;
+        system_state_->set_air_pump_pwm(pwm);
+        add_log("气泵PWM: " + std::to_string(action.gas_pump_pwm()) + "%");
+    }
+    
+    // 如果 record_data 为 true，设置传感器数据的阶段上下文
+    if (action.record_data() && sensor_repo_ && current_run_id_) {
+        sensor_repo_->set_run_context(*current_run_id_, "PREHEAT");
+        add_log("预热数据将记录到数据库 (phase=PREHEAT)");
+    }
+    
+    // 根据预热模式等待
+    switch (action.mode_case()) {
+        case experiment::PreheatAction::kCycles: {
+            // 等待指定数量的加热周期
+            add_log("预热模式: " + std::to_string(action.cycles()) + " 个加热周期");
+            wait_for_heater_cycles(action.cycles(), action.max_duration_s());
+            break;
+        }
+        case experiment::PreheatAction::kDurationS: {
+            // 等待指定时间
+            add_log("预热模式: " + std::to_string(action.duration_s()) + " 秒");
+            auto end = std::chrono::steady_clock::now() + 
+                      std::chrono::milliseconds(static_cast<int>(action.duration_s() * 1000));
+            while (std::chrono::steady_clock::now() < end) {
+                if (check_stop_or_pause()) return;
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+            break;
+        }
+        default: {
+            // 默认使用最大时间
+            add_log("预热模式: 默认最大时间 " + std::to_string(action.max_duration_s()) + " 秒");
+            auto end = std::chrono::steady_clock::now() + 
+                      std::chrono::milliseconds(static_cast<int>(action.max_duration_s() * 1000));
+            while (std::chrono::steady_clock::now() < end) {
+                if (check_stop_or_pause()) return;
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+            break;
+        }
+    }
+    
+    // 如果记录了预热数据，清除阶段上下文（保留 run_id）
+    if (action.record_data() && sensor_repo_ && current_run_id_) {
+        sensor_repo_->set_run_context(*current_run_id_, "");
+    }
+    
+    // 提交事务并恢复到初始状态
+    guard.commit_and_restore();
+    add_log("预热完成");
 }
 
 } // namespace grpc_service

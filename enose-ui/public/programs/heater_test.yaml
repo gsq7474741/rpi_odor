@@ -1,0 +1,243 @@
+id: new_experiment
+name: 新实验
+description: ''
+version: 1.0.0
+hardware:
+  bottle_capacity_ml: 150
+  max_fill_ml: 100
+  liquids:
+    - id: '43'
+      name: 自来水
+      type: LIQUID_SAMPLE
+steps:
+  - name: 排废
+    drain:
+      gas_pump_pwm: 80
+      timeout_s: 20
+  - name: 配置加热器
+    configure_heater:
+      configs:
+        - profile_name: constant_320
+          temps:
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+          durs:
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+          sensor_indices:
+            - 0
+            - 1
+            - 2
+            - 3
+            - 4
+            - 5
+            - 6
+            - 7
+  - name: 传感器预热
+    preheat:
+      max_duration_s: 120
+      record_data: true
+      gas_pump_pwm: 100
+      duration_s: 10
+  - name: 进样
+    inject:
+      components:
+        - liquid_id: '43'
+          ratio: 1
+      tolerance: 0.53
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
+      target_volume_ml: 30
+  - name: 数据采集
+    acquire:
+      gas_pump_pwm: 80
+      duration_s: 30
+  - name: 排废
+    drain:
+      gas_pump_pwm: 100
+      timeout_s: 20
+_compile_estimate:
+  total_duration_s: 95
+  peak_liquid_level_ml: 30
+  peak_liquid_level_ml_with_wash: 30
+  total_inject_ml: 30
+  total_drain_ml: 30
+  total_wash_volume_ml: 0
+  liquid_consumption:
+    - liquid_id: '43'
+      liquid_name: 自来水
+      pump_index: 2
+      required_ml: 30
+  pump_estimates:
+    - pump_index: 2
+      volume_ml: 30
+      runtime_s: 10
+_editor_layout:
+  nodes:
+    - id: start
+      type: start
+      position:
+        x: 240
+        'y': -15
+      data:
+        programId: new_experiment
+        programName: 新实验
+        description: ''
+        version: 1.0.0
+    - id: end
+      type: end
+      position:
+        x: 255
+        'y': 1155
+      data: {}
+    - id: node_1
+      type: hardwareConfig
+      position:
+        x: 45
+        'y': -15
+      data:
+        bottleCapacityMl: 150
+        maxFillMl: 100
+    - id: node_2
+      type: drain
+      position:
+        x: 255
+        'y': 135
+      data:
+        name: 排废
+        gasPumpPwm: 80
+        emptyToleranceG: 10
+        stabilityWindowS: 2
+        timeoutS: 20
+    - id: node_3
+      type: preheat
+      position:
+        x: 255
+        'y': 480
+      data:
+        durationS: 10
+        gasPumpPwm: 100
+        recordData: true
+    - id: node_4
+      type: configureHeater
+      position:
+        x: 255
+        'y': 330
+      data:
+        sensorProfiles:
+          '0': constant_320
+          '1': constant_320
+          '2': constant_320
+          '3': constant_320
+          '4': constant_320
+          '5': constant_320
+          '6': constant_320
+          '7': constant_320
+          '8': ''
+    - id: node_5
+      type: inject
+      position:
+        x: 255
+        'y': 645
+      data:
+        name: 进样
+        targetType: volume
+        targetVolumeMl: 30
+        tolerance: 0.53
+        flowRateMlS: 3
+        stableTimeoutS: 5
+    - id: node_6
+      type: liquidSource
+      position:
+        x: -105
+        'y': 555
+      data:
+        liquidId: '43'
+        liquidName: 自来水
+        ratio: 1
+        pumpIndex: -1
+    - id: node_7
+      type: acquire
+      position:
+        x: 255
+        'y': 810
+      data:
+        name: 数据采集
+        gasPumpPwm: 80
+        terminationType: duration
+        heaterCycles: 10
+        maxDurationS: 300
+        durationS: 30
+    - id: node_8
+      type: drain
+      position:
+        x: 255
+        'y': 960
+      data:
+        name: 排废
+        gasPumpPwm: 100
+        emptyToleranceG: 10
+        stabilityWindowS: 2
+        timeoutS: 20
+  edges:
+    - id: xy-edge__node_1hardware-starthardware
+      source: node_1
+      target: start
+      sourceHandle: hardware
+      targetHandle: hardware
+    - id: xy-edge__startflow-node_2flow
+      source: start
+      target: node_2
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_4flow-node_3flow
+      source: node_4
+      target: node_3
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_2flow-node_4flow
+      source: node_2
+      target: node_4
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_3flow-node_5flow
+      source: node_3
+      target: node_5
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_6liquid-node_5liquid
+      source: node_6
+      target: node_5
+      sourceHandle: liquid
+      targetHandle: liquid
+    - id: xy-edge__node_5flow-node_7flow
+      source: node_5
+      target: node_7
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_7flow-node_8flow
+      source: node_7
+      target: node_8
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_8flow-endflow
+      source: node_8
+      target: end
+      sourceHandle: flow
+      targetHandle: flow

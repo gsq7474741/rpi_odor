@@ -1,6 +1,5 @@
 """质量检测模块 - 所有阈值可配置"""
 
-import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -8,8 +7,8 @@ from typing import Any
 import numpy as np
 
 from ..config import QualityConfig, get_settings
+from ..logger import logger
 
-logger = logging.getLogger(__name__)
 
 
 class QualityFlag(Enum):

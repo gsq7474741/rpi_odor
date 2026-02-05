@@ -1,6 +1,5 @@
 """通知客户端 - 用于向 enose-control 推送告警"""
 
-import logging
 from datetime import datetime
 from typing import Any
 from uuid import uuid4
@@ -8,9 +7,9 @@ from uuid import uuid4
 import grpc
 
 from ..config import get_settings
+from ..logger import logger
 from ..analytics.quality_checker import QualityAlert, Severity
 
-logger = logging.getLogger(__name__)
 
 
 class NotificationClient:
