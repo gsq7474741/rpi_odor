@@ -122,6 +122,7 @@ private:
     std::optional<int32_t> current_run_id_;
     db::SampleContext current_sample_ctx_;
     int16_t current_phase_order_ = 0;  // 当前 sample 内的 phase 序号
+    std::string current_phase_name_;   // 当前活跃的 phase 名称（集中管理）
     
     // 事件队列 (用于订阅者)
     std::mutex event_mutex_;
@@ -164,6 +165,11 @@ public:
     void set_phase_transition_repository(std::shared_ptr<db::PhaseTransitionRepository> repo) { phase_transition_repo_ = repo; }
     
 private:
+    
+    // Phase 转换辅助方法（集中管理）
+    void auto_start_phase(const std::string& phase_name);
+    void auto_end_phase(const std::string& phase_name);
+    void auto_end_current_phase();
     
     // 等待辅助方法
     bool wait_for_heater_cycles(int count, double timeout_s);

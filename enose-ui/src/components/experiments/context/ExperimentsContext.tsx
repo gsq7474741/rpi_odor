@@ -38,6 +38,12 @@ export interface FrameStatus {
   }[];
 }
 
+// 数据帧使用配置（选择使用哪个变体）
+export interface FrameConfig {
+  method: "linear" | "pchip";
+  nSamples: number;
+}
+
 // 带数据帧状态的样本
 export interface SampleWithFrameStatus extends Sample {
   frameStatus: FrameStatus | null;
@@ -106,6 +112,10 @@ export interface ExperimentsState {
   // 筛选
   filters: FilterState;
   
+  // 数据帧使用配置
+  frameConfig: FrameConfig;
+  setFrameConfig: (config: Partial<FrameConfig>) => void;
+  
   // 可用的筛选选项
   availableLiquids: { id: string; name: string }[];
   availablePhases: string[];
@@ -144,6 +154,9 @@ export interface ExperimentsState {
   
   setAvailableLiquids: (liquids: { id: string; name: string }[]) => void;
   setAvailablePhases: (phases: string[]) => void;
+  
+  // 刷新选中样本的帧状态
+  refreshFrameStatuses: () => Promise<void>;
 }
 
 const defaultFilters: FilterState = {
@@ -187,6 +200,12 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
   
   // 筛选
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
+  
+  // 数据帧使用配置
+  const [frameConfig, setFrameConfigState] = useState<FrameConfig>({ method: "linear", nSamples: 100 });
+  const setFrameConfig = useCallback((partial: Partial<FrameConfig>) => {
+    setFrameConfigState(prev => ({ ...prev, ...partial }));
+  }, []);
   
   // 可用选项
   const [availableLiquids, setAvailableLiquids] = useState<{ id: string; name: string }[]>([]);
@@ -304,6 +323,35 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
     setFilters(defaultFilters);
     setRunsPage(0);
   }, []);
+
+  // 刷新选中样本的帧状态
+  const refreshFrameStatuses = useCallback(async () => {
+    const selectedIds = Array.from(selectedSampleIds);
+    if (selectedIds.length === 0) return;
+    try {
+      const response = await fetch(
+        `/api/analytics/sample-frames?sampleIds=${selectedIds.join(",")}`
+      );
+      const data = await response.json();
+      if (data.statuses) {
+        setSamples(prev => prev.map((sample) => {
+          if (selectedSampleIds.has(sample.id) && data.statuses[sample.id]) {
+            return {
+              ...sample,
+              frameStatus: {
+                hasFrames: data.statuses[sample.id].exists || false,
+                cached: data.statuses[sample.id].cached || false,
+                variants: data.statuses[sample.id].variants || [],
+              },
+            };
+          }
+          return sample;
+        }));
+      }
+    } catch {
+      // ignore
+    }
+  }, [selectedSampleIds]);
   
   const value: ExperimentsState = {
     runs,
@@ -322,6 +370,8 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
     comparisonMode,
     comparisonItems,
     filters,
+    frameConfig,
+    setFrameConfig,
     availableLiquids,
     availablePhases,
     setRuns,
@@ -349,6 +399,7 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
     clearFilters,
     setAvailableLiquids,
     setAvailablePhases,
+    refreshFrameStatuses,
   };
   
   return (

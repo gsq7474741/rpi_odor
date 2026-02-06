@@ -573,14 +573,13 @@ function EditorToolbar() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [undo, redo]);
   
-  const { isDirty, setDirty } = useEditorStore();
+  const { isDirty, setDirty, currentFilename, setCurrentFilename } = useEditorStore();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [yamlPreview, setYamlPreview] = useState<string | null>(null);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showLoadDialog, setShowLoadDialog] = useState(false);
   const [saveFilename, setSaveFilename] = useState('');
-  const [currentFilename, setCurrentFilename] = useState<string | null>(null); // 当前打开的文件名
   const [isSaveAs, setIsSaveAs] = useState(false); // 是否是另存为
   const [savedPrograms, setSavedPrograms] = useState<Array<{
     id: string;
@@ -700,15 +699,21 @@ function EditorToolbar() {
     }
   }, []); // 只在组件挂载时运行一次
 
+  // 从文件名派生程序标识符
+  const getProgramIdFromFilename = () => {
+    return currentFilename?.replace(/\.ya?ml$/i, '') || 'new_experiment';
+  };
+
   const handleExportYaml = () => {
     try {
       // 确保编译结果是最新的
       if (!compilationResult) {
         recompile();
       }
+      const derivedProgramId = getProgramIdFromFilename();
       const yaml = graphToYaml(nodes, edges, {
-        programId,
-        programName,
+        programId: derivedProgramId,
+        programName: derivedProgramId,
         programDescription,
         programVersion,
         bottleCapacityMl,
@@ -720,7 +725,7 @@ function EditorToolbar() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${programId || 'experiment'}.yaml`;
+      a.download = `${derivedProgramId}.yaml`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (error) {
@@ -768,11 +773,11 @@ function EditorToolbar() {
   const handleSave = async () => {
     if (currentFilename) {
       // 直接保存到当前文件
-      await doSave(currentFilename.replace(/\.yaml$/, ''));
+      await doSave(currentFilename.replace(/\.ya?ml$/i, ''));
     } else {
       // 没有当前文件，显示另存为对话框
       setIsSaveAs(false);
-      setSaveFilename(programId || '');
+      setSaveFilename('new_experiment');
       setShowSaveDialog(true);
     }
   };
@@ -780,7 +785,7 @@ function EditorToolbar() {
   // 另存为
   const handleSaveAs = () => {
     setIsSaveAs(true);
-    setSaveFilename(currentFilename?.replace(/\.yaml$/, '') || programId || '');
+    setSaveFilename(currentFilename?.replace(/\.ya?ml$/i, '') || 'new_experiment');
     setShowSaveDialog(true);
   };
 
@@ -808,9 +813,10 @@ function EditorToolbar() {
   // 执行保存
   const doSave = async (filename: string) => {
     try {
+      // 使用文件名作为 programId 和 programName
       const yaml = graphToYaml(nodes, edges, {
-        programId,
-        programName,
+        programId: filename,
+        programName: filename,
         programDescription,
         programVersion,
         bottleCapacityMl,
@@ -934,9 +940,10 @@ function EditorToolbar() {
 
   const handlePreviewYaml = () => {
     try {
+      const derivedProgramId = getProgramIdFromFilename();
       const yaml = graphToYaml(nodes, edges, {
-        programId,
-        programName,
+        programId: derivedProgramId,
+        programName: derivedProgramId,
         programDescription,
         programVersion,
         bottleCapacityMl,
@@ -970,9 +977,10 @@ function EditorToolbar() {
       
       // 2. 后端验证
       try {
+        const derivedProgramId = getProgramIdFromFilename();
         const yaml = graphToYaml(nodes, edges, {
-          programId,
-          programName,
+          programId: derivedProgramId,
+          programName: derivedProgramId,
           programDescription,
           programVersion,
           bottleCapacityMl,
@@ -1032,17 +1040,49 @@ function EditorToolbar() {
       return;
     }
     
-    // 跳转到实验执行页面，带上文件名参数让用户在那里加载
-    doLoadToExperiment();
+    // 直接加载程序到后端并跳转
+    await doLoadToExperiment();
   };
   
-  const doLoadToExperiment = () => {
+  const doLoadToExperiment = async () => {
     if (!currentFilename) return;
     
-    // 跳转到实验执行页面，带上文件名参数，由用户在实验执行页面点击加载
-    setLoadResultDialogType('success');
-    setLoadResultMessage(`文件已保存！\n\n点击确定跳转到实验执行页面，在那里选择 "${currentFilename}" 并点击加载按钮。`);
-    setShowLoadResultDialog(true);
+    try {
+      // 获取当前 YAML 内容
+      const derivedProgramId = currentFilename.replace(/\.ya?ml$/i, '');
+      const yaml = graphToYaml(nodes, edges, {
+        programId: derivedProgramId,
+        programName: derivedProgramId,
+        programDescription,
+        programVersion,
+        bottleCapacityMl,
+        maxFillMl,
+      }, compilationResult || undefined);
+      
+      // 调用后端加载程序
+      const loadRes = await fetch('/api/experiment?action=load', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ yamlContent: yaml }),
+      });
+      
+      const loadData = await loadRes.json();
+      if (!loadData.success) {
+        setLoadResultDialogType('error');
+        setLoadResultMessage(`加载失败: ${loadData.errorMessage || '未知错误'}`);
+        setShowLoadResultDialog(true);
+        return;
+      }
+      
+      // 加载成功，跳转到实验执行页面
+      setLoadResultDialogType('success');
+      setLoadResultMessage('程序已加载到后端！\n\n点击确定跳转到实验执行页面。');
+      setShowLoadResultDialog(true);
+    } catch (error) {
+      setLoadResultDialogType('error');
+      setLoadResultMessage(`加载失败: ${error instanceof Error ? error.message : '网络错误'}`);
+      setShowLoadResultDialog(true);
+    }
   };
   
   

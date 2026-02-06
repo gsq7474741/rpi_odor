@@ -3,23 +3,25 @@
 import { Input } from '@/components/ui/input';
 import { Field } from './Field';
 import { NodeFieldsProps } from './types';
+import { useEditorStore } from '../../store';
 
 export function StartNodeFields({ data, handleChange }: NodeFieldsProps) {
+  const currentFilename = useEditorStore((state) => state.currentFilename);
+  
+  // 从文件名派生显示名称（去掉 .yaml 扩展名）
+  const displayName = currentFilename 
+    ? currentFilename.replace(/\.ya?ml$/i, '') 
+    : '未保存的程序';
+  
   return (
     <>
-      <Field label="程序ID">
-        <Input
-          value={String(data.programId || '')}
-          onChange={(e) => handleChange('programId', e.target.value)}
-          placeholder="my_experiment"
-        />
-      </Field>
-      <Field label="程序名称">
-        <Input
-          value={String(data.programName || '')}
-          onChange={(e) => handleChange('programName', e.target.value)}
-          placeholder="我的实验"
-        />
+      <Field label="程序文件">
+        <div className="px-3 py-2 text-sm bg-muted rounded-md font-mono">
+          {displayName}
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          程序标识符由文件名决定
+        </p>
       </Field>
       <Field label="描述">
         <Input

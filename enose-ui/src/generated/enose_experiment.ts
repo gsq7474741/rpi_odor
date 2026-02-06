@@ -179,6 +179,13 @@ export interface Step {
      */
     name: string;
     /**
+     * 该步骤所属的 phase（编译器自动填充，用户可覆盖）
+     * 空字符串表示继承当前 phase，不触发 phase 转换
+     *
+     * @generated from protobuf field: string phase_name = 2
+     */
+    phaseName: string;
+    /**
      * 步骤动作 (必须指定一个)
      *
      * @generated from protobuf oneof: action
@@ -1557,6 +1564,7 @@ class Step$Type extends MessageType<Step> {
     constructor() {
         super("enose.experiment.Step", [
             { no: 1, name: "name", kind: "scalar", T: 9 /*ScalarType.STRING*/, options: { "buf.validate.field": { string: { minLen: "1" } } } },
+            { no: 2, name: "phase_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 10, name: "inject", kind: "message", oneof: "action", T: () => InjectAction },
             { no: 11, name: "wait", kind: "message", oneof: "action", T: () => WaitAction },
             { no: 12, name: "drain", kind: "message", oneof: "action", T: () => DrainAction },
@@ -1573,6 +1581,7 @@ class Step$Type extends MessageType<Step> {
     create(value?: PartialMessage<Step>): Step {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.name = "";
+        message.phaseName = "";
         message.action = { oneofKind: undefined };
         if (value !== undefined)
             reflectionMergePartial<Step>(this, message, value);
@@ -1585,6 +1594,9 @@ class Step$Type extends MessageType<Step> {
             switch (fieldNo) {
                 case /* string name */ 1:
                     message.name = reader.string();
+                    break;
+                case /* string phase_name */ 2:
+                    message.phaseName = reader.string();
                     break;
                 case /* enose.experiment.InjectAction inject */ 10:
                     message.action = {
@@ -1667,6 +1679,9 @@ class Step$Type extends MessageType<Step> {
         /* string name = 1; */
         if (message.name !== "")
             writer.tag(1, WireType.LengthDelimited).string(message.name);
+        /* string phase_name = 2; */
+        if (message.phaseName !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.phaseName);
         /* enose.experiment.InjectAction inject = 10; */
         if (message.action.oneofKind === "inject")
             InjectAction.internalBinaryWrite(message.action.inject, writer.tag(10, WireType.LengthDelimited).fork(), options).join();

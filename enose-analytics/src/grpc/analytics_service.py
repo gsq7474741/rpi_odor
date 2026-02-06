@@ -147,7 +147,7 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
                     )
                     
                     if frames is not None and frames.size > 0:
-                        # 展平为高维向量: (n_samples, 8) -> (n_samples * 8,)
+                        # 展平为高维向量: (n_samples, 32) -> (n_samples * 32,)
                         features = frames.flatten().tolist()
                         
                         # 获取样本信息用于标签

@@ -134,6 +134,10 @@ message Step {
   // 步骤名称 (用于日志和显示)
   string name = 1 [(buf.validate.field).string.min_len = 1];
   
+  // 该步骤所属的 phase（编译器自动填充，用户可覆盖）
+  // 空字符串表示继承当前 phase，不触发 phase 转换
+  string phase_name = 2;
+  
   // 步骤动作 (必须指定一个)
   oneof action {
     InjectAction inject = 10;

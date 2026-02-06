@@ -142,8 +142,9 @@ class SampleServiceImpl(pb_grpc.SampleServiceServicer):
 
         heater_configs = []
         for hc in sample.get("heater_configs", []):
-            heater_configs.append(pb.HeaterConfig(
-                sensor_idx=hc.get("sensor_idx", 0),
+            heater_configs.append(pb.HeaterConfigInfo(
+                sensor_indices=hc.get("sensor_indices", []),
+                profile_name=hc.get("profile_name", ""),
                 temps=hc.get("temps", []),
                 durs=hc.get("durs", []),
             ))

@@ -2,6 +2,10 @@
 // @generated from protobuf file "enose_analytics.proto" (package "enose.analytics.v1", syntax proto3)
 // tslint:disable
 import { SampleService } from "./enose_analytics";
+import type { GetPhaseTransitionsResponse } from "./enose_analytics";
+import type { GetPhaseTransitionsRequest } from "./enose_analytics";
+import type { GetAvailablePhasesResponse } from "./enose_analytics";
+import type { GetAvailablePhasesRequest } from "./enose_analytics";
 import type { GetSampleSensorDataResponse } from "./enose_analytics";
 import type { GetSampleSensorDataRequest } from "./enose_analytics";
 import type { GetSampleGroupsResponse } from "./enose_analytics";
@@ -701,6 +705,24 @@ export interface ISampleServiceClient {
     getSampleSensorData(input: GetSampleSensorDataRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: GetSampleSensorDataResponse) => void): grpc.ClientUnaryCall;
     getSampleSensorData(input: GetSampleSensorDataRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: GetSampleSensorDataResponse) => void): grpc.ClientUnaryCall;
     getSampleSensorData(input: GetSampleSensorDataRequest, callback: (err: grpc.ServiceError | null, value?: GetSampleSensorDataResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 获取可用的 Phase 列表（从 sample_phase_transitions 表动态获取）
+     *
+     * @generated from protobuf rpc: GetAvailablePhases
+     */
+    getAvailablePhases(input: GetAvailablePhasesRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: GetAvailablePhasesResponse) => void): grpc.ClientUnaryCall;
+    getAvailablePhases(input: GetAvailablePhasesRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: GetAvailablePhasesResponse) => void): grpc.ClientUnaryCall;
+    getAvailablePhases(input: GetAvailablePhasesRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: GetAvailablePhasesResponse) => void): grpc.ClientUnaryCall;
+    getAvailablePhases(input: GetAvailablePhasesRequest, callback: (err: grpc.ServiceError | null, value?: GetAvailablePhasesResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 获取样本的 Phase 转换记录
+     *
+     * @generated from protobuf rpc: GetPhaseTransitions
+     */
+    getPhaseTransitions(input: GetPhaseTransitionsRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: GetPhaseTransitionsResponse) => void): grpc.ClientUnaryCall;
+    getPhaseTransitions(input: GetPhaseTransitionsRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: GetPhaseTransitionsResponse) => void): grpc.ClientUnaryCall;
+    getPhaseTransitions(input: GetPhaseTransitionsRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: GetPhaseTransitionsResponse) => void): grpc.ClientUnaryCall;
+    getPhaseTransitions(input: GetPhaseTransitionsRequest, callback: (err: grpc.ServiceError | null, value?: GetPhaseTransitionsResponse) => void): grpc.ClientUnaryCall;
 }
 // ============================================================================
 // Sample Service - 样本分割与聚合查询
@@ -750,5 +772,23 @@ export class SampleServiceClient extends grpc.Client implements ISampleServiceCl
     getSampleSensorData(input: GetSampleSensorDataRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GetSampleSensorDataResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GetSampleSensorDataResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: GetSampleSensorDataResponse) => void)): grpc.ClientUnaryCall {
         const method = SampleService.methods[3];
         return this.makeUnaryRequest<GetSampleSensorDataRequest, GetSampleSensorDataResponse>(`/${SampleService.typeName}/${method.name}`, (value: GetSampleSensorDataRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): GetSampleSensorDataResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 获取可用的 Phase 列表（从 sample_phase_transitions 表动态获取）
+     *
+     * @generated from protobuf rpc: GetAvailablePhases
+     */
+    getAvailablePhases(input: GetAvailablePhasesRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GetAvailablePhasesResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GetAvailablePhasesResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: GetAvailablePhasesResponse) => void)): grpc.ClientUnaryCall {
+        const method = SampleService.methods[4];
+        return this.makeUnaryRequest<GetAvailablePhasesRequest, GetAvailablePhasesResponse>(`/${SampleService.typeName}/${method.name}`, (value: GetAvailablePhasesRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): GetAvailablePhasesResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 获取样本的 Phase 转换记录
+     *
+     * @generated from protobuf rpc: GetPhaseTransitions
+     */
+    getPhaseTransitions(input: GetPhaseTransitionsRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GetPhaseTransitionsResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GetPhaseTransitionsResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: GetPhaseTransitionsResponse) => void)): grpc.ClientUnaryCall {
+        const method = SampleService.methods[5];
+        return this.makeUnaryRequest<GetPhaseTransitionsRequest, GetPhaseTransitionsResponse>(`/${SampleService.typeName}/${method.name}`, (value: GetPhaseTransitionsRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): GetPhaseTransitionsResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
 }

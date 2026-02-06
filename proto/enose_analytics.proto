@@ -760,6 +760,12 @@ service SampleService {
   
   // 获取样本的传感器数据
   rpc GetSampleSensorData(GetSampleSensorDataRequest) returns (GetSampleSensorDataResponse);
+  
+  // 获取可用的 Phase 列表（从 sample_phase_transitions 表动态获取）
+  rpc GetAvailablePhases(GetAvailablePhasesRequest) returns (GetAvailablePhasesResponse);
+  
+  // 获取样本的 Phase 转换记录
+  rpc GetPhaseTransitions(GetPhaseTransitionsRequest) returns (GetPhaseTransitionsResponse);
 }
 
 // ============================================================================
@@ -807,6 +813,12 @@ message Sample {
   
   // 元数据
   google.protobuf.Timestamp created_at = 22;
+  
+  // Phase 转换记录（一个样本可包含多个 phase 时间段）
+  repeated PhaseTransition phase_transitions = 23;
+  
+  // 传感器读数计数（0 表示无数据）
+  int32 reading_count = 24;
 }
 
 message LiquidComponent {
@@ -866,6 +878,32 @@ message SampleGroup {
   repeated int32 run_ids = 6;
   google.protobuf.Timestamp first_created = 7;
   google.protobuf.Timestamp last_created = 8;
+}
+
+// Phase 转换记录
+message PhaseTransition {
+  int32 id = 1;
+  int32 sample_id = 2;
+  string phase_name = 3;
+  int64 start_time_ms = 4;
+  int64 end_time_ms = 5;    // 0 = 进行中
+  int32 phase_order = 6;
+}
+
+message GetAvailablePhasesRequest {
+  optional int32 run_id = 1;  // 可选，按 run 过滤
+}
+
+message GetAvailablePhasesResponse {
+  repeated string phase_names = 1;
+}
+
+message GetPhaseTransitionsRequest {
+  int32 sample_id = 1;
+}
+
+message GetPhaseTransitionsResponse {
+  repeated PhaseTransition transitions = 1;
 }
 
 message GetSampleSensorDataRequest {

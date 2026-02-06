@@ -1,6 +1,7 @@
 #include "preheat_executor.hpp"
 #include "enose_experiment.pb.h"
 #include <spdlog/spdlog.h>
+#include <nlohmann/json.hpp>
 #include <chrono>
 #include <thread>
 #include <mutex>
@@ -49,8 +50,21 @@ ExecuteResult PreheatExecutor::execute(const enose::experiment::Step& step) {
         // system_state_->set_gas_pump(action.gas_pump_pwm());
     }
     
-    // 2. 传感器应该已经在运行 (由 SensorServiceImpl 管理)
-    spdlog::debug("PreheatExecutor: sensor should already be running");
+    // 2. 发送 start 命令启动传感器采集
+    if (sensor_) {
+        spdlog::info("PreheatExecutor: sending start command to sensor");
+        nlohmann::json start_cmd;
+        start_cmd["cmd"] = "start";
+        start_cmd["id"] = 0;
+        start_cmd["params"]["sensors"] = {0, 1, 2, 3, 4, 5, 6, 7};
+        sensor_->write(start_cmd);
+        
+        // 等待传感器初始化
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        spdlog::debug("PreheatExecutor: sensor start command sent");
+    } else {
+        spdlog::warn("PreheatExecutor: no sensor driver, skipping start command");
+    }
     
     // 3. 启用数据持久化 (如果需要记录数据)
     if (action.record_data() && sensor_repo_) {
@@ -121,7 +135,7 @@ void PreheatExecutor::wait_for_heater_cycles(int count, double timeout_s) {
     
     // 订阅传感器数据包
     auto conn = sensor_->on_packet.connect([&](const nlohmann::json& packet) {
-        if (!packet.contains("type") || packet["type"] != "reading") return;
+        if (!packet.contains("type") || packet["type"] != "data") return;
         if (!packet.contains("heater_step")) return;
         
         int current_step = packet["heater_step"].get<int>();

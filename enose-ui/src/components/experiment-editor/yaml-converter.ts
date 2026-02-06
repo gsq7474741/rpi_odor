@@ -1,5 +1,5 @@
 import YAML from 'js-yaml';
-import { ExperimentNode, ExperimentEdge, NodeType, HANDLE_TYPES, PARAM_TYPE_BINDABLE_FIELDS } from './types';
+import { ExperimentNode, ExperimentEdge, NodeType, HANDLE_TYPES, PARAM_TYPE_BINDABLE_FIELDS, DEFAULT_PHASE_MAP } from './types';
 import { CompiledStep, CompilationResult } from './compiler';
 
 // =============== 编译警告系统 ===============
@@ -134,6 +134,7 @@ export function validateAllParamSweeps(
 
 interface YamlStep {
   name: string;
+  phase_name?: string;
   phase_marker?: {
     phase_name: string;
     is_start: boolean;
@@ -195,6 +196,9 @@ export function compiledStepToYamlStep(step: CompiledStep): YamlStep | null {
 
   const params = step.params;
   
+  // 获取默认 phase_name（编译器自动填充）
+  const defaultPhase = DEFAULT_PHASE_MAP[step.type];
+  
   // 构建带循环路径前缀的名称
   let name = step.name;
   if (step.loopPath && step.loopPath.length > 0) {
@@ -208,6 +212,7 @@ export function compiledStepToYamlStep(step: CompiledStep): YamlStep | null {
     case NodeType.PHASE_MARKER:
       return {
         name,
+        phase_name: String(params.phaseName || 'SAMPLE'),
         phase_marker: {
           phase_name: String(params.phaseName || 'SAMPLE'),
           is_start: Boolean(params.isStart),
@@ -245,12 +250,13 @@ export function compiledStepToYamlStep(step: CompiledStep): YamlStep | null {
         inject.target_volume_ml = Number(params.targetVolumeMl ?? step.liquidChangeMl ?? 15);
       }
 
-      return { name, inject };
+      return { name, ...(defaultPhase && { phase_name: defaultPhase }), inject };
     }
 
     case NodeType.DRAIN:
       return {
         name,
+        ...(defaultPhase && { phase_name: defaultPhase }),
         drain: {
           gas_pump_pwm: Number(params.gasPumpPwm ?? 80),
           timeout_s: Number(params.timeoutS ?? 60),
@@ -260,6 +266,7 @@ export function compiledStepToYamlStep(step: CompiledStep): YamlStep | null {
     case NodeType.WASH:
       return {
         name,
+        ...(defaultPhase && { phase_name: defaultPhase }),
         wash: {
           wash_liquid_id: String(params.washLiquidId || params.washLiquidName || 'distilled_water'),
           wash_volume_ml: Number(params.washVolumeMl ?? 20),
@@ -289,7 +296,7 @@ export function compiledStepToYamlStep(step: CompiledStep): YamlStep | null {
         acquire.max_duration_s = Number(params.maxDurationS ?? 300);
       }
 
-      return { name, acquire };
+      return { name, ...(defaultPhase && { phase_name: defaultPhase }), acquire };
     }
 
     case NodeType.WAIT_TIME:
@@ -358,7 +365,7 @@ export function compiledStepToYamlStep(step: CompiledStep): YamlStep | null {
         preheat.sensor_indices = sensorIndices;
       }
 
-      return { name, preheat };
+      return { name, ...(defaultPhase && { phase_name: defaultPhase }), preheat };
     }
 
     case NodeType.CONFIGURE_HEATER: {
@@ -963,11 +970,13 @@ function nodeToStep(
 ): YamlStep | null {
   const data = node.data as Record<string, unknown>;
   const name = String(data.name || getDefaultName(node.type as NodeType));
+  const nodeDefaultPhase = DEFAULT_PHASE_MAP[node.type as NodeType];
 
   switch (node.type) {
     case NodeType.PHASE_MARKER:
       return {
         name,
+        phase_name: String(data.phaseName || 'SAMPLE'),
         phase_marker: {
           phase_name: String(data.phaseName || 'SAMPLE'),
           is_start: Boolean(data.isStart),
@@ -1005,12 +1014,13 @@ function nodeToStep(
         inject.target_volume_ml = Number(data.targetVolumeMl || 15);
       }
 
-      return { name, inject };
+      return { name, ...(nodeDefaultPhase && { phase_name: nodeDefaultPhase }), inject };
     }
 
     case NodeType.DRAIN:
       return {
         name,
+        ...(nodeDefaultPhase && { phase_name: nodeDefaultPhase }),
         drain: {
           gas_pump_pwm: Number(data.gasPumpPwm || 80),
           timeout_s: Number(data.timeoutS || 60),
@@ -1021,6 +1031,7 @@ function nodeToStep(
       // 清洗液直接从节点属性获取，不再需要连接液体源
       return {
         name,
+        ...(nodeDefaultPhase && { phase_name: nodeDefaultPhase }),
         wash: {
           wash_liquid_id: String(data.washLiquidId || 'distilled_water'),
           wash_volume_ml: Number(data.washVolumeMl || 20),
@@ -1055,7 +1066,7 @@ function nodeToStep(
         acquire.max_duration_s = Number(data.maxDurationS || 300);
       }
 
-      return { name, acquire };
+      return { name, ...(nodeDefaultPhase && { phase_name: nodeDefaultPhase }), acquire };
     }
 
     case NodeType.WAIT_TIME:
@@ -1182,7 +1193,7 @@ function nodeToStep(
         preheat.sensor_indices = sensorIndices;
       }
       
-      return { name, preheat };
+      return { name, ...(nodeDefaultPhase && { phase_name: nodeDefaultPhase }), preheat };
     }
 
     case NodeType.CONFIGURE_HEATER: {
@@ -1276,15 +1287,13 @@ export function yamlToGraph(yamlContent: string): {
     maxFillMl: program.hardware?.max_fill_ml || 100,
   };
 
-  // 创建开始节点
+  // 创建开始节点 (programId 和 programName 由文件名决定，不存储在节点中)
   const startId = generateId();
   nodes.push({
     id: startId,
     type: NodeType.START,
     position: { x: 250, y: 50 },
     data: {
-      programId: programMeta.programId,
-      programName: programMeta.programName,
       description: programMeta.programDescription,
       version: programMeta.programVersion,
     },
@@ -1627,8 +1636,6 @@ function getNodeDataFromProgram(
   switch (nodeType) {
     case NodeType.START:
       return {
-        programId: program.id,
-        programName: program.name,
         description: program.description,
         version: program.version,
       };

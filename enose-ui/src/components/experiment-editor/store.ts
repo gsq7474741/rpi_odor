@@ -47,6 +47,9 @@ interface EditorState {
   // 未保存更改跟踪
   isDirty: boolean;
   
+  // 当前文件名
+  currentFilename: string | null;
+  
   // Actions
   onNodesChange: OnNodesChange<ExperimentNode>;
   onEdgesChange: OnEdgesChange<ExperimentEdge>;
@@ -86,6 +89,7 @@ interface EditorState {
   
   // 未保存更改
   setDirty: (dirty: boolean) => void;
+  setCurrentFilename: (filename: string | null) => void;
   
   // 获取默认节点数据
   getDefaultNodeData: (type: NodeType) => Record<string, unknown>;
@@ -98,8 +102,6 @@ const getDefaultNodeData = (type: NodeType): Record<string, unknown> => {
   switch (type) {
     case NodeType.START:
       return {
-        programId: 'new_experiment',
-        programName: '新实验',
         description: '',
         version: '1.0.0',
       };
@@ -244,6 +246,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   // 未保存更改状态
   isDirty: false,
   setDirty: (dirty: boolean) => set({ isDirty: dirty }),
+  
+  // 当前文件名状态
+  currentFilename: null,
+  setCurrentFilename: (filename: string | null) => set({ currentFilename: filename }),
   
   saveToHistory: () => {
     const { nodes, edges, history, historyIndex } = get();

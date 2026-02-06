@@ -8,6 +8,13 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   FlaskConical,
   CheckCircle,
   Circle,
@@ -15,8 +22,21 @@ import {
   ChevronLeft,
   ChevronRight,
   Database,
+  ArrowUp,
+  ArrowDown,
+  RefreshCw,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+type SortField = "runId" | "sampleId" | "time";
+type SortOrder = "asc" | "desc";
 
 interface SampleTableProps {
   onSelectSample?: (sample: SampleWithFrameStatus) => void;
@@ -40,6 +60,63 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
     runs,
   } = useExperiments();
 
+  const [sortField, setSortField] = useState<SortField>("runId");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const [recalculating, setRecalculating] = useState<Set<number>>(new Set());
+
+  // 单样本重新计算数据帧
+  const handleRecalcSingle = useCallback(async (sampleId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setRecalculating(prev => new Set(prev).add(sampleId));
+    const toastId = toast.loading(`重新计算 S#${sampleId} 的数据帧...`);
+    try {
+      const response = await fetch("/api/analytics/sample-frames", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sampleIds: [sampleId],
+          nSamples: 100,
+          methods: ["linear", "pchip"],
+          useCache: false,
+          action: "generateBatch",
+        }),
+      });
+      const result = await response.json();
+      // 刷新该样本的帧状态
+      const statusRes = await fetch(`/api/analytics/sample-frames?sampleIds=${sampleId}`);
+      const statusData = await statusRes.json();
+      if (statusData.statuses?.[sampleId]) {
+        const updatedSamples = samples.map(s => {
+          if (s.id === sampleId) {
+            return {
+              ...s,
+              frameStatus: {
+                hasFrames: statusData.statuses[sampleId].exists || false,
+                cached: statusData.statuses[sampleId].cached || false,
+                variants: statusData.statuses[sampleId].variants || [],
+              },
+            };
+          }
+          return s;
+        });
+        setSamples(updatedSamples);
+      }
+      if (result.failedCount > 0) {
+        toast.warning(`S#${sampleId} 重算部分失败`, { id: toastId });
+      } else {
+        toast.success(`S#${sampleId} 数据帧已更新`, { id: toastId });
+      }
+    } catch {
+      toast.error(`S#${sampleId} 重算失败`, { id: toastId });
+    } finally {
+      setRecalculating(prev => {
+        const next = new Set(prev);
+        next.delete(sampleId);
+        return next;
+      });
+    }
+  }, [samples, setSamples]);
+
   const pageSize = 50;
   const totalPages = Math.ceil(samplesTotal / pageSize);
 
@@ -52,11 +129,13 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
       params.set("offset", (samplesPage * pageSize).toString());
       
       // 应用筛选条件
-      if (filters.runIds.length > 0) {
-        params.set("runId", filters.runIds[0].toString()); // TODO: 支持多 runId
+      if (filters.runIds.length === 1) {
+        params.set("runId", filters.runIds[0].toString());
+      } else if (filters.runIds.length > 1) {
+        params.set("runIds", filters.runIds.join(","));
       }
       if (filters.phaseNames.length > 0) {
-        params.set("phase", filters.phaseNames[0]);
+        params.set("phase", filters.phaseNames.join(","));
       }
       if (filters.paramsHash) {
         params.set("paramsHash", filters.paramsHash);
@@ -64,6 +143,8 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
       if (filters.liquidIds.length > 0) {
         params.set("liquid", filters.liquidIds.join(","));
       }
+      params.set("sortField", sortField);
+      params.set("sortOrder", sortOrder);
 
       const response = await fetch(`/api/samples?${params.toString()}`);
       const data = await response.json();
@@ -95,7 +176,7 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
     } finally {
       setSamplesLoading(false);
     }
-  }, [samplesPage, filters, runs, setSamples, setSamplesLoading, setSamplesTotal]);
+  }, [samplesPage, filters, runs, sortField, sortOrder, setSamples, setSamplesLoading, setSamplesTotal]);
 
   // 批量获取数据帧状态
   const loadFrameStatuses = async (sampleList: SampleWithFrameStatus[]) => {
@@ -172,12 +253,35 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
           aria-label="全选"
           className={cn(someSelected && !allSelected && "data-[state=checked]:bg-primary/50")}
         />
-        <span className="text-sm font-medium flex-1">
-          样本列表 ({samplesTotal})
+        <span className="text-sm font-medium">
+          样本 ({samplesTotal})
         </span>
+
+        {/* 排序 */}
+        <div className="flex items-center gap-1 ml-auto">
+          <Select value={sortField} onValueChange={(v) => setSortField(v as SortField)}>
+            <SelectTrigger className="h-6 w-20 text-xs px-1.5">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="runId">Run ID</SelectItem>
+              <SelectItem value="sampleId">Sample ID</SelectItem>
+              <SelectItem value="time">时间</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0"
+            onClick={() => setSortOrder(prev => prev === "asc" ? "desc" : "asc")}
+          >
+            {sortOrder === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+          </Button>
+        </div>
+
         {selectedSampleIds.size > 0 && (
           <Badge variant="secondary" className="text-xs">
-            已选 {selectedSampleIds.size}
+            {selectedSampleIds.size}
           </Badge>
         )}
       </div>
@@ -201,7 +305,7 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
                   key={sample.id}
                   className={cn(
                     "flex items-center gap-2 px-2 py-2 rounded-md cursor-pointer transition-colors",
-                    "hover:bg-accent",
+                    "hover:bg-accent group",
                     isSelected && "bg-accent"
                   )}
                   onClick={() => handleSampleClick(sample)}
@@ -232,8 +336,8 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
                     </div>
                   </div>
 
-                  {/* 数据帧状态 */}
-                  <div className="flex-shrink-0">
+                  {/* 数据帧状态 + 重算按钮 */}
+                  <div className="flex items-center gap-1 flex-shrink-0">
                     {sample.frameStatus === null ? (
                       <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                     ) : hasFrames ? (
@@ -267,6 +371,29 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
                         无帧
                       </Badge>
                     )}
+                    {/* 单样本重算按钮 */}
+                    <TooltipProvider delayDuration={300}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => handleRecalcSingle(sample.id, e)}
+                            disabled={recalculating.has(sample.id)}
+                          >
+                            {recalculating.has(sample.id) ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <RefreshCw className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="left">
+                          <p className="text-xs">重新计算数据帧</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                 </div>
               );

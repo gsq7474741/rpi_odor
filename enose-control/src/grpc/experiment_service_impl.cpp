@@ -384,6 +384,26 @@ void ExperimentServiceImpl::execution_thread_func() {
         spdlog::info("传感器数据关联到 run_id={}", *current_run_id_);
     }
     
+    // 1. 发送 sync 命令检查固件连接
+    if (sensor_driver_) {
+        spdlog::info("发送 sync 命令检查固件连接");
+        nlohmann::json sync_cmd;
+        sync_cmd["cmd"] = "sync";
+        sync_cmd["id"] = 0;
+        sensor_driver_->write(sync_cmd);
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    }
+    
+    // 2. 发送 init 命令初始化传感器
+    if (sensor_driver_) {
+        spdlog::info("发送 init 命令初始化传感器");
+        nlohmann::json init_cmd;
+        init_cmd["cmd"] = "init";
+        init_cmd["id"] = 1;
+        sensor_driver_->write(init_cmd);
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+    
     try {
         execute_steps(loaded_program_->steps());
         
@@ -431,6 +451,16 @@ void ExperimentServiceImpl::execution_thread_func() {
         }
     }
     
+    // 发送 stop 命令停止传感器采集
+    if (sensor_driver_) {
+        spdlog::info("发送 stop 命令停止传感器采集");
+        nlohmann::json stop_cmd;
+        stop_cmd["cmd"] = "stop";
+        stop_cmd["id"] = 99;
+        sensor_driver_->write(stop_cmd);
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    }
+    
     // 清除传感器数据的运行上下文
     if (sensor_repo_) {
         sensor_repo_->clear_run_context();
@@ -470,6 +500,13 @@ void ExperimentServiceImpl::execute_steps(
 void ExperimentServiceImpl::execute_step(const experiment::Step& step) {
     add_log("执行步骤: " + step.name());
     emit_event(experiment::ExperimentEvent::STEP_STARTED, step.name());
+    
+    // 集中式 Phase 转换：从 Step.phase_name 读取（编译器自动填充）
+    // 如果 phase_name 非空且与当前不同，触发 phase 转换
+    const std::string& step_phase = step.phase_name();
+    if (!step_phase.empty() && step_phase != current_phase_name_) {
+        auto_start_phase(step_phase);
+    }
     
     switch (step.action_case()) {
         case experiment::Step::kInject:
@@ -522,6 +559,8 @@ void ExperimentServiceImpl::execute_inject(const experiment::InjectAction& actio
         workflows::SystemState::State::INJECT,
         "inject"
     );
+    
+    // 注意: 传感器阶段上下文现在由 execute_step() 的集中 phase 逻辑管理
     
     // 计算每个泵的进样量 (单位: ml, Klipper 已配置 1mm=1ml)
     double total_volume = action.target_volume_ml();
@@ -650,6 +689,8 @@ void ExperimentServiceImpl::execute_inject(const experiment::InjectAction& actio
         if (params.pump_7_volume > 0) consumable_repo_->add_pump_consumption(7, params.pump_7_volume);
     }
     
+    // 注意: 阶段上下文的清除由下一个步骤的 phase 转换自动处理
+    
     // 提交事务并恢复到初始状态 (Phase 1.3)
     guard.commit_and_restore();
 }
@@ -754,6 +795,8 @@ void ExperimentServiceImpl::execute_acquire(const experiment::AcquireAction& act
         workflows::SystemState::State::SAMPLE,
         "acquire"
     );
+    
+    // 注意: 传感器阶段上下文现在由 execute_step() 的集中 phase 逻辑管理
     
     // 更新样本上下文 - 采集参数
     current_sample_ctx_.gas_pump_pwm = action.gas_pump_pwm();
@@ -872,6 +915,8 @@ void ExperimentServiceImpl::execute_acquire(const experiment::AcquireAction& act
         }
     }
     
+    // 注意: 阶段上下文的清除由下一个步骤的 phase 转换自动处理
+    
     // 重置清洗计数
     current_sample_ctx_.reset_wash_count();
     
@@ -927,61 +972,95 @@ void ExperimentServiceImpl::execute_loop(const experiment::LoopAction& action) {
     add_log("循环结束");
 }
 
-void ExperimentServiceImpl::execute_phase_marker(const experiment::PhaseMarkerAction& action) {
+// ============================================================
+// Phase 转换辅助方法（集中管理）
+// ============================================================
+
+void ExperimentServiceImpl::auto_start_phase(const std::string& phase_name) {
+    if (phase_name.empty() || phase_name == current_phase_name_) {
+        return;  // 空 phase 或相同 phase 不触发转换
+    }
+    
     int64_t now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
     
+    // 先结束当前 phase（如果有）
+    if (!current_phase_name_.empty()) {
+        auto_end_current_phase();
+    }
+    
+    current_phase_name_ = phase_name;
+    add_log("阶段开始: " + phase_name);
+    emit_event(experiment::ExperimentEvent::PHASE_STARTED, phase_name);
+    
+    // 更新样本上下文 - 阶段信息
+    current_sample_ctx_.phase_name = phase_name;
+    
+    // 更新传感器数据的阶段上下文
+    if (sensor_repo_ && current_run_id_) {
+        sensor_repo_->set_run_context(*current_run_id_, phase_name);
+        spdlog::debug("传感器数据阶段更新: {}", phase_name);
+    }
+    
+    // 记录 Phase 转换到 sample_phase_transitions 表
+    if (sample_repo_ && current_sample_ctx_.sample_id >= 0) {
+        int16_t current_order = sample_repo_->get_current_phase_order(current_sample_ctx_.sample_id);
+        int16_t new_order = current_order + 1;
+        sample_repo_->create_phase_transition(
+            current_sample_ctx_.sample_id,
+            phase_name,
+            now_ms,
+            new_order);
+        
+        spdlog::debug("Phase 转换记录: sample_id={} phase={} order={}",
+                     current_sample_ctx_.sample_id, phase_name, new_order);
+    }
+}
+
+void ExperimentServiceImpl::auto_end_phase(const std::string& phase_name) {
+    if (phase_name.empty() || phase_name != current_phase_name_) {
+        return;  // 只能结束当前活跃的 phase
+    }
+    auto_end_current_phase();
+}
+
+void ExperimentServiceImpl::auto_end_current_phase() {
+    if (current_phase_name_.empty()) {
+        return;
+    }
+    
+    int64_t now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    
+    add_log("阶段结束: " + current_phase_name_);
+    emit_event(experiment::ExperimentEvent::PHASE_ENDED, current_phase_name_);
+    
+    // 清除传感器阶段上下文（保留 run_id）
+    if (sensor_repo_ && current_run_id_) {
+        sensor_repo_->set_run_context(*current_run_id_, "");
+    }
+    
+    // 完成当前 Phase 转换记录
+    if (sample_repo_ && current_sample_ctx_.sample_id >= 0) {
+        int16_t current_order = sample_repo_->get_current_phase_order(current_sample_ctx_.sample_id);
+        if (current_order >= 0) {
+            sample_repo_->complete_phase_transition(
+                current_sample_ctx_.sample_id, current_order, now_ms);
+        }
+    }
+    
+    current_phase_name_.clear();
+}
+
+// ============================================================
+// execute_phase_marker — 向后兼容，委托给 auto_start/end_phase
+// ============================================================
+
+void ExperimentServiceImpl::execute_phase_marker(const experiment::PhaseMarkerAction& action) {
     if (action.is_start()) {
-        add_log("阶段开始: " + action.phase_name());
-        emit_event(experiment::ExperimentEvent::PHASE_STARTED, action.phase_name());
-        
-        // 更新样本上下文 - 阶段信息
-        current_sample_ctx_.phase_name = action.phase_name();
-        
-        // 更新传感器数据的阶段上下文
-        if (sensor_repo_ && current_run_id_) {
-            sensor_repo_->set_run_context(*current_run_id_, action.phase_name());
-            spdlog::debug("传感器数据阶段更新: {}", action.phase_name());
-        }
-        
-        // 记录 Phase 转换到 sample_phase_transitions 表
-        // 只在有活跃 sample 时记录（sample_id >= 0）
-        if (sample_repo_ && current_sample_ctx_.sample_id >= 0) {
-            // 先完成上一个 phase（如果有）
-            int16_t current_order = sample_repo_->get_current_phase_order(current_sample_ctx_.sample_id);
-            if (current_order >= 0) {
-                sample_repo_->complete_phase_transition(
-                    current_sample_ctx_.sample_id, current_order, now_ms);
-            }
-            
-            // 创建新的 phase 转换记录
-            int16_t new_order = current_order + 1;
-            sample_repo_->create_phase_transition(
-                current_sample_ctx_.sample_id,
-                action.phase_name(),
-                now_ms,
-                new_order);
-            
-            spdlog::debug("Phase 转换记录: sample_id={} phase={} order={}",
-                         current_sample_ctx_.sample_id, action.phase_name(), new_order);
-        }
+        auto_start_phase(action.phase_name());
     } else {
-        add_log("阶段结束: " + action.phase_name());
-        emit_event(experiment::ExperimentEvent::PHASE_ENDED, action.phase_name());
-        
-        // 阶段结束时清除阶段名（但保留 run_id）
-        if (sensor_repo_ && current_run_id_) {
-            sensor_repo_->set_run_context(*current_run_id_, "");
-        }
-        
-        // 完成当前 Phase 转换记录
-        if (sample_repo_ && current_sample_ctx_.sample_id >= 0) {
-            int16_t current_order = sample_repo_->get_current_phase_order(current_sample_ctx_.sample_id);
-            if (current_order >= 0) {
-                sample_repo_->complete_phase_transition(
-                    current_sample_ctx_.sample_id, current_order, now_ms);
-            }
-        }
+        auto_end_phase(action.phase_name());
     }
 }
 
@@ -1130,7 +1209,7 @@ bool ExperimentServiceImpl::wait_for_heater_cycles(int count, double timeout_s) 
     std::condition_variable cycle_cv;
     
     auto conn = sensor_driver_->on_packet.connect([&](const nlohmann::json& packet) {
-        if (!packet.contains("type") || packet["type"] != "reading") return;
+        if (!packet.contains("type") || packet["type"] != "data") return;
         if (!packet.contains("heater_step")) return;
         
         int current_step = packet["heater_step"].get<int>();
@@ -1205,7 +1284,7 @@ bool ExperimentServiceImpl::wait_for_sensor_stability(double window_s, double th
     bool stable = false;
     
     auto conn = sensor_driver_->on_packet.connect([&](const nlohmann::json& packet) {
-        if (!packet.contains("type") || packet["type"] != "reading") return;
+        if (!packet.contains("type") || packet["type"] != "data") return;
         if (!packet.contains("value")) return;
         
         double value = packet["value"].get<double>();
@@ -1478,10 +1557,24 @@ void ExperimentServiceImpl::execute_configure_heater(
         
         add_log("  传感器 " + std::to_string(info.sensor_indices.size()) + 
                 " 个, 配置: " + (info.profile_name.empty() ? "自定义" : info.profile_name));
+        
+        // 发送 config 命令到固件
+        if (sensor_driver_ && !info.temps.empty() && !info.durs.empty()) {
+            nlohmann::json config_cmd;
+            config_cmd["cmd"] = "config";
+            config_cmd["id"] = 2;
+            config_cmd["params"]["temps"] = info.temps;
+            config_cmd["params"]["durs"] = info.durs;
+            config_cmd["params"]["sensors"] = info.sensor_indices;
+            
+            spdlog::info("发送 config 命令: sensors={}, temps={}, durs={}",
+                        info.sensor_indices.size(), info.temps.size(), info.durs.size());
+            sensor_driver_->write(config_cmd);
+            
+            // 等待固件处理配置
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
     }
-    
-    // TODO: 实际应用加热器配置到硬件
-    // 这部分应该由 HeaterConfigExecutor 处理
 }
 
 void ExperimentServiceImpl::execute_preheat(const experiment::PreheatAction& action) {
@@ -1501,9 +1594,22 @@ void ExperimentServiceImpl::execute_preheat(const experiment::PreheatAction& act
         add_log("气泵PWM: " + std::to_string(action.gas_pump_pwm()) + "%");
     }
     
-    // 如果 record_data 为 true，设置传感器数据的阶段上下文
-    if (action.record_data() && sensor_repo_ && current_run_id_) {
-        sensor_repo_->set_run_context(*current_run_id_, "PREHEAT");
+    // 发送 start 命令启动传感器数据采集
+    if (sensor_driver_) {
+        spdlog::info("发送 start 命令启动传感器采集");
+        nlohmann::json start_cmd;
+        start_cmd["cmd"] = "start";
+        start_cmd["id"] = 3;
+        start_cmd["params"]["sensors"] = {0, 1, 2, 3, 4, 5, 6, 7};
+        sensor_driver_->write(start_cmd);
+        
+        // 等待传感器开始采集
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        add_log("传感器采集已启动");
+    }
+    
+    // 注意: 传感器阶段上下文现在由 execute_step() 的集中 phase 逻辑管理
+    if (action.record_data()) {
         add_log("预热数据将记录到数据库 (phase=PREHEAT)");
     }
     
@@ -1539,10 +1645,7 @@ void ExperimentServiceImpl::execute_preheat(const experiment::PreheatAction& act
         }
     }
     
-    // 如果记录了预热数据，清除阶段上下文（保留 run_id）
-    if (action.record_data() && sensor_repo_ && current_run_id_) {
-        sensor_repo_->set_run_context(*current_run_id_, "");
-    }
+    // 注意: 阶段上下文的清除由下一个步骤的 phase 转换自动处理
     
     // 提交事务并恢复到初始状态
     guard.commit_and_restore();

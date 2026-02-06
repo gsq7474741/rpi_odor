@@ -27,26 +27,8 @@ export interface ProjectionOptions {
   onProgress?: (progress: number, message: string) => void;
 }
 
-/**
- * Iterative t-SNE runner for real-time visualization.
- * Similar to TensorBoard's continuous t-SNE rendering.
- */
-export interface TSNERunner {
-  /** Current iteration number */
-  iteration: number;
-  /** Whether the runner is currently running */
-  isRunning: boolean;
-  /** Current embedding points */
-  getPoints(): number[][];
-  /** Start/resume the iteration */
-  start(): void;
-  /** Pause the iteration */
-  pause(): void;
-  /** Stop and reset */
-  stop(): void;
-  /** Perform a single step */
-  step(): number[][];
-}
+// TSNERunner interface is now defined in dataset.ts
+import type { TSNERunner as TSNERunnerType } from './dataset';
 
 const MAX_SAMPLES = 5000;
 const PCA_SAMPLE_DIM = 200;
@@ -350,19 +332,33 @@ export function shouldUseFrontendProjection(sampleCount: number): boolean {
 export function simpleKMeans(
   data: number[][],
   k: number,
-  maxIterations = 100
+  maxIterations = 100,
+  seed?: number
 ): { labels: number[]; centroids: number[][] } {
   const N = data.length;
+  if (N === 0) {
+    return { labels: [], centroids: [] };
+  }
   const D = data[0].length;
+
+  // Clamp k to not exceed data point count
+  const effectiveK = Math.min(k, N);
+
+  // Seeded random for deterministic results
+  let _seed = seed ?? 42;
+  const seededRandom = () => {
+    _seed = (_seed * 16807 + 0) % 2147483647;
+    return (_seed - 1) / 2147483646;
+  };
 
   // Initialize centroids randomly from data points
   const indices = Array.from({ length: N }, (_, i) => i);
   for (let i = indices.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(seededRandom() * (i + 1));
     [indices[i], indices[j]] = [indices[j], indices[i]];
   }
 
-  let centroids = indices.slice(0, k).map(i => [...data[i]]);
+  let centroids = indices.slice(0, effectiveK).map(i => [...data[i]]);
   let labels = new Array(N).fill(0);
 
   for (let iter = 0; iter < maxIterations; iter++) {
@@ -371,7 +367,7 @@ export function simpleKMeans(
     for (let i = 0; i < N; i++) {
       let minDist = Infinity;
       let minIdx = 0;
-      for (let c = 0; c < k; c++) {
+      for (let c = 0; c < effectiveK; c++) {
         let dist = 0;
         for (let d = 0; d < D; d++) {
           const diff = data[i][d] - centroids[c][d];
@@ -398,8 +394,8 @@ export function simpleKMeans(
     if (!changed) break;
 
     // Update centroids
-    const counts = new Array(k).fill(0);
-    const sums = Array.from({ length: k }, () => new Array(D).fill(0));
+    const counts = new Array(effectiveK).fill(0);
+    const sums = Array.from({ length: effectiveK }, () => new Array(D).fill(0));
 
     for (let i = 0; i < N; i++) {
       const c = labels[i];
@@ -409,7 +405,7 @@ export function simpleKMeans(
       }
     }
 
-    for (let c = 0; c < k; c++) {
+    for (let c = 0; c < effectiveK; c++) {
       if (counts[c] > 0) {
         for (let d = 0; d < D; d++) {
           centroids[c][d] = sums[c][d] / counts[c];
@@ -434,7 +430,7 @@ export function createTSNERunner(
     sphereize?: boolean;
     onStep?: (iteration: number, points: number[][]) => void;
   } = {}
-): TSNERunner {
+): TSNERunnerType {
   const nComponents = options.nComponents || 2;
   const perplexity = options.perplexity || 30;
   const learningRate = options.learningRate || 10;
@@ -548,3 +544,5 @@ export function createTSNERunner(
 }
 
 export { TSNE, computeKNN } from './bh-tsne';
+export { ProjectionDataSet, type DataPoint, type TSNERunner, type TSNERunnerOptions, type NearestEntry } from './dataset';
+export { createSeededRandom, seededShuffle, seededSample, generateShuffledIndices, type RandomGenerator } from './seeded-random';

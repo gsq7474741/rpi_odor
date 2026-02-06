@@ -7,6 +7,7 @@
  */
 
 import { SPTree, SPNode } from './sptree';
+import { createSeededRandom } from './seeded-random';
 
 type AugmSPNode = SPNode & {
   numCells: number;
@@ -179,6 +180,7 @@ export interface TSNEOptions {
   perplexity?: number;
   epsilon?: number;
   rng?: () => number;
+  seed?: number;
 }
 
 export class TSNE {
@@ -199,7 +201,8 @@ export class TSNE {
   constructor(opt: TSNEOptions) {
     this.perplexity = opt.perplexity || 30;
     this.epsilon = opt.epsilon || 10;
-    this.rng = opt.rng || Math.random;
+    // Use provided rng, or create seeded random if seed provided, or fallback to Math.random
+    this.rng = opt.rng || (opt.seed != null ? createSeededRandom(opt.seed) : Math.random);
     this.dim = opt.dim;
 
     if (opt.dim === 2) {

@@ -38,6 +38,14 @@ void SensorRepository::buffer_insert(const SensorReadingRecord& record) {
         }
     }
     
+    // 首次写入时记录日志
+    static std::atomic<int> insert_count{0};
+    int count = ++insert_count;
+    if (count == 1 || count % 1000 == 0) {
+        spdlog::info("SensorRepository: buffer_insert count={}, run_id={}, sample_id={}", 
+                     count, r.run_id.value_or(-1), r.sample_id.value_or(-1));
+    }
+    
     bool should_flush = false;
     {
         std::lock_guard<std::mutex> lock(buffer_mutex_);

@@ -235,7 +235,27 @@ export function ScatterGLPanel({
       scatter.startOrbitAnimation();
     }
 
-    return cleanupScatter;
+    // 强制触发初始渲染 - 解决首次渲染空白需要拖动才显示的问题
+    // scatter-gl 内部使用 three.js，WebGL 上下文在首帧可能未完全就绪
+    // 使用延迟的 resize() 调用来强制重绘
+    const forceRenderTimeoutId = setTimeout(() => {
+      if (scatterRef.current) {
+        scatterRef.current.resize();
+      }
+    }, 100);
+    
+    // 额外的帧级别触发，确保动画循环启动
+    const rafId = requestAnimationFrame(() => {
+      if (scatterRef.current) {
+        scatterRef.current.resize();
+      }
+    });
+
+    return () => {
+      clearTimeout(forceRenderTimeoutId);
+      cancelAnimationFrame(rafId);
+      cleanupScatter();
+    };
     // containerSize 变化时重建实例，确保 picking texture 尺寸与容器匹配
   }, [scatterModule, points, is3D, colorBy, onPointClick, onPointHover, onSelectionChange, cleanupScatter, containerSize]);
 

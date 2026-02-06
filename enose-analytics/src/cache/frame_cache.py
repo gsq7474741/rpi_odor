@@ -44,14 +44,16 @@ class FrameCache:
             n_samples: 采样点数
             
         Returns:
-            numpy array (n_samples, 8) 或 None
+            numpy array (n_samples, n_channels) 或 None
         """
         key = self._key(sample_id, method, n_samples)
         data = self.redis.get(key)
         if data:
             try:
-                arr = np.frombuffer(data, dtype=np.float64).reshape(n_samples, 8)
-                logger.debug(f"FrameCache HIT: {key}")
+                flat = np.frombuffer(data, dtype=np.float64)
+                n_channels = len(flat) // n_samples
+                arr = flat.reshape(n_samples, n_channels)
+                logger.debug(f"FrameCache HIT: {key}, shape={arr.shape}")
                 return arr
             except Exception as e:
                 logger.warning(f"FrameCache 解析失败: {key}, {e}")
@@ -72,7 +74,7 @@ class FrameCache:
             sample_id: 样本 ID
             method: 插值方法
             n_samples: 采样点数
-            frames: 帧数据 (n_samples, 8)
+            frames: 帧数据 (n_samples, n_channels)
             ttl: 过期时间（秒），None 使用默认值
             
         Returns:
@@ -80,17 +82,31 @@ class FrameCache:
         """
         key = self._key(sample_id, method, n_samples)
         try:
-            # 确保数据是正确的形状
-            if frames.shape != (n_samples, 8):
-                logger.warning(f"FrameCache 形状不匹配: {frames.shape} != ({n_samples}, 8)")
+            if len(frames.shape) != 2 or frames.shape[0] != n_samples:
+                logger.warning(f"FrameCache 形状不匹配: {frames.shape}, 期望 ({n_samples}, ?)")
                 return False
             
             data = frames.astype(np.float64).tobytes()
             self.redis.setex(key, ttl or self.default_ttl, data)
-            logger.debug(f"FrameCache SET: {key} ({len(data)} bytes)")
+            logger.debug(f"FrameCache SET: {key} shape={frames.shape} ({len(data)} bytes)")
             return True
         except Exception as e:
             logger.error(f"FrameCache SET 失败: {key}, {e}")
+            return False
+
+    def delete(
+        self,
+        sample_id: int,
+        method: InterpolationMethod,
+        n_samples: int,
+    ) -> bool:
+        """删除指定缓存"""
+        key = self._key(sample_id, method, n_samples)
+        try:
+            self.redis.delete(key)
+            logger.debug(f"FrameCache DELETE: {key}")
+            return True
+        except Exception:
             return False
 
     def invalidate(self, sample_id: int) -> int:

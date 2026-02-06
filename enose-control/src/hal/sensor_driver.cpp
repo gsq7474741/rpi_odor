@@ -41,6 +41,11 @@ void SensorDriver::stop() {
 void SensorDriver::write(const nlohmann::json& cmd) {
     if (!running_) return;
 
+    // 记录发送的命令
+    std::string cmd_name = cmd.value("cmd", "unknown");
+    int cmd_id = cmd.value("id", -1);
+    spdlog::info("SensorDriver: send: cmd={} id={}", cmd_name, cmd_id);
+
     std::string data = cmd.dump() + "\n";
     
     boost::asio::post(io_, [this, data]() {
@@ -87,6 +92,21 @@ void SensorDriver::do_read() {
                 if (!line.empty()) {
                     try {
                         auto j = nlohmann::json::parse(line);
+                        
+                        // 只记录响应（非 data 类型的包），data 类型太多不记录
+                        std::string msg_type = j.value("type", "");
+                        if (msg_type != "data") {
+                            std::string cmd_name = j.value("cmd", "");
+                            int cmd_id = j.value("id", -1);
+                            bool success = j.value("success", true);
+                            if (!cmd_name.empty()) {
+                                spdlog::info("SensorDriver: recv: cmd={} id={} success={}", 
+                                            cmd_name, cmd_id, success);
+                            } else if (!msg_type.empty()) {
+                                spdlog::info("SensorDriver: recv: type={}", msg_type);
+                            }
+                        }
+                        
                         on_packet(j);
                     } catch (const std::exception& e) {
                         spdlog::warn("SensorDriver: JSON parse error: '{}' -> {}", line, e.what());

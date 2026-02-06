@@ -137,7 +137,7 @@ void AcquireExecutor::wait_for_heater_cycles(int count, double timeout_s) {
     std::condition_variable cycle_cv;
     
     auto conn = sensor_->on_packet.connect([&](const nlohmann::json& packet) {
-        if (!packet.contains("type") || packet["type"] != "reading") return;
+        if (!packet.contains("type") || packet["type"] != "data") return;
         if (!packet.contains("heater_step")) return;
         
         int current_step = packet["heater_step"].get<int>();

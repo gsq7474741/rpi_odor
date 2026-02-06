@@ -13,7 +13,8 @@ import {
   CompareTab,
   LabelsTab,
 } from "@/components/experiments";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   ResizableHandle,
@@ -32,6 +33,21 @@ import {
 } from "lucide-react";
 import { useAnalyticsLatency } from "@/hooks/use-analytics-latency";
 
+// Isolated latency indicator - state changes here don't re-render the rest of the page
+function LatencyIndicator() {
+  const { rtt, connected } = useAnalyticsLatency();
+  return (
+    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      {connected ? (
+        <Wifi className="h-4 w-4 text-green-500" />
+      ) : (
+        <WifiOff className="h-4 w-4 text-red-500" />
+      )}
+      <span>{rtt && rtt > 0 ? `${rtt}ms` : "-"}</span>
+    </div>
+  );
+}
+
 function ExperimentsContent() {
   const {
     runs,
@@ -45,7 +61,6 @@ function ExperimentsContent() {
     setAvailablePhases,
   } = useExperiments();
 
-  const { rtt, connected } = useAnalyticsLatency();
   const [activeTab, setActiveTab] = useState("overview");
   const pageSize = 20;
 
@@ -134,14 +149,7 @@ function ExperimentsContent() {
       <div className="flex items-center justify-between px-4 py-2 border-b bg-background">
         <div className="flex items-center gap-4">
           <h1 className="text-lg font-semibold">实验中心</h1>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            {connected ? (
-              <Wifi className="h-4 w-4 text-green-500" />
-            ) : (
-              <WifiOff className="h-4 w-4 text-red-500" />
-            )}
-            <span>{rtt && rtt > 0 ? `${rtt}ms` : "-"}</span>
-          </div>
+          <LatencyIndicator />
         </div>
 
         <div className="flex items-center gap-2">
@@ -186,29 +194,28 @@ function ExperimentsContent() {
             <ResizablePanel defaultSize={75}>
               <div className="h-full flex flex-col overflow-hidden">
                 {/* Tab 列表 */}
-                <div className="h-10 border-b px-4 flex items-center">
-                  <TabsList className="h-9">
-                    <TabsTrigger value="overview" className="gap-1.5 text-xs">
-                      <LayoutDashboard className="h-3.5 w-3.5" />
-                      概览
-                    </TabsTrigger>
-                    <TabsTrigger value="timeseries" className="gap-1.5 text-xs">
-                      <LineChart className="h-3.5 w-3.5" />
-                      时序图
-                    </TabsTrigger>
-                    <TabsTrigger value="projector" className="gap-1.5 text-xs">
-                      <ScatterChart className="h-3.5 w-3.5" />
-                      降维可视化
-                    </TabsTrigger>
-                    <TabsTrigger value="compare" className="gap-1.5 text-xs">
-                      <GitCompare className="h-3.5 w-3.5" />
-                      参数对比
-                    </TabsTrigger>
-                    <TabsTrigger value="labels" className="gap-1.5 text-xs">
-                      <Tags className="h-3.5 w-3.5" />
-                      标注
-                    </TabsTrigger>
-                  </TabsList>
+                <div className="border-b px-4 flex items-center gap-0 h-10">
+                  {[
+                    { value: "overview", label: "概览", icon: LayoutDashboard },
+                    { value: "timeseries", label: "时序图", icon: LineChart },
+                    { value: "projector", label: "降维分析", icon: ScatterChart },
+                    { value: "compare", label: "参数对比", icon: GitCompare },
+                    { value: "labels", label: "标注", icon: Tags },
+                  ].map(({ value, label, icon: Icon }) => (
+                    <button
+                      key={value}
+                      onClick={() => setActiveTab(value)}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 h-full px-3 text-xs transition-colors border-b-2",
+                        activeTab === value
+                          ? "border-primary text-foreground font-semibold [&_svg]:stroke-[2.5]"
+                          : "border-transparent text-muted-foreground font-medium hover:text-foreground"
+                      )}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {label}
+                    </button>
+                  ))}
                 </div>
                 {/* Tab 内容 */}
                 <div className="flex-1 overflow-hidden">

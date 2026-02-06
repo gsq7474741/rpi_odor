@@ -1641,6 +1641,18 @@ export interface Sample {
      * @generated from protobuf field: google.protobuf.Timestamp created_at = 22
      */
     createdAt?: Timestamp;
+    /**
+     * Phase 转换记录（一个样本可包含多个 phase 时间段）
+     *
+     * @generated from protobuf field: repeated enose.analytics.v1.PhaseTransition phase_transitions = 23
+     */
+    phaseTransitions: PhaseTransition[];
+    /**
+     * 传感器读数计数（0 表示无数据）
+     *
+     * @generated from protobuf field: int32 reading_count = 24
+     */
+    readingCount: number;
 }
 /**
  * @generated from protobuf message enose.analytics.v1.LiquidComponent
@@ -1809,6 +1821,73 @@ export interface SampleGroup {
      * @generated from protobuf field: google.protobuf.Timestamp last_created = 8
      */
     lastCreated?: Timestamp;
+}
+/**
+ * Phase 转换记录
+ *
+ * @generated from protobuf message enose.analytics.v1.PhaseTransition
+ */
+export interface PhaseTransition {
+    /**
+     * @generated from protobuf field: int32 id = 1
+     */
+    id: number;
+    /**
+     * @generated from protobuf field: int32 sample_id = 2
+     */
+    sampleId: number;
+    /**
+     * @generated from protobuf field: string phase_name = 3
+     */
+    phaseName: string;
+    /**
+     * @generated from protobuf field: int64 start_time_ms = 4
+     */
+    startTimeMs: string;
+    /**
+     * @generated from protobuf field: int64 end_time_ms = 5
+     */
+    endTimeMs: string; // 0 = 进行中
+    /**
+     * @generated from protobuf field: int32 phase_order = 6
+     */
+    phaseOrder: number;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GetAvailablePhasesRequest
+ */
+export interface GetAvailablePhasesRequest {
+    /**
+     * @generated from protobuf field: optional int32 run_id = 1
+     */
+    runId?: number; // 可选，按 run 过滤
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GetAvailablePhasesResponse
+ */
+export interface GetAvailablePhasesResponse {
+    /**
+     * @generated from protobuf field: repeated string phase_names = 1
+     */
+    phaseNames: string[];
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GetPhaseTransitionsRequest
+ */
+export interface GetPhaseTransitionsRequest {
+    /**
+     * @generated from protobuf field: int32 sample_id = 1
+     */
+    sampleId: number;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GetPhaseTransitionsResponse
+ */
+export interface GetPhaseTransitionsResponse {
+    /**
+     * @generated from protobuf field: repeated enose.analytics.v1.PhaseTransition transitions = 1
+     */
+    transitions: PhaseTransition[];
 }
 /**
  * @generated from protobuf message enose.analytics.v1.GetSampleSensorDataRequest
@@ -6594,7 +6673,9 @@ class Sample$Type extends MessageType<Sample> {
             { no: 19, name: "avg_temperature_c", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
             { no: 20, name: "avg_humidity_pct", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
             { no: 21, name: "avg_pressure_hpa", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
-            { no: 22, name: "created_at", kind: "message", T: () => Timestamp }
+            { no: 22, name: "created_at", kind: "message", T: () => Timestamp },
+            { no: 23, name: "phase_transitions", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => PhaseTransition },
+            { no: 24, name: "reading_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
         ]);
     }
     create(value?: PartialMessage<Sample>): Sample {
@@ -6620,6 +6701,8 @@ class Sample$Type extends MessageType<Sample> {
         message.avgTemperatureC = 0;
         message.avgHumidityPct = 0;
         message.avgPressureHpa = 0;
+        message.phaseTransitions = [];
+        message.readingCount = 0;
         if (value !== undefined)
             reflectionMergePartial<Sample>(this, message, value);
         return message;
@@ -6694,6 +6777,12 @@ class Sample$Type extends MessageType<Sample> {
                     break;
                 case /* google.protobuf.Timestamp created_at */ 22:
                     message.createdAt = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.createdAt);
+                    break;
+                case /* repeated enose.analytics.v1.PhaseTransition phase_transitions */ 23:
+                    message.phaseTransitions.push(PhaseTransition.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* int32 reading_count */ 24:
+                    message.readingCount = reader.int32();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -6773,6 +6862,12 @@ class Sample$Type extends MessageType<Sample> {
         /* google.protobuf.Timestamp created_at = 22; */
         if (message.createdAt)
             Timestamp.internalBinaryWrite(message.createdAt, writer.tag(22, WireType.LengthDelimited).fork(), options).join();
+        /* repeated enose.analytics.v1.PhaseTransition phase_transitions = 23; */
+        for (let i = 0; i < message.phaseTransitions.length; i++)
+            PhaseTransition.internalBinaryWrite(message.phaseTransitions[i], writer.tag(23, WireType.LengthDelimited).fork(), options).join();
+        /* int32 reading_count = 24; */
+        if (message.readingCount !== 0)
+            writer.tag(24, WireType.Varint).int32(message.readingCount);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -7370,6 +7465,280 @@ class SampleGroup$Type extends MessageType<SampleGroup> {
  */
 export const SampleGroup = new SampleGroup$Type();
 // @generated message type with reflection information, may provide speed optimized methods
+class PhaseTransition$Type extends MessageType<PhaseTransition> {
+    constructor() {
+        super("enose.analytics.v1.PhaseTransition", [
+            { no: 1, name: "id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "sample_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "phase_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "start_time_ms", kind: "scalar", T: 3 /*ScalarType.INT64*/ },
+            { no: 5, name: "end_time_ms", kind: "scalar", T: 3 /*ScalarType.INT64*/ },
+            { no: 6, name: "phase_order", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<PhaseTransition>): PhaseTransition {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.id = 0;
+        message.sampleId = 0;
+        message.phaseName = "";
+        message.startTimeMs = "0";
+        message.endTimeMs = "0";
+        message.phaseOrder = 0;
+        if (value !== undefined)
+            reflectionMergePartial<PhaseTransition>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: PhaseTransition): PhaseTransition {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 id */ 1:
+                    message.id = reader.int32();
+                    break;
+                case /* int32 sample_id */ 2:
+                    message.sampleId = reader.int32();
+                    break;
+                case /* string phase_name */ 3:
+                    message.phaseName = reader.string();
+                    break;
+                case /* int64 start_time_ms */ 4:
+                    message.startTimeMs = reader.int64().toString();
+                    break;
+                case /* int64 end_time_ms */ 5:
+                    message.endTimeMs = reader.int64().toString();
+                    break;
+                case /* int32 phase_order */ 6:
+                    message.phaseOrder = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: PhaseTransition, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 id = 1; */
+        if (message.id !== 0)
+            writer.tag(1, WireType.Varint).int32(message.id);
+        /* int32 sample_id = 2; */
+        if (message.sampleId !== 0)
+            writer.tag(2, WireType.Varint).int32(message.sampleId);
+        /* string phase_name = 3; */
+        if (message.phaseName !== "")
+            writer.tag(3, WireType.LengthDelimited).string(message.phaseName);
+        /* int64 start_time_ms = 4; */
+        if (message.startTimeMs !== "0")
+            writer.tag(4, WireType.Varint).int64(message.startTimeMs);
+        /* int64 end_time_ms = 5; */
+        if (message.endTimeMs !== "0")
+            writer.tag(5, WireType.Varint).int64(message.endTimeMs);
+        /* int32 phase_order = 6; */
+        if (message.phaseOrder !== 0)
+            writer.tag(6, WireType.Varint).int32(message.phaseOrder);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.PhaseTransition
+ */
+export const PhaseTransition = new PhaseTransition$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetAvailablePhasesRequest$Type extends MessageType<GetAvailablePhasesRequest> {
+    constructor() {
+        super("enose.analytics.v1.GetAvailablePhasesRequest", [
+            { no: 1, name: "run_id", kind: "scalar", opt: true, T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GetAvailablePhasesRequest>): GetAvailablePhasesRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        if (value !== undefined)
+            reflectionMergePartial<GetAvailablePhasesRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetAvailablePhasesRequest): GetAvailablePhasesRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* optional int32 run_id */ 1:
+                    message.runId = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetAvailablePhasesRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* optional int32 run_id = 1; */
+        if (message.runId !== undefined)
+            writer.tag(1, WireType.Varint).int32(message.runId);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GetAvailablePhasesRequest
+ */
+export const GetAvailablePhasesRequest = new GetAvailablePhasesRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetAvailablePhasesResponse$Type extends MessageType<GetAvailablePhasesResponse> {
+    constructor() {
+        super("enose.analytics.v1.GetAvailablePhasesResponse", [
+            { no: 1, name: "phase_names", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GetAvailablePhasesResponse>): GetAvailablePhasesResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.phaseNames = [];
+        if (value !== undefined)
+            reflectionMergePartial<GetAvailablePhasesResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetAvailablePhasesResponse): GetAvailablePhasesResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated string phase_names */ 1:
+                    message.phaseNames.push(reader.string());
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetAvailablePhasesResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated string phase_names = 1; */
+        for (let i = 0; i < message.phaseNames.length; i++)
+            writer.tag(1, WireType.LengthDelimited).string(message.phaseNames[i]);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GetAvailablePhasesResponse
+ */
+export const GetAvailablePhasesResponse = new GetAvailablePhasesResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetPhaseTransitionsRequest$Type extends MessageType<GetPhaseTransitionsRequest> {
+    constructor() {
+        super("enose.analytics.v1.GetPhaseTransitionsRequest", [
+            { no: 1, name: "sample_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GetPhaseTransitionsRequest>): GetPhaseTransitionsRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.sampleId = 0;
+        if (value !== undefined)
+            reflectionMergePartial<GetPhaseTransitionsRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetPhaseTransitionsRequest): GetPhaseTransitionsRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 sample_id */ 1:
+                    message.sampleId = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetPhaseTransitionsRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 sample_id = 1; */
+        if (message.sampleId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.sampleId);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GetPhaseTransitionsRequest
+ */
+export const GetPhaseTransitionsRequest = new GetPhaseTransitionsRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetPhaseTransitionsResponse$Type extends MessageType<GetPhaseTransitionsResponse> {
+    constructor() {
+        super("enose.analytics.v1.GetPhaseTransitionsResponse", [
+            { no: 1, name: "transitions", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => PhaseTransition }
+        ]);
+    }
+    create(value?: PartialMessage<GetPhaseTransitionsResponse>): GetPhaseTransitionsResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.transitions = [];
+        if (value !== undefined)
+            reflectionMergePartial<GetPhaseTransitionsResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetPhaseTransitionsResponse): GetPhaseTransitionsResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated enose.analytics.v1.PhaseTransition transitions */ 1:
+                    message.transitions.push(PhaseTransition.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetPhaseTransitionsResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated enose.analytics.v1.PhaseTransition transitions = 1; */
+        for (let i = 0; i < message.transitions.length; i++)
+            PhaseTransition.internalBinaryWrite(message.transitions[i], writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GetPhaseTransitionsResponse
+ */
+export const GetPhaseTransitionsResponse = new GetPhaseTransitionsResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
 class GetSampleSensorDataRequest$Type extends MessageType<GetSampleSensorDataRequest> {
     constructor() {
         super("enose.analytics.v1.GetSampleSensorDataRequest", [
@@ -7558,5 +7927,7 @@ export const SampleService = new ServiceType("enose.analytics.v1.SampleService",
     { name: "ListSamples", options: {}, I: ListSamplesRequest, O: ListSamplesResponse },
     { name: "GetSample", options: {}, I: GetSampleRequest, O: Sample },
     { name: "GetSampleGroups", options: {}, I: GetSampleGroupsRequest, O: GetSampleGroupsResponse },
-    { name: "GetSampleSensorData", options: {}, I: GetSampleSensorDataRequest, O: GetSampleSensorDataResponse }
+    { name: "GetSampleSensorData", options: {}, I: GetSampleSensorDataRequest, O: GetSampleSensorDataResponse },
+    { name: "GetAvailablePhases", options: {}, I: GetAvailablePhasesRequest, O: GetAvailablePhasesResponse },
+    { name: "GetPhaseTransitions", options: {}, I: GetPhaseTransitionsRequest, O: GetPhaseTransitionsResponse }
 ]);

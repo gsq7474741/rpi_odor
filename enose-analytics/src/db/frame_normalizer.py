@@ -238,6 +238,33 @@ class FrameNormalizer:
 
         return frames_df, meta
 
+    def _interpolate_channel(
+        self,
+        normalized_t: np.ndarray,
+        values: np.ndarray,
+        grid: np.ndarray,
+        method: InterpolationMethod,
+        n_samples: int,
+    ) -> np.ndarray:
+        """对单个通道进行插值"""
+        try:
+            if method == "linear":
+                f = interpolate.interp1d(
+                    normalized_t,
+                    values,
+                    kind="linear",
+                    fill_value="extrapolate",
+                )
+            elif method == "pchip":
+                f = interpolate.PchipInterpolator(
+                    normalized_t, values, extrapolate=True
+                )
+            else:
+                raise ValueError(f"Unknown interpolation method: {method}")
+            return f(grid)
+        except Exception:
+            return np.full(n_samples, np.nan)
+
     def create_normalized_frames_by_sample(
         self,
         sample_id: int,
@@ -247,13 +274,20 @@ class FrameNormalizer:
         """
         将异步传感器数据归一化为固定长度帧（基于 sample_id 的新接口）
         
+        每个传感器 4 通道: value, temperature, humidity, pressure
+        输出 shape = (n_samples, 32)，列顺序:
+          [sen0_value, sen1_value, ..., sen7_value,
+           sen0_temp,  sen1_temp,  ..., sen7_temp,
+           sen0_hum,   sen1_hum,   ..., sen7_hum,
+           sen0_pres,  sen1_pres,  ..., sen7_pres]
+        
         Args:
             sample_id: 样本 ID
             n_samples: 输出帧数
             method: 插值方法 ('linear' 或 'pchip')
         
         Returns:
-            (frames_array, meta): 帧数据 (n_samples, 8) 和元数据
+            (frames_array, meta): 帧数据 (n_samples, 32) 和元数据
         """
         raw_df = self.get_raw_sensor_data_by_sample(sample_id)
 
@@ -264,8 +298,9 @@ class FrameNormalizer:
         # 定义统一采样网格
         grid = np.linspace(0, 1, n_samples)
 
-        # 存储每个传感器的重采样结果
-        resampled_values: dict[int, np.ndarray] = {}
+        # 每个通道的重采样结果: channel_name -> sensor_idx -> array
+        channels = ["value", "temperature", "humidity", "pressure"]
+        resampled: dict[str, dict[int, np.ndarray]] = {ch: {} for ch in channels}
         original_point_counts: list[int] = []
 
         # 对每个传感器进行插值
@@ -274,7 +309,8 @@ class FrameNormalizer:
             original_point_counts.append(len(sensor_data))
 
             if len(sensor_data) < 2:
-                resampled_values[sensor_idx] = np.full(n_samples, np.nan)
+                for ch in channels:
+                    resampled[ch][sensor_idx] = np.full(n_samples, np.nan)
                 continue
 
             # 排序并去重
@@ -286,40 +322,34 @@ class FrameNormalizer:
             duration = t_max - t_min
 
             if duration == 0:
-                resampled_values[sensor_idx] = np.full(
-                    n_samples, sensor_data["value"].iloc[0]
-                )
+                for ch in channels:
+                    col = ch if ch in sensor_data.columns else "value"
+                    resampled[ch][sensor_idx] = np.full(
+                        n_samples, sensor_data[col].iloc[0] if col in sensor_data.columns else np.nan
+                    )
                 continue
 
             normalized_t = (sensor_data["time_ms"] - t_min) / duration
-            values = sensor_data["value"].values
 
-            # 插值
-            try:
-                if method == "linear":
-                    f = interpolate.interp1d(
-                        normalized_t,
-                        values,
-                        kind="linear",
-                        fill_value="extrapolate",
-                    )
-                elif method == "pchip":
-                    f = interpolate.PchipInterpolator(
-                        normalized_t, values, extrapolate=True
-                    )
-                else:
-                    raise ValueError(f"Unknown interpolation method: {method}")
+            # 对每个通道分别插值
+            for ch in channels:
+                if ch not in sensor_data.columns:
+                    resampled[ch][sensor_idx] = np.full(n_samples, np.nan)
+                    continue
+                values = sensor_data[ch].values
+                resampled[ch][sensor_idx] = self._interpolate_channel(
+                    normalized_t.values, values, grid, method, n_samples
+                )
 
-                resampled_values[sensor_idx] = f(grid)
-            except Exception as e:
-                logger.warning(f"Interpolation failed for sensor {sensor_idx}: {e}")
-                resampled_values[sensor_idx] = np.full(n_samples, np.nan)
-
-        # 组装为 numpy 数组 (n_samples, 8)
-        frames_array = np.column_stack([
-            resampled_values.get(i, np.full(n_samples, np.nan))
-            for i in range(8)
-        ])
+        # 组装为 numpy 数组 (n_samples, 32)
+        # 列顺序: [8×value, 8×temperature, 8×humidity, 8×pressure]
+        all_columns = []
+        for ch in channels:
+            for i in range(8):
+                all_columns.append(
+                    resampled[ch].get(i, np.full(n_samples, np.nan))
+                )
+        frames_array = np.column_stack(all_columns)
 
         # 计算时间范围
         all_times = raw_df["time_ms"]
@@ -329,6 +359,7 @@ class FrameNormalizer:
             "sample_id": sample_id,
             "method": method,
             "n_samples": n_samples,
+            "n_channels": 32,
             "original_point_counts": original_point_counts,
             "time_range_ms": time_range_ms,
         }
@@ -675,6 +706,9 @@ class FrameNormalizer:
         
         缓存优先级: Redis -> PostgreSQL -> 重新生成
         
+        新版本输出 (n_samples, 32)：每传感器 4 通道 (value, temp, humidity, pressure)
+        旧缓存 (n_samples, 8) 会被自动重新生成为 32 通道版本
+        
         Args:
             sample_id: 样本 ID
             method: 插值方法
@@ -682,16 +716,21 @@ class FrameNormalizer:
             use_cache: 是否使用缓存（True=优先从缓存读取，False=强制重新生成）
             
         Returns:
-            (numpy array (n_samples, 8) 或 None, from_cache: bool)
+            (numpy array (n_samples, 32) 或 None, from_cache: bool)
         """
+        n_channels = 32  # 8 sensors × 4 channels
         redis_cache = get_frame_cache()
         
         # 1. 尝试从 Redis 读取
         if use_cache and redis_cache:
             cached = redis_cache.get(sample_id, method, n_samples)
-            if cached is not None:
-                logger.debug(f"Redis HIT: sample_id={sample_id}, method={method}")
+            if cached is not None and cached.shape == (n_samples, n_channels):
+                logger.debug(f"Redis HIT (32ch): sample_id={sample_id}, method={method}")
                 return cached, True
+            elif cached is not None:
+                # 旧格式缓存，清除并重新生成
+                logger.info(f"Redis cache outdated ({cached.shape}), regenerating: sample_id={sample_id}")
+                redis_cache.delete(sample_id, method, n_samples)
         
         # 2. 尝试从数据库读取
         if use_cache:
@@ -706,22 +745,28 @@ class FrameNormalizer:
                 rows = cur.fetchall()
 
             if rows and len(rows) == n_samples:
-                # 重建 numpy array
-                frames = np.zeros((n_samples, 8))
-                for row in rows:
-                    idx = row["frame_idx"]
-                    readings = row["mox_readings"]
-                    if isinstance(readings, list) and len(readings) == 8:
-                        frames[idx] = readings
+                first_readings = rows[0]["mox_readings"]
+                actual_channels = len(first_readings) if isinstance(first_readings, list) else 0
                 
-                # 写入 Redis 缓存
-                if redis_cache:
-                    redis_cache.set(sample_id, method, n_samples, frames)
-                    logger.debug(f"Redis SET (from DB): sample_id={sample_id}")
-                
-                return frames, True  # from_cache=True
+                if actual_channels == n_channels:
+                    # 32 通道数据，正常读取
+                    frames = np.zeros((n_samples, n_channels))
+                    for row in rows:
+                        idx = row["frame_idx"]
+                        readings = row["mox_readings"]
+                        if isinstance(readings, list) and len(readings) == n_channels:
+                            frames[idx] = readings
+                    
+                    if redis_cache:
+                        redis_cache.set(sample_id, method, n_samples, frames)
+                        logger.debug(f"Redis SET (from DB 32ch): sample_id={sample_id}")
+                    
+                    return frames, True
+                else:
+                    # 旧格式 (8ch)，需要重新生成
+                    logger.info(f"DB cache outdated ({actual_channels}ch), regenerating: sample_id={sample_id}")
 
-        # 3. 生成新数据
+        # 3. 生成新数据 (32 通道)
         result = self.save_normalized_frames_by_sample(
             sample_id=sample_id,
             n_samples=n_samples,
@@ -745,19 +790,19 @@ class FrameNormalizer:
         if not rows or len(rows) != n_samples:
             return None, False
 
-        frames = np.zeros((n_samples, 8))
+        frames = np.zeros((n_samples, n_channels))
         for row in rows:
             idx = row["frame_idx"]
             readings = row["mox_readings"]
-            if isinstance(readings, list) and len(readings) == 8:
+            if isinstance(readings, list) and len(readings) == n_channels:
                 frames[idx] = readings
 
-        # 写入 Redis 缓存（新生成的数据）
+        # 写入 Redis 缓存
         if redis_cache:
             redis_cache.set(sample_id, method, n_samples, frames)
-            logger.debug(f"Redis SET (new): sample_id={sample_id}")
+            logger.debug(f"Redis SET (new 32ch): sample_id={sample_id}")
 
-        return frames, False  # from_cache=False (freshly generated)
+        return frames, False
 
     def get_normalized_frames_status_by_sample(
         self,

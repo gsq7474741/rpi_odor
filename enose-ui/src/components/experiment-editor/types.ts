@@ -234,6 +234,15 @@ export const SYSTEM_STATES = [
   { value: 'STATE_INJECT', label: '进样状态' },
 ];
 
+// 节点类型到默认 Phase 名称的映射（编译器自动填充）
+export const DEFAULT_PHASE_MAP: Partial<Record<NodeType, string>> = {
+  [NodeType.PREHEAT]: 'PREHEAT',
+  [NodeType.INJECT]: 'INJECT',
+  [NodeType.ACQUIRE]: 'ACQUIRE',
+  [NodeType.DRAIN]: 'DRAIN',
+  [NodeType.WASH]: 'WASH',
+};
+
 // 实验阶段枚举（用于数据标记）
 export const EXPERIMENT_PHASES = [
   { value: 'BASELINE', label: '基线 (Baseline)', description: '采集基线数据' },
@@ -246,9 +255,8 @@ export const EXPERIMENT_PHASES = [
 ];
 
 // 节点数据类型
+// 注意：programId 和 programName 已废弃，由文件名决定
 export interface StartNodeData {
-  programId: string;
-  programName: string;
   description: string;
   version: string;
 }

@@ -34,7 +34,7 @@ export const templates: Template[] = [
         id: 'start',
         type: NodeType.START,
         position: { x: 250, y: 50 },
-        data: { programId: 'simple_sample', programName: '简单采样', description: '', version: '1.0.0' },
+        data: { description: '', version: '1.0.0' },
       },
       {
         id: 'liquid_1',
@@ -99,7 +99,7 @@ export const templates: Template[] = [
         id: 'start',
         type: NodeType.START,
         position: { x: 250, y: 50 },
-        data: { programId: 'standard_detection', programName: '标准检测流程', description: '', version: '1.0.0' },
+        data: { description: '', version: '1.0.0' },
       },
       {
         id: 'liquid_1',
@@ -199,7 +199,7 @@ export const templates: Template[] = [
         id: 'start',
         type: NodeType.START,
         position: { x: 250, y: 50 },
-        data: { programId: 'with_wash', programName: '带清洗流程', description: '', version: '1.0.0' },
+        data: { description: '', version: '1.0.0' },
       },
       {
         id: 'liquid_sample',
@@ -273,7 +273,7 @@ export const templates: Template[] = [
         id: 'start',
         type: NodeType.START,
         position: { x: 250, y: 50 },
-        data: { programId: 'new_experiment', programName: '新实验', description: '', version: '1.0.0' },
+        data: { description: '', version: '1.0.0' },
       },
       {
         id: 'end',

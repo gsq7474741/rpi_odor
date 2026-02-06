@@ -1,5 +1,5 @@
-id: new_experiment
-name: 新实验
+id: sweep
+name: sweep
 description: ''
 version: 1.0.0
 hardware:

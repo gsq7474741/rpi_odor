@@ -34,6 +34,7 @@ SensorServiceImpl::~SensorServiceImpl() {
 void SensorServiceImpl::on_sensor_packet(const nlohmann::json& packet) {
     std::string msg_type = packet.value("type", "");
     
+    // 传感器固件发送的数据类型是 "data"
     if (msg_type == "data") {
         // 传感器数据 - 转发给所有订阅者
         ::enose::service::SensorReading reading;
@@ -68,7 +69,16 @@ void SensorServiceImpl::on_sensor_packet(const nlohmann::json& packet) {
         }
         
         // 数据持久化 (如果启用或 run_id 已设置)
-        if (sensor_repo_ && (persistence_enabled_ || sensor_repo_->should_persist())) {
+        bool should_persist = sensor_repo_ && (persistence_enabled_ || sensor_repo_->should_persist());
+        // 首次数据包时记录调试信息
+        static std::atomic<int> packet_count{0};
+        int count = ++packet_count;
+        if (count == 1 || count % 500 == 0) {
+            spdlog::info("SensorService: data packet #{}, persist={}, enabled={}, should_persist={}", 
+                          count, should_persist, persistence_enabled_.load(), 
+                          sensor_repo_ ? sensor_repo_->should_persist() : false);
+        }
+        if (should_persist) {
             db::SensorReadingRecord record;
             // 使用当前时间戳 (毫秒)
             auto now = std::chrono::system_clock::now();

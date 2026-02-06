@@ -222,6 +222,49 @@ export default function ExperimentPage() {
       lastSyncTimeRef.current = status.elapsedS || 0;
       lastSyncLocalRef.current = Date.now();
       
+      // 从后端恢复日志（页面刷新时）
+      if (status.logs && status.logs.length > 0) {
+        setLogs(prevLogs => {
+          // 如果本地日志为空或比后端少很多，使用后端日志
+          if (prevLogs.length === 0 || (prevLogs.length < status.logs.length / 2)) {
+            return status.logs;
+          }
+          // 否则追加后端中有但本地没有的新日志
+          const lastLocalLog = prevLogs[prevLogs.length - 1];
+          const lastLocalIdx = status.logs.findIndex((log: string) => log === lastLocalLog);
+          if (lastLocalIdx >= 0 && lastLocalIdx < status.logs.length - 1) {
+            // 追加新日志
+            return [...prevLogs, ...status.logs.slice(lastLocalIdx + 1)].slice(-100);
+          }
+          return prevLogs;
+        });
+      }
+      
+      // 从后端恢复加载的程序（页面刷新时）
+      // 优先使用 programId（文件名），其次使用 programName
+      const programIdentifier = status.programId || status.programName;
+      if (!loadedProgram && programIdentifier && backendState !== "idle") {
+        // 先尝试用 programId 匹配文件名（去掉 .yaml 扩展名）
+        let matchedProgram = programs.find(p => {
+          const filenameWithoutExt = p.filename.replace(/\.ya?ml$/i, '');
+          return p.filename === programIdentifier || 
+                 filenameWithoutExt === programIdentifier ||
+                 p.id === programIdentifier;
+        });
+        // 如果没找到，再尝试用 name 匹配
+        if (!matchedProgram) {
+          matchedProgram = programs.find(p => p.name === programIdentifier);
+        }
+        if (matchedProgram) {
+          fetchProgramYaml(matchedProgram.filename).then(yaml => {
+            const prog = parseYamlString(yaml);
+            if (prog) {
+              setLoadedProgram(prog);
+            }
+          }).catch(() => {});
+        }
+      }
+      
       // 只在状态从非完成变为完成时添加日志（避免重复）
       if (backendState === "completed" && lastStatusRef.current !== "completed") {
         addLog("实验已完成");
@@ -230,7 +273,7 @@ export default function ExperimentPage() {
     } catch {
       setConnected(false);
     }
-  }, [addLog, loadedProgram]);
+  }, [addLog, loadedProgram, programs]);
 
   // 轮询定时器
   useEffect(() => {

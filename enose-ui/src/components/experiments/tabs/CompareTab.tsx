@@ -119,23 +119,6 @@ export function CompareTab() {
     return rows;
   }, [selectedSamples]);
 
-  // 没有启用对比模式
-  if (!comparisonMode) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-center p-8">
-        <GitCompare className="h-12 w-12 text-muted-foreground mb-4" />
-        <h3 className="text-lg font-medium mb-2">启用对比模式</h3>
-        <p className="text-muted-foreground text-sm max-w-md mb-4">
-          点击顶部工具栏的"对比模式"按钮，然后在左侧列表中选择多个样本进行参数对比。
-        </p>
-        <Button onClick={toggleComparisonMode}>
-          <GitCompare className="h-4 w-4 mr-2" />
-          启用对比模式
-        </Button>
-      </div>
-    );
-  }
-
   // 选中项不足
   if (selectedSamples.length < 2) {
     return (

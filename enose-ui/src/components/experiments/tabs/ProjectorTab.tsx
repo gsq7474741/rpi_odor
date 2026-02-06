@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Loader2,
   Eye,
+  ScatterChart,
   Box,
   Square,
   Palette,
@@ -27,6 +28,9 @@ import {
   Pause,
   RotateCcw,
   Circle,
+  Dices,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import {
   Tooltip,
@@ -34,9 +38,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ScatterGLPanel } from "@/components/analytics/ScatterGLPanel";
+import { ScatterPlotPanel } from "@/components/analytics/ScatterPlotPanel";
 import { Switch } from "@/components/ui/switch";
-import { projectData, simpleKMeans, createTSNERunner, sphereizeData, type ProjectionType, type TSNERunner } from "@/lib/projections";
+import { projectData, simpleKMeans, type ProjectionType, type TSNERunner, ProjectionDataSet, type DataPoint } from "@/lib/projections";
 import { toast } from "sonner";
 
 interface VisPoint {
@@ -44,6 +48,8 @@ interface VisPoint {
   coords: number[];
   cluster: number;
   label?: string;
+  experimentId?: string;
+  phase?: string;
   ts?: string;
 }
 
@@ -63,7 +69,7 @@ type ComputeMode = "frontend" | "backend";
 const MAX_FRONTEND_SAMPLES = 5000;
 
 export function ProjectorTab() {
-  const { filters, selectedSampleIds, samples } = useExperiments();
+  const { filters, selectedSampleIds, samples, frameConfig } = useExperiments();
 
   const [loading, setLoading] = useState(false);
   const [visType, setVisType] = useState<VisType>("PCA");
@@ -77,13 +83,23 @@ export function ProjectorTab() {
   const [progressMessage, setProgressMessage] = useState<string>("");
   const [sphereize, setSphereize] = useState(false);
   
+  // Seed control for reproducible projections
+  const [seed, setSeed] = useState<number>(() => Date.now());
+  const [seedLocked, setSeedLocked] = useState(false);
+  
+  // ProjectionDataSet for caching projections
+  const [dataSet, setDataSet] = useState<ProjectionDataSet | null>(null);
+  
   // Iterative t-SNE state
   const [tsneRunner, setTsneRunner] = useState<TSNERunner | null>(null);
   const [tsneIteration, setTsneIteration] = useState(0);
   const [tsneRunning, setTsneRunning] = useState(false);
   
   // Cache for sample frames data (to avoid re-fetching)
-  const framesDataRef = useRef<{ sampleIds: number[]; data: number[][] } | null>(null);
+  const framesDataRef = useRef<{ cacheKey: string; sampleIds: number[]; data: number[][] } | null>(null);
+
+  // Ref for buildVisResult so t-SNE onStep always uses the latest (picks up nClusters changes)
+  const buildVisResultRef = useRef<typeof buildVisResult | null>(null);
 
   // 获取选中的样本对应的运行 ID 列表
   const selectedRunIds = useMemo(() => {
@@ -111,9 +127,10 @@ export function ProjectorTab() {
     const sampleIdsList = Array.from(selectedSampleIds);
     if (sampleIdsList.length === 0) return null;
 
-    // Check cache
+    // Check cache（包含 frameConfig 参数）
+    const cacheKey = `${sampleIdsList.join(",")}_${frameConfig.method}_${frameConfig.nSamples}`;
     if (framesDataRef.current && 
-        JSON.stringify(framesDataRef.current.sampleIds) === JSON.stringify(sampleIdsList)) {
+        framesDataRef.current.cacheKey === cacheKey) {
       return framesDataRef.current;
     }
 
@@ -125,8 +142,8 @@ export function ProjectorTab() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sampleId,
-          nSamples: 100,
-          method: "linear",
+          nSamples: frameConfig.nSamples,
+          method: frameConfig.method,
           action: "get",
         }),
       });
@@ -142,12 +159,13 @@ export function ProjectorTab() {
     }
 
     const result = {
+      cacheKey,
       sampleIds: validFrames.map(r => r.sampleId),
       data: validFrames.map(r => r.frames!),
     };
     framesDataRef.current = result;
     return result;
-  }, [selectedSampleIds]);
+  }, [selectedSampleIds, frameConfig]);
 
   // 构建可视化结果
   const buildVisResult = useCallback((
@@ -156,7 +174,7 @@ export function ProjectorTab() {
     type: string,
     explainedVariance?: number[]
   ) => {
-    const clusters = simpleKMeans(projectedPoints, nClusters);
+    const clusters = simpleKMeans(projectedPoints, nClusters, 100, seed);
 
     const points: VisPoint[] = projectedPoints.map((coords: number[], idx: number) => {
       const sampleId = sampleIds[idx];
@@ -166,6 +184,8 @@ export function ProjectorTab() {
         coords,
         cluster: clusters.labels[idx],
         label: (sample as { labelName?: string })?.labelName || undefined,
+        experimentId: sample?.runId?.toString(),
+        phase: sample?.phaseName || undefined,
       };
     });
 
@@ -183,13 +203,68 @@ export function ProjectorTab() {
       totalSamples: points.length,
       nClusters,
     };
-  }, [samples, nClusters]);
+  }, [samples, nClusters, seed]);
 
-  // 启动迭代式 t-SNE
-  const startIterativeTSNE = useCallback(async () => {
+  // Keep buildVisResult ref up to date
+  useEffect(() => {
+    buildVisResultRef.current = buildVisResult;
+  }, [buildVisResult]);
+
+  // Track sphereize state for cache invalidation
+  const sphereizeRef = useRef(sphereize);
+  
+  // 创建或获取 DataSet
+  const getOrCreateDataSet = useCallback(async (): Promise<ProjectionDataSet | null> => {
     const framesData = await fetchFramesData();
     if (!framesData) {
       toast.error("没有可用的帧数据，请先生成数据帧");
+      return null;
+    }
+
+    // Check if we need to create a new DataSet
+    // Include sphereize in cache key - if it changed, we need a new DataSet
+    const sphereizeChanged = sphereizeRef.current !== sphereize;
+    const needsNewDataSet = !dataSet || 
+      dataSet.getPointCount() !== framesData.sampleIds.length ||
+      dataSet.getSeed() !== seed ||
+      sphereizeChanged;
+
+    if (needsNewDataSet) {
+      // Update ref to track current sphereize state
+      sphereizeRef.current = sphereize;
+      
+      const points: DataPoint[] = framesData.data.map((vec, i) => ({
+        id: framesData.sampleIds[i],
+        vector: vec.map(v => (isNaN(v) || !isFinite(v)) ? 0 : v), // Sanitize NaN/Infinity
+        metadata: {},
+        projections: {},
+      }));
+
+      const newDataSet = new ProjectionDataSet(points, { seed });
+      
+      // Apply sphereize if requested
+      if (sphereize) {
+        newDataSet.normalize();
+      }
+      
+      setDataSet(newDataSet);
+      return newDataSet;
+    }
+
+    return dataSet;
+  }, [fetchFramesData, dataSet, seed, sphereize]);
+
+  // 启动迭代式 t-SNE
+  const startIterativeTSNE = useCallback(async () => {
+    const ds = await getOrCreateDataSet();
+    if (!ds) return;
+
+    const framesData = framesDataRef.current;
+    if (!framesData) return;
+
+    // Minimum sample count check
+    if (framesData.data.length < 3) {
+      toast.warning(`至少需要 3 个有效样本进行降维，当前仅 ${framesData.data.length} 个`);
       return;
     }
 
@@ -201,15 +276,18 @@ export function ProjectorTab() {
     setProgressMessage("初始化 t-SNE...");
     setLoading(true);
 
-    const runner = createTSNERunner(framesData.data, {
+    const runner = ds.createTSNERunner({
       nComponents: is3D ? 3 : 2,
       perplexity,
-      sphereize,
-      onStep: (iteration, points) => {
+      learningRate: 10,
+      onStep: (iteration: number, points: number[][]) => {
         setTsneIteration(iteration);
         // Update visualization every 5 iterations for performance
         if (iteration % 5 === 0 || iteration < 10) {
-          setVisResult(buildVisResult(points, framesData.sampleIds, "TSNE"));
+          const build = buildVisResultRef.current;
+          if (build) {
+            setVisResult(build(points, framesData.sampleIds, "TSNE"));
+          }
         }
       },
     });
@@ -221,7 +299,7 @@ export function ProjectorTab() {
     // Start running
     runner.start();
     setTsneRunning(true);
-  }, [fetchFramesData, tsneRunner, is3D, perplexity, sphereize, buildVisResult]);
+  }, [getOrCreateDataSet, tsneRunner, is3D, perplexity, buildVisResult]);
 
   // t-SNE 控制
   const toggleTSNE = useCallback(() => {
@@ -253,6 +331,50 @@ export function ProjectorTab() {
     };
   }, [tsneRunner]);
 
+  // frameConfig 变化时，清除旧数据集并自动重新计算
+  const prevFrameConfigRef = useRef(frameConfig);
+  const frameConfigChangedRef = useRef(false);
+  useEffect(() => {
+    if (
+      prevFrameConfigRef.current.method !== frameConfig.method ||
+      prevFrameConfigRef.current.nSamples !== frameConfig.nSamples
+    ) {
+      prevFrameConfigRef.current = frameConfig;
+      // 清除缓存和数据集
+      framesDataRef.current = null;
+      setDataSet(null);
+      setVisResult(null);
+      // 停止正在运行的 t-SNE
+      if (tsneRunner) {
+        tsneRunner.stop();
+        setTsneRunner(null);
+        setTsneRunning(false);
+        setTsneIteration(0);
+      }
+      // 标记需要重新计算
+      frameConfigChangedRef.current = true;
+    }
+  }, [frameConfig, tsneRunner]);
+
+  // frameConfig 变化后、状态更新提交后自动重新计算
+  useEffect(() => {
+    if (frameConfigChangedRef.current && selectedSampleIds.size >= 3) {
+      frameConfigChangedRef.current = false;
+      fetchVisualization();
+    }
+  }, [frameConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 重新生成种子
+  const regenerateSeed = useCallback(() => {
+    if (!seedLocked) {
+      const newSeed = Date.now();
+      setSeed(newSeed);
+      // Clear dataSet to force re-creation with new seed
+      setDataSet(null);
+      toast.info(`已更新随机种子: ${newSeed}`);
+    }
+  }, [seedLocked]);
+
   // 前端计算降维 (非迭代式)
   const computeFrontend = useCallback(async () => {
     // For t-SNE, use iterative mode
@@ -261,9 +383,15 @@ export function ProjectorTab() {
       return;
     }
 
-    const framesData = await fetchFramesData();
-    if (!framesData) {
-      toast.error("没有可用的帧数据，请先生成数据帧");
+    const ds = await getOrCreateDataSet();
+    if (!ds) return;
+
+    const framesData = framesDataRef.current;
+    if (!framesData) return;
+
+    // Minimum sample count check
+    if (framesData.data.length < 3) {
+      toast.warning(`至少需要 3 个有效样本进行降维，当前仅 ${framesData.data.length} 个`);
       return;
     }
 
@@ -271,31 +399,34 @@ export function ProjectorTab() {
     setProgressMessage(`运行 ${visType} 降维 (${framesData.data.length} 样本)...`);
 
     try {
-      const result = await projectData(framesData.data, {
-        type: visType as ProjectionType,
-        nComponents: is3D ? 3 : 2,
-        perplexity,
-        nNeighbors: 15,
-        minDist: 0.1,
-        nIterations: 500,
-        sphereize,
-        onProgress: (progress, message) => {
+      const nComponents = is3D ? 3 : 2;
+      
+      if (visType === "PCA") {
+        setProgressMessage("计算 PCA...");
+        ds.projectPCA(nComponents);
+        const projectedPoints = ds.getProjection("PCA", nComponents);
+        const explainedVariance = ds.getExplainedVariance();
+        setVisResult(buildVisResult(projectedPoints, framesData.sampleIds, visType, explainedVariance));
+      } else if (visType === "UMAP") {
+        // Yield to event loop so loading spinner renders before blocking UMAP computation
+        await new Promise(resolve => setTimeout(resolve, 10));
+        await ds.projectUMAP(nComponents, 15, 0.1, (progress, message) => {
           setProgressMessage(`${message} (${progress.toFixed(0)}%)`);
-        },
-      });
+        });
+        const projectedPoints = ds.getProjection("UMAP", nComponents);
+        setVisResult(buildVisResult(projectedPoints, framesData.sampleIds, visType));
+      }
 
-      setVisResult(buildVisResult(result.points, framesData.sampleIds, visType, result.explained_variance));
       setProgressMessage("");
-      toast.success(`前端降维完成: ${framesData.sampleIds.length} 样本`);
+      toast.success(`前端降维完成: ${framesData.sampleIds.length} 样本 (种子: ${seed})`);
     } catch (error) {
       console.error("Frontend projection failed:", error);
-      toast.error("前端降维失败，切换到后端计算");
-      setComputeMode("backend");
+      toast.error(`前端降维失败: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setLoading(false);
       setProgressMessage("");
     }
-  }, [visType, fetchFramesData, startIterativeTSNE, is3D, perplexity, sphereize, buildVisResult]);
+  }, [visType, getOrCreateDataSet, startIterativeTSNE, is3D, buildVisResult, seed]);
 
   // 后端计算降维
   const computeBackend = useCallback(async () => {
@@ -351,12 +482,42 @@ export function ProjectorTab() {
     }
   }, [selectedRunIds, selectedSampleIds, filters.phaseNames]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 切换 visType 时自动停止 t-SNE
+  const prevVisTypeRef = useRef(visType);
+  useEffect(() => {
+    if (prevVisTypeRef.current !== visType) {
+      // Stop t-SNE if switching away from TSNE
+      if (prevVisTypeRef.current === "TSNE" && tsneRunner) {
+        tsneRunner.stop();
+        setTsneRunner(null);
+        setTsneIteration(0);
+        setTsneRunning(false);
+      }
+      prevVisTypeRef.current = visType;
+    }
+  }, [visType]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // 参数变化时自动重新加载（使用 ref 避免竞态）
   const prevIs3DRef = useRef(is3D);
+  const prevNClustersRef = useRef(nClusters);
   useEffect(() => {
-    // 如果是 3D 切换，延迟执行避免与 ScatterGL 重建竞态
-    if (prevIs3DRef.current !== is3D) {
-      prevIs3DRef.current = is3D;
+    const is3DChanged = prevIs3DRef.current !== is3D;
+    const nClustersChanged = prevNClustersRef.current !== nClusters;
+    prevIs3DRef.current = is3D;
+    prevNClustersRef.current = nClusters;
+
+    // nClusters-only change while t-SNE is running: re-cluster in place, don't restart
+    if (nClustersChanged && !is3DChanged && tsneRunning && visResult) {
+      const newResult = buildVisResult(
+        visResult.points.map(p => p.coords),
+        visResult.points.map(p => parseInt(p.id)),
+        visResult.type
+      );
+      setVisResult(newResult);
+      return;
+    }
+
+    if (is3DChanged) {
       if (selectedRunIds.length > 0) {
         fetchVisualization();
       }
@@ -366,7 +527,7 @@ export function ProjectorTab() {
     if (selectedRunIds.length > 0 && visResult) {
       fetchVisualization();
     }
-  }, [is3D, nClusters, visType, maxPoints, perplexity]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [is3D, nClusters, visType, maxPoints, perplexity, sphereize, computeMode, seed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 转换数据格式为 ScatterGLPanel 组件 - 使用 useMemo 避免不必要的重建
   const scatterPoints = useMemo(() => 
@@ -377,6 +538,8 @@ export function ProjectorTab() {
       z: is3D ? (p.coords[2] ?? 0) : undefined,
       cluster: p.cluster,
       label: p.label,
+      experimentId: p.experimentId,
+      phase: p.phase,
     })) || []
   , [visResult?.points, is3D]);
 
@@ -389,252 +552,348 @@ export function ProjectorTab() {
     })) || []
   , [visResult?.centers, is3D]);
 
-  if (selectedRunIds.length === 0) {
+  if (selectedSampleIds.size < 3) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-8">
-        <Eye className="h-12 w-12 text-muted-foreground mb-4" />
-        <h3 className="text-lg font-medium mb-2">选择运行查看降维可视化</h3>
+        <ScatterChart className="h-12 w-12 text-muted-foreground mb-4" />
+        <h3 className="text-lg font-medium mb-2">选择更多样本</h3>
         <p className="text-muted-foreground text-sm max-w-md">
-          在左侧列表中选择一个运行，或启用对比模式选择多个项目进行对比。
+          在左侧列表中选择至少 3 个样本进行降维可视化。
+          <br />
+          当前已选择 {selectedSampleIds.size} 个样本。
         </p>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col p-4 gap-4">
-      {/* 控制栏 */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-4">
-          {/* 可视化类型 */}
-          <div className="flex items-center gap-2">
-            <Label className="text-sm">类型:</Label>
-            <Select value={visType} onValueChange={(v) => setVisType(v as VisType)}>
-              <SelectTrigger className="w-24 h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="PCA">PCA</SelectItem>
-                <SelectItem value="TSNE">t-SNE</SelectItem>
-                <SelectItem value="UMAP">UMAP</SelectItem>
-              </SelectContent>
-            </Select>
+    <div className="h-full flex flex-col p-4 gap-3">
+      {/* 工具栏 */}
+      <TooltipProvider delayDuration={300}>
+      <div className="flex flex-col gap-2">
+        {/* 第一行：投影方法 + 显示选项 + 操作 */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* 投影方法组 */}
+          <div className="flex items-center gap-1 bg-muted/40 rounded-lg px-2 py-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <Select value={visType} onValueChange={(v) => setVisType(v as VisType)}>
+                    <SelectTrigger size="sm" className="w-[88px] text-xs border-0 bg-background shadow-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PCA">PCA</SelectItem>
+                      <SelectItem value="TSNE">t-SNE</SelectItem>
+                      <SelectItem value="UMAP">UMAP</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent><p>降维算法</p></TooltipContent>
+            </Tooltip>
+
+            {visType === "TSNE" && (
+              <>
+                <div className="w-px h-5 bg-border" />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[11px] text-muted-foreground">PP</span>
+                      <div className="w-16">
+                        <Slider
+                          value={[perplexity]}
+                          min={5}
+                          max={50}
+                          step={5}
+                          onValueChange={([v]) => setPerplexity(v)}
+                        />
+                      </div>
+                      <span className="text-[11px] text-muted-foreground tabular-nums w-5">{perplexity}</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent><p>t-SNE 困惑度 (Perplexity)</p><p className="text-xs text-muted-foreground">控制局部结构保留程度</p></TooltipContent>
+                </Tooltip>
+              </>
+            )}
+
+            {visType === "TSNE" && computeMode === "frontend" && (
+              <>
+                <div className="w-px h-5 bg-border" />
+                {tsneRunner ? (
+                  <div className="flex items-center gap-0.5">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" onClick={toggleTSNE} className="h-7 w-7">
+                          {tsneRunning ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent><p>{tsneRunning ? "暂停迭代" : "继续迭代"}</p></TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" onClick={resetTSNE} className="h-7 w-7">
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent><p>重置 t-SNE</p></TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-[11px] text-muted-foreground tabular-nums ml-0.5 cursor-default">
+                          {tsneIteration}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent><p>当前迭代次数</p></TooltipContent>
+                    </Tooltip>
+                  </div>
+                ) : (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="sm" onClick={startIterativeTSNE} className="h-7 px-2 gap-1 text-xs">
+                        <Play className="h-3.5 w-3.5" />
+                        开始
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>启动 t-SNE 迭代</p></TooltipContent>
+                  </Tooltip>
+                )}
+              </>
+            )}
           </div>
 
-          {/* t-SNE 困惑度 */}
-          {visType === "TSNE" && (
-            <div className="flex items-center gap-2">
-              <Label className="text-sm">困惑度:</Label>
-              <div className="w-24">
-                <Slider
-                  value={[perplexity]}
-                  min={5}
-                  max={50}
-                  step={5}
-                  onValueChange={([v]) => setPerplexity(v)}
-                />
-              </div>
-              <span className="text-sm text-muted-foreground w-8">{perplexity}</span>
-            </div>
-          )}
+          {/* 维度 + 显示组 */}
+          <div className="flex items-center gap-1 bg-muted/40 rounded-lg px-2 py-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setIs3D(!is3D)}
+                  className={`h-8 min-w-[32px] px-2 rounded text-xs font-medium transition-colors ${
+                    is3D 
+                      ? 'bg-primary text-primary-foreground shadow-sm' 
+                      : 'bg-background text-foreground shadow-sm'
+                  }`}
+                >
+                  {is3D ? '3D' : '2D'}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent><p>切换 2D/3D 投影</p></TooltipContent>
+            </Tooltip>
 
-          {/* t-SNE 迭代控制 */}
-          {visType === "TSNE" && computeMode === "frontend" && tsneRunner && (
-            <div className="flex items-center gap-1">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={toggleTSNE}
-                      className="h-8 w-8 p-0"
-                    >
-                      {tsneRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{tsneRunning ? "暂停 t-SNE" : "继续 t-SNE"}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={resetTSNE}
-                      className="h-8 w-8 p-0"
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>重置 t-SNE</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <Badge variant="secondary" className="ml-1">
-                迭代: {tsneIteration}
-              </Badge>
-            </div>
-          )}
+            <div className="w-px h-5 bg-border" />
 
-          {/* 球形化数据 */}
-          {computeMode === "frontend" && (
-            <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1">
+                  <Palette className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                  <Select value={colorBy} onValueChange={(v) => setColorBy(v as ColorBy)}>
+                    <SelectTrigger size="sm" className="w-[68px] text-xs border-0 bg-background shadow-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cluster">聚类</SelectItem>
+                      <SelectItem value="label">标签</SelectItem>
+                      <SelectItem value="experiment">实验</SelectItem>
+                      <SelectItem value="phase">阶段</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent><p>点染色依据</p></TooltipContent>
+            </Tooltip>
+
+            {colorBy === "cluster" && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1 px-2 py-1 rounded border bg-muted/50">
-                    <Circle className={`h-4 w-4 ${sphereize ? 'text-green-500' : 'text-muted-foreground'}`} />
-                    <Switch checked={sphereize} onCheckedChange={setSphereize} />
+                  <div className="flex items-center gap-1">
+                    <Network className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                    <Select value={nClusters.toString()} onValueChange={(v) => setNClusters(parseInt(v))}>
+                      <SelectTrigger size="sm" className="w-[50px] text-xs border-0 bg-background shadow-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[2, 3, 4, 5, 6, 7, 8, 10, 12, 15].map((n) => (
+                          <SelectItem key={n} value={n.toString()}>{n}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </TooltipTrigger>
-                <TooltipContent>
-                  <p>球形化数据 (Sphereize)</p>
-                  <p className="text-xs text-muted-foreground">将数据中心化并归一化到单位球面</p>
-                </TooltipContent>
+                <TooltipContent><p>K-Means 聚类数</p></TooltipContent>
               </Tooltip>
-            </TooltipProvider>
-          )}
-
-          {/* 最大样本数 */}
-          <div className="flex items-center gap-2">
-            <Label className="text-sm">最大样本数:</Label>
-            <Select value={maxPoints.toString()} onValueChange={(v) => setMaxPoints(parseInt(v))}>
-              <SelectTrigger className="w-20 h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="100">100</SelectItem>
-                <SelectItem value="200">200</SelectItem>
-                <SelectItem value="500">500</SelectItem>
-                <SelectItem value="1000">1000</SelectItem>
-              </SelectContent>
-            </Select>
+            )}
           </div>
 
-          {/* 聚类数量 */}
-          <div className="flex items-center gap-2">
-            <Network className="h-4 w-4 text-muted-foreground" />
-            <Select value={nClusters.toString()} onValueChange={(v) => setNClusters(parseInt(v))}>
-              <SelectTrigger className="w-16 h-8" title="K-Means 聚类数量">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[2, 3, 4, 5, 6, 7, 8, 10, 12, 15].map((n) => (
-                  <SelectItem key={n} value={n.toString()}>{n}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* 染色方式 */}
-          <div className="flex items-center gap-2">
-            <Palette className="h-4 w-4 text-muted-foreground" />
-            <Select value={colorBy} onValueChange={(v) => setColorBy(v as ColorBy)}>
-              <SelectTrigger className="w-24 h-8" title="点染色方式">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="cluster">聚类</SelectItem>
-                <SelectItem value="label">标签</SelectItem>
-                <SelectItem value="experiment">实验</SelectItem>
-                <SelectItem value="phase">阶段</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* 2D/3D 维度切换 */}
-          <TooltipProvider>
+          {/* 计算设置组 */}
+          <div className="flex items-center gap-1 bg-muted/40 rounded-lg px-2 py-1">
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex items-center gap-1 px-2 py-1 rounded border bg-muted/50">
-                  <Square className="h-4 w-4 text-muted-foreground" />
-                  <Switch checked={is3D} onCheckedChange={setIs3D} />
-                  <Box className="h-4 w-4 text-muted-foreground" />
-                </div>
+                <button
+                  onClick={() => {
+                    if (selectedSampleIds.size <= MAX_FRONTEND_SAMPLES) {
+                      setComputeMode(computeMode === "frontend" ? "backend" : "frontend");
+                    }
+                  }}
+                  className={`h-8 px-2 rounded text-xs font-medium transition-colors flex items-center gap-1 ${
+                    computeMode === 'frontend'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'bg-blue-500/10 text-blue-600 shadow-sm'
+                  }`}
+                >
+                  {computeMode === "frontend" ? <Cpu className="h-3.5 w-3.5" /> : <Server className="h-3.5 w-3.5" />}
+                  {computeMode === "frontend" ? "本地" : "远程"}
+                </button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>切换 2D/3D 降维模式</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <Badge variant="secondary">
-            {selectedRunIds.length === 1 
-              ? `Run #${selectedRunIds[0]}` 
-              : `${selectedRunIds.length} 个运行`}
-          </Badge>
-          {/* 计算模式切换 */}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-1 px-2 py-1 rounded border bg-muted/50">
-                  <Cpu className={`h-4 w-4 ${computeMode === 'frontend' ? 'text-green-500' : 'text-muted-foreground'}`} />
-                  <Switch 
-                    checked={computeMode === "backend"} 
-                    onCheckedChange={(v) => setComputeMode(v ? "backend" : "frontend")}
-                    disabled={selectedSampleIds.size > MAX_FRONTEND_SAMPLES}
-                  />
-                  <Server className={`h-4 w-4 ${computeMode === 'backend' ? 'text-blue-500' : 'text-muted-foreground'}`} />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{computeMode === "frontend" ? "前端计算 (快速)" : "后端计算 (大数据集)"}</p>
+                <p>{computeMode === "frontend" ? "浏览器本地计算 (快速)" : "服务器远程计算 (大数据集)"}</p>
                 {selectedSampleIds.size > MAX_FRONTEND_SAMPLES && (
-                  <p className="text-xs text-muted-foreground">样本数超过 {MAX_FRONTEND_SAMPLES}，仅支持后端计算</p>
+                  <p className="text-xs text-muted-foreground">样本数超过 {MAX_FRONTEND_SAMPLES}，仅支持远程</p>
                 )}
               </TooltipContent>
             </Tooltip>
-          </TooltipProvider>
 
-          {visResult && (
-            <Badge variant="outline">
-              {visResult.totalSamples} 样本, {visResult.nClusters} 聚类
-            </Badge>
-          )}
-          <TooltipProvider>
+            {computeMode === "frontend" && (
+              <>
+                <div className="w-px h-5 bg-border" />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setSphereize(!sphereize)}
+                      className={`h-8 w-8 rounded flex items-center justify-center transition-colors ${
+                        sphereize ? 'bg-green-500/10 text-green-600' : 'bg-background text-muted-foreground shadow-sm'
+                      }`}
+                    >
+                      <Circle className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>球形化数据</p>
+                    <p className="text-xs text-muted-foreground">归一化到单位球面，消除量纲差异</p>
+                  </TooltipContent>
+                </Tooltip>
+
+                <div className="w-px h-5 bg-border" />
+
+                <div className="flex items-center gap-1">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={regenerateSeed}
+                        disabled={seedLocked}
+                        className="h-8 w-8 rounded flex items-center justify-center transition-colors bg-background text-muted-foreground shadow-sm hover:bg-accent disabled:opacity-50"
+                      >
+                        <Dices className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>生成新的随机种子</p></TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => setSeedLocked(!seedLocked)}
+                        className={`h-8 w-8 rounded flex items-center justify-center transition-colors ${
+                          seedLocked ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground shadow-sm'
+                        }`}
+                      >
+                        {seedLocked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>{seedLocked ? "种子已锁定，结果可复现" : "点击锁定种子以固定结果"}</p></TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-[10px] font-mono text-muted-foreground tabular-nums cursor-default">
+                        {seed.toString().slice(-6)}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent><p>随机种子: {seed}</p></TooltipContent>
+                  </Tooltip>
+                </div>
+              </>
+            )}
+
+            <div className="w-px h-5 bg-border" />
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <Select value={maxPoints.toString()} onValueChange={(v) => setMaxPoints(parseInt(v))}>
+                    <SelectTrigger size="sm" className="w-[60px] text-xs border-0 bg-background shadow-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="100">100</SelectItem>
+                      <SelectItem value="200">200</SelectItem>
+                      <SelectItem value="500">500</SelectItem>
+                      <SelectItem value="1000">1000</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent><p>最大样本数限制</p></TooltipContent>
+            </Tooltip>
+          </div>
+
+          {/* 操作 + 状态 */}
+          <div className="flex items-center gap-2 ml-auto">
+            {visResult && (
+              <span className="text-[11px] text-muted-foreground">
+                {visResult.totalSamples} 样本 · {visResult.nClusters} 聚类
+              </span>
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant="outline"
+                  variant="default"
                   size="sm"
                   onClick={fetchVisualization}
                   disabled={loading}
+                  className="h-7 px-3 text-xs gap-1.5"
                 >
                   {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    <RefreshCw className="h-4 w-4" />
+                    <RefreshCw className="h-3.5 w-3.5" />
                   )}
+                  计算
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>
-                <p>重新计算并加载可视化</p>
-              </TooltipContent>
+              <TooltipContent><p>执行降维计算</p></TooltipContent>
             </Tooltip>
-          </TooltipProvider>
+          </div>
+        </div>
+
+        {/* 第二行：状态信息 */}
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground min-h-[20px]">
+          <span>{selectedRunIds.length} 个运行</span>
+          <span>·</span>
+          <span>{selectedSampleIds.size} 样本已选</span>
+          {progressMessage && (
+            <>
+              <span>·</span>
+              <span className="text-primary">{progressMessage}</span>
+            </>
+          )}
+          {visType === "PCA" && visResult?.explainedVarianceRatio && visResult.explainedVarianceRatio.length > 0 && (
+            <>
+              <span>·</span>
+              <span className="text-foreground font-medium">
+                方差解释率:
+                {visResult.explainedVarianceRatio.slice(0, is3D ? 3 : 2).map((ratio, idx) => (
+                  <span key={idx} className="ml-1.5">
+                    <span className="text-muted-foreground">PC{idx + 1}</span>
+                    {' '}{(ratio * 100).toFixed(1)}%
+                  </span>
+                ))}
+                <span className="ml-1.5 text-muted-foreground">
+                  (总计 {(visResult.explainedVarianceRatio.slice(0, is3D ? 3 : 2).reduce((a, b) => a + b, 0) * 100).toFixed(1)}%)
+                </span>
+              </span>
+            </>
+          )}
         </div>
       </div>
-
-      {/* 方差解释率 (PCA) */}
-      {visType === "PCA" && visResult?.explainedVarianceRatio && visResult.explainedVarianceRatio.length > 0 && (
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground">方差解释率:</span>
-          {visResult.explainedVarianceRatio.slice(0, is3D ? 3 : 2).map((ratio, idx) => (
-            <Badge key={idx} variant="secondary">
-              PC{idx + 1}: {(ratio * 100).toFixed(1)}%
-            </Badge>
-          ))}
-          <Badge variant="outline">
-            总计: {(visResult.explainedVarianceRatio.slice(0, is3D ? 3 : 2).reduce((a, b) => a + b, 0) * 100).toFixed(1)}%
-          </Badge>
-        </div>
-      )}
+      </TooltipProvider>
 
       {/* ScatterGL 图表区域 */}
       <div className="flex-1 min-h-0 border rounded-lg overflow-hidden bg-muted/20">
@@ -651,9 +910,10 @@ export function ProjectorTab() {
             <p>点击刷新按钮加载可视化数据</p>
           </div>
         ) : (
-          <ScatterGLPanel
+          <ScatterPlotPanel
             points={scatterPoints}
             centers={scatterCenters}
+            nClusters={nClusters}
             title={`${visType} ${is3D ? "3D" : "2D"} 可视化`}
             is3D={is3D}
             colorBy={colorBy}

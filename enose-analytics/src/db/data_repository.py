@@ -185,29 +185,43 @@ class DataRepository:
             cur.execute(query, params)
             rows = cur.fetchall()
 
-        # 按时间聚合传感器数据
+        # 按时间聚合传感器数据，使用前值填充代替零值
         data_by_time: dict[int, dict] = {}
+        last_known: list[float] = [0.0] * 8  # 每个传感器的最近已知值
+
         for row in rows:
             time_ms = row["time_ms"]
             sensor_idx = row["sensor_idx"]
             
+            # 更新该传感器的最近已知值
+            if 0 <= sensor_idx < 8:
+                last_known[sensor_idx] = float(row["value"])
+            
             if time_ms not in data_by_time:
+                # 用当前的 last_known 快照初始化（前值填充）
                 data_by_time[time_ms] = {
                     "ts_ms": time_ms,
                     "experiment_id": str(row["run_id"]) if row["run_id"] else None,
                     "phase": row["phase_name"],
-                    "mox_readings": [0.0] * 8,
+                    "mox_readings": list(last_known),
                     "temperature": row["temperature"],
                     "humidity": row["humidity"],
                     "heater_step": row["heater_step"],
                     "label": row["label_name"],
                 }
-            
-            if 0 <= sensor_idx < 8:
-                data_by_time[time_ms]["mox_readings"][sensor_idx] = float(row["value"])
+            else:
+                # 同一 time_ms 的后续传感器数据，更新对应位置
+                if 0 <= sensor_idx < 8:
+                    data_by_time[time_ms]["mox_readings"][sensor_idx] = float(row["value"])
 
         result = list(data_by_time.values())
         result.sort(key=lambda x: x["ts_ms"])
+
+        # 排序后再做一次前值填充，确保时间序列中每个传感器都连续
+        for i in range(1, len(result)):
+            for s in range(8):
+                if result[i]["mox_readings"][s] == 0.0 and result[i - 1]["mox_readings"][s] != 0.0:
+                    result[i]["mox_readings"][s] = result[i - 1]["mox_readings"][s]
 
         return result, total
 
