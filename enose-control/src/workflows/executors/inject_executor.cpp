@@ -27,13 +27,13 @@ PreconditionResult InjectExecutor::check_preconditions(
         failures.push_back("No liquid components specified");
     }
     
-    // 检查比例总和
+    // 检查比例总和 (ratio 可以是百分比如 10:90 或小数如 0.1:0.9，只要求非零)
     double ratio_sum = 0;
     for (const auto& comp : action.components()) {
         ratio_sum += comp.ratio();
     }
-    if (std::abs(ratio_sum - 1.0) > 0.01) {
-        failures.push_back("Component ratios must sum to 1.0");
+    if (ratio_sum <= 0) {
+        failures.push_back("Component ratios must be positive");
     }
     
     // 检查系统状态
@@ -79,8 +79,15 @@ ExecuteResult InjectExecutor::execute(const enose::experiment::Step& step) {
     // 计算每个泵的进样量 (单位: ml, Klipper 已配置 1mm=1ml)
     double total_volume = action.target_volume_ml();
     SystemState::InjectionParams params;
-    params.speed = action.flow_rate_ml_min() / 60.0;  // ml/min -> ml/s
+    params.speed = action.flow_rate_ml_s();  // ml/s 直接使用
     params.accel = params.speed * 2;
+    
+    // 计算总比例用于归一化
+    double total_ratio = 0;
+    for (const auto& comp : action.components()) {
+        total_ratio += comp.ratio();
+    }
+    if (total_ratio <= 0) total_ratio = 1.0;
     
     // 根据液体配方设置各泵进样量
     // 注意: 需要外部提供液体ID到泵索引的映射
@@ -88,7 +95,7 @@ ExecuteResult InjectExecutor::execute(const enose::experiment::Step& step) {
     int pump_offset = 2;  // 从 pump_2 开始
     for (int i = 0; i < action.components_size() && i < 4; ++i) {
         const auto& comp = action.components(i);
-        double volume_ml = total_volume * comp.ratio();  // 直接使用 ml
+        double volume_ml = total_volume * comp.ratio() / total_ratio;  // 归一化后计算
         
         int pump_idx = pump_offset + i;
         switch (pump_idx) {
@@ -157,10 +164,10 @@ double InjectExecutor::estimate_duration(const enose::experiment::Step& step) co
     
     const auto& action = step.inject();
     double volume = action.target_volume_ml();
-    double flow_rate = action.flow_rate_ml_min();
+    double flow_rate = action.flow_rate_ml_s();
     
     if (flow_rate > 0) {
-        return (volume / flow_rate) * 60.0 + 5.0;  // 加5秒稳定时间
+        return volume / flow_rate + 5.0;  // 加5秒稳定时间
     }
     return action.stable_timeout_s();
 }

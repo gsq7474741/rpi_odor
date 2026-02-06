@@ -12,6 +12,15 @@ export interface Run {
   sampleCount: number;
 }
 
+// Phase 转换记录
+export interface PhaseTransition {
+  id: number;
+  phaseName: string;
+  startTimeMs: number;
+  endTimeMs: number | null;
+  phaseOrder: number;
+}
+
 // 样本记录
 export interface Sample {
   id: number;
@@ -23,9 +32,20 @@ export interface Sample {
   liquidNames: string[];
   liquidRatios: number[];
   totalVolumeMl: number;
+  flowRateMlS: number;
   gasPumpPwm: number;
+  terminationType: string;
+  terminationValue: number;
+  maxDurationS: number;
+  heaterProfiles: string[];
+  preWashCount: number;
   phaseName: string;
+  avgTemperatureC: number | null;
+  avgHumidityPct: number | null;
+  avgPressureHpa: number | null;
   durationS: number | null;
+  phaseTransitions: PhaseTransition[];
+  readingCount: number;
 }
 
 // 数据帧状态

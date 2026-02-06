@@ -16,7 +16,6 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import {
   Sparkles,
-  Download,
   X,
   Loader2,
   CheckCircle2,
@@ -24,6 +23,7 @@ import {
   Layers,
   Info,
 } from "lucide-react";
+import { ExportPopover } from "./ExportPopover";
 import {
   Tooltip,
   TooltipContent,
@@ -202,12 +202,6 @@ export function SelectionBar() {
     [selectedSamples, samplesWithoutFrames, nSamples, methods, refreshFrameStatuses]
   );
 
-  // 导出数据（TODO）
-  const handleExport = useCallback(() => {
-    toast.info("导出功能开发中...");
-    console.log("Export samples:", Array.from(selectedSampleIds));
-  }, [selectedSampleIds]);
-
   const hasSelection = selectedSampleIds.size > 0;
 
   return (
@@ -272,7 +266,26 @@ export function SelectionBar() {
               <div className="space-y-3">
                 {/* 标题 */}
                 <div className="flex items-center justify-between">
-                  <h4 className="font-medium text-sm">数据帧管理</h4>
+                  <div className="flex items-center gap-1">
+                    <h4 className="font-medium text-sm">数据帧管理</h4>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-[280px]">
+                          <p className="text-xs">
+                            <strong>数据帧</strong>是将各传感器异步采集的原始数据，通过时间归一化和插值重采样，
+                            对齐到统一长度的向量。每个样本的数据帧可用于时序对比和降维分析。
+                          </p>
+                          <p className="text-xs mt-1">
+                            <strong>使用方法：</strong>在下方矩阵中选择插值方法和采样点数组合，
+                            点击「计算」批量生成帧，或点击矩阵格子切换当前使用的帧配置。
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <Badge variant="outline" className="text-[10px] h-5">
                     {selectedSamples.length} 样本已选
                   </Badge>
@@ -498,15 +511,7 @@ export function SelectionBar() {
           </Popover>
 
           {/* 导出 */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs gap-1.5"
-            onClick={handleExport}
-          >
-            <Download className="h-3.5 w-3.5" />
-            导出
-          </Button>
+          <ExportPopover />
 
           {/* 清除 */}
           <Button

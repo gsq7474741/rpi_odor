@@ -427,10 +427,10 @@ message Workflow {
       gte: 10,
       lte: 300
     }];
-    // 流速: 0.5-20 ml/min
-    double flow_rate_ml_min = 2 [(buf.validate.field).double = {
-      gte: 0.5,
-      lte: 20
+    // 流速: 0.01-50 ml/s
+    double flow_rate_ml_s = 2 [(buf.validate.field).double = {
+      gte: 0.01,
+      lte: 50
     }];
     // 称重容差: 0.1-5 g
     double weight_tolerance_g = 3 [(buf.validate.field).double = {

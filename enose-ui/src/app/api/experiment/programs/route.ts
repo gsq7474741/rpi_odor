@@ -11,6 +11,21 @@ function ensureDir() {
   }
 }
 
+// 文件名安全过滤：支持中文、英文、数字、下划线、连字符、点，只过滤路径分隔符和特殊字符
+function sanitizeFilename(name: string): string {
+  // 移除路径分隔符和特殊控制字符
+  return name.replace(/[\/\\:*?"<>|\x00-\x1f]/g, '_').trim();
+}
+
+// 路径穿越防护：确保最终路径在 PROGRAMS_DIR 内
+function safePath(filename: string): string | null {
+  const resolved = path.resolve(PROGRAMS_DIR, filename);
+  if (!resolved.startsWith(path.resolve(PROGRAMS_DIR))) {
+    return null; // 路径穿越
+  }
+  return resolved;
+}
+
 // 获取程序列表
 export async function GET(request: NextRequest) {
   try {
@@ -22,15 +37,21 @@ export async function GET(request: NextRequest) {
     
     // 检查文件是否存在
     if (checkExists) {
-      const safeName = checkExists.replace(/[^a-zA-Z0-9_\-\.]/g, "_");
+      const safeName = sanitizeFilename(checkExists);
       const finalName = safeName.endsWith(".yaml") ? safeName : `${safeName}.yaml`;
-      const filePath = path.join(PROGRAMS_DIR, finalName);
+      const filePath = safePath(finalName);
+      if (!filePath) {
+        return NextResponse.json({ exists: false });
+      }
       return NextResponse.json({ exists: fs.existsSync(filePath) });
     }
     
     // 如果指定了文件名，返回文件内容
     if (filename) {
-      const filePath = path.join(PROGRAMS_DIR, filename);
+      const filePath = safePath(filename);
+      if (!filePath) {
+        return NextResponse.json({ error: "无效文件名" }, { status: 400 });
+      }
       if (!fs.existsSync(filePath)) {
         return NextResponse.json({ error: "文件不存在" }, { status: 404 });
       }
@@ -83,11 +104,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "缺少文件名或内容" }, { status: 400 });
     }
     
-    // 确保文件名安全
-    const safeName = filename.replace(/[^a-zA-Z0-9_\-\.]/g, "_");
+    // 确保文件名安全（支持中文）
+    const safeName = sanitizeFilename(filename);
     const finalName = safeName.endsWith(".yaml") ? safeName : `${safeName}.yaml`;
     
-    const filePath = path.join(PROGRAMS_DIR, finalName);
+    const filePath = safePath(finalName);
+    if (!filePath) {
+      return NextResponse.json({ error: "无效文件名" }, { status: 400 });
+    }
     fs.writeFileSync(filePath, content, "utf-8");
     
     return NextResponse.json({ success: true, filename: finalName });
@@ -107,7 +131,10 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "缺少文件名" }, { status: 400 });
     }
     
-    const filePath = path.join(PROGRAMS_DIR, filename);
+    const filePath = safePath(filename);
+    if (!filePath) {
+      return NextResponse.json({ error: "无效文件名" }, { status: 400 });
+    }
     
     if (!fs.existsSync(filePath)) {
       return NextResponse.json({ error: "文件不存在" }, { status: 404 });

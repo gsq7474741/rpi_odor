@@ -375,8 +375,11 @@ ExperimentServiceImpl::~ExperimentServiceImpl() {
 void ExperimentServiceImpl::execution_thread_func() {
     spdlog::info("实验执行线程启动");
     
-    // 初始化样本上下文
+    // 初始化样本上下文和 phase 状态
     current_sample_ctx_ = db::SampleContext{};
+    current_phase_name_.clear();
+    current_phase_order_ = 0;
+    pending_phases_.clear();
     
     // 设置传感器数据的运行上下文（关联 run_id）
     if (sensor_repo_ && current_run_id_) {
@@ -406,6 +409,9 @@ void ExperimentServiceImpl::execution_thread_func() {
     
     try {
         execute_steps(loaded_program_->steps());
+        
+        // 结束最后一个活跃的 phase（如果有）
+        auto_end_current_phase();
         
         // 检查是否被中止
         // 注意: 不能在持有 mutex_ 的情况下调用 add_log (会死锁)
@@ -565,7 +571,7 @@ void ExperimentServiceImpl::execute_inject(const experiment::InjectAction& actio
     // 计算每个泵的进样量 (单位: ml, Klipper 已配置 1mm=1ml)
     double total_volume = action.target_volume_ml();
     workflows::SystemState::InjectionParams params;
-    params.speed = action.flow_rate_ml_min() / 60.0;  // ml/min -> ml/s
+    params.speed = action.flow_rate_ml_s();  // ml/s 直接使用
     params.accel = params.speed * 2;  // 默认加速度
     
     // 更新样本上下文 - 液体参数
@@ -573,10 +579,17 @@ void ExperimentServiceImpl::execute_inject(const experiment::InjectAction& actio
     current_sample_ctx_.total_volume_ml = total_volume;
     current_sample_ctx_.flow_rate_ml_s = params.speed;
     
+    // 计算总比例用于归一化 (YAML 中 ratio 可能是百分比如 10:90，也可能是小数如 0.1:0.9)
+    double total_ratio = 0;
+    for (const auto& comp : action.components()) {
+        total_ratio += comp.ratio();
+    }
+    if (total_ratio <= 0) total_ratio = 1.0;
+    
     // 根据液体配方设置各泵进样量
     // 注意: 泵绑定从数据库 pump_assignments 表查询，不再使用 YAML 中的 pump_index
     for (const auto& comp : action.components()) {
-        double volume_ml = total_volume * comp.ratio();
+        double volume_ml = total_volume * comp.ratio() / total_ratio;
         
         // 从数据库查询液体绑定的泵
         int liquid_id = 0;
@@ -651,7 +664,7 @@ void ExperimentServiceImpl::execute_inject(const experiment::InjectAction& actio
     
     // 开环控制: 根据体积和流速计算等待时间
     // 步进电机精确控制体积，无需称重反馈
-    double flow_rate_ml_s = action.flow_rate_ml_min() / 60.0;  // ml/min -> ml/s
+    double flow_rate_ml_s = action.flow_rate_ml_s();  // ml/s 直接使用
     
     // 计算最大泵体积（多泵并行时取最大值）
     double max_pump_volume = std::max({
@@ -843,6 +856,32 @@ void ExperimentServiceImpl::execute_acquire(const experiment::AcquireAction& act
                 sensor_repo_->set_sample_context(*sample_id);
                 spdlog::debug("传感器数据关联到 sample_id={}", *sample_id);
             }
+            
+            // Flush 缓冲的 phase transitions（sample 创建前的阶段）
+            flush_pending_phases(*sample_id);
+            
+            // 当前 phase 也需要写入（如果还未写入）
+            if (!current_phase_name_.empty()) {
+                // 当前活跃 phase 在 auto_start_phase 中被缓冲了，
+                // flush 已处理完毕的 phases，但当前活跃 phase 可能已在 flush 中写入
+                // 检查是否已经写入
+                auto existing = sample_repo_->get_phase_transitions(*sample_id);
+                bool current_written = false;
+                for (const auto& t : existing) {
+                    if (t.phase_order == current_phase_order_) {
+                        current_written = true;
+                        break;
+                    }
+                }
+                if (!current_written) {
+                    int64_t now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::system_clock::now().time_since_epoch()).count();
+                    sample_repo_->create_phase_transition(
+                        *sample_id, current_phase_name_, now_ms, current_phase_order_);
+                    spdlog::debug("Phase 转换记录(当前): sample_id={} phase={} order={}",
+                                 *sample_id, current_phase_name_, current_phase_order_);
+                }
+            }
         }
     }
     
@@ -990,6 +1029,7 @@ void ExperimentServiceImpl::auto_start_phase(const std::string& phase_name) {
     }
     
     current_phase_name_ = phase_name;
+    current_phase_order_++;
     add_log("阶段开始: " + phase_name);
     emit_event(experiment::ExperimentEvent::PHASE_STARTED, phase_name);
     
@@ -1002,18 +1042,27 @@ void ExperimentServiceImpl::auto_start_phase(const std::string& phase_name) {
         spdlog::debug("传感器数据阶段更新: {}", phase_name);
     }
     
-    // 记录 Phase 转换到 sample_phase_transitions 表
+    // 记录 Phase 转换
     if (sample_repo_ && current_sample_ctx_.sample_id >= 0) {
-        int16_t current_order = sample_repo_->get_current_phase_order(current_sample_ctx_.sample_id);
-        int16_t new_order = current_order + 1;
+        // sample 已创建，直接写 DB
         sample_repo_->create_phase_transition(
             current_sample_ctx_.sample_id,
             phase_name,
             now_ms,
-            new_order);
+            current_phase_order_);
         
         spdlog::debug("Phase 转换记录: sample_id={} phase={} order={}",
-                     current_sample_ctx_.sample_id, phase_name, new_order);
+                     current_sample_ctx_.sample_id, phase_name, current_phase_order_);
+    } else {
+        // sample 尚未创建，缓冲到 pending_phases_
+        PendingPhaseTransition pending;
+        pending.phase_name = phase_name;
+        pending.start_time_ms = now_ms;
+        pending.phase_order = current_phase_order_;
+        pending_phases_.push_back(std::move(pending));
+        
+        spdlog::debug("Phase 转换缓冲: phase={} order={} (等待 sample 创建)",
+                     phase_name, current_phase_order_);
     }
 }
 
@@ -1042,14 +1091,41 @@ void ExperimentServiceImpl::auto_end_current_phase() {
     
     // 完成当前 Phase 转换记录
     if (sample_repo_ && current_sample_ctx_.sample_id >= 0) {
-        int16_t current_order = sample_repo_->get_current_phase_order(current_sample_ctx_.sample_id);
-        if (current_order >= 0) {
-            sample_repo_->complete_phase_transition(
-                current_sample_ctx_.sample_id, current_order, now_ms);
+        sample_repo_->complete_phase_transition(
+            current_sample_ctx_.sample_id, current_phase_order_, now_ms);
+    } else if (!pending_phases_.empty()) {
+        // 更新缓冲中最后一个未结束的 phase 的 end_time_ms
+        auto& last = pending_phases_.back();
+        if (last.end_time_ms == 0) {
+            last.end_time_ms = now_ms;
         }
     }
     
     current_phase_name_.clear();
+}
+
+void ExperimentServiceImpl::flush_pending_phases(int32_t sample_id) {
+    if (pending_phases_.empty() || !sample_repo_) {
+        return;
+    }
+    
+    spdlog::info("Flush {} 个缓冲 phase transitions 到 sample_id={}",
+                pending_phases_.size(), sample_id);
+    
+    for (const auto& pp : pending_phases_) {
+        auto tid = sample_repo_->create_phase_transition(
+            sample_id, pp.phase_name, pp.start_time_ms, pp.phase_order);
+        
+        if (tid && pp.end_time_ms > 0) {
+            sample_repo_->complete_phase_transition(
+                sample_id, pp.phase_order, pp.end_time_ms);
+        }
+        
+        spdlog::debug("  flush phase: {} order={} [{} ~ {}]",
+                     pp.phase_name, pp.phase_order, pp.start_time_ms, pp.end_time_ms);
+    }
+    
+    pending_phases_.clear();
 }
 
 // ============================================================
@@ -1065,21 +1141,36 @@ void ExperimentServiceImpl::execute_phase_marker(const experiment::PhaseMarkerAc
 }
 
 void ExperimentServiceImpl::execute_wash(const experiment::WashAction& action) {
-    // target_weight_g 实际存储的是目标注入量 (ml)，需要转换为期望的测量重量变化
+    // 目标清洗量 (ml)，需要线性校正转换为期望的称重传感器重量变化
     // 由于瓶子斜挂在称重传感器上，测量的重量变化 ≠ 实际注入量
-    // 线性校正: expected_weight_change = target_ml * pump_mm_to_ml
+    // 线性校正: expected_weight_change = target_ml * slope + offset
+    // 反推实际量: actual_ml = (weight_change - offset) / slope
     const auto& lc_config = load_cell_->get_config();
-    float target_ml = action.target_weight_g();  // YAML 中配置的是 ml
-    float expected_weight_change = target_ml * lc_config.pump_mm_to_ml;
+    float target_ml = action.target_volume_ml();
+    float slope = lc_config.ml_to_weight_slope;
+    float offset = lc_config.ml_to_weight_offset;
+    float lag_comp = lc_config.fill_lag_compensation_g;
+    float expected_weight_change = target_ml * slope + offset;
+    float trigger_threshold = expected_weight_change - lag_comp;
     
-    add_log("清洗: 目标注入量=" + std::to_string(target_ml) + 
-            "ml (期望重量变化=" + std::to_string(expected_weight_change) + 
-            "g), 重复" + std::to_string(action.repeat_count()) + "次");
+    add_log("清洗: 目标=" + std::to_string(target_ml) + 
+            "ml 期望Δw=" + std::to_string(expected_weight_change) + 
+            "g 触发阈值=" + std::to_string(trigger_threshold) +
+            "g (slope=" + std::to_string(slope) +
+            " offset=" + std::to_string(offset) +
+            " lag_comp=" + std::to_string(lag_comp) +
+            "g) 重复" + std::to_string(action.repeat_count()) + "次" +
+            " 排废PWM=" + std::to_string(action.drain_gas_pump_pwm()) + "%");
     
     // 更新样本上下文 - 清洗参数
     current_sample_ctx_.pre_wash_count += action.repeat_count();
     current_sample_ctx_.pre_wash_volume_ml = target_ml;
-    // TODO: 获取清洗液 ID（从 loaded_program_->hardware().wash_liquid_id()）
+    if (!action.wash_liquid_id().empty()) {
+        current_sample_ctx_.wash_liquid_id = action.wash_liquid_id();
+    }
+    
+    // 排废气泵 PWM 值 (0.0 - 1.0)
+    float drain_pwm = action.drain_gas_pump_pwm() / 100.0f;
     
     // 使用事务守卫保证状态一致性 (Phase 1.3)
     // 注意: wash 是复合操作，内部有多次状态转换，guard 只保证最终恢复到 INITIAL
@@ -1097,6 +1188,8 @@ void ExperimentServiceImpl::execute_wash(const experiment::WashAction& action) {
         // 1. 排废确认空瓶稳态 (baseline)
         add_log("排废确认空瓶...");
         system_state_->transition_to(workflows::SystemState::State::DRAIN);
+        // 使用用户配置的排废气泵 PWM，覆盖 DRAIN 状态预设的 100%
+        system_state_->set_air_pump_pwm(drain_pwm);
         
         auto empty_result = load_cell_->wait_for_empty_bottle(
             action.empty_tolerance_g(),
@@ -1121,34 +1214,32 @@ void ExperimentServiceImpl::execute_wash(const experiment::WashAction& action) {
         add_log("开始注入清洗液...");
         system_state_->transition_to(workflows::SystemState::State::CLEAN);
         
-        // 3. 监测重量变化，达到阈值立即切换到排废
-        // 使用线性校正后的期望重量变化值进行比较
+        // 3. 监测重量变化，达到补偿后阈值立即切换到排废
+        // 使用 raw_weight 减少滤波延迟，trigger_threshold 已减去 lag 补偿
         auto fill_start = std::chrono::steady_clock::now();
         auto fill_timeout = std::chrono::seconds(static_cast<int>(action.fill_timeout_s()));
         bool target_reached = false;
         
         while (!check_stop_or_pause()) {
-            float current_weight = load_cell_->get_filtered_weight();
+            float current_weight = load_cell_->get_raw_weight();
             float weight_change = current_weight - baseline_weight;
             
-            // 使用校正后的期望重量变化值进行比较
-            if (weight_change >= expected_weight_change) {
-                // 反推实际注入量用于日志
-                float actual_ml = weight_change / lc_config.pump_mm_to_ml;
-                add_log("达到目标: 重量变化=" + std::to_string(weight_change) + 
+            if (weight_change >= trigger_threshold) {
+                float actual_ml = (slope > 0) ? (weight_change - offset) / slope : weight_change;
+                add_log("达到目标: Δw=" + std::to_string(weight_change) + 
                         "g (约" + std::to_string(actual_ml) + "ml)");
                 target_reached = true;
                 break;
             }
             
             if (std::chrono::steady_clock::now() - fill_start > fill_timeout) {
-                float actual_ml = weight_change / lc_config.pump_mm_to_ml;
-                add_log("清洗注入超时: 重量变化=" + std::to_string(weight_change) + 
+                float actual_ml = (slope > 0) ? (weight_change - offset) / slope : weight_change;
+                add_log("清洗注入超时: Δw=" + std::to_string(weight_change) + 
                         "g (约" + std::to_string(actual_ml) + "ml, 目标" + std::to_string(target_ml) + "ml)");
                 break;
             }
             
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
         
         if (check_stop_or_pause()) return;
@@ -1156,6 +1247,8 @@ void ExperimentServiceImpl::execute_wash(const experiment::WashAction& action) {
         // 4. 排废直到空瓶稳定
         add_log("排废清洗液...");
         system_state_->transition_to(workflows::SystemState::State::DRAIN);
+        // 使用用户配置的排废气泵 PWM
+        system_state_->set_air_pump_pwm(drain_pwm);
         
         auto drain_result = load_cell_->wait_for_empty_bottle(
             action.empty_tolerance_g(),

@@ -23,6 +23,11 @@ static bool parse_step(const YAML::Node& node, experiment::Step* step, std::stri
     }
     step->set_name(node["name"].as<std::string>());
     
+    // 解析 phase_name（编译器自动填充，用于集中式 phase 转换）
+    if (node["phase_name"]) {
+        step->set_phase_name(node["phase_name"].as<std::string>());
+    }
+    
     // 解析动作类型
     if (node["inject"]) {
         auto* action = step->mutable_inject();
@@ -36,13 +41,13 @@ static bool parse_step(const YAML::Node& node, experiment::Step* step, std::stri
         } else {
             action->set_tolerance(1.0);
         }
-        if (inject["flow_rate_ml_min"]) {
-            action->set_flow_rate_ml_min(inject["flow_rate_ml_min"].as<double>());
-        } else if (inject["flow_rate_ml_s"]) {
-            // 兼容前端使用的 ml/s 单位，转换为 ml/min
-            action->set_flow_rate_ml_min(inject["flow_rate_ml_s"].as<double>() * 60.0);
+        if (inject["flow_rate_ml_s"]) {
+            action->set_flow_rate_ml_s(inject["flow_rate_ml_s"].as<double>());
+        } else if (inject["flow_rate_ml_min"]) {
+            // 兼容旧版 YAML 使用 ml/min 单位，转换为 ml/s
+            action->set_flow_rate_ml_s(inject["flow_rate_ml_min"].as<double>() / 60.0);
         } else {
-            action->set_flow_rate_ml_min(5.0);
+            action->set_flow_rate_ml_s(5.0);
         }
         if (inject["stable_timeout_s"]) {
             action->set_stable_timeout_s(inject["stable_timeout_s"].as<double>());
@@ -91,6 +96,16 @@ static bool parse_step(const YAML::Node& node, experiment::Step* step, std::stri
         
         if (drain["gas_pump_pwm"]) {
             action->set_gas_pump_pwm(drain["gas_pump_pwm"].as<int>());
+        }
+        if (drain["empty_tolerance_g"]) {
+            action->set_empty_tolerance_g(drain["empty_tolerance_g"].as<double>());
+        } else {
+            action->set_empty_tolerance_g(10.0);
+        }
+        if (drain["stability_window_s"]) {
+            action->set_stability_window_s(drain["stability_window_s"].as<double>());
+        } else {
+            action->set_stability_window_s(2.0);
         }
         if (drain["timeout_s"]) {
             action->set_timeout_s(drain["timeout_s"].as<double>());
@@ -186,16 +201,17 @@ static bool parse_step(const YAML::Node& node, experiment::Step* step, std::stri
         auto* action = step->mutable_wash();
         auto wash = node["wash"];
         
-        // 支持两种格式：
-        // 1. 体积格式 (wash_volume_ml) - 转换为重量 (假设密度=1 g/ml)
-        // 2. 重量格式 (target_weight_g) - 直接使用
-        if (wash["wash_volume_ml"]) {
-            // 体积转重量 (密度=1 g/ml)
-            action->set_target_weight_g(wash["wash_volume_ml"].as<double>());
+        // 支持两种格式（向后兼容）：
+        // 1. 体积格式 (wash_volume_ml / target_volume_ml) - 推荐
+        // 2. 旧格式 (target_weight_g) - 向后兼容
+        if (wash["target_volume_ml"]) {
+            action->set_target_volume_ml(wash["target_volume_ml"].as<double>());
+        } else if (wash["wash_volume_ml"]) {
+            action->set_target_volume_ml(wash["wash_volume_ml"].as<double>());
         } else if (wash["target_weight_g"]) {
-            action->set_target_weight_g(wash["target_weight_g"].as<double>());
+            action->set_target_volume_ml(wash["target_weight_g"].as<double>());
         } else {
-            action->set_target_weight_g(20.0); // 默认 20g
+            action->set_target_volume_ml(20.0); // 默认 20ml
         }
         
         if (wash["repeat_count"]) {
@@ -235,6 +251,10 @@ static bool parse_step(const YAML::Node& node, experiment::Step* step, std::stri
             action->set_empty_stability_window_s(wash["empty_stability_window_s"].as<double>());
         } else {
             action->set_empty_stability_window_s(2.0);
+        }
+        
+        if (wash["wash_liquid_id"]) {
+            action->set_wash_liquid_id(wash["wash_liquid_id"].as<std::string>());
         }
     }
     else if (node["preheat"]) {
@@ -377,15 +397,22 @@ YamlParser::ParseResult YamlParser::parse(const std::string& yaml_content) {
                     if (liq_node["name"]) {
                         liquid->set_name(liq_node["name"].as<std::string>());
                     }
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+                    // 向后兼容: 旧 YAML 可能包含 pump_index/available_ml
                     if (liq_node["pump_index"]) {
                         liquid->set_pump_index(liq_node["pump_index"].as<int>());
                     }
+#pragma GCC diagnostic pop
                     if (liq_node["type"]) {
                         liquid->set_type(parse_liquid_type(liq_node["type"].as<std::string>()));
                     }
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
                     if (liq_node["available_ml"]) {
                         liquid->set_available_ml(liq_node["available_ml"].as<double>());
                     }
+#pragma GCC diagnostic pop
                     if (liq_node["density_g_ml"]) {
                         liquid->set_density_g_ml(liq_node["density_g_ml"].as<double>());
                     } else {
@@ -399,7 +426,6 @@ YamlParser::ParseResult YamlParser::parse(const std::string& yaml_content) {
                 auto* liquid = hardware->add_liquids();
                 liquid->set_id("default");
                 liquid->set_name("默认液体");
-                liquid->set_pump_index(2);
                 liquid->set_type(experiment::LIQUID_SAMPLE);
                 liquid->set_density_g_ml(1.0);
             }
@@ -411,7 +437,6 @@ YamlParser::ParseResult YamlParser::parse(const std::string& yaml_content) {
             auto* liquid = hardware->add_liquids();
             liquid->set_id("default");
             liquid->set_name("默认液体");
-            liquid->set_pump_index(2);
             liquid->set_type(experiment::LIQUID_SAMPLE);
             liquid->set_density_g_ml(1.0);
         }

@@ -432,7 +432,7 @@ export const AcquireNode = memo(function AcquireNode(props: NodeProps) {
   const termType = data.terminationType as string;
   let termText = '';
   if (termType === 'duration') {
-    termText = `${data.durationS || 0}s`;
+    termText = `${data.durationS || 60}s`;
   } else if (termType === 'cycles') {
     termText = `${data.heaterCycles || 0} 周期`;
   } else {

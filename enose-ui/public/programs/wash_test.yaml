@@ -1,0 +1,89 @@
+id: wash_test
+name: wash_test
+description: ''
+version: 1.0.0
+hardware:
+  bottle_capacity_ml: 150
+  max_fill_ml: 100
+  liquids:
+    - id: '37'
+      name: 纯净水
+      type: LIQUID_RINSE
+steps:
+  - name: 清洗
+    phase_name: WASH
+    wash:
+      wash_liquid_id: '37'
+      wash_volume_ml: 50
+      repeat_count: 1
+      gas_pump_pwm: 100
+      fill_timeout_s: 60
+      drain_timeout_s: 60
+      empty_tolerance_g: 10
+      empty_stability_window_s: 2
+_compile_estimate:
+  total_duration_s: 70
+  peak_liquid_level_ml: 0
+  peak_liquid_level_ml_with_wash: 50
+  total_inject_ml: 0
+  total_drain_ml: 50
+  total_wash_volume_ml: 50
+  liquid_consumption:
+    - liquid_id: '37'
+      liquid_name: 纯净水
+      pump_index: -1
+      required_ml: 50
+  pump_estimates: []
+_editor_layout:
+  nodes:
+    - id: start
+      type: start
+      position:
+        x: 255
+        'y': 165
+      data:
+        description: ''
+        version: 1.0.0
+    - id: end
+      type: end
+      position:
+        x: 255
+        'y': 465
+      data: {}
+    - id: node_1
+      type: wash
+      position:
+        x: 255
+        'y': 315
+      data:
+        name: 清洗
+        washLiquidId: '37'
+        washVolumeMl: 50
+        repeatCount: 1
+        gasPumpPwm: 100
+        drainAfter: true
+        washLiquidName: 纯净水
+    - id: node_10
+      type: hardwareConfig
+      position:
+        x: 60
+        'y': 165
+      data:
+        bottleCapacityMl: 150
+        maxFillMl: 100
+  edges:
+    - id: xy-edge__startflow-node_1flow
+      source: start
+      target: node_1
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_1flow-endflow
+      source: node_1
+      target: end
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_10hardware-starthardware
+      source: node_10
+      target: start
+      sourceHandle: hardware
+      targetHandle: hardware

@@ -17,6 +17,12 @@ import { fetchCompilerData } from './data-fetcher';
 interface HistoryState {
   nodes: ExperimentNode[];
   edges: ExperimentEdge[];
+  programMeta?: {
+    programId: string;
+    programName: string;
+    programDescription: string;
+    programVersion: string;
+  };
 }
 
 interface EditorState {
@@ -27,6 +33,7 @@ interface EditorState {
   // 撤销/重做历史
   history: HistoryState[];
   historyIndex: number;
+  savedHistoryIndex: number; // 上次保存时的 historyIndex
   isRecordingHistory: boolean; // 防止重复记录历史的标志
   
   // 程序元数据
@@ -82,6 +89,8 @@ interface EditorState {
   canUndo: () => boolean;
   canRedo: () => boolean;
   saveToHistory: () => void;
+  resetHistory: () => void;
+  markSaved: () => void;
   
   // 实时编译
   recompile: () => void;
@@ -97,6 +106,22 @@ interface EditorState {
 
 let nodeIdCounter = 0;
 const generateNodeId = () => `node_${++nodeIdCounter}`;
+
+// 同步 nodeIdCounter 到当前节点的最大 ID
+function syncNodeIdCounter(nodes: ExperimentNode[]) {
+  let maxId = 0;
+  for (const n of nodes) {
+    const match = n.id.match(/node_(\d+)/);
+    if (match) maxId = Math.max(maxId, parseInt(match[1]));
+  }
+  nodeIdCounter = Math.max(nodeIdCounter, maxId);
+}
+
+// updateNodeData 防抖相关
+let updateNodeDataTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingHistorySave = false;
+// 节点拖拽状态标志，防止拖拽过程中重复记录历史
+let isDraggingNodes = false;
 
 const getDefaultNodeData = (type: NodeType): Record<string, unknown> => {
   switch (type) {
@@ -115,17 +140,17 @@ const getDefaultNodeData = (type: NodeType): Record<string, unknown> => {
       return {
         name: '进样',
         targetType: 'volume',
-        targetVolumeMl: 15,
-        tolerance: 0.5,
-        flowRateMlS: 0.5,  // ml/s (原 5 ml/min ≈ 0.083 ml/s，提高到 0.5)
-        stableTimeoutS: 60,
+        targetVolumeMl: 30,
+        tolerance: 3,
+        flowRateMlS: 5,
+        stableTimeoutS: 10,
       };
     case NodeType.DRAIN:
       return {
         name: '排废',
-        gasPumpPwm: 80,
+        gasPumpPwm: 100,
         emptyToleranceG: 10,
-        stabilityWindowS: 2,
+        stabilityWindowS: 5,
         timeoutS: 60,
       };
     case NodeType.LIQUID_SOURCE:
@@ -228,6 +253,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   
   history: [{ nodes: initialNodes, edges: initialEdges }],
   historyIndex: 0,
+  savedHistoryIndex: 0,
   isRecordingHistory: false,
   
   programId: 'new_experiment',
@@ -252,17 +278,42 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setCurrentFilename: (filename: string | null) => set({ currentFilename: filename }),
   
   saveToHistory: () => {
-    const { nodes, edges, history, historyIndex } = get();
+    const { isRecordingHistory, nodes, edges, history, historyIndex, savedHistoryIndex, programId, programName, programDescription, programVersion } = get();
+    if (isRecordingHistory) return; // 防止重复记录
     const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push({ nodes: JSON.parse(JSON.stringify(nodes)), edges: JSON.parse(JSON.stringify(edges)) });
+    newHistory.push({
+      nodes: JSON.parse(JSON.stringify(nodes)),
+      edges: JSON.parse(JSON.stringify(edges)),
+      programMeta: { programId, programName, programDescription, programVersion },
+    });
+    // 如果超出限制，移除最旧的记录，同时调整 savedHistoryIndex
+    let adjustedSavedIndex = savedHistoryIndex;
     if (newHistory.length > MAX_HISTORY) {
       newHistory.shift();
+      adjustedSavedIndex = Math.max(-1, adjustedSavedIndex - 1);
     }
-    set({ history: newHistory, historyIndex: newHistory.length - 1, isDirty: true });
+    set({ history: newHistory, historyIndex: newHistory.length - 1, savedHistoryIndex: adjustedSavedIndex, isDirty: true });
+  },
+  
+  resetHistory: () => {
+    const { nodes, edges, programId, programName, programDescription, programVersion } = get();
+    set({
+      history: [{
+        nodes: JSON.parse(JSON.stringify(nodes)),
+        edges: JSON.parse(JSON.stringify(edges)),
+        programMeta: { programId, programName, programDescription, programVersion },
+      }],
+      historyIndex: 0,
+      savedHistoryIndex: 0,
+    });
+  },
+  
+  markSaved: () => {
+    set({ savedHistoryIndex: get().historyIndex, isDirty: false });
   },
   
   undo: () => {
-    const { history, historyIndex } = get();
+    const { history, historyIndex, savedHistoryIndex } = get();
     if (historyIndex > 0) {
       const newIndex = historyIndex - 1;
       const state = history[newIndex];
@@ -270,12 +321,23 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         nodes: JSON.parse(JSON.stringify(state.nodes)),
         edges: JSON.parse(JSON.stringify(state.edges)),
         historyIndex: newIndex,
+        isDirty: newIndex !== savedHistoryIndex,
       });
+      if (state.programMeta) {
+        set({
+          programId: state.programMeta.programId,
+          programName: state.programMeta.programName,
+          programDescription: state.programMeta.programDescription,
+          programVersion: state.programMeta.programVersion,
+        });
+      }
+      // 同步 nodeIdCounter 防止 ID 冲突
+      syncNodeIdCounter(get().nodes);
     }
   },
   
   redo: () => {
-    const { history, historyIndex } = get();
+    const { history, historyIndex, savedHistoryIndex } = get();
     if (historyIndex < history.length - 1) {
       const newIndex = historyIndex + 1;
       const state = history[newIndex];
@@ -283,7 +345,17 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         nodes: JSON.parse(JSON.stringify(state.nodes)),
         edges: JSON.parse(JSON.stringify(state.edges)),
         historyIndex: newIndex,
+        isDirty: newIndex !== savedHistoryIndex,
       });
+      if (state.programMeta) {
+        set({
+          programId: state.programMeta.programId,
+          programName: state.programMeta.programName,
+          programDescription: state.programMeta.programDescription,
+          programVersion: state.programMeta.programVersion,
+        });
+      }
+      syncNodeIdCounter(get().nodes);
     }
   },
   
@@ -297,12 +369,22 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       get().saveToHistory();
     }
     
-    // 检测拖拽结束（dragging 从 true 变为 false）
+    // 拖拽开始时保存历史（此时节点还在原始位置，撤销可回到拖拽前）
+    const dragStartChanges = changes.filter(
+      c => c.type === 'position' && c.dragging === true
+    );
+    if (dragStartChanges.length > 0 && !isDraggingNodes) {
+      isDraggingNodes = true;
+      get().saveToHistory();
+    }
+    
+    // 拖拽结束时重置标志，标记脏状态
     const dragEndChanges = changes.filter(
       c => c.type === 'position' && c.dragging === false
     );
     if (dragEndChanges.length > 0) {
-      get().saveToHistory();
+      isDraggingNodes = false;
+      set({ isDirty: true });
     }
     
     set({
@@ -400,25 +482,43 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
   
   updateNodeData: (nodeId, data) => {
-    // 属性编辑时保存历史（每次编辑都记录）
-    get().saveToHistory();
+    // 防抖保存历史：300ms 内的连续编辑合并为一次
+    if (updateNodeDataTimer) clearTimeout(updateNodeDataTimer);
+    if (!pendingHistorySave) {
+      get().saveToHistory();
+      pendingHistorySave = true;
+    }
     set({
       nodes: get().nodes.map((node) =>
         node.id === nodeId
           ? { ...node, data: { ...node.data, ...data } }
           : node
       ),
+      isDirty: true,
     });
+    updateNodeDataTimer = setTimeout(() => {
+      pendingHistorySave = false;
+      updateNodeDataTimer = null;
+    }, 300);
   },
   
   deleteNode: (nodeId) => {
+    // 注意：不在此处调用 saveToHistory()，
+    // 因为 React Flow 的 onNodesChange 会触发 remove 事件并记录历史。
+    // 如果是从属性面板调用，需要手动记录。
+    // 使用 isRecordingHistory 防止双重记录。
     get().saveToHistory();
+    set({ isRecordingHistory: true });
     set({
       nodes: get().nodes.filter((node) => node.id !== nodeId),
       edges: get().edges.filter(
         (edge) => edge.source !== nodeId && edge.target !== nodeId
       ),
       selectedNodeId: get().selectedNodeId === nodeId ? null : get().selectedNodeId,
+    });
+    // 在下一个微任务中重置标志，确保 onNodesChange 的 remove 事件不会重复记录
+    queueMicrotask(() => {
+      useEditorStore.setState({ isRecordingHistory: false });
     });
   },
   
@@ -439,19 +539,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
   
   loadGraph: (nodes, edges) => {
-    get().saveToHistory();
-    nodeIdCounter = Math.max(
-      ...nodes.map((n) => {
-        const match = n.id.match(/node_(\d+)/);
-        return match ? parseInt(match[1]) : 0;
-      }),
-      nodeIdCounter
-    );
+    syncNodeIdCounter(nodes);
     set({ nodes, edges });
+    // 加载新图后重置历史栈（防止撤销回旧文件）
+    // 由调用方负责在 loadGraph 后调用 resetHistory
   },
   
   clearGraph: () => {
-    get().saveToHistory();
     nodeIdCounter = 0;
     set({
       nodes: initialNodes,

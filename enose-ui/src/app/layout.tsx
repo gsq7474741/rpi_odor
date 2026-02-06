@@ -6,6 +6,7 @@ import { TopBar } from "@/components/top-bar";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { SettingsDialog } from "@/components/settings-dialog";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -48,6 +49,7 @@ export default function RootLayout({
                 </main>
               </div>
             </div>
+            <SettingsDialog />
             <Toaster richColors position="top-right" />
           </TooltipProvider>
         </ThemeProvider>

@@ -82,6 +82,7 @@ export function ProjectorTab() {
   const [computeMode, setComputeMode] = useState<ComputeMode>("frontend");
   const [progressMessage, setProgressMessage] = useState<string>("");
   const [sphereize, setSphereize] = useState(false);
+  const [selectedPhases, setSelectedPhases] = useState<Set<string>>(new Set());
   
   // Seed control for reproducible projections
   const [seed, setSeed] = useState<number>(() => Date.now());
@@ -110,6 +111,20 @@ export function ProjectorTab() {
       .filter((s) => targetIds.includes(s.id))
       .forEach((s) => runIdSet.add(s.runId));
     return Array.from(runIdSet);
+  }, [selectedSampleIds, samples]);
+
+  // 从选中样本中收集可用的 phase 列表
+  const availablePhases = useMemo(() => {
+    const targetIds = Array.from(selectedSampleIds);
+    const phaseSet = new Set<string>();
+    samples
+      .filter((s) => targetIds.includes(s.id))
+      .forEach((s) => {
+        if (s.phaseTransitions) {
+          s.phaseTransitions.forEach((pt) => phaseSet.add(pt.phaseName));
+        }
+      });
+    return Array.from(phaseSet).sort();
   }, [selectedSampleIds, samples]);
 
   // 自动选择计算模式
@@ -579,7 +594,7 @@ export function ProjectorTab() {
               <TooltipTrigger asChild>
                 <div>
                   <Select value={visType} onValueChange={(v) => setVisType(v as VisType)}>
-                    <SelectTrigger size="sm" className="w-[88px] text-xs border-0 bg-background shadow-sm">
+                    <SelectTrigger size="sm" className="w-[84px] px-2 text-xs border-0 bg-background shadow-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -687,7 +702,7 @@ export function ProjectorTab() {
                 <div className="flex items-center gap-1">
                   <Palette className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                   <Select value={colorBy} onValueChange={(v) => setColorBy(v as ColorBy)}>
-                    <SelectTrigger size="sm" className="w-[68px] text-xs border-0 bg-background shadow-sm">
+                    <SelectTrigger size="sm" className="w-[80px] px-2 text-xs border-0 bg-background shadow-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -708,7 +723,7 @@ export function ProjectorTab() {
                   <div className="flex items-center gap-1">
                     <Network className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                     <Select value={nClusters.toString()} onValueChange={(v) => setNClusters(parseInt(v))}>
-                      <SelectTrigger size="sm" className="w-[50px] text-xs border-0 bg-background shadow-sm">
+                      <SelectTrigger size="sm" className="w-[60px] px-2 text-xs border-0 bg-background shadow-sm">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -723,6 +738,46 @@ export function ProjectorTab() {
               </Tooltip>
             )}
           </div>
+
+          {/* Phase 子集选择 */}
+          {availablePhases.length > 0 && (
+            <div className="flex items-center gap-1 bg-muted/40 rounded-lg px-2 py-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">Phase:</span>
+                </TooltipTrigger>
+                <TooltipContent><p>选择用于降维的 Phase 子集（空=全部）</p></TooltipContent>
+              </Tooltip>
+              {availablePhases.map((phase) => (
+                <button
+                  key={phase}
+                  onClick={() => {
+                    const next = new Set(selectedPhases);
+                    if (next.has(phase)) next.delete(phase);
+                    else next.add(phase);
+                    setSelectedPhases(next);
+                  }}
+                  className={`h-6 px-1.5 rounded text-[10px] font-medium transition-colors ${
+                    selectedPhases.has(phase)
+                      ? "bg-primary text-primary-foreground"
+                      : selectedPhases.size === 0
+                        ? "bg-background text-foreground shadow-sm opacity-60"
+                        : "bg-background text-muted-foreground shadow-sm opacity-40"
+                  }`}
+                >
+                  {phase}
+                </button>
+              ))}
+              {selectedPhases.size > 0 && (
+                <button
+                  onClick={() => setSelectedPhases(new Set())}
+                  className="h-6 px-1 rounded text-[10px] text-muted-foreground hover:bg-accent"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          )}
 
           {/* 计算设置组 */}
           <div className="flex items-center gap-1 bg-muted/40 rounded-lg px-2 py-1">
@@ -818,7 +873,7 @@ export function ProjectorTab() {
               <TooltipTrigger asChild>
                 <div>
                   <Select value={maxPoints.toString()} onValueChange={(v) => setMaxPoints(parseInt(v))}>
-                    <SelectTrigger size="sm" className="w-[60px] text-xs border-0 bg-background shadow-sm">
+                    <SelectTrigger size="sm" className="w-[76px] px-2 text-xs border-0 bg-background shadow-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

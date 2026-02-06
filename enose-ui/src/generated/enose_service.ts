@@ -262,8 +262,8 @@ export interface StartInjectionResponse {
     message: string;
 }
 /**
- * 按重量进样请求 (单位: g 真实重量)
- * 后端转换: x = (y - weight_offset) / weight_scale, mm = x / pump_mm_to_ml
+ * 按重量进样请求 (单位: g)
+ * 后端转换: ml = (weight_g - ml_to_weight_offset) / ml_to_weight_slope
  *
  * @generated from protobuf message enose.service.StartInjectionByWeightRequest
  */
@@ -887,24 +887,22 @@ export interface LoadCellConfig {
      * @generated from protobuf field: string last_calibration_time = 4
      */
     lastCalibrationTime: string; // 最后标定时间    /**
-     * 泵校准系数 (mm -> 测量重量 g)
-     * 线性模型: measured_weight = mm * pump_mm_to_ml + pump_mm_offset
+     * 称重校准系数 (ml -> 测量重量变化 g)
+     * 线性模型: weight_change_g = volume_ml * ml_to_weight_slope + ml_to_weight_offset
      *
-     * @generated from protobuf field: float pump_mm_to_ml = 5
+     * @generated from protobuf field: float ml_to_weight_slope = 5
      */
-    pumpMmToMl: number; // g/mm (斜率)    /**
-     * @generated from protobuf field: float pump_mm_offset = 6
+    mlToWeightSlope: number; // g/ml (斜率)    /**
+     * @generated from protobuf field: float ml_to_weight_offset = 6
      */
-    pumpMmOffset: number; // g (截距)    /**
-     * 重量校准系数 (测量值 -> 真实值)
-     * 线性模型: real_weight = weight_scale * measured_weight + weight_offset
+    mlToWeightOffset: number; // g (截距)    /**
+     * 清洗泵注入时的称重滞后补偿 (g)
+     * 由于 Klipper 称重更新~1Hz + 液体冲击加速度，动态读数滞后于真实重量
+     * 检测阈值 = expected_weight_change - fill_lag_compensation_g
      *
-     * @generated from protobuf field: float weight_scale = 7
+     * @generated from protobuf field: float fill_lag_compensation_g = 7
      */
-    weightScale: number; // 斜率    /**
-     * @generated from protobuf field: float weight_offset = 8
-     */
-    weightOffset: number; // 截距 (g)}
+    fillLagCompensationG: number; // g (默认 0)}
 /**
  * 泵校准系数请求
  *
@@ -4216,10 +4214,9 @@ class LoadCellConfig$Type extends MessageType<LoadCellConfig> {
             { no: 2, name: "drain_complete_margin", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 3, name: "stable_threshold", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 4, name: "last_calibration_time", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
-            { no: 5, name: "pump_mm_to_ml", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
-            { no: 6, name: "pump_mm_offset", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
-            { no: 7, name: "weight_scale", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
-            { no: 8, name: "weight_offset", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ }
+            { no: 5, name: "ml_to_weight_slope", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 6, name: "ml_to_weight_offset", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 7, name: "fill_lag_compensation_g", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ }
         ]);
     }
     create(value?: PartialMessage<LoadCellConfig>): LoadCellConfig {
@@ -4228,10 +4225,9 @@ class LoadCellConfig$Type extends MessageType<LoadCellConfig> {
         message.drainCompleteMargin = 0;
         message.stableThreshold = 0;
         message.lastCalibrationTime = "";
-        message.pumpMmToMl = 0;
-        message.pumpMmOffset = 0;
-        message.weightScale = 0;
-        message.weightOffset = 0;
+        message.mlToWeightSlope = 0;
+        message.mlToWeightOffset = 0;
+        message.fillLagCompensationG = 0;
         if (value !== undefined)
             reflectionMergePartial<LoadCellConfig>(this, message, value);
         return message;
@@ -4253,17 +4249,14 @@ class LoadCellConfig$Type extends MessageType<LoadCellConfig> {
                 case /* string last_calibration_time */ 4:
                     message.lastCalibrationTime = reader.string();
                     break;
-                case /* float pump_mm_to_ml */ 5:
-                    message.pumpMmToMl = reader.float();
+                case /* float ml_to_weight_slope */ 5:
+                    message.mlToWeightSlope = reader.float();
                     break;
-                case /* float pump_mm_offset */ 6:
-                    message.pumpMmOffset = reader.float();
+                case /* float ml_to_weight_offset */ 6:
+                    message.mlToWeightOffset = reader.float();
                     break;
-                case /* float weight_scale */ 7:
-                    message.weightScale = reader.float();
-                    break;
-                case /* float weight_offset */ 8:
-                    message.weightOffset = reader.float();
+                case /* float fill_lag_compensation_g */ 7:
+                    message.fillLagCompensationG = reader.float();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -4289,18 +4282,15 @@ class LoadCellConfig$Type extends MessageType<LoadCellConfig> {
         /* string last_calibration_time = 4; */
         if (message.lastCalibrationTime !== "")
             writer.tag(4, WireType.LengthDelimited).string(message.lastCalibrationTime);
-        /* float pump_mm_to_ml = 5; */
-        if (message.pumpMmToMl !== 0)
-            writer.tag(5, WireType.Bit32).float(message.pumpMmToMl);
-        /* float pump_mm_offset = 6; */
-        if (message.pumpMmOffset !== 0)
-            writer.tag(6, WireType.Bit32).float(message.pumpMmOffset);
-        /* float weight_scale = 7; */
-        if (message.weightScale !== 0)
-            writer.tag(7, WireType.Bit32).float(message.weightScale);
-        /* float weight_offset = 8; */
-        if (message.weightOffset !== 0)
-            writer.tag(8, WireType.Bit32).float(message.weightOffset);
+        /* float ml_to_weight_slope = 5; */
+        if (message.mlToWeightSlope !== 0)
+            writer.tag(5, WireType.Bit32).float(message.mlToWeightSlope);
+        /* float ml_to_weight_offset = 6; */
+        if (message.mlToWeightOffset !== 0)
+            writer.tag(6, WireType.Bit32).float(message.mlToWeightOffset);
+        /* float fill_lag_compensation_g = 7; */
+        if (message.fillLagCompensationG !== 0)
+            writer.tag(7, WireType.Bit32).float(message.fillLagCompensationG);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);

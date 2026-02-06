@@ -41,12 +41,14 @@ def serve() -> None:
     )
 
     # 注册 gRPC 服务
-    from .grpc import add_analytics_service, add_label_service, add_model_service, add_data_service, add_sample_service
+    from .grpc import add_analytics_service, add_label_service, add_model_service, add_data_service, add_sample_service, add_ml_label_service, add_export_service
     add_analytics_service(server)
     add_label_service(server)
     add_model_service(server)
     add_data_service(server)
     add_sample_service(server)
+    add_ml_label_service(server)
+    add_export_service(server)
 
     # 绑定端口
     address = f"{settings.grpc.host}:{settings.grpc.port}"

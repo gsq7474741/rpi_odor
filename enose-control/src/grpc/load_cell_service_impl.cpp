@@ -206,13 +206,10 @@ void LoadCellServiceImpl::fill_calibration_status(::enose::service::CalibrationS
     response->set_drain_complete_margin(config.drain_complete_margin);
     response->set_stable_threshold(config.stable_stddev_threshold);
     
-    // 泵校准系数
-    response->set_pump_mm_to_ml(config.pump_mm_to_ml);
-    response->set_pump_mm_offset(config.pump_mm_offset);
-    
-    // 重量校准系数
-    response->set_weight_scale(config.weight_scale);
-    response->set_weight_offset(config.weight_offset);
+    // 称重校准系数
+    response->set_ml_to_weight_slope(config.ml_to_weight_slope);
+    response->set_ml_to_weight_offset(config.ml_to_weight_offset);
+    response->set_fill_lag_compensation_g(config.fill_lag_compensation_g);
     
     return ::grpc::Status::OK;
 }
@@ -228,26 +225,19 @@ void LoadCellServiceImpl::fill_calibration_status(::enose::service::CalibrationS
     config.drain_complete_margin = request->drain_complete_margin();
     config.stable_stddev_threshold = request->stable_threshold();
     
-    // 泵校准系数 (mm -> 测量重量)
-    if (request->pump_mm_to_ml() != 0) {
-        config.pump_mm_to_ml = request->pump_mm_to_ml();
+    // 称重校准系数 (ml -> 测量重量变化)
+    if (request->ml_to_weight_slope() != 0) {
+        config.ml_to_weight_slope = request->ml_to_weight_slope();
     }
-    if (request->pump_mm_offset() != 0) {
-        config.pump_mm_offset = request->pump_mm_offset();
-    }
-    
-    // 重量校准系数 (测量值 -> 真实值)
-    if (request->weight_scale() != 0) {
-        config.weight_scale = request->weight_scale();
-    }
-    config.weight_offset = request->weight_offset(); // offset可以为0
+    config.ml_to_weight_offset = request->ml_to_weight_offset(); // offset可以为0
+    config.fill_lag_compensation_g = request->fill_lag_compensation_g();
     
     load_cell_->set_config(config);
     
     // 持久化到文件
     if (load_cell_->save_config()) {
-        spdlog::info("LoadCellServiceImpl: Config saved to file (weight_scale={:.4f}, weight_offset={:.4f})",
-                     config.weight_scale, config.weight_offset);
+        spdlog::info("LoadCellServiceImpl: Config saved to file (slope={:.4f}, offset={:.4f}, lag_comp={:.1f})",
+                     config.ml_to_weight_slope, config.ml_to_weight_offset, config.fill_lag_compensation_g);
     } else {
         spdlog::warn("LoadCellServiceImpl: Config updated but not persisted to file");
     }

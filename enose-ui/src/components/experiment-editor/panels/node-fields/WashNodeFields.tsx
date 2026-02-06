@@ -1,11 +1,12 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
-import { RefreshCw } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { RefreshCw, ChevronDown } from 'lucide-react';
 import { Field } from './Field';
 import { NodeFieldsWithExternalDataProps } from './types';
 
@@ -16,6 +17,8 @@ export function WashNodeFields({
   loadingLiquids,
   onRefreshLiquids
 }: NodeFieldsWithExternalDataProps) {
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  
   // 筛选清洗液（type=2 为清洗液）
   const washLiquids = useMemo(() => {
     return liquids.filter(l => l.type === 2);
@@ -87,7 +90,7 @@ export function WashNodeFields({
           onChange={(e) => handleChange('repeatCount', parseInt(e.target.value) || 2)}
         />
       </Field>
-      <Field label={`气泵 PWM (${data.gasPumpPwm || 50}%)`}>
+      <Field label={`排废气泵 PWM (${data.gasPumpPwm || 50}%)`}>
         <Slider
           value={[Number(data.gasPumpPwm || 50)]}
           min={0}
@@ -96,10 +99,60 @@ export function WashNodeFields({
           onValueChange={([v]) => handleChange('gasPumpPwm', v)}
         />
       </Field>
+      
+      <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+        <CollapsibleTrigger asChild>
+          <Button variant="ghost" size="sm" className="w-full justify-between text-xs text-muted-foreground mt-1">
+            高级参数
+            <ChevronDown className={`w-3 h-3 transition-transform ${advancedOpen ? 'rotate-180' : ''}`} />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-2 mt-1">
+          <Field label="注入超时 (秒)">
+            <Input
+              type="number"
+              min={1}
+              max={120}
+              value={Number(data.fillTimeoutS ?? 60)}
+              onChange={(e) => handleChange('fillTimeoutS', parseFloat(e.target.value) || 60)}
+            />
+          </Field>
+          <Field label="排废超时 (秒)">
+            <Input
+              type="number"
+              min={1}
+              max={120}
+              value={Number(data.drainTimeoutS ?? 60)}
+              onChange={(e) => handleChange('drainTimeoutS', parseFloat(e.target.value) || 60)}
+            />
+          </Field>
+          <Field label="空瓶检测容差 (g)">
+            <Input
+              type="number"
+              min={1}
+              max={50}
+              step={1}
+              value={Number(data.emptyToleranceG ?? 10)}
+              onChange={(e) => handleChange('emptyToleranceG', parseFloat(e.target.value) || 10)}
+            />
+          </Field>
+          <Field label="空瓶稳定窗口 (秒)">
+            <Input
+              type="number"
+              min={1}
+              max={30}
+              step={0.5}
+              value={Number(data.emptyStabilityWindowS ?? 2)}
+              onChange={(e) => handleChange('emptyStabilityWindowS', parseFloat(e.target.value) || 2)}
+            />
+          </Field>
+        </CollapsibleContent>
+      </Collapsible>
+      
       <div className="p-2 bg-blue-500/10 border border-blue-500/30 rounded text-xs text-blue-600 mt-2">
         <p className="font-medium mb-1">清洗流程说明：</p>
         <p>每次清洗循环：排废确认空瓶 → 注入清洗液 → 排废</p>
-        <p className="mt-1">多次清洗时，每次循环之间都会排废以防止溢出。</p>
+        <p className="mt-1">注入量通过称重传感器线性校正检测，达到目标量即停止。</p>
       </div>
     </>
   );

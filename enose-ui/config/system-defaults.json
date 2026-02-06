@@ -1,0 +1,11 @@
+{
+  "wash": {
+    "fillTimeoutS": 60,
+    "drainTimeoutS": 60,
+    "emptyToleranceG": 10,
+    "emptyStabilityWindowS": 2,
+    "gasPumpPwm": 50,
+    "washVolumeMl": 20,
+    "repeatCount": 2
+  }
+}

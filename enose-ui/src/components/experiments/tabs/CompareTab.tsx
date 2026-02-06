@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useExperiments, SampleWithFrameStatus } from "../context/ExperimentsContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Table,
   TableBody,
@@ -15,9 +15,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   GitCompare,
   X,
   Trash2,
+  Copy,
+  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +33,63 @@ interface ParamRow {
   label: string;
   values: (string | number | null)[];
   isDifferent: boolean;
+}
+
+// 单元格内容：超长时截断并显示 tooltip
+const TRUNCATE_LEN = 24;
+function CellValue({ value }: { value: string | number | null }) {
+  const text = value == null ? "-" : String(value);
+  if (text.length <= TRUNCATE_LEN) {
+    return <span className="whitespace-nowrap">{text}</span>;
+  }
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="block truncate cursor-default" title={text}>
+          {text}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="max-w-xs break-all">
+        {text}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+// 哈希单元格：截断显示 + hover 查看完整值 + 点击复制
+function HashCell({ value }: { value: string | number | null }) {
+  const [copied, setCopied] = React.useState(false);
+  const full = value == null ? "-" : String(value);
+  const short = full.length > 12 ? full.slice(0, 12) + "…" : full;
+
+  const handleCopy = async () => {
+    if (full === "-") return;
+    await navigator.clipboard.writeText(full);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          className="inline-flex items-center gap-1 font-mono text-xs cursor-pointer hover:text-primary transition-colors"
+          onClick={handleCopy}
+        >
+          {short}
+          {copied ? (
+            <Check className="h-3 w-3 text-green-500" />
+          ) : (
+            <Copy className="h-3 w-3 opacity-0 group-hover/hash:opacity-60" />
+          )}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="max-w-xs break-all font-mono text-xs">
+        <p>{full}</p>
+        <p className="text-muted-foreground mt-1">点击复制</p>
+      </TooltipContent>
+    </Tooltip>
+  );
 }
 
 export function CompareTab() {
@@ -59,6 +123,26 @@ export function CompareTab() {
   const paramRows = useMemo((): ParamRow[] => {
     if (selectedSamples.length < 2) return [];
 
+    const formatLiquidFormula = (s: SampleWithFrameStatus) => {
+      if (!s.liquidNames || s.liquidNames.length === 0) return "-";
+      if (s.liquidNames.length === 1) return s.liquidNames[0];
+      // 归一化比例：ratio 可能是小数(0.2, 0.8)或百分比(20, 80)，统一按比例归一化
+      const ratioSum = s.liquidRatios?.reduce((a, b) => a + b, 0) ?? 0;
+      return s.liquidNames
+        .map((name, i) => {
+          const ratio = s.liquidRatios?.[i];
+          if (ratio == null || ratioSum <= 0) return name;
+          const pct = (ratio / ratioSum * 100).toFixed(0);
+          return `${name}(${pct}%)`;
+        })
+        .join(" + ");
+    };
+
+    const formatTermination = (s: SampleWithFrameStatus) => {
+      if (!s.terminationType) return "-";
+      return `${s.terminationType}: ${s.terminationValue}`;
+    };
+
     const rows: ParamRow[] = [
       {
         key: "runId",
@@ -73,21 +157,39 @@ export function CompareTab() {
         isDifferent: false,
       },
       {
-        key: "liquidNames",
-        label: "液体",
-        values: selectedSamples.map((s) => s.liquidNames?.join(", ") || "-"),
+        key: "liquidFormula",
+        label: "液体配方",
+        values: selectedSamples.map(formatLiquidFormula),
         isDifferent: false,
       },
       {
         key: "totalVolumeMl",
-        label: "体积 (ml)",
+        label: "进样量 (ml)",
         values: selectedSamples.map((s) => s.totalVolumeMl?.toFixed(2) || "-"),
+        isDifferent: false,
+      },
+      {
+        key: "flowRateMlS",
+        label: "流速 (ml/s)",
+        values: selectedSamples.map((s) => s.flowRateMlS?.toFixed(3) || "-"),
         isDifferent: false,
       },
       {
         key: "gasPumpPwm",
         label: "气泵 PWM",
         values: selectedSamples.map((s) => `${s.gasPumpPwm}%`),
+        isDifferent: false,
+      },
+      {
+        key: "termination",
+        label: "终止条件",
+        values: selectedSamples.map(formatTermination),
+        isDifferent: false,
+      },
+      {
+        key: "heaterProfiles",
+        label: "加热器配置",
+        values: selectedSamples.map((s) => s.heaterProfiles?.join(", ") || "-"),
         isDifferent: false,
       },
       {
@@ -99,13 +201,37 @@ export function CompareTab() {
       {
         key: "durationS",
         label: "时长 (s)",
-        values: selectedSamples.map((s) => s.durationS?.toString() || "-"),
+        values: selectedSamples.map((s) => s.durationS != null ? s.durationS.toFixed(1) : "-"),
+        isDifferent: false,
+      },
+      {
+        key: "preWashCount",
+        label: "预清洗次数",
+        values: selectedSamples.map((s) => s.preWashCount || 0),
+        isDifferent: false,
+      },
+      {
+        key: "avgTemperatureC",
+        label: "平均温度 (°C)",
+        values: selectedSamples.map((s) => s.avgTemperatureC?.toFixed(1) || "-"),
+        isDifferent: false,
+      },
+      {
+        key: "avgHumidityPct",
+        label: "平均湿度 (%)",
+        values: selectedSamples.map((s) => s.avgHumidityPct?.toFixed(1) || "-"),
+        isDifferent: false,
+      },
+      {
+        key: "avgPressureHpa",
+        label: "平均气压 (hPa)",
+        values: selectedSamples.map((s) => s.avgPressureHpa?.toFixed(1) || "-"),
         isDifferent: false,
       },
       {
         key: "paramsHash",
         label: "参数哈希",
-        values: selectedSamples.map((s) => s.paramsHash?.slice(0, 12) + "..." || "-"),
+        values: selectedSamples.map((s) => s.paramsHash || "-"),
         isDifferent: false,
       },
     ];
@@ -164,14 +290,15 @@ export function CompareTab() {
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-[calc(100vh-300px)]">
+            <div className="min-w-max">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-32">参数</TableHead>
+                  <TableHead className="w-36 sticky left-0 bg-background z-10">参数</TableHead>
                   {selectedSamples.map((sample) => (
-                    <TableHead key={sample.id} className="min-w-32">
+                    <TableHead key={sample.id} className="min-w-40">
                       <div className="flex items-center gap-1">
-                        <span>样本 #{sample.id}</span>
+                        <span className="font-mono">#{sample.id}</span>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -197,7 +324,7 @@ export function CompareTab() {
                     key={row.key}
                     className={cn(row.isDifferent && "bg-orange-50 dark:bg-orange-950/20")}
                   >
-                    <TableCell className="font-medium">
+                    <TableCell className="font-medium whitespace-nowrap sticky left-0 bg-background z-10">
                       {row.label}
                       {row.isDifferent && (
                         <span className="ml-1 text-orange-500">●</span>
@@ -207,16 +334,24 @@ export function CompareTab() {
                       <TableCell
                         key={idx}
                         className={cn(
+                          "min-w-40 max-w-48",
+                          row.key === "paramsHash" && "group/hash",
                           row.isDifferent && "font-medium text-orange-700 dark:text-orange-300"
                         )}
                       >
-                        {value}
+                        {row.key === "paramsHash" ? (
+                          <HashCell value={value} />
+                        ) : (
+                          <CellValue value={value} />
+                        )}
                       </TableCell>
                     ))}
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+            </div>
+            <ScrollBar orientation="horizontal" />
           </ScrollArea>
         </CardContent>
       </Card>

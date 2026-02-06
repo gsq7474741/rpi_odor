@@ -303,7 +303,11 @@ export interface WashNodeData {
   washVolumeMl: number;
   repeatCount: number;
   gasPumpPwm: number;
-  // drainAfter 已废弃：后端每次清洗循环都会排废
+  // 高级参数（后端默认值由 YAML parser 填充）
+  fillTimeoutS?: number;           // 清洗泵注入超时 (秒)，默认 60
+  drainTimeoutS?: number;          // 排废超时 (秒)，默认 60
+  emptyToleranceG?: number;        // 空瓶检测容差 (g)，默认 10
+  emptyStabilityWindowS?: number;  // 空瓶稳定窗口 (秒)，默认 2
 }
 
 // 单个扫描点的液体比例配置
@@ -820,138 +824,3 @@ export function getHandleTooltip(
   return '';
 }
 
-// DAG 静态检查结果
-export interface ValidationResult {
-  valid: boolean;
-  errors: string[];
-  warnings: string[];
-}
-
-// DAG 静态检查：验证程序可执行性
-export function validateDAG(
-  nodes: ExperimentNode[],
-  edges: ExperimentEdge[]
-): ValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
-  
-  // 1. 检查是否有开始节点
-  const startNodes = nodes.filter(n => n.type === NodeType.START);
-  if (startNodes.length === 0) {
-    errors.push('缺少开始节点');
-  } else if (startNodes.length > 1) {
-    errors.push('存在多个开始节点');
-  }
-  
-  // 2. 检查是否有结束节点
-  const endNodes = nodes.filter(n => n.type === NodeType.END);
-  if (endNodes.length === 0) {
-    errors.push('缺少结束节点');
-  }
-  
-  // 3. 检查开始节点是否有流程输出
-  if (startNodes.length === 1) {
-    const startId = startNodes[0].id;
-    const hasFlowOut = edges.some(
-      e => e.source === startId && e.sourceHandle === HANDLE_TYPES.FLOW
-    );
-    if (!hasFlowOut) {
-      errors.push('开始节点没有连接到任何流程');
-    }
-  }
-  
-  // 4. 检查结束节点是否有流程输入
-  for (const endNode of endNodes) {
-    const hasFlowIn = edges.some(
-      e => e.target === endNode.id && e.targetHandle === HANDLE_TYPES.FLOW
-    );
-    if (!hasFlowIn) {
-      warnings.push(`结束节点 [${endNode.id}] 没有任何流程输入`);
-    }
-  }
-  
-  // 5. 检查进样节点的液体连接和比例
-  const injectNodes = nodes.filter(n => n.type === NodeType.INJECT);
-  for (const inject of injectNodes) {
-    const liquidEdges = edges.filter(
-      e => e.target === inject.id && e.targetHandle === HANDLE_TYPES.LIQUID
-    );
-    
-    if (liquidEdges.length === 0) {
-      errors.push(`进样节点 [${(inject.data as Record<string, unknown>).name || inject.id}] 未连接液体源`);
-    } else {
-      // 计算比例总和
-      let totalRatio = 0;
-      for (const edge of liquidEdges) {
-        const sourceNode = nodes.find(n => n.id === edge.source);
-        if (sourceNode?.type === NodeType.LIQUID_SOURCE) {
-          const ratio = Number((sourceNode.data as Record<string, unknown>).ratio ?? 1);
-          totalRatio += ratio * 100;
-        }
-      }
-      
-      if (Math.abs(totalRatio - 100) > 0.1) {
-        errors.push(`进样节点 [${(inject.data as Record<string, unknown>).name || inject.id}] 液体比例总和为 ${totalRatio.toFixed(0)}%，应为 100%`);
-      }
-    }
-  }
-  
-  // 6. 检查流程节点的孤立状态
-  const flowNodeTypes = [
-    NodeType.LOOP, NodeType.PHASE_MARKER, NodeType.INJECT, NodeType.DRAIN,
-    NodeType.WASH, NodeType.ACQUIRE, NodeType.WAIT_TIME, NodeType.WAIT_CYCLES,
-    NodeType.WAIT_STABILITY, NodeType.SET_STATE, NodeType.SET_GAS_PUMP, NodeType.PARAM_SWEEP
-  ];
-  
-  for (const node of nodes) {
-    if (!flowNodeTypes.includes(node.type as NodeType)) continue;
-    
-    const hasFlowIn = edges.some(
-      e => e.target === node.id && e.targetHandle === HANDLE_TYPES.FLOW
-    );
-    const hasFlowOut = edges.some(
-      e => e.source === node.id && e.sourceHandle === HANDLE_TYPES.FLOW
-    );
-    
-    const nodeName = (node.data as Record<string, unknown>).name as string || NODE_META[node.type as NodeType]?.label || node.id;
-    
-    if (!hasFlowIn && !hasFlowOut) {
-      warnings.push(`节点 [${nodeName}] 未连接到流程中（孤立节点）`);
-    } else if (!hasFlowIn) {
-      warnings.push(`节点 [${nodeName}] 没有流程输入`);
-    } else if (!hasFlowOut) {
-      warnings.push(`节点 [${nodeName}] 没有流程输出（死路）`);
-    }
-  }
-  
-  // 7. 检查从开始到结束的可达性（简化版：BFS）
-  if (startNodes.length === 1 && endNodes.length > 0) {
-    const reachable = new Set<string>();
-    const queue = [startNodes[0].id];
-    
-    while (queue.length > 0) {
-      const current = queue.shift()!;
-      if (reachable.has(current)) continue;
-      reachable.add(current);
-      
-      // 沿流程边查找后继节点
-      const successors = edges
-        .filter(e => e.source === current && e.sourceHandle === HANDLE_TYPES.FLOW)
-        .map(e => e.target);
-      
-      queue.push(...successors);
-    }
-    
-    // 检查是否能到达任意结束节点
-    const canReachEnd = endNodes.some(end => reachable.has(end.id));
-    if (!canReachEnd) {
-      errors.push('从开始节点无法到达任何结束节点');
-    }
-  }
-  
-  return {
-    valid: errors.length === 0,
-    errors,
-    warnings,
-  };
-}

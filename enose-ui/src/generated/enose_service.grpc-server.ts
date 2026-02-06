@@ -107,8 +107,8 @@ export interface IControlService extends grpc.UntypedServiceImplementation {
      */
     startInjection: grpc.handleUnaryCall<StartInjectionRequest, StartInjectionResponse>;
     /**
-     * 开始进样 (按重量) - 单位: g (真实重量)
-     * 内部转换: x = (y - weight_offset) / weight_scale, mm = x / pump_mm_to_ml
+     * 开始进样 (按重量) - 单位: g
+     * 内部转换: ml = (weight_g - ml_to_weight_offset) / ml_to_weight_slope
      *
      * @generated from protobuf rpc: StartInjectionByWeight
      */

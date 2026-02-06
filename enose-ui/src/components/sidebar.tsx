@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Settings, FlaskConical, ChevronLeft, ChevronRight, ScrollText, Package, Workflow, BarChart3, Database, Beaker } from "lucide-react";
+import { Settings, FlaskConical, ChevronLeft, ChevronRight, ScrollText, Package, Workflow, Beaker, SlidersHorizontal } from "lucide-react";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useEditorStore } from "./experiment-editor/store";
+import { useSettings } from "@/hooks/use-settings";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,12 +32,12 @@ const navItems: NavItem[] = [
   },
   {
     title: "实验执行",
-    href: "/experiment",
+    href: "/run",
     icon: FlaskConical,
   },
   {
-    title: "实验编程",
-    href: "/experiment-editor",
+    title: "实验编排",
+    href: "/workflow",
     icon: Workflow,
   },
   {
@@ -45,19 +46,9 @@ const navItems: NavItem[] = [
     icon: Package,
   },
   {
-    title: "实验中心",
-    href: "/experiments",
+    title: "数据中心",
+    href: "/data-center",
     icon: Beaker,
-  },
-  {
-    title: "实验数据",
-    href: "/experiment-data",
-    icon: Database,
-  },
-  {
-    title: "数据分析",
-    href: "/analytics",
-    icon: BarChart3,
   },
   {
     title: "服务日志",
@@ -78,6 +69,7 @@ export function Sidebar() {
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null);
   const { isDirty, setDirty } = useEditorStore();
+  const { setSettingsOpen, sidebar: sidebarSettings } = useSettings();
   
   // 未保存更改对话框状态
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
@@ -85,7 +77,7 @@ export function Sidebar() {
 
   const handleNavigation = (href: string, e: React.MouseEvent) => {
     // 如果当前在实验编辑器页面且有未保存更改
-    if (pathname.startsWith('/experiment-editor') && isDirty && href !== pathname) {
+    if (pathname.startsWith('/workflow') && isDirty && href !== pathname) {
       e.preventDefault();
       setPendingHref(href);
       setShowUnsavedDialog(true);
@@ -193,10 +185,27 @@ export function Sidebar() {
 
       {/* Footer */}
       <div className={cn(
-        "p-4 border-t border-border text-xs text-muted-foreground",
-        collapsed && "text-center"
+        "p-2 border-t border-border space-y-1",
+        collapsed && "flex flex-col items-center"
       )}>
-        {collapsed ? "v0.1" : "版本 0.1.0"}
+        <button
+          onClick={() => setSettingsOpen(true)}
+          className={cn(
+            "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors w-full",
+            "text-muted-foreground hover:bg-accent hover:text-foreground",
+            collapsed && "justify-center px-2"
+          )}
+          title={collapsed ? "系统设置" : undefined}
+        >
+          <SlidersHorizontal size={20} />
+          {!collapsed && <span className="text-sm font-medium">系统设置</span>}
+        </button>
+        <div className={cn(
+          "px-3 text-xs text-muted-foreground",
+          collapsed && "text-center px-0"
+        )}>
+          {collapsed ? "v0.1" : "版本 0.1.0"}
+        </div>
       </div>
       
       {/* 拖拽调整宽度的手柄 */}

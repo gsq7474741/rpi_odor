@@ -88,11 +88,28 @@ export async function GET(request: NextRequest) {
       liquidNames: s.liquids.map((l) => l.name),
       liquidRatios: s.liquids.map((l) => l.ratio),
       totalVolumeMl: s.totalVolumeMl,
+      flowRateMlS: s.flowRateMlS,
       gasPumpPwm: s.gasPumpPwm,
+      terminationType: s.terminationType,
+      terminationValue: s.terminationValue,
+      maxDurationS: s.maxDurationS,
+      heaterProfiles: s.heaterConfigs.map((h) => h.profileName || `[${h.temps.join(",")}]`),
+      preWashCount: s.preWashCount,
       phaseName: s.phaseName,
+      avgTemperatureC: s.avgTemperatureC || null,
+      avgHumidityPct: s.avgHumidityPct || null,
+      avgPressureHpa: s.avgPressureHpa || null,
       durationS: s.endTimeMs && s.startTimeMs 
         ? (Number(s.endTimeMs) - Number(s.startTimeMs)) / 1000 
         : null,
+      phaseTransitions: s.phaseTransitions.map((t) => ({
+        id: t.id,
+        phaseName: t.phaseName,
+        startTimeMs: Number(t.startTimeMs),
+        endTimeMs: t.endTimeMs ? Number(t.endTimeMs) : null,
+        phaseOrder: t.phaseOrder,
+      })),
+      readingCount: s.readingCount,
     });
 
     // 多 runId: 并行请求后合并

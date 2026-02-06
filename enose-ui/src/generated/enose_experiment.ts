@@ -299,11 +299,11 @@ export interface InjectAction {
      */
     tolerance: number;
     /**
-     * 流速 (ml/min)
+     * 流速 (ml/s)
      *
-     * @generated from protobuf field: double flow_rate_ml_min = 5
+     * @generated from protobuf field: double flow_rate_ml_s = 5
      */
-    flowRateMlMin: number;
+    flowRateMlS: number;
     /**
      * 等待稳定超时 (秒)
      *
@@ -568,17 +568,18 @@ export interface PhaseMarkerAction {
 }
 /**
  * 清洗动作 - 使用清洗泵冲洗反应瓶
- * 流程: 排废确认空瓶 → CLEAN状态(清洗泵开) → 监测重量变化 → 排废
+ * 流程: 排废确认空瓶 → CLEAN状态(清洗泵开) → 监测校正后重量变化 → 排废
+ * 重量检测使用线性校正: expected_weight_change = target_volume_ml * ml_to_weight_slope + ml_to_weight_offset
  *
  * @generated from protobuf message enose.experiment.WashAction
  */
 export interface WashAction {
     /**
-     * 目标清洗量 (g) - 重量变化阈值，达到后立即切换到排废
+     * 目标清洗量 (ml) - 经线性校正后与称重传感器重量变化比较
      *
-     * @generated from protobuf field: double target_weight_g = 1
+     * @generated from protobuf field: double target_volume_ml = 1
      */
-    targetWeightG: number;
+    targetVolumeMl: number;
     /**
      * 重复次数
      *
@@ -615,6 +616,12 @@ export interface WashAction {
      * @generated from protobuf field: double empty_stability_window_s = 7
      */
     emptyStabilityWindowS: number;
+    /**
+     * 清洗液 ID (对应耗材管理中的液体 ID)
+     *
+     * @generated from protobuf field: string wash_liquid_id = 8
+     */
+    washLiquidId: string;
 }
 /**
  * 预热动作 - 等待传感器预热稳定
@@ -1733,16 +1740,16 @@ class InjectAction$Type extends MessageType<InjectAction> {
             { no: 2, name: "target_volume_ml", kind: "scalar", oneof: "target", T: 1 /*ScalarType.DOUBLE*/ },
             { no: 3, name: "target_weight_g", kind: "scalar", oneof: "target", T: 1 /*ScalarType.DOUBLE*/ },
             { no: 4, name: "tolerance", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 10, gt: 0 } } } },
-            { no: 5, name: "flow_rate_ml_min", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 20, gte: 0.5 } } } },
+            { no: 5, name: "flow_rate_ml_s", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 50, gte: 0.01 } } } },
             { no: 6, name: "stable_timeout_s", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 300, gte: 5 } } } }
-        ], { "buf.validate.message": { cel: [{ id: "ratio_sum_one", message: "\u6240\u6709\u6DB2\u4F53\u6BD4\u4F8B\u4E4B\u548C\u5FC5\u987B\u4E3A1", expression: "math.abs(this.components.map(c, c.ratio).sum() - 1.0) < 0.01" }] } });
+        ]);
     }
     create(value?: PartialMessage<InjectAction>): InjectAction {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.components = [];
         message.target = { oneofKind: undefined };
         message.tolerance = 0;
-        message.flowRateMlMin = 0;
+        message.flowRateMlS = 0;
         message.stableTimeoutS = 0;
         if (value !== undefined)
             reflectionMergePartial<InjectAction>(this, message, value);
@@ -1771,8 +1778,8 @@ class InjectAction$Type extends MessageType<InjectAction> {
                 case /* double tolerance */ 4:
                     message.tolerance = reader.double();
                     break;
-                case /* double flow_rate_ml_min */ 5:
-                    message.flowRateMlMin = reader.double();
+                case /* double flow_rate_ml_s */ 5:
+                    message.flowRateMlS = reader.double();
                     break;
                 case /* double stable_timeout_s */ 6:
                     message.stableTimeoutS = reader.double();
@@ -1801,9 +1808,9 @@ class InjectAction$Type extends MessageType<InjectAction> {
         /* double tolerance = 4; */
         if (message.tolerance !== 0)
             writer.tag(4, WireType.Bit64).double(message.tolerance);
-        /* double flow_rate_ml_min = 5; */
-        if (message.flowRateMlMin !== 0)
-            writer.tag(5, WireType.Bit64).double(message.flowRateMlMin);
+        /* double flow_rate_ml_s = 5; */
+        if (message.flowRateMlS !== 0)
+            writer.tag(5, WireType.Bit64).double(message.flowRateMlS);
         /* double stable_timeout_s = 6; */
         if (message.stableTimeoutS !== 0)
             writer.tag(6, WireType.Bit64).double(message.stableTimeoutS);
@@ -2500,24 +2507,26 @@ export const PhaseMarkerAction = new PhaseMarkerAction$Type();
 class WashAction$Type extends MessageType<WashAction> {
     constructor() {
         super("enose.experiment.WashAction", [
-            { no: 1, name: "target_weight_g", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 200, gte: 5 } } } },
+            { no: 1, name: "target_volume_ml", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 200, gte: 5 } } } },
             { no: 2, name: "repeat_count", kind: "scalar", T: 5 /*ScalarType.INT32*/, options: { "buf.validate.field": { int32: { lte: 10, gte: 1 } } } },
             { no: 3, name: "fill_timeout_s", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 120, gt: 0 } } } },
             { no: 4, name: "drain_timeout_s", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 120, gt: 0 } } } },
             { no: 5, name: "drain_gas_pump_pwm", kind: "scalar", T: 5 /*ScalarType.INT32*/, options: { "buf.validate.field": { int32: { lte: 100, gte: 0 } } } },
             { no: 6, name: "empty_tolerance_g", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 50, gt: 0 } } } },
-            { no: 7, name: "empty_stability_window_s", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 30, gte: 1 } } } }
+            { no: 7, name: "empty_stability_window_s", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 30, gte: 1 } } } },
+            { no: 8, name: "wash_liquid_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
         ]);
     }
     create(value?: PartialMessage<WashAction>): WashAction {
         const message = globalThis.Object.create((this.messagePrototype!));
-        message.targetWeightG = 0;
+        message.targetVolumeMl = 0;
         message.repeatCount = 0;
         message.fillTimeoutS = 0;
         message.drainTimeoutS = 0;
         message.drainGasPumpPwm = 0;
         message.emptyToleranceG = 0;
         message.emptyStabilityWindowS = 0;
+        message.washLiquidId = "";
         if (value !== undefined)
             reflectionMergePartial<WashAction>(this, message, value);
         return message;
@@ -2527,8 +2536,8 @@ class WashAction$Type extends MessageType<WashAction> {
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
             switch (fieldNo) {
-                case /* double target_weight_g */ 1:
-                    message.targetWeightG = reader.double();
+                case /* double target_volume_ml */ 1:
+                    message.targetVolumeMl = reader.double();
                     break;
                 case /* int32 repeat_count */ 2:
                     message.repeatCount = reader.int32();
@@ -2548,6 +2557,9 @@ class WashAction$Type extends MessageType<WashAction> {
                 case /* double empty_stability_window_s */ 7:
                     message.emptyStabilityWindowS = reader.double();
                     break;
+                case /* string wash_liquid_id */ 8:
+                    message.washLiquidId = reader.string();
+                    break;
                 default:
                     let u = options.readUnknownField;
                     if (u === "throw")
@@ -2560,9 +2572,9 @@ class WashAction$Type extends MessageType<WashAction> {
         return message;
     }
     internalBinaryWrite(message: WashAction, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
-        /* double target_weight_g = 1; */
-        if (message.targetWeightG !== 0)
-            writer.tag(1, WireType.Bit64).double(message.targetWeightG);
+        /* double target_volume_ml = 1; */
+        if (message.targetVolumeMl !== 0)
+            writer.tag(1, WireType.Bit64).double(message.targetVolumeMl);
         /* int32 repeat_count = 2; */
         if (message.repeatCount !== 0)
             writer.tag(2, WireType.Varint).int32(message.repeatCount);
@@ -2581,6 +2593,9 @@ class WashAction$Type extends MessageType<WashAction> {
         /* double empty_stability_window_s = 7; */
         if (message.emptyStabilityWindowS !== 0)
             writer.tag(7, WireType.Bit64).double(message.emptyStabilityWindowS);
+        /* string wash_liquid_id = 8; */
+        if (message.washLiquidId !== "")
+            writer.tag(8, WireType.LengthDelimited).string(message.washLiquidId);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);

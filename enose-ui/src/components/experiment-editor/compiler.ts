@@ -934,9 +934,9 @@ function compileNode(
   
   switch (node.type) {
     case NodeType.INJECT: {
-      const targetVolume = (data.targetVolumeMl as number) || 15;
-      const flowRateMlS = (data.flowRateMlS as number) || 0.5; // ml/s
-      const stableTimeout = (data.stableTimeoutS as number) || 5;
+      const targetVolume = (data.targetVolumeMl as number) || 30;
+      const flowRateMlS = (data.flowRateMlS as number) || 5; // ml/s
+      const stableTimeout = (data.stableTimeoutS as number) || 10;
       
       // 获取连接的液体
       const liquidNodeIds = liquidConnections.get(node.id) || [];

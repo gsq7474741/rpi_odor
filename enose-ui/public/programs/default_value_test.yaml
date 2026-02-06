@@ -1,0 +1,75 @@
+id: default_value_test
+name: default_value_test
+description: ''
+version: 1.0.0
+hardware:
+  bottle_capacity_ml: 150
+  max_fill_ml: 100
+  liquids:
+    - id: default
+      name: 默认液体
+      type: LIQUID_SAMPLE
+steps:
+  - name: 排废
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 80
+      timeout_s: 60
+_compile_estimate:
+  total_duration_s: 60
+  peak_liquid_level_ml: 0
+  peak_liquid_level_ml_with_wash: 0
+  total_inject_ml: 0
+  total_drain_ml: 0
+  total_wash_volume_ml: 0
+  liquid_consumption: []
+  pump_estimates: []
+_editor_layout:
+  nodes:
+    - id: start
+      type: start
+      position:
+        x: 150
+        'y': 30
+      data:
+        description: ''
+        version: 1.0.0
+    - id: end
+      type: end
+      position:
+        x: 15
+        'y': 1080
+      data: {}
+    - id: node_1
+      type: drain
+      position:
+        x: 300
+        'y': 480
+      data:
+        name: 排废
+        gasPumpPwm: 80
+        emptyToleranceG: 10
+        stabilityWindowS: 2
+        timeoutS: 60
+    - id: node_2
+      type: acquire
+      position:
+        x: 840
+        'y': 30
+      data:
+        name: 数据采集
+        gasPumpPwm: 50
+        terminationType: duration
+        heaterCycles: 10
+        maxDurationS: 300
+  edges:
+    - id: xy-edge__startflow-node_1flow
+      source: start
+      target: node_1
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_1flow-endflow
+      source: node_1
+      target: end
+      sourceHandle: flow
+      targetHandle: flow

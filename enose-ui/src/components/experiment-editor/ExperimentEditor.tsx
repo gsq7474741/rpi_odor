@@ -25,7 +25,7 @@ import { PropertyPanel } from './panels/PropertyPanel';
 import { SelectionToolbar } from './panels/SelectionToolbar';
 import { CompilerPanel } from './panels/CompilerPanel';
 import { StatusBar } from './panels/StatusBar';
-import { NodeType, NODE_CATEGORIES, validateDAG } from './types';
+import { NodeType, NODE_CATEGORIES } from './types';
 import { graphToYaml, yamlToGraph } from './yaml-converter';
 import { templates } from './templates';
 import { Button } from '@/components/ui/button';
@@ -37,13 +37,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
   DropdownMenuCheckboxItem,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuShortcut,
 } from '@/components/ui/dropdown-menu';
-import { Save, FileDown, Trash2, Play, Upload, CheckCircle, LayoutTemplate, Undo2, Redo2, FolderOpen, HardDrive, ChevronDown, FilePlus, ZoomIn, ZoomOut, Maximize2, Focus } from 'lucide-react';
+import { Save, FileDown, Trash2, Upload, LayoutTemplate, Undo2, Redo2, FolderOpen, HardDrive, ChevronDown, FilePlus, Maximize2, Focus, FileText, Eye, ArrowUpFromLine, Search, ArrowUpDown, Clock, File, Menu } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ConfirmDialog, UnsavedChangesDialog } from './ConfirmDialog';
 import { EditorContextMenu } from './panels/ContextMenu';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { toast } from 'sonner';
 
 function getCategoryColor(nodeType: string): string {
   for (const [, category] of Object.entries(NODE_CATEGORIES)) {
@@ -103,18 +110,7 @@ function EditorCanvas() {
         setNodes(nodes => nodes.map(n => ({ ...n, selected: true })));
       }
       
-      // Ctrl+Z: 撤销
-      if (isCtrl && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
-        e.preventDefault();
-        undo();
-      }
-      
-      // Ctrl+Shift+Z 或 Ctrl+Y: 重做
-      if ((isCtrl && e.shiftKey && (e.key === 'z' || e.key === 'Z')) ||
-          (isCtrl && (e.key === 'y' || e.key === 'Y'))) {
-        e.preventDefault();
-        redo();
-      }
+      // 注意：Ctrl+Z/Ctrl+Shift+Z/Ctrl+Y 已在 EditorToolbar 中统一处理，此处不再重复注册
       
       // Ctrl+C: 复制
       if (isCtrl && e.key === 'c') {
@@ -162,8 +158,11 @@ function EditorCanvas() {
             target: idMap.get(edge.target) || edge.target,
           }));
           
+          // 通知 store 同步 nodeIdCounter
+          useEditorStore.setState({ isRecordingHistory: true });
           setNodes(nodes => [...nodes.map(n => ({ ...n, selected: false })), ...newNodes]);
           setEdges(edges => [...edges, ...newEdges]);
+          queueMicrotask(() => useEditorStore.setState({ isRecordingHistory: false }));
         }
       }
       
@@ -179,23 +178,16 @@ function EditorCanvas() {
           );
           setClipboard({ nodes: selectedNodesList, edges: selectedEdgesList });
           
-          // 删除选中的节点和相关边
+          // 使用 isRecordingHistory 防止 onNodesChange/onEdgesChange 重复记录
+          useEditorStore.setState({ isRecordingHistory: true });
           setNodes(nodes => nodes.filter(n => !selectedIds.has(n.id)));
           setEdges(edges => edges.filter(e => !selectedIds.has(e.source) && !selectedIds.has(e.target)));
+          queueMicrotask(() => useEditorStore.setState({ isRecordingHistory: false }));
         }
       }
       
-      // Delete/Backspace: 删除选中节点
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        e.preventDefault();
-        const selectedNodesList = getNodes().filter(n => n.selected);
-        if (selectedNodesList.length > 0) {
-          saveToHistory();
-          const selectedIds = new Set(selectedNodesList.map(n => n.id));
-          setNodes(nodes => nodes.filter(n => !selectedIds.has(n.id)));
-          setEdges(edges => edges.filter(e => !selectedIds.has(e.source) && !selectedIds.has(e.target)));
-        }
-      }
+      // Delete/Backspace: 由 React Flow 的 deleteKeyCode 处理，
+      // onNodesChange/onEdgesChange 会自动记录历史
       
       // Ctrl+0: 适应画布
       if (isCtrl && e.key === '0') {
@@ -386,8 +378,10 @@ function EditorCanvas() {
         edge => selectedIds.has(edge.source) && selectedIds.has(edge.target)
       );
       setClipboard({ nodes: selectedNodesList, edges: selectedEdgesList });
+      useEditorStore.setState({ isRecordingHistory: true });
       setNodes(nodes => nodes.filter(n => !selectedIds.has(n.id)));
       setEdges(edges => edges.filter(e => !selectedIds.has(e.source) && !selectedIds.has(e.target)));
+      queueMicrotask(() => useEditorStore.setState({ isRecordingHistory: false }));
     }
   }, [getNodes, getEdges, saveToHistory, setNodes, setEdges]);
 
@@ -422,8 +416,10 @@ function EditorCanvas() {
         target: idMap.get(edge.target) || edge.target,
       }));
       
+      useEditorStore.setState({ isRecordingHistory: true });
       setNodes(nodes => [...nodes.map(n => ({ ...n, selected: false })), ...newNodes]);
       setEdges(edges => [...edges, ...newEdges]);
+      queueMicrotask(() => useEditorStore.setState({ isRecordingHistory: false }));
     }
   }, [clipboard, getNodes, saveToHistory, setNodes, setEdges]);
 
@@ -432,8 +428,10 @@ function EditorCanvas() {
     if (selectedNodesList.length > 0) {
       saveToHistory();
       const selectedIds = new Set(selectedNodesList.map(n => n.id));
+      useEditorStore.setState({ isRecordingHistory: true });
       setNodes(nodes => nodes.filter(n => !selectedIds.has(n.id)));
       setEdges(edges => edges.filter(e => !selectedIds.has(e.source) && !selectedIds.has(e.target)));
+      queueMicrotask(() => useEditorStore.setState({ isRecordingHistory: false }));
     }
   }, [getNodes, saveToHistory, setNodes, setEdges]);
 
@@ -522,6 +520,8 @@ function EditorToolbar() {
     canRedo,
     compilationResult,  // 获取编译结果用于 YAML 生成
     recompile,
+    resetHistory,
+    markSaved,
   } = useEditorStore();
   
   // 面板可见性状态（监听变化以触发重渲染）
@@ -543,6 +543,19 @@ function EditorToolbar() {
   
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // 如果焦点在输入框中，只处理 Ctrl+S，不处理其他快捷键
+      const inInput = (e.target as HTMLElement).tagName === 'INPUT' || 
+                      (e.target as HTMLElement).tagName === 'TEXTAREA';
+      
+      // Ctrl+S 保存（始终处理）
+      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        handleSaveRef.current();
+        return;
+      }
+      
+      if (inInput) return;
+      
       // Ctrl+Z 或 Ctrl+Shift+Z（Windows下Shift会使key变成大写Z）
       if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
         if (e.shiftKey) {
@@ -558,11 +571,6 @@ function EditorToolbar() {
         e.preventDefault();
         redo();
       }
-      // Ctrl+S 保存
-      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
-        e.preventDefault();
-        handleSaveRef.current();
-      }
       // Ctrl+N 新建
       if ((e.ctrlKey || e.metaKey) && (e.key === 'n' || e.key === 'N')) {
         e.preventDefault();
@@ -574,6 +582,18 @@ function EditorToolbar() {
   }, [undo, redo]);
   
   const { isDirty, setDirty, currentFilename, setCurrentFilename } = useEditorStore();
+  
+  // beforeunload 警告：未保存时防止意外关闭
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty]);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [yamlPreview, setYamlPreview] = useState<string | null>(null);
@@ -634,7 +654,7 @@ function EditorToolbar() {
       const { filename } = (e as CustomEvent).detail;
       if (filename) {
         try {
-          const res = await fetch(`/api/experiment/programs?filename=${encodeURIComponent(filename)}`);
+          const res = await fetch(`/api/run/programs?filename=${encodeURIComponent(filename)}`);
           const data = await res.json();
           if (data.content) {
             const { nodes: newNodes, edges: newEdges, programMeta } = yamlToGraph(data.content);
@@ -642,6 +662,7 @@ function EditorToolbar() {
             setProgramMeta(programMeta);
             setCurrentFilename(filename);
             setDirty(false);
+            resetHistory();
             addToRecentFiles(filename);
           }
         } catch (error) {
@@ -649,9 +670,26 @@ function EditorToolbar() {
         }
       }
     };
+    
+    // 处理 page.tsx 的 requestLoad 事件（编辑器已就绪时的竞态处理）
+    const handleRequestLoad = (e: Event) => {
+      const { filename } = (e as CustomEvent).detail;
+      if (filename) {
+        handleLoadFile(new CustomEvent('editor:loadFile', { detail: { filename } }));
+      }
+    };
+    
     window.addEventListener('editor:loadFile', handleLoadFile);
-    return () => window.removeEventListener('editor:loadFile', handleLoadFile);
-  }, [loadGraph, setProgramMeta]);
+    window.addEventListener('editor:requestLoad', handleRequestLoad);
+    
+    // 通知 page.tsx 编辑器已就绪
+    window.dispatchEvent(new CustomEvent('editor:ready'));
+    
+    return () => {
+      window.removeEventListener('editor:loadFile', handleLoadFile);
+      window.removeEventListener('editor:requestLoad', handleRequestLoad);
+    };
+  }, [loadGraph, setProgramMeta, resetHistory]);
   
   // 自动保存草稿到 localStorage
   useEffect(() => {
@@ -674,28 +712,34 @@ function EditorToolbar() {
     return () => clearInterval(autoSaveInterval);
   }, [isDirty, nodes, edges, programId, programName, programDescription, programVersion, bottleCapacityMl, maxFillMl]);
   
+  // 草稿恢复对话框状态
+  const [showDraftDialog, setShowDraftDialog] = useState(false);
+  const [draftData, setDraftData] = useState<{ nodes: any; edges: any; programMeta: any; savedTime: string } | null>(null);
+  
   // 启动时检查是否有草稿
   useEffect(() => {
     const stored = localStorage.getItem('experiment-editor-draft');
-    if (stored && nodes.length <= 2) { // 只在初始状态时恢复
-      try {
-        const draft = JSON.parse(stored);
-        const savedTime = new Date(draft.savedAt).toLocaleString();
-        // 只有草稿比较新（1小时内）才提示恢复
-        if (Date.now() - draft.savedAt < 3600000) {
-          // 延迟显示提示，避免与初始渲染冲突
-          setTimeout(() => {
-            if (window.confirm(`发现自动保存的草稿（${savedTime}），是否恢复？`)) {
-              loadGraph(draft.nodes, draft.edges);
-              setProgramMeta(draft.programMeta);
-              setDirty(true);
-            }
-            localStorage.removeItem('experiment-editor-draft');
-          }, 500);
-        }
-      } catch {
+    if (!stored) return;
+    try {
+      const draft = JSON.parse(stored);
+      // 过期草稿（>1小时）直接清除
+      if (Date.now() - draft.savedAt >= 3600000) {
         localStorage.removeItem('experiment-editor-draft');
+        return;
       }
+      // 只在初始状态（空画布）时提示恢复
+      if (nodes.length <= 2) {
+        const savedTime = new Date(draft.savedAt).toLocaleString();
+        setDraftData({
+          nodes: draft.nodes,
+          edges: draft.edges,
+          programMeta: draft.programMeta,
+          savedTime,
+        });
+        setShowDraftDialog(true);
+      }
+    } catch {
+      localStorage.removeItem('experiment-editor-draft');
     }
   }, []); // 只在组件挂载时运行一次
 
@@ -704,12 +748,13 @@ function EditorToolbar() {
     return currentFilename?.replace(/\.ya?ml$/i, '') || 'new_experiment';
   };
 
-  const handleExportYaml = () => {
+  const handleExportYaml = async () => {
     try {
-      // 确保编译结果是最新的
+      // 确保编译结果是最新的（await 等待完成）
       if (!compilationResult) {
-        recompile();
+        await recompile();
       }
+      const latestResult = useEditorStore.getState().compilationResult;
       const derivedProgramId = getProgramIdFromFilename();
       const yaml = graphToYaml(nodes, edges, {
         programId: derivedProgramId,
@@ -718,7 +763,7 @@ function EditorToolbar() {
         programVersion,
         bottleCapacityMl,
         maxFillMl,
-      }, compilationResult || undefined);
+      }, latestResult || undefined);
       
       // 下载 YAML 文件
       const blob = new Blob([yaml], { type: 'text/yaml' });
@@ -730,7 +775,7 @@ function EditorToolbar() {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('导出失败:', error);
-      alert(`导出失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      toast.error('导出失败', { description: error instanceof Error ? error.message : '未知错误' });
     }
   };
 
@@ -745,9 +790,12 @@ function EditorToolbar() {
         const { nodes: newNodes, edges: newEdges, programMeta } = yamlToGraph(content);
         loadGraph(newNodes, newEdges);
         setProgramMeta(programMeta);
+        setCurrentFilename(null); // 导入的文件未保存到系统
+        setDirty(true); // 标记为未保存
+        resetHistory();
       } catch (error) {
         console.error('导入失败:', error);
-        alert(`导入失败: ${error instanceof Error ? error.message : '未知错误'}`);
+        toast.error('导入失败', { description: error instanceof Error ? error.message : '未知错误' });
       }
     };
     reader.readAsText(file);
@@ -761,7 +809,7 @@ function EditorToolbar() {
   // 加载保存的程序列表
   const loadSavedPrograms = async () => {
     try {
-      const res = await fetch('/api/experiment/programs');
+      const res = await fetch('/api/run/programs');
       const data = await res.json();
       setSavedPrograms(data.programs || []);
     } catch (error) {
@@ -801,6 +849,8 @@ function EditorToolbar() {
       });
       setCurrentFilename(null);
       setDirty(false);
+      resetHistory();
+      localStorage.removeItem('experiment-editor-draft');
     });
   };
   
@@ -813,6 +863,11 @@ function EditorToolbar() {
   // 执行保存
   const doSave = async (filename: string) => {
     try {
+      // 保存前确保编译结果是最新的
+      if (!compilationResult) {
+        await recompile();
+      }
+      const latestResult = useEditorStore.getState().compilationResult;
       // 使用文件名作为 programId 和 programName
       const yaml = graphToYaml(nodes, edges, {
         programId: filename,
@@ -821,9 +876,9 @@ function EditorToolbar() {
         programVersion,
         bottleCapacityMl,
         maxFillMl,
-      }, compilationResult || undefined);
+      }, latestResult || undefined);
       
-      const res = await fetch('/api/experiment/programs', {
+      const res = await fetch('/api/run/programs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ filename, content: yaml }),
@@ -834,25 +889,22 @@ function EditorToolbar() {
         setCurrentFilename(data.filename);
         setShowSaveDialog(false);
         setSaveFilename('');
-        setDirty(false); // 保存后清除未保存状态
-        // 显示保存成功提示
-        const toast = document.createElement('div');
-        toast.className = 'fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-in fade-in slide-in-from-bottom-2';
-        toast.textContent = `✅ 已保存到 ${data.filename}`;
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 2000);
+        markSaved(); // 保存后标记保存点，清除未保存状态
+        localStorage.removeItem('experiment-editor-draft');
+        toast.success(`已保存到 ${data.filename}`);
+        addToRecentFiles(data.filename);
       } else {
-        alert(`保存失败: ${data.error}`);
+        toast.error('保存失败', { description: data.error });
       }
     } catch (error) {
-      alert(`保存失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      toast.error('保存失败', { description: error instanceof Error ? error.message : '未知错误' });
     }
   };
 
   // 检查文件是否存在
   const checkFileExists = async (filename: string): Promise<boolean> => {
     try {
-      const res = await fetch(`/api/experiment/programs?checkExists=${encodeURIComponent(filename)}`);
+      const res = await fetch(`/api/run/programs?checkExists=${encodeURIComponent(filename)}`);
       const data = await res.json();
       return data.exists === true;
     } catch {
@@ -899,7 +951,7 @@ function EditorToolbar() {
   // 从系统加载
   const handleLoadFromSystem = async (filename: string) => {
     try {
-      const res = await fetch(`/api/experiment/programs?filename=${encodeURIComponent(filename)}`);
+      const res = await fetch(`/api/run/programs?filename=${encodeURIComponent(filename)}`);
       const data = await res.json();
       
       if (data.content) {
@@ -908,34 +960,46 @@ function EditorToolbar() {
         setProgramMeta(programMeta);
         setCurrentFilename(filename); // 记录当前文件名
         setDirty(false); // 加载后重置未保存状态
+        resetHistory(); // 清空历史栈，防止撤销回旧文件
+        localStorage.removeItem('experiment-editor-draft');
         setShowLoadDialog(false);
         addToRecentFiles(filename); // 添加到最近文件
       } else {
-        alert(`加载失败: ${data.error || '未知错误'}`);
+        toast.error('加载失败', { description: data.error || '未知错误' });
       }
     } catch (error) {
-      alert(`加载失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      toast.error('加载失败', { description: error instanceof Error ? error.message : '未知错误' });
     }
   };
 
+  // 删除确认对话框状态
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [pendingDeleteFilename, setPendingDeleteFilename] = useState<string | null>(null);
+  
   // 删除保存的程序
-  const handleDeleteProgram = async (filename: string) => {
-    if (!confirm(`确定要删除 ${filename} 吗？`)) return;
-    
+  const handleDeleteProgram = (filename: string) => {
+    setPendingDeleteFilename(filename);
+    setShowDeleteConfirm(true);
+  };
+  
+  const doDeleteProgram = async () => {
+    if (!pendingDeleteFilename) return;
     try {
-      const res = await fetch(`/api/experiment/programs?filename=${encodeURIComponent(filename)}`, {
+      const res = await fetch(`/api/run/programs?filename=${encodeURIComponent(pendingDeleteFilename)}`, {
         method: 'DELETE',
       });
-      
       const data = await res.json();
       if (data.success) {
+        toast.success(`已删除 ${pendingDeleteFilename}`);
         loadSavedPrograms();
       } else {
-        alert(`删除失败: ${data.error}`);
+        toast.error('删除失败', { description: data.error });
       }
     } catch (error) {
-      alert(`删除失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      toast.error('删除失败', { description: error instanceof Error ? error.message : '未知错误' });
     }
+    setShowDeleteConfirm(false);
+    setPendingDeleteFilename(null);
   };
 
   const handlePreviewYaml = () => {
@@ -951,74 +1015,7 @@ function EditorToolbar() {
       }, compilationResult || undefined);
       setYamlPreview(yaml);
     } catch (error) {
-      alert(`预览失败: ${error instanceof Error ? error.message : '未知错误'}`);
-    }
-  };
-
-  const handleValidate = async () => {
-    try {
-      // 1. 本地静态检查
-      const localValidation = validateDAG(nodes, edges);
-      
-      let message = '';
-      
-      if (localValidation.errors.length > 0) {
-        message += '❌ 结构错误：\n' + localValidation.errors.map(e => `• ${e}`).join('\n') + '\n\n';
-      }
-      
-      if (localValidation.warnings.length > 0) {
-        message += '⚠️ 警告：\n' + localValidation.warnings.map(w => `• ${w}`).join('\n') + '\n\n';
-      }
-      
-      if (!localValidation.valid) {
-        alert(message + '请修复上述问题后再验证。');
-        return;
-      }
-      
-      // 2. 后端验证
-      try {
-        const derivedProgramId = getProgramIdFromFilename();
-        const yaml = graphToYaml(nodes, edges, {
-          programId: derivedProgramId,
-          programName: derivedProgramId,
-          programDescription,
-          programVersion,
-          bottleCapacityMl,
-          maxFillMl,
-        }, compilationResult || undefined);
-        
-        const res = await fetch('/api/experiment?action=validate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ yamlContent: yaml }),
-        });
-        
-        const data = await res.json();
-        if (data.valid) {
-          let successMsg = '✅ 验证通过！\n\n';
-          successMsg += `预计时长: ${Math.round(data.estimate?.estimatedDurationS || 0)}秒\n`;
-          successMsg += `峰值液位: ${data.estimate?.peakLiquidLevelMl?.toFixed(1) || 0}ml`;
-          
-          if (localValidation.warnings.length > 0) {
-            successMsg += '\n\n⚠️ 警告（不影响运行）：\n' + localValidation.warnings.map(w => `• ${w}`).join('\n');
-          }
-          
-          alert(successMsg);
-        } else {
-          const errors = data.errors?.map((e: { message: string }) => `• ${e.message}`).join('\n') || '未知错误';
-          alert('❌ 后端验证失败：\n\n' + errors);
-        }
-      } catch {
-        // 后端不可用时仍显示本地验证结果
-        if (localValidation.warnings.length > 0) {
-          alert('✅ 本地验证通过（后端不可用）\n\n⚠️ 警告：\n' + localValidation.warnings.map(w => `• ${w}`).join('\n'));
-        } else {
-          alert('✅ 本地验证通过（后端不可用，无法获取时长估算）');
-        }
-      }
-    } catch (err) {
-      console.error('验证出错:', err);
-      alert(`验证出错: ${err instanceof Error ? err.message : '未知错误'}`);
+      toast.error('预览失败', { description: error instanceof Error ? error.message : '未知错误' });
     }
   };
 
@@ -1026,7 +1023,7 @@ function EditorToolbar() {
     // 必须先保存才能加载
     if (!currentFilename) {
       setLoadResultDialogType('needSave');
-      setLoadResultMessage('请先保存文件后再加载到实验。\n\n点击"文件 → 保存"或使用 Ctrl+S。');
+      setLoadResultMessage('请先保存文件后再加载到执行。\n\n点击"文件 → 保存"或使用 Ctrl+S。');
       setShowLoadResultDialog(true);
       return;
     }
@@ -1034,7 +1031,7 @@ function EditorToolbar() {
     // 如果有未保存的更改，提示保存
     if (isDirty) {
       setLoadResultDialogType('confirmSave');
-      setLoadResultMessage('有未保存的更改，是否先保存后再跳转到实验执行？');
+      setLoadResultMessage('有未保存的更改，是否先保存后再加载到执行？');
       setPendingLoadAfterSave(true);
       setShowLoadResultDialog(true);
       return;
@@ -1048,22 +1045,23 @@ function EditorToolbar() {
     if (!currentFilename) return;
     
     try {
-      // 获取当前 YAML 内容
-      const derivedProgramId = currentFilename.replace(/\.ya?ml$/i, '');
-      const yaml = graphToYaml(nodes, edges, {
-        programId: derivedProgramId,
-        programName: derivedProgramId,
-        programDescription,
-        programVersion,
-        bottleCapacityMl,
-        maxFillMl,
-      }, compilationResult || undefined);
+      // 0. 检查编译器是否有错误（本地快速拦截，避免无意义的网络请求）
+      if (compilationResult && !compilationResult.success) {
+        const errors = compilationResult.diagnostics
+          .filter(d => d.level === 'error')
+          .map(d => d.message);
+        setLoadResultDialogType('error');
+        setLoadResultMessage(`编译器检测到错误，请先修复：\n\n${errors.map(e => `• ${e}`).join('\n')}`);
+        setShowLoadResultDialog(true);
+        return;
+      }
       
-      // 调用后端加载程序
-      const loadRes = await fetch('/api/experiment?action=load', {
+      // 以文件为唯一信源，直接传文件名给后端
+      // 后端会从磁盘读取 YAML 文件并发送给 gRPC 服务
+      const loadRes = await fetch('/api/run?action=load', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ yamlContent: yaml }),
+        body: JSON.stringify({ filename: currentFilename }),
       });
       
       const loadData = await loadRes.json();
@@ -1076,7 +1074,7 @@ function EditorToolbar() {
       
       // 加载成功，跳转到实验执行页面
       setLoadResultDialogType('success');
-      setLoadResultMessage('程序已加载到后端！\n\n点击确定跳转到实验执行页面。');
+      setLoadResultMessage('程序已加载成功！\n\n点击确定跳转到实验执行页面。');
       setShowLoadResultDialog(true);
     } catch (error) {
       setLoadResultDialogType('error');
@@ -1099,7 +1097,7 @@ function EditorToolbar() {
       }, compilationResult || undefined);
       
       try {
-        const saveRes = await fetch('/api/experiment/programs', {
+        const saveRes = await fetch('/api/run/programs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ filename: currentFilename, content: yaml }),
@@ -1111,7 +1109,7 @@ function EditorToolbar() {
           setLoadResultMessage(`保存失败: ${saveData.error || '未知错误'}`);
           return;
         }
-        setDirty(false);
+        markSaved();
         setShowLoadResultDialog(false);
         // 保存成功后执行加载
         await doLoadToExperiment();
@@ -1122,7 +1120,7 @@ function EditorToolbar() {
     } else if (loadResultDialogType === 'success') {
       // 加载成功，跳转到实验执行页面
       setShowLoadResultDialog(false);
-      window.location.href = '/experiment';
+      window.location.href = '/run';
     } else {
       // 其他情况直接关闭
       setShowLoadResultDialog(false);
@@ -1142,79 +1140,61 @@ function EditorToolbar() {
       }, compilationResult || undefined);
       
       // 先加载程序
-      const loadRes = await fetch('/api/experiment?action=load', {
+      const loadRes = await fetch('/api/run?action=load', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ yamlContent: yaml }),
+        body: JSON.stringify({ yaml_content: yaml }),
       });
       
       const loadData = await loadRes.json();
       if (!loadData.success) {
-        alert(`加载失败: ${loadData.errorMessage || '未知错误'}`);
+        toast.error('加载失败', { description: loadData.errorMessage || '未知错误' });
         return;
       }
       
       // 启动实验
-      const startRes = await fetch('/api/experiment?action=start', {
+      const startRes = await fetch('/api/run?action=start', {
         method: 'POST',
       });
       
       const startData = await startRes.json();
       if (startData.state === 3) { // EXP_RUNNING
-        alert('✅ 实验已启动！\n\n请在实验执行页面查看进度。');
-        window.open('/experiment', '_blank');
+        toast.success('实验已启动', { description: '请在实验执行页面查看进度' });
+        window.open('/run', '_blank');
       } else {
-        alert(`启动失败: ${startData.message || '未知错误'}`);
+        toast.error('启动失败', { description: startData.message || '未知错误' });
       }
     } catch (error) {
-      alert(`运行失败: ${error instanceof Error ? error.message : '网络错误'}`);
+      toast.error('运行失败', { description: error instanceof Error ? error.message : '网络错误' });
     }
   };
 
+  // 加载对话框搜索和排序
+  const [loadSearch, setLoadSearch] = useState('');
+  const [loadSortBy, setLoadSortBy] = useState<'name' | 'date'>('date');
+  
+  const filteredPrograms = useMemo(() => {
+    let list = [...savedPrograms];
+    if (loadSearch) {
+      const q = loadSearch.toLowerCase();
+      list = list.filter(p => 
+        p.name.toLowerCase().includes(q) || 
+        p.filename.toLowerCase().includes(q) ||
+        p.description.toLowerCase().includes(q)
+      );
+    }
+    list.sort((a, b) => {
+      if (loadSortBy === 'date') return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      return a.name.localeCompare(b.name, 'zh-CN');
+    });
+    return list;
+  }, [savedPrograms, loadSearch, loadSortBy]);
+
   return (
     <>
-      <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
-        <div className="flex items-center gap-3">
-          <h2 className="font-semibold">
-            {programName || '实验编程器'}
-            {isDirty && <span className="text-orange-500 ml-1">*</span>}
-          </h2>
-          {currentFilename && (
-            <span className="text-xs text-muted-foreground font-mono bg-muted px-2 py-0.5 rounded">
-              {currentFilename}
-              {isDirty && <span className="text-orange-500 ml-0.5">*</span>}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center border-r pr-2 mr-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={undo} 
-                  disabled={!canUndo()}
-                >
-                  <Undo2 className="w-4 h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>撤销 (Ctrl+Z)</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={redo} 
-                  disabled={!canRedo()}
-                >
-                  <Redo2 className="w-4 h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>重做 (Ctrl+Shift+Z)</TooltipContent>
-            </Tooltip>
-          </div>
+      <div className="flex items-center px-3 py-1.5 border-b bg-muted/30 gap-2">
+        {/* 左侧：文件菜单 + 撤销/重做 */}
+        <div className="flex items-center gap-1">
           <input
             ref={fileInputRef}
             type="file"
@@ -1223,121 +1203,125 @@ function EditorToolbar() {
             className="hidden"
           />
           
-          {/* 新建按钮 */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline" size="sm" onClick={handleNew}>
-                <FilePlus className="w-4 h-4 mr-1" />
-                新建
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>新建 (Ctrl+N)</TooltipContent>
-          </Tooltip>
-          
-          {/* 打开按钮（含模板和已保存程序） */}
+          {/* 统一文件菜单 */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <FolderOpen className="w-4 h-4 mr-1" />
-                打开
+              <Button variant="ghost" size="sm" className="h-7 px-2 font-normal">
+                文件
                 <ChevronDown className="w-3 h-3 ml-1" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
-              {recentFiles.length > 0 && (
-                <>
-                  <DropdownMenuLabel>最近打开</DropdownMenuLabel>
-                  {recentFiles.map((filename, index) => (
+            <DropdownMenuContent align="start" className="w-60">
+              <DropdownMenuItem onClick={handleNew}>
+                <FilePlus className="w-4 h-4 mr-2" />
+                新建
+                <DropdownMenuShortcut>Ctrl+N</DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <LayoutTemplate className="w-4 h-4 mr-2" />
+                  从模板新建
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {templates.map((t, index) => (
                     <DropdownMenuItem
-                      key={`recent-${filename}-${index}`}
+                      key={`template-${t.id}-${index}`}
                       onClick={() => {
                         checkUnsavedChanges(() => {
-                          handleLoadFromSystem(filename);
+                          loadGraph(t.nodes, t.edges);
+                          setProgramMeta(t.programMeta);
+                          setCurrentFilename(null);
+                          setDirty(false);
+                          resetHistory();
                         });
                       }}
                     >
-                      <HardDrive className="w-4 h-4 mr-2" />
-                      <span className="truncate">{filename}</span>
+                      <LayoutTemplate className="w-4 h-4 mr-2" />
+                      <div>
+                        <div>{t.name}</div>
+                        <div className="text-xs text-muted-foreground">{t.description}</div>
+                      </div>
                     </DropdownMenuItem>
                   ))}
-                  <DropdownMenuSeparator />
-                </>
-              )}
-              <DropdownMenuLabel>模板</DropdownMenuLabel>
-              {templates.map((t, index) => (
-                <DropdownMenuItem
-                  key={`template-${t.id}-${index}`}
-                  onClick={() => {
-                    checkUnsavedChanges(() => {
-                      loadGraph(t.nodes, t.edges);
-                      setProgramMeta(t.programMeta);
-                      setCurrentFilename(null);
-                      setDirty(false);
-                    });
-                  }}
-                >
-                  <LayoutTemplate className="w-4 h-4 mr-2" />
-                  {t.name}
-                </DropdownMenuItem>
-              ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => {
                 checkUnsavedChanges(() => {
                   loadSavedPrograms();
+                  setLoadSearch('');
                   setShowLoadDialog(true);
                 });
               }}>
                 <FolderOpen className="w-4 h-4 mr-2" />
-                打开已保存...
+                打开...
+                <DropdownMenuShortcut>Ctrl+O</DropdownMenuShortcut>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => {
-                checkUnsavedChanges(() => {
-                  fileInputRef.current?.click();
-                });
-              }}>
-                <Upload className="w-4 h-4 mr-2" />
-                导入文件...
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          
-          {/* 保存按钮（含另存为） */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Save className="w-4 h-4 mr-1" />
-                保存
-                <ChevronDown className="w-3 h-3 ml-1" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
+              {recentFiles.length > 0 && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <Clock className="w-4 h-4 mr-2" />
+                    最近打开
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {recentFiles.map((filename, index) => (
+                      <DropdownMenuItem
+                        key={`recent-${filename}-${index}`}
+                        onClick={() => {
+                          checkUnsavedChanges(() => {
+                            handleLoadFromSystem(filename);
+                          });
+                        }}
+                      >
+                        <File className="w-4 h-4 mr-2" />
+                        <span className="truncate">{filename}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSave}>
-                <HardDrive className="w-4 h-4 mr-2" />
-                {currentFilename ? `保存到 ${currentFilename}` : '保存'}
+                <Save className="w-4 h-4 mr-2" />
+                {currentFilename ? '保存' : '保存...'}
+                <DropdownMenuShortcut>Ctrl+S</DropdownMenuShortcut>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleSaveAs}>
                 <Save className="w-4 h-4 mr-2" />
                 另存为...
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handlePreviewYaml}>
-                <FileDown className="w-4 h-4 mr-2" />
-                预览 YAML
+              <DropdownMenuItem onClick={() => {
+                checkUnsavedChanges(() => {
+                  fileInputRef.current?.click();
+                });
+              }}>
+                <Upload className="w-4 h-4 mr-2" />
+                导入 YAML...
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleExportYaml}>
                 <FileDown className="w-4 h-4 mr-2" />
-                导出文件
+                导出 YAML
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handlePreviewYaml}>
+                <Eye className="w-4 h-4 mr-2" />
+                预览 YAML
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={() => setShowClearConfirm(true)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                清空画布
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           
-          <div className="border-l mx-1 h-6" />
-          
-          {/* 视图操作 */}
+          {/* 视图菜单 */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Maximize2 className="w-4 h-4 mr-1" />
+              <Button variant="ghost" size="sm" className="h-7 px-2 font-normal">
                 视图
                 <ChevronDown className="w-3 h-3 ml-1" />
               </Button>
@@ -1348,14 +1332,14 @@ function EditorToolbar() {
               }}>
                 <Maximize2 className="w-4 h-4 mr-2" />
                 适应画布
-                <span className="ml-auto text-xs text-muted-foreground">Ctrl+0</span>
+                <DropdownMenuShortcut>Ctrl+0</DropdownMenuShortcut>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => {
                 window.dispatchEvent(new CustomEvent('editor:focusSelected'));
               }}>
                 <Focus className="w-4 h-4 mr-2" />
                 居中选中
-                <span className="ml-auto text-xs text-muted-foreground">F</span>
+                <DropdownMenuShortcut>F</DropdownMenuShortcut>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuLabel>面板</DropdownMenuLabel>
@@ -1386,143 +1370,191 @@ function EditorToolbar() {
             </DropdownMenuContent>
           </DropdownMenu>
           
-          <div className="border-l mx-1 h-6" />
-          <Button variant="outline" size="sm" onClick={() => setShowClearConfirm(true)}>
-            <Trash2 className="w-4 h-4 mr-1" />
-            清空
-          </Button>
-          <Button size="sm" onClick={handleLoadToExperiment}>
-            <Upload className="w-4 h-4 mr-1" />
-            加载到实验
+          <div className="border-l mx-1 h-5" />
+          
+          {/* 撤销/重做 */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={undo} disabled={!canUndo()}>
+                <Undo2 className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>撤销 (Ctrl+Z)</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={redo} disabled={!canRedo()}>
+                <Redo2 className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>重做 (Ctrl+Shift+Z)</TooltipContent>
+          </Tooltip>
+        </div>
+        
+        {/* 中间：文件名 + dirty 标记 */}
+        <div className="flex-1 flex justify-center">
+          <div className="flex items-center gap-2 text-sm">
+            <FileText className="w-4 h-4 text-muted-foreground" />
+            <span className="font-medium truncate max-w-[300px]">
+              {currentFilename || (programName !== 'new_experiment' && programName ? programName : '未命名')}
+            </span>
+            {isDirty && (
+              <span className="w-2 h-2 rounded-full bg-orange-400" title="有未保存的更改" />
+            )}
+          </div>
+        </div>
+        
+        {/* 右侧：操作按钮 */}
+        <div className="flex items-center gap-1.5">
+          <Button size="sm" className="h-7" onClick={handleLoadToExperiment}>
+            <ArrowUpFromLine className="w-4 h-4 mr-1" />
+            加载到执行
           </Button>
         </div>
       </div>
       
-      {/* YAML 预览弹窗 */}
-      {yamlPreview && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-background rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-semibold">YAML 预览</h3>
-              <Button variant="ghost" size="sm" onClick={() => setYamlPreview(null)}>
-                关闭
-              </Button>
-            </div>
-            <pre className="flex-1 overflow-auto p-4 text-xs font-mono bg-muted/30">
+      {/* === 以下为 Dialog / AlertDialog 弹窗 === */}
+      
+      {/* YAML 预览 Dialog */}
+      <Dialog open={!!yamlPreview} onOpenChange={(open) => { if (!open) setYamlPreview(null); }}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>YAML 预览</DialogTitle>
+            <DialogDescription>
+              {currentFilename || programName || '未命名'} 的编译输出
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="flex-1 max-h-[55vh] rounded-md border bg-muted/30">
+            <pre className="p-4 text-xs font-mono whitespace-pre">
               {yamlPreview}
             </pre>
-            <div className="p-4 border-t flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => {
+          </ScrollArea>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => {
+              if (yamlPreview) {
                 navigator.clipboard.writeText(yamlPreview);
-              }}>
-                复制
-              </Button>
-              <Button size="sm" onClick={() => {
-                handleExportYaml();
-                setYamlPreview(null);
-              }}>
-                下载
-              </Button>
+                toast.success('已复制到剪贴板');
+              }
+            }}>
+              复制
+            </Button>
+            <Button size="sm" onClick={() => {
+              handleExportYaml();
+              setYamlPreview(null);
+            }}>
+              下载
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* 保存 Dialog */}
+      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{isSaveAs ? '另存为' : '保存'}</DialogTitle>
+            <DialogDescription>输入文件名保存到系统</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">文件名</label>
+              <Input
+                value={saveFilename}
+                onChange={(e) => setSaveFilename(e.target.value)}
+                placeholder="输入文件名（不含扩展名）"
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSaveDialogConfirm(); }}
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground mt-1.5">
+                将保存为 <span className="font-mono">{saveFilename || programId || 'experiment'}.yaml</span>
+              </p>
             </div>
           </div>
-        </div>
-      )}
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setShowSaveDialog(false)}>
+              取消
+            </Button>
+            <Button size="sm" onClick={handleSaveDialogConfirm}>
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
-      {/* 保存对话框 */}
-      {showSaveDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-background rounded-lg shadow-xl w-96 flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-semibold">{isSaveAs ? '另存为' : '保存到系统'}</h3>
-              <Button variant="ghost" size="sm" onClick={() => setShowSaveDialog(false)}>
-                关闭
-              </Button>
+      {/* 加载 Dialog（带搜索和排序） */}
+      <Dialog open={showLoadDialog} onOpenChange={setShowLoadDialog}>
+        <DialogContent className="sm:max-w-lg max-h-[75vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>打开程序</DialogTitle>
+            <DialogDescription>从已保存的程序中选择</DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="搜索..."
+                value={loadSearch}
+                onChange={(e) => setLoadSearch(e.target.value)}
+                className="pl-8 h-9"
+                autoFocus
+              />
             </div>
-            <div className="p-4 space-y-4">
-              <div>
-                <label className="text-sm font-medium mb-1 block">文件名</label>
-                <Input
-                  value={saveFilename}
-                  onChange={(e) => setSaveFilename(e.target.value)}
-                  placeholder="输入文件名（不含扩展名）"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  将保存为 {saveFilename || programId || 'experiment'}.yaml
-                </p>
-              </div>
-            </div>
-            <div className="p-4 border-t flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => setShowSaveDialog(false)}>
-                取消
-              </Button>
-              <Button size="sm" onClick={handleSaveDialogConfirm}>
-                保存
-              </Button>
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 px-2.5"
+                  onClick={() => setLoadSortBy(s => s === 'date' ? 'name' : 'date')}
+                >
+                  <ArrowUpDown className="w-4 h-4 mr-1" />
+                  {loadSortBy === 'date' ? '时间' : '名称'}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>切换排序方式</TooltipContent>
+            </Tooltip>
           </div>
-        </div>
-      )}
-      
-      {/* 加载对话框 */}
-      {showLoadDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-background rounded-lg shadow-xl w-[500px] max-h-[70vh] flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-semibold">打开程序</h3>
-              <Button variant="ghost" size="sm" onClick={() => setShowLoadDialog(false)}>
-                关闭
-              </Button>
-            </div>
-            <div className="flex-1 overflow-auto p-4">
-              {savedPrograms.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  暂无保存的程序
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {savedPrograms.map((program) => (
-                    <div
-                      key={program.filename}
-                      className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{program.name}</div>
-                        <div className="text-xs text-muted-foreground truncate">
-                          {program.description || '无描述'}
-                        </div>
-                        <div className="text-xs text-muted-foreground flex items-center gap-2">
-                          <span className="font-mono bg-muted px-1 rounded">{program.filename}</span>
-                          <span>·</span>
-                          <span>v{program.version}</span>
-                          <span>·</span>
-                          <span>{new Date(program.updatedAt).toLocaleString()}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 ml-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleLoadFromSystem(program.filename)}
-                        >
-                          打开
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => handleDeleteProgram(program.filename)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+          <ScrollArea className="flex-1 max-h-[45vh] -mx-6 px-6">
+            {filteredPrograms.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">
+                {loadSearch ? '无匹配结果' : '暂无保存的程序'}
+              </p>
+            ) : (
+              <div className="space-y-1.5">
+                {filteredPrograms.map((program) => (
+                  <div
+                    key={program.filename}
+                    className="flex items-center justify-between p-2.5 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer group"
+                    onClick={() => handleLoadFromSystem(program.filename)}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">{program.name}</div>
+                      <div className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                        <span className="font-mono">{program.filename}</span>
+                        <span>·</span>
+                        <span>v{program.version}</span>
+                        <span>·</span>
+                        <span>{new Date(program.updatedAt).toLocaleDateString()}</span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteProgram(program.filename);
+                      }}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
       
       {/* 清空确认对话框 */}
       <ConfirmDialog
@@ -1536,6 +1568,7 @@ function EditorToolbar() {
           clearGraph();
           setCurrentFilename(null);
           setDirty(false);
+          resetHistory();
           setShowClearConfirm(false);
         }}
       />
@@ -1578,6 +1611,47 @@ function EditorToolbar() {
         onCancel={() => {
           setShowOverwriteConfirm(false);
           setPendingSaveFilename(null);
+        }}
+      />
+      
+      {/* 删除确认对话框 */}
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="删除程序"
+        description={`确定要删除 "${pendingDeleteFilename}" 吗？此操作无法撤销。`}
+        confirmText="删除"
+        variant="destructive"
+        onConfirm={doDeleteProgram}
+        onCancel={() => {
+          setShowDeleteConfirm(false);
+          setPendingDeleteFilename(null);
+        }}
+      />
+      
+      {/* 草稿恢复对话框 */}
+      <ConfirmDialog
+        open={showDraftDialog}
+        onOpenChange={setShowDraftDialog}
+        title="发现自动保存的草稿"
+        description={draftData ? `上次自动保存于 ${draftData.savedTime}，是否恢复？` : ''}
+        confirmText="恢复"
+        cancelText="不恢复"
+        onConfirm={() => {
+          if (draftData) {
+            loadGraph(draftData.nodes, draftData.edges);
+            setProgramMeta(draftData.programMeta);
+            setDirty(true);
+            resetHistory();
+            localStorage.removeItem('experiment-editor-draft');
+          }
+          setShowDraftDialog(false);
+          setDraftData(null);
+        }}
+        onCancel={() => {
+          localStorage.removeItem('experiment-editor-draft');
+          setShowDraftDialog(false);
+          setDraftData(null);
         }}
       />
       

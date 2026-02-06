@@ -1,3 +1,5 @@
+// @deprecated 此页面已从侧边栏移除，功能已整合到数据中心(/data-center)
+// 保留代码供后续参考，但不再从导航入口访问
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
@@ -6,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertsPanel } from "@/components/analytics/AlertsPanel";
 import { VisualizationPanel } from "@/components/analytics/VisualizationPanel";
 import { ModelsPanel } from "@/components/analytics/ModelsPanel";
-import { LabelsPanel } from "@/components/analytics/LabelsPanel";
 import { useAnalyticsLatency } from "@/hooks/use-analytics-latency";
 import { Wifi, WifiOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -60,11 +61,10 @@ function AnalyticsPageContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="alerts">质量告警</TabsTrigger>
           <TabsTrigger value="visualization">数据可视化</TabsTrigger>
           <TabsTrigger value="models">模型管理</TabsTrigger>
-          <TabsTrigger value="labels">样品标注</TabsTrigger>
         </TabsList>
 
         <TabsContent value="alerts" className="mt-6">
@@ -88,10 +88,6 @@ function AnalyticsPageContent() {
 
         <TabsContent value="models" className="mt-6">
           <ModelsPanel />
-        </TabsContent>
-
-        <TabsContent value="labels" className="mt-6">
-          <LabelsPanel />
         </TabsContent>
       </Tabs>
     </div>

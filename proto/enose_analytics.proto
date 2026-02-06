@@ -917,3 +917,192 @@ message GetSampleSensorDataResponse {
   repeated SensorDataRow rows = 2;
   int32 total_points = 3;
 }
+
+// ============================================================================
+// ML Label Service - ML 标签策略与自动标注
+// ============================================================================
+
+service MLLabelService {
+  // 列出标签策略配置
+  rpc ListMLLabelConfigs(ListMLLabelConfigsRequest) returns (ListMLLabelConfigsResponse);
+
+  // 获取策略详情
+  rpc GetMLLabelConfig(GetMLLabelConfigRequest) returns (MLLabelConfig);
+
+  // 创建策略
+  rpc CreateMLLabelConfig(CreateMLLabelConfigRequest) returns (MLLabelConfig);
+
+  // 更新策略
+  rpc UpdateMLLabelConfig(UpdateMLLabelConfigRequest) returns (MLLabelConfig);
+
+  // 删除策略
+  rpc DeleteMLLabelConfig(DeleteMLLabelConfigRequest) returns (google.protobuf.Empty);
+
+  // 为指定策略生成标签（自动从 samples 参数派生）
+  rpc GenerateLabels(GenerateLabelsRequest) returns (GenerateLabelsResponse);
+
+  // 获取标签分布
+  rpc GetLabelDistribution(GetLabelDistributionRequest) returns (GetLabelDistributionResponse);
+
+  // 获取样本的 ML 标签
+  rpc GetSampleMLLabels(GetSampleMLLabelsRequest) returns (GetSampleMLLabelsResponse);
+
+  // 获取训练数据集预览
+  rpc PreviewDataset(PreviewDatasetRequest) returns (PreviewDatasetResponse);
+}
+
+// ============================================================================
+// ML 标签策略消息
+// ============================================================================
+
+message MLLabelConfig {
+  int32 id = 1;
+  string name = 2;
+  string label_type = 3;      // classification, regression, contrastive
+  string strategy = 4;        // auto_from_params, manual, derived
+  string config_json = 5;     // JSON 配置
+  string description = 6;
+  bool is_active = 7;
+  int32 label_count = 8;      // 已生成的标签数
+}
+
+message ListMLLabelConfigsRequest {
+  bool active_only = 1;
+}
+
+message ListMLLabelConfigsResponse {
+  repeated MLLabelConfig configs = 1;
+}
+
+message GetMLLabelConfigRequest {
+  string name = 1;
+}
+
+message CreateMLLabelConfigRequest {
+  string name = 1;
+  string label_type = 2;
+  string strategy = 3;
+  string config_json = 4;
+  string description = 5;
+}
+
+message UpdateMLLabelConfigRequest {
+  int32 id = 1;
+  optional string name = 2;
+  optional string description = 3;
+  optional string config_json = 4;
+  optional bool is_active = 5;
+}
+
+message DeleteMLLabelConfigRequest {
+  int32 id = 1;
+}
+
+message GenerateLabelsRequest {
+  string config_name = 1;           // 策略名称（空=所有活跃策略）
+  repeated int32 run_ids = 2;       // 按 run 筛选（空=所有）
+  repeated string phase_names = 3;  // 按阶段筛选（空=所有）
+  repeated int32 sample_ids = 4;    // 按样本 ID 精确筛选（空=不限）
+}
+
+message GenerateLabelsResponse {
+  map<string, int32> generated_counts = 1;  // config_name -> count
+  string message = 2;
+}
+
+message GetLabelDistributionRequest {
+  string config_name = 1;
+  repeated int32 run_ids = 2;
+  repeated string phase_names = 3;
+  repeated int32 sample_ids = 4;    // 按样本 ID 精确筛选（空=不限）
+}
+
+message GetLabelDistributionResponse {
+  string config_name = 1;
+  string label_type = 2;
+  repeated LabelBucket buckets = 3;
+  int32 total_samples = 4;
+}
+
+message LabelBucket {
+  string label = 1;
+  int32 count = 2;
+  int32 label_index = 3;
+}
+
+message GetSampleMLLabelsRequest {
+  int32 sample_id = 1;
+}
+
+message GetSampleMLLabelsResponse {
+  repeated SampleMLLabel labels = 1;
+}
+
+message SampleMLLabel {
+  string config_name = 1;
+  string label_type = 2;
+  string label_str = 3;
+  double label_num = 4;
+  int32 label_index = 5;
+}
+
+message PreviewDatasetRequest {
+  string config_name = 1;
+  repeated int32 run_ids = 2;
+  repeated string phase_names = 3;
+  double train_ratio = 4;     // 默认 0.7
+  double val_ratio = 5;       // 默认 0.15
+  double test_ratio = 6;      // 默认 0.15
+  repeated int32 sample_ids = 7;    // 按样本 ID 精确筛选（空=不限）
+}
+
+message PreviewDatasetResponse {
+  string config_name = 1;
+  string label_type = 2;
+  int32 total_samples = 3;
+  int32 train_count = 4;
+  int32 val_count = 5;
+  int32 test_count = 6;
+  repeated LabelBucket label_distribution = 7;
+}
+
+// ============================================================================
+// Export Service - 数据导出
+// ============================================================================
+
+service ExportService {
+  // 导出数据（流式返回 ZIP 文件）
+  rpc ExportData(ExportDataRequest) returns (stream ExportDataChunk);
+}
+
+message ExportDataRequest {
+  repeated int32 sample_ids = 1;
+
+  // 类型开关
+  bool include_params = 2;
+  bool include_raw_data = 3;
+  bool include_frames = 4;
+  bool include_ml_labels = 5;
+  bool include_dataset = 6;
+
+  // 帧配置（归一化帧 + 训练数据集共用）
+  string frame_method = 10;            // "linear" / "pchip"
+  int32 frame_n_samples = 11;          // 50-500
+  string frame_format = 12;            // "npz" / "csv"
+
+  // ML 标签配置
+  repeated string ml_label_configs = 15;  // 标签策略名列表
+
+  // 训练数据集配置
+  string dataset_label_config = 20;    // 标签策略名
+  bool dataset_split = 21;             // 是否分割 train/val/test
+  double dataset_train_ratio = 22;     // 默认 0.7
+  double dataset_val_ratio = 23;       // 默认 0.15
+  string dataset_format = 24;          // "npz" / "csv"
+}
+
+message ExportDataChunk {
+  bytes data = 1;
+  string filename = 2;                 // 当前处理的文件名（用于前端进度显示）
+  int32 progress_percent = 3;          // 0-100
+}

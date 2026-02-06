@@ -57,8 +57,8 @@ void LoadCellDriver::start_polling() {
         on_poll_response(response);
     });
     
-    // 每 200ms 轮询一次
-    poll_timer_->expires_after(std::chrono::milliseconds(200));
+    // 每 50ms 轮询一次 (提高响应速度，减少注入过冲)
+    poll_timer_->expires_after(std::chrono::milliseconds(50));
     poll_timer_->async_wait([this](const boost::system::error_code& ec) {
         if (!ec && running_) {
             start_polling();
@@ -115,7 +115,6 @@ void LoadCellDriver::on_klipper_status(const nlohmann::json& status) {
             update_filter(force_g);
             compute_statistics();
             check_overflow();
-            check_drain_complete();
         } else {
             status_.is_calibrated = false;
         }
@@ -141,8 +140,7 @@ void LoadCellDriver::update_filter(float new_sample) {
         float sum = std::accumulate(samples_.begin(), samples_.end(), 0.0f);
         float raw_filtered = sum / static_cast<float>(samples_.size());
         
-        // 直接使用原始测量值，不应用校准
-        // weight_scale/weight_offset 仅用于进样时的 mm->g 转换补偿
+        // 直接使用原始测量值，不额外校准
         status_.filtered_weight = raw_filtered;
         status_.tared_weight = status_.filtered_weight - tare_offset_;
     }
@@ -323,9 +321,9 @@ void LoadCellDriver::set_overflow_threshold(float threshold) {
 }
 
 void LoadCellDriver::set_pump_calibration(float slope, float offset) {
-    config_.pump_mm_to_ml = slope;
-    config_.pump_mm_offset = offset;
-    spdlog::info("LoadCellDriver: Pump calibration set: slope={:.4f} g/mm, offset={:.2f} g", slope, offset);
+    config_.ml_to_weight_slope = slope;
+    config_.ml_to_weight_offset = offset;
+    spdlog::info("LoadCellDriver: Pump calibration set: slope={:.4f} g/ml, offset={:.2f} g", slope, offset);
     
     // 自动保存到配置文件
     if (save_config()) {
@@ -483,17 +481,19 @@ bool LoadCellDriver::load_config_from_file(const std::filesystem::path& path) {
         if (j.contains("filter_window_size")) {
             config_.filter_window_size = j["filter_window_size"].get<size_t>();
         }
-        if (j.contains("pump_mm_to_ml")) {
-            config_.pump_mm_to_ml = j["pump_mm_to_ml"].get<float>();
+        // 新字段名优先，兼容旧字段名
+        if (j.contains("ml_to_weight_slope")) {
+            config_.ml_to_weight_slope = j["ml_to_weight_slope"].get<float>();
+        } else if (j.contains("pump_mm_to_ml")) {
+            config_.ml_to_weight_slope = j["pump_mm_to_ml"].get<float>();
         }
-        if (j.contains("pump_mm_offset")) {
-            config_.pump_mm_offset = j["pump_mm_offset"].get<float>();
+        if (j.contains("ml_to_weight_offset")) {
+            config_.ml_to_weight_offset = j["ml_to_weight_offset"].get<float>();
+        } else if (j.contains("pump_mm_offset")) {
+            config_.ml_to_weight_offset = j["pump_mm_offset"].get<float>();
         }
-        if (j.contains("weight_scale")) {
-            config_.weight_scale = j["weight_scale"].get<float>();
-        }
-        if (j.contains("weight_offset")) {
-            config_.weight_offset = j["weight_offset"].get<float>();
+        if (j.contains("fill_lag_compensation_g")) {
+            config_.fill_lag_compensation_g = j["fill_lag_compensation_g"].get<float>();
         }
         
         config_path_ = path;
@@ -501,8 +501,8 @@ bool LoadCellDriver::load_config_from_file(const std::filesystem::path& path) {
         spdlog::info("  overflow_threshold: {:.1f}g", config_.overflow_threshold);
         spdlog::info("  drain_complete_margin: {:.1f}g", config_.drain_complete_margin);
         spdlog::info("  stable_stddev_threshold: {:.1f}g", config_.stable_stddev_threshold);
-        spdlog::info("  pump_mm_to_ml: {:.4f} g/mm, pump_mm_offset: {:.2f} g", config_.pump_mm_to_ml, config_.pump_mm_offset);
-        spdlog::info("  weight_scale: {:.4f}, weight_offset: {:.4f}g", config_.weight_scale, config_.weight_offset);
+        spdlog::info("  ml_to_weight_slope: {:.4f} g/ml, ml_to_weight_offset: {:.2f} g", config_.ml_to_weight_slope, config_.ml_to_weight_offset);
+        spdlog::info("  fill_lag_compensation_g: {:.1f}g", config_.fill_lag_compensation_g);
         
         return true;
     } catch (const std::exception& e) {
@@ -525,10 +525,9 @@ bool LoadCellDriver::save_config_to_file(const std::filesystem::path& path) cons
         j["stable_stddev_threshold"] = config_.stable_stddev_threshold;
         j["invert_reading"] = config_.invert_reading;
         j["filter_window_size"] = config_.filter_window_size;
-        j["pump_mm_to_ml"] = config_.pump_mm_to_ml;
-        j["pump_mm_offset"] = config_.pump_mm_offset;
-        j["weight_scale"] = config_.weight_scale;
-        j["weight_offset"] = config_.weight_offset;
+        j["ml_to_weight_slope"] = config_.ml_to_weight_slope;
+        j["ml_to_weight_offset"] = config_.ml_to_weight_offset;
+        j["fill_lag_compensation_g"] = config_.fill_lag_compensation_g;
         
         std::ofstream file(path);
         if (!file.is_open()) {

@@ -1923,6 +1923,427 @@ export interface GetSampleSensorDataResponse {
      */
     totalPoints: number;
 }
+// ============================================================================
+// ML 标签策略消息
+// ============================================================================
+
+/**
+ * @generated from protobuf message enose.analytics.v1.MLLabelConfig
+ */
+export interface MLLabelConfig {
+    /**
+     * @generated from protobuf field: int32 id = 1
+     */
+    id: number;
+    /**
+     * @generated from protobuf field: string name = 2
+     */
+    name: string;
+    /**
+     * @generated from protobuf field: string label_type = 3
+     */
+    labelType: string; // classification, regression, contrastive
+    /**
+     * @generated from protobuf field: string strategy = 4
+     */
+    strategy: string; // auto_from_params, manual, derived
+    /**
+     * @generated from protobuf field: string config_json = 5
+     */
+    configJson: string; // JSON 配置
+    /**
+     * @generated from protobuf field: string description = 6
+     */
+    description: string;
+    /**
+     * @generated from protobuf field: bool is_active = 7
+     */
+    isActive: boolean;
+    /**
+     * @generated from protobuf field: int32 label_count = 8
+     */
+    labelCount: number; // 已生成的标签数
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.ListMLLabelConfigsRequest
+ */
+export interface ListMLLabelConfigsRequest {
+    /**
+     * @generated from protobuf field: bool active_only = 1
+     */
+    activeOnly: boolean;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.ListMLLabelConfigsResponse
+ */
+export interface ListMLLabelConfigsResponse {
+    /**
+     * @generated from protobuf field: repeated enose.analytics.v1.MLLabelConfig configs = 1
+     */
+    configs: MLLabelConfig[];
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GetMLLabelConfigRequest
+ */
+export interface GetMLLabelConfigRequest {
+    /**
+     * @generated from protobuf field: string name = 1
+     */
+    name: string;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.CreateMLLabelConfigRequest
+ */
+export interface CreateMLLabelConfigRequest {
+    /**
+     * @generated from protobuf field: string name = 1
+     */
+    name: string;
+    /**
+     * @generated from protobuf field: string label_type = 2
+     */
+    labelType: string;
+    /**
+     * @generated from protobuf field: string strategy = 3
+     */
+    strategy: string;
+    /**
+     * @generated from protobuf field: string config_json = 4
+     */
+    configJson: string;
+    /**
+     * @generated from protobuf field: string description = 5
+     */
+    description: string;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.UpdateMLLabelConfigRequest
+ */
+export interface UpdateMLLabelConfigRequest {
+    /**
+     * @generated from protobuf field: int32 id = 1
+     */
+    id: number;
+    /**
+     * @generated from protobuf field: optional string name = 2
+     */
+    name?: string;
+    /**
+     * @generated from protobuf field: optional string description = 3
+     */
+    description?: string;
+    /**
+     * @generated from protobuf field: optional string config_json = 4
+     */
+    configJson?: string;
+    /**
+     * @generated from protobuf field: optional bool is_active = 5
+     */
+    isActive?: boolean;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.DeleteMLLabelConfigRequest
+ */
+export interface DeleteMLLabelConfigRequest {
+    /**
+     * @generated from protobuf field: int32 id = 1
+     */
+    id: number;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GenerateLabelsRequest
+ */
+export interface GenerateLabelsRequest {
+    /**
+     * @generated from protobuf field: string config_name = 1
+     */
+    configName: string; // 策略名称（空=所有活跃策略）
+    /**
+     * @generated from protobuf field: repeated int32 run_ids = 2
+     */
+    runIds: number[]; // 按 run 筛选（空=所有）
+    /**
+     * @generated from protobuf field: repeated string phase_names = 3
+     */
+    phaseNames: string[]; // 按阶段筛选（空=所有）
+    /**
+     * @generated from protobuf field: repeated int32 sample_ids = 4
+     */
+    sampleIds: number[]; // 按样本 ID 精确筛选（空=不限）
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GenerateLabelsResponse
+ */
+export interface GenerateLabelsResponse {
+    /**
+     * @generated from protobuf field: map<string, int32> generated_counts = 1
+     */
+    generatedCounts: {
+        [key: string]: number;
+    }; // config_name -> count
+    /**
+     * @generated from protobuf field: string message = 2
+     */
+    message: string;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GetLabelDistributionRequest
+ */
+export interface GetLabelDistributionRequest {
+    /**
+     * @generated from protobuf field: string config_name = 1
+     */
+    configName: string;
+    /**
+     * @generated from protobuf field: repeated int32 run_ids = 2
+     */
+    runIds: number[];
+    /**
+     * @generated from protobuf field: repeated string phase_names = 3
+     */
+    phaseNames: string[];
+    /**
+     * @generated from protobuf field: repeated int32 sample_ids = 4
+     */
+    sampleIds: number[]; // 按样本 ID 精确筛选（空=不限）
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GetLabelDistributionResponse
+ */
+export interface GetLabelDistributionResponse {
+    /**
+     * @generated from protobuf field: string config_name = 1
+     */
+    configName: string;
+    /**
+     * @generated from protobuf field: string label_type = 2
+     */
+    labelType: string;
+    /**
+     * @generated from protobuf field: repeated enose.analytics.v1.LabelBucket buckets = 3
+     */
+    buckets: LabelBucket[];
+    /**
+     * @generated from protobuf field: int32 total_samples = 4
+     */
+    totalSamples: number;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.LabelBucket
+ */
+export interface LabelBucket {
+    /**
+     * @generated from protobuf field: string label = 1
+     */
+    label: string;
+    /**
+     * @generated from protobuf field: int32 count = 2
+     */
+    count: number;
+    /**
+     * @generated from protobuf field: int32 label_index = 3
+     */
+    labelIndex: number;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GetSampleMLLabelsRequest
+ */
+export interface GetSampleMLLabelsRequest {
+    /**
+     * @generated from protobuf field: int32 sample_id = 1
+     */
+    sampleId: number;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GetSampleMLLabelsResponse
+ */
+export interface GetSampleMLLabelsResponse {
+    /**
+     * @generated from protobuf field: repeated enose.analytics.v1.SampleMLLabel labels = 1
+     */
+    labels: SampleMLLabel[];
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.SampleMLLabel
+ */
+export interface SampleMLLabel {
+    /**
+     * @generated from protobuf field: string config_name = 1
+     */
+    configName: string;
+    /**
+     * @generated from protobuf field: string label_type = 2
+     */
+    labelType: string;
+    /**
+     * @generated from protobuf field: string label_str = 3
+     */
+    labelStr: string;
+    /**
+     * @generated from protobuf field: double label_num = 4
+     */
+    labelNum: number;
+    /**
+     * @generated from protobuf field: int32 label_index = 5
+     */
+    labelIndex: number;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.PreviewDatasetRequest
+ */
+export interface PreviewDatasetRequest {
+    /**
+     * @generated from protobuf field: string config_name = 1
+     */
+    configName: string;
+    /**
+     * @generated from protobuf field: repeated int32 run_ids = 2
+     */
+    runIds: number[];
+    /**
+     * @generated from protobuf field: repeated string phase_names = 3
+     */
+    phaseNames: string[];
+    /**
+     * @generated from protobuf field: double train_ratio = 4
+     */
+    trainRatio: number; // 默认 0.7
+    /**
+     * @generated from protobuf field: double val_ratio = 5
+     */
+    valRatio: number; // 默认 0.15
+    /**
+     * @generated from protobuf field: double test_ratio = 6
+     */
+    testRatio: number; // 默认 0.15
+    /**
+     * @generated from protobuf field: repeated int32 sample_ids = 7
+     */
+    sampleIds: number[]; // 按样本 ID 精确筛选（空=不限）
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.PreviewDatasetResponse
+ */
+export interface PreviewDatasetResponse {
+    /**
+     * @generated from protobuf field: string config_name = 1
+     */
+    configName: string;
+    /**
+     * @generated from protobuf field: string label_type = 2
+     */
+    labelType: string;
+    /**
+     * @generated from protobuf field: int32 total_samples = 3
+     */
+    totalSamples: number;
+    /**
+     * @generated from protobuf field: int32 train_count = 4
+     */
+    trainCount: number;
+    /**
+     * @generated from protobuf field: int32 val_count = 5
+     */
+    valCount: number;
+    /**
+     * @generated from protobuf field: int32 test_count = 6
+     */
+    testCount: number;
+    /**
+     * @generated from protobuf field: repeated enose.analytics.v1.LabelBucket label_distribution = 7
+     */
+    labelDistribution: LabelBucket[];
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.ExportDataRequest
+ */
+export interface ExportDataRequest {
+    /**
+     * @generated from protobuf field: repeated int32 sample_ids = 1
+     */
+    sampleIds: number[];
+    /**
+     * 类型开关
+     *
+     * @generated from protobuf field: bool include_params = 2
+     */
+    includeParams: boolean;
+    /**
+     * @generated from protobuf field: bool include_raw_data = 3
+     */
+    includeRawData: boolean;
+    /**
+     * @generated from protobuf field: bool include_frames = 4
+     */
+    includeFrames: boolean;
+    /**
+     * @generated from protobuf field: bool include_ml_labels = 5
+     */
+    includeMlLabels: boolean;
+    /**
+     * @generated from protobuf field: bool include_dataset = 6
+     */
+    includeDataset: boolean;
+    /**
+     * 帧配置（归一化帧 + 训练数据集共用）
+     *
+     * @generated from protobuf field: string frame_method = 10
+     */
+    frameMethod: string; // "linear" / "pchip"
+    /**
+     * @generated from protobuf field: int32 frame_n_samples = 11
+     */
+    frameNSamples: number; // 50-500
+    /**
+     * @generated from protobuf field: string frame_format = 12
+     */
+    frameFormat: string; // "npz" / "csv"
+    /**
+     * ML 标签配置
+     *
+     * @generated from protobuf field: repeated string ml_label_configs = 15
+     */
+    mlLabelConfigs: string[]; // 标签策略名列表
+    /**
+     * 训练数据集配置
+     *
+     * @generated from protobuf field: string dataset_label_config = 20
+     */
+    datasetLabelConfig: string; // 标签策略名
+    /**
+     * @generated from protobuf field: bool dataset_split = 21
+     */
+    datasetSplit: boolean; // 是否分割 train/val/test
+    /**
+     * @generated from protobuf field: double dataset_train_ratio = 22
+     */
+    datasetTrainRatio: number; // 默认 0.7
+    /**
+     * @generated from protobuf field: double dataset_val_ratio = 23
+     */
+    datasetValRatio: number; // 默认 0.15
+    /**
+     * @generated from protobuf field: string dataset_format = 24
+     */
+    datasetFormat: string; // "npz" / "csv"
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.ExportDataChunk
+ */
+export interface ExportDataChunk {
+    /**
+     * @generated from protobuf field: bytes data = 1
+     */
+    data: Uint8Array;
+    /**
+     * @generated from protobuf field: string filename = 2
+     */
+    filename: string; // 当前处理的文件名（用于前端进度显示）
+    /**
+     * @generated from protobuf field: int32 progress_percent = 3
+     */
+    progressPercent: number; // 0-100
+}
 /**
  * @generated from protobuf enum enose.analytics.v1.QualityFlag
  */
@@ -7872,6 +8293,1439 @@ class GetSampleSensorDataResponse$Type extends MessageType<GetSampleSensorDataRe
  * @generated MessageType for protobuf message enose.analytics.v1.GetSampleSensorDataResponse
  */
 export const GetSampleSensorDataResponse = new GetSampleSensorDataResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class MLLabelConfig$Type extends MessageType<MLLabelConfig> {
+    constructor() {
+        super("enose.analytics.v1.MLLabelConfig", [
+            { no: 1, name: "id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "label_type", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "strategy", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 5, name: "config_json", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 6, name: "description", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 7, name: "is_active", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 8, name: "label_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<MLLabelConfig>): MLLabelConfig {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.id = 0;
+        message.name = "";
+        message.labelType = "";
+        message.strategy = "";
+        message.configJson = "";
+        message.description = "";
+        message.isActive = false;
+        message.labelCount = 0;
+        if (value !== undefined)
+            reflectionMergePartial<MLLabelConfig>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: MLLabelConfig): MLLabelConfig {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 id */ 1:
+                    message.id = reader.int32();
+                    break;
+                case /* string name */ 2:
+                    message.name = reader.string();
+                    break;
+                case /* string label_type */ 3:
+                    message.labelType = reader.string();
+                    break;
+                case /* string strategy */ 4:
+                    message.strategy = reader.string();
+                    break;
+                case /* string config_json */ 5:
+                    message.configJson = reader.string();
+                    break;
+                case /* string description */ 6:
+                    message.description = reader.string();
+                    break;
+                case /* bool is_active */ 7:
+                    message.isActive = reader.bool();
+                    break;
+                case /* int32 label_count */ 8:
+                    message.labelCount = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: MLLabelConfig, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 id = 1; */
+        if (message.id !== 0)
+            writer.tag(1, WireType.Varint).int32(message.id);
+        /* string name = 2; */
+        if (message.name !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.name);
+        /* string label_type = 3; */
+        if (message.labelType !== "")
+            writer.tag(3, WireType.LengthDelimited).string(message.labelType);
+        /* string strategy = 4; */
+        if (message.strategy !== "")
+            writer.tag(4, WireType.LengthDelimited).string(message.strategy);
+        /* string config_json = 5; */
+        if (message.configJson !== "")
+            writer.tag(5, WireType.LengthDelimited).string(message.configJson);
+        /* string description = 6; */
+        if (message.description !== "")
+            writer.tag(6, WireType.LengthDelimited).string(message.description);
+        /* bool is_active = 7; */
+        if (message.isActive !== false)
+            writer.tag(7, WireType.Varint).bool(message.isActive);
+        /* int32 label_count = 8; */
+        if (message.labelCount !== 0)
+            writer.tag(8, WireType.Varint).int32(message.labelCount);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.MLLabelConfig
+ */
+export const MLLabelConfig = new MLLabelConfig$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class ListMLLabelConfigsRequest$Type extends MessageType<ListMLLabelConfigsRequest> {
+    constructor() {
+        super("enose.analytics.v1.ListMLLabelConfigsRequest", [
+            { no: 1, name: "active_only", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
+        ]);
+    }
+    create(value?: PartialMessage<ListMLLabelConfigsRequest>): ListMLLabelConfigsRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.activeOnly = false;
+        if (value !== undefined)
+            reflectionMergePartial<ListMLLabelConfigsRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ListMLLabelConfigsRequest): ListMLLabelConfigsRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* bool active_only */ 1:
+                    message.activeOnly = reader.bool();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: ListMLLabelConfigsRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* bool active_only = 1; */
+        if (message.activeOnly !== false)
+            writer.tag(1, WireType.Varint).bool(message.activeOnly);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.ListMLLabelConfigsRequest
+ */
+export const ListMLLabelConfigsRequest = new ListMLLabelConfigsRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class ListMLLabelConfigsResponse$Type extends MessageType<ListMLLabelConfigsResponse> {
+    constructor() {
+        super("enose.analytics.v1.ListMLLabelConfigsResponse", [
+            { no: 1, name: "configs", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => MLLabelConfig }
+        ]);
+    }
+    create(value?: PartialMessage<ListMLLabelConfigsResponse>): ListMLLabelConfigsResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.configs = [];
+        if (value !== undefined)
+            reflectionMergePartial<ListMLLabelConfigsResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ListMLLabelConfigsResponse): ListMLLabelConfigsResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated enose.analytics.v1.MLLabelConfig configs */ 1:
+                    message.configs.push(MLLabelConfig.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: ListMLLabelConfigsResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated enose.analytics.v1.MLLabelConfig configs = 1; */
+        for (let i = 0; i < message.configs.length; i++)
+            MLLabelConfig.internalBinaryWrite(message.configs[i], writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.ListMLLabelConfigsResponse
+ */
+export const ListMLLabelConfigsResponse = new ListMLLabelConfigsResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetMLLabelConfigRequest$Type extends MessageType<GetMLLabelConfigRequest> {
+    constructor() {
+        super("enose.analytics.v1.GetMLLabelConfigRequest", [
+            { no: 1, name: "name", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GetMLLabelConfigRequest>): GetMLLabelConfigRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.name = "";
+        if (value !== undefined)
+            reflectionMergePartial<GetMLLabelConfigRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetMLLabelConfigRequest): GetMLLabelConfigRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string name */ 1:
+                    message.name = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetMLLabelConfigRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string name = 1; */
+        if (message.name !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.name);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GetMLLabelConfigRequest
+ */
+export const GetMLLabelConfigRequest = new GetMLLabelConfigRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class CreateMLLabelConfigRequest$Type extends MessageType<CreateMLLabelConfigRequest> {
+    constructor() {
+        super("enose.analytics.v1.CreateMLLabelConfigRequest", [
+            { no: 1, name: "name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "label_type", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "strategy", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "config_json", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 5, name: "description", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<CreateMLLabelConfigRequest>): CreateMLLabelConfigRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.name = "";
+        message.labelType = "";
+        message.strategy = "";
+        message.configJson = "";
+        message.description = "";
+        if (value !== undefined)
+            reflectionMergePartial<CreateMLLabelConfigRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: CreateMLLabelConfigRequest): CreateMLLabelConfigRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string name */ 1:
+                    message.name = reader.string();
+                    break;
+                case /* string label_type */ 2:
+                    message.labelType = reader.string();
+                    break;
+                case /* string strategy */ 3:
+                    message.strategy = reader.string();
+                    break;
+                case /* string config_json */ 4:
+                    message.configJson = reader.string();
+                    break;
+                case /* string description */ 5:
+                    message.description = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: CreateMLLabelConfigRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string name = 1; */
+        if (message.name !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.name);
+        /* string label_type = 2; */
+        if (message.labelType !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.labelType);
+        /* string strategy = 3; */
+        if (message.strategy !== "")
+            writer.tag(3, WireType.LengthDelimited).string(message.strategy);
+        /* string config_json = 4; */
+        if (message.configJson !== "")
+            writer.tag(4, WireType.LengthDelimited).string(message.configJson);
+        /* string description = 5; */
+        if (message.description !== "")
+            writer.tag(5, WireType.LengthDelimited).string(message.description);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.CreateMLLabelConfigRequest
+ */
+export const CreateMLLabelConfigRequest = new CreateMLLabelConfigRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class UpdateMLLabelConfigRequest$Type extends MessageType<UpdateMLLabelConfigRequest> {
+    constructor() {
+        super("enose.analytics.v1.UpdateMLLabelConfigRequest", [
+            { no: 1, name: "id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "name", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "description", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "config_json", kind: "scalar", opt: true, T: 9 /*ScalarType.STRING*/ },
+            { no: 5, name: "is_active", kind: "scalar", opt: true, T: 8 /*ScalarType.BOOL*/ }
+        ]);
+    }
+    create(value?: PartialMessage<UpdateMLLabelConfigRequest>): UpdateMLLabelConfigRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.id = 0;
+        if (value !== undefined)
+            reflectionMergePartial<UpdateMLLabelConfigRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: UpdateMLLabelConfigRequest): UpdateMLLabelConfigRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 id */ 1:
+                    message.id = reader.int32();
+                    break;
+                case /* optional string name */ 2:
+                    message.name = reader.string();
+                    break;
+                case /* optional string description */ 3:
+                    message.description = reader.string();
+                    break;
+                case /* optional string config_json */ 4:
+                    message.configJson = reader.string();
+                    break;
+                case /* optional bool is_active */ 5:
+                    message.isActive = reader.bool();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: UpdateMLLabelConfigRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 id = 1; */
+        if (message.id !== 0)
+            writer.tag(1, WireType.Varint).int32(message.id);
+        /* optional string name = 2; */
+        if (message.name !== undefined)
+            writer.tag(2, WireType.LengthDelimited).string(message.name);
+        /* optional string description = 3; */
+        if (message.description !== undefined)
+            writer.tag(3, WireType.LengthDelimited).string(message.description);
+        /* optional string config_json = 4; */
+        if (message.configJson !== undefined)
+            writer.tag(4, WireType.LengthDelimited).string(message.configJson);
+        /* optional bool is_active = 5; */
+        if (message.isActive !== undefined)
+            writer.tag(5, WireType.Varint).bool(message.isActive);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.UpdateMLLabelConfigRequest
+ */
+export const UpdateMLLabelConfigRequest = new UpdateMLLabelConfigRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class DeleteMLLabelConfigRequest$Type extends MessageType<DeleteMLLabelConfigRequest> {
+    constructor() {
+        super("enose.analytics.v1.DeleteMLLabelConfigRequest", [
+            { no: 1, name: "id", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<DeleteMLLabelConfigRequest>): DeleteMLLabelConfigRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.id = 0;
+        if (value !== undefined)
+            reflectionMergePartial<DeleteMLLabelConfigRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: DeleteMLLabelConfigRequest): DeleteMLLabelConfigRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 id */ 1:
+                    message.id = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: DeleteMLLabelConfigRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 id = 1; */
+        if (message.id !== 0)
+            writer.tag(1, WireType.Varint).int32(message.id);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.DeleteMLLabelConfigRequest
+ */
+export const DeleteMLLabelConfigRequest = new DeleteMLLabelConfigRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GenerateLabelsRequest$Type extends MessageType<GenerateLabelsRequest> {
+    constructor() {
+        super("enose.analytics.v1.GenerateLabelsRequest", [
+            { no: 1, name: "config_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "run_ids", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "phase_names", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "sample_ids", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GenerateLabelsRequest>): GenerateLabelsRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.configName = "";
+        message.runIds = [];
+        message.phaseNames = [];
+        message.sampleIds = [];
+        if (value !== undefined)
+            reflectionMergePartial<GenerateLabelsRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GenerateLabelsRequest): GenerateLabelsRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string config_name */ 1:
+                    message.configName = reader.string();
+                    break;
+                case /* repeated int32 run_ids */ 2:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.runIds.push(reader.int32());
+                    else
+                        message.runIds.push(reader.int32());
+                    break;
+                case /* repeated string phase_names */ 3:
+                    message.phaseNames.push(reader.string());
+                    break;
+                case /* repeated int32 sample_ids */ 4:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.sampleIds.push(reader.int32());
+                    else
+                        message.sampleIds.push(reader.int32());
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GenerateLabelsRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string config_name = 1; */
+        if (message.configName !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.configName);
+        /* repeated int32 run_ids = 2; */
+        if (message.runIds.length) {
+            writer.tag(2, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.runIds.length; i++)
+                writer.int32(message.runIds[i]);
+            writer.join();
+        }
+        /* repeated string phase_names = 3; */
+        for (let i = 0; i < message.phaseNames.length; i++)
+            writer.tag(3, WireType.LengthDelimited).string(message.phaseNames[i]);
+        /* repeated int32 sample_ids = 4; */
+        if (message.sampleIds.length) {
+            writer.tag(4, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.sampleIds.length; i++)
+                writer.int32(message.sampleIds[i]);
+            writer.join();
+        }
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GenerateLabelsRequest
+ */
+export const GenerateLabelsRequest = new GenerateLabelsRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GenerateLabelsResponse$Type extends MessageType<GenerateLabelsResponse> {
+    constructor() {
+        super("enose.analytics.v1.GenerateLabelsResponse", [
+            { no: 1, name: "generated_counts", kind: "map", K: 9 /*ScalarType.STRING*/, V: { kind: "scalar", T: 5 /*ScalarType.INT32*/ } },
+            { no: 2, name: "message", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GenerateLabelsResponse>): GenerateLabelsResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.generatedCounts = {};
+        message.message = "";
+        if (value !== undefined)
+            reflectionMergePartial<GenerateLabelsResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GenerateLabelsResponse): GenerateLabelsResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* map<string, int32> generated_counts */ 1:
+                    this.binaryReadMap1(message.generatedCounts, reader, options);
+                    break;
+                case /* string message */ 2:
+                    message.message = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    private binaryReadMap1(map: GenerateLabelsResponse["generatedCounts"], reader: IBinaryReader, options: BinaryReadOptions): void {
+        let len = reader.uint32(), end = reader.pos + len, key: keyof GenerateLabelsResponse["generatedCounts"] | undefined, val: GenerateLabelsResponse["generatedCounts"][any] | undefined;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case 1:
+                    key = reader.string();
+                    break;
+                case 2:
+                    val = reader.int32();
+                    break;
+                default: throw new globalThis.Error("unknown map entry field for enose.analytics.v1.GenerateLabelsResponse.generated_counts");
+            }
+        }
+        map[key ?? ""] = val ?? 0;
+    }
+    internalBinaryWrite(message: GenerateLabelsResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* map<string, int32> generated_counts = 1; */
+        for (let k of globalThis.Object.keys(message.generatedCounts))
+            writer.tag(1, WireType.LengthDelimited).fork().tag(1, WireType.LengthDelimited).string(k).tag(2, WireType.Varint).int32(message.generatedCounts[k]).join();
+        /* string message = 2; */
+        if (message.message !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.message);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GenerateLabelsResponse
+ */
+export const GenerateLabelsResponse = new GenerateLabelsResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetLabelDistributionRequest$Type extends MessageType<GetLabelDistributionRequest> {
+    constructor() {
+        super("enose.analytics.v1.GetLabelDistributionRequest", [
+            { no: 1, name: "config_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "run_ids", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "phase_names", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "sample_ids", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GetLabelDistributionRequest>): GetLabelDistributionRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.configName = "";
+        message.runIds = [];
+        message.phaseNames = [];
+        message.sampleIds = [];
+        if (value !== undefined)
+            reflectionMergePartial<GetLabelDistributionRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetLabelDistributionRequest): GetLabelDistributionRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string config_name */ 1:
+                    message.configName = reader.string();
+                    break;
+                case /* repeated int32 run_ids */ 2:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.runIds.push(reader.int32());
+                    else
+                        message.runIds.push(reader.int32());
+                    break;
+                case /* repeated string phase_names */ 3:
+                    message.phaseNames.push(reader.string());
+                    break;
+                case /* repeated int32 sample_ids */ 4:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.sampleIds.push(reader.int32());
+                    else
+                        message.sampleIds.push(reader.int32());
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetLabelDistributionRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string config_name = 1; */
+        if (message.configName !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.configName);
+        /* repeated int32 run_ids = 2; */
+        if (message.runIds.length) {
+            writer.tag(2, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.runIds.length; i++)
+                writer.int32(message.runIds[i]);
+            writer.join();
+        }
+        /* repeated string phase_names = 3; */
+        for (let i = 0; i < message.phaseNames.length; i++)
+            writer.tag(3, WireType.LengthDelimited).string(message.phaseNames[i]);
+        /* repeated int32 sample_ids = 4; */
+        if (message.sampleIds.length) {
+            writer.tag(4, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.sampleIds.length; i++)
+                writer.int32(message.sampleIds[i]);
+            writer.join();
+        }
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GetLabelDistributionRequest
+ */
+export const GetLabelDistributionRequest = new GetLabelDistributionRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetLabelDistributionResponse$Type extends MessageType<GetLabelDistributionResponse> {
+    constructor() {
+        super("enose.analytics.v1.GetLabelDistributionResponse", [
+            { no: 1, name: "config_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "label_type", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "buckets", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => LabelBucket },
+            { no: 4, name: "total_samples", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GetLabelDistributionResponse>): GetLabelDistributionResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.configName = "";
+        message.labelType = "";
+        message.buckets = [];
+        message.totalSamples = 0;
+        if (value !== undefined)
+            reflectionMergePartial<GetLabelDistributionResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetLabelDistributionResponse): GetLabelDistributionResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string config_name */ 1:
+                    message.configName = reader.string();
+                    break;
+                case /* string label_type */ 2:
+                    message.labelType = reader.string();
+                    break;
+                case /* repeated enose.analytics.v1.LabelBucket buckets */ 3:
+                    message.buckets.push(LabelBucket.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* int32 total_samples */ 4:
+                    message.totalSamples = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetLabelDistributionResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string config_name = 1; */
+        if (message.configName !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.configName);
+        /* string label_type = 2; */
+        if (message.labelType !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.labelType);
+        /* repeated enose.analytics.v1.LabelBucket buckets = 3; */
+        for (let i = 0; i < message.buckets.length; i++)
+            LabelBucket.internalBinaryWrite(message.buckets[i], writer.tag(3, WireType.LengthDelimited).fork(), options).join();
+        /* int32 total_samples = 4; */
+        if (message.totalSamples !== 0)
+            writer.tag(4, WireType.Varint).int32(message.totalSamples);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GetLabelDistributionResponse
+ */
+export const GetLabelDistributionResponse = new GetLabelDistributionResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class LabelBucket$Type extends MessageType<LabelBucket> {
+    constructor() {
+        super("enose.analytics.v1.LabelBucket", [
+            { no: 1, name: "label", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "count", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "label_index", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<LabelBucket>): LabelBucket {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.label = "";
+        message.count = 0;
+        message.labelIndex = 0;
+        if (value !== undefined)
+            reflectionMergePartial<LabelBucket>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: LabelBucket): LabelBucket {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string label */ 1:
+                    message.label = reader.string();
+                    break;
+                case /* int32 count */ 2:
+                    message.count = reader.int32();
+                    break;
+                case /* int32 label_index */ 3:
+                    message.labelIndex = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: LabelBucket, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string label = 1; */
+        if (message.label !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.label);
+        /* int32 count = 2; */
+        if (message.count !== 0)
+            writer.tag(2, WireType.Varint).int32(message.count);
+        /* int32 label_index = 3; */
+        if (message.labelIndex !== 0)
+            writer.tag(3, WireType.Varint).int32(message.labelIndex);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.LabelBucket
+ */
+export const LabelBucket = new LabelBucket$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetSampleMLLabelsRequest$Type extends MessageType<GetSampleMLLabelsRequest> {
+    constructor() {
+        super("enose.analytics.v1.GetSampleMLLabelsRequest", [
+            { no: 1, name: "sample_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GetSampleMLLabelsRequest>): GetSampleMLLabelsRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.sampleId = 0;
+        if (value !== undefined)
+            reflectionMergePartial<GetSampleMLLabelsRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetSampleMLLabelsRequest): GetSampleMLLabelsRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 sample_id */ 1:
+                    message.sampleId = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetSampleMLLabelsRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 sample_id = 1; */
+        if (message.sampleId !== 0)
+            writer.tag(1, WireType.Varint).int32(message.sampleId);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GetSampleMLLabelsRequest
+ */
+export const GetSampleMLLabelsRequest = new GetSampleMLLabelsRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetSampleMLLabelsResponse$Type extends MessageType<GetSampleMLLabelsResponse> {
+    constructor() {
+        super("enose.analytics.v1.GetSampleMLLabelsResponse", [
+            { no: 1, name: "labels", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => SampleMLLabel }
+        ]);
+    }
+    create(value?: PartialMessage<GetSampleMLLabelsResponse>): GetSampleMLLabelsResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.labels = [];
+        if (value !== undefined)
+            reflectionMergePartial<GetSampleMLLabelsResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetSampleMLLabelsResponse): GetSampleMLLabelsResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated enose.analytics.v1.SampleMLLabel labels */ 1:
+                    message.labels.push(SampleMLLabel.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetSampleMLLabelsResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated enose.analytics.v1.SampleMLLabel labels = 1; */
+        for (let i = 0; i < message.labels.length; i++)
+            SampleMLLabel.internalBinaryWrite(message.labels[i], writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GetSampleMLLabelsResponse
+ */
+export const GetSampleMLLabelsResponse = new GetSampleMLLabelsResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class SampleMLLabel$Type extends MessageType<SampleMLLabel> {
+    constructor() {
+        super("enose.analytics.v1.SampleMLLabel", [
+            { no: 1, name: "config_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "label_type", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "label_str", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "label_num", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 5, name: "label_index", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<SampleMLLabel>): SampleMLLabel {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.configName = "";
+        message.labelType = "";
+        message.labelStr = "";
+        message.labelNum = 0;
+        message.labelIndex = 0;
+        if (value !== undefined)
+            reflectionMergePartial<SampleMLLabel>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: SampleMLLabel): SampleMLLabel {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string config_name */ 1:
+                    message.configName = reader.string();
+                    break;
+                case /* string label_type */ 2:
+                    message.labelType = reader.string();
+                    break;
+                case /* string label_str */ 3:
+                    message.labelStr = reader.string();
+                    break;
+                case /* double label_num */ 4:
+                    message.labelNum = reader.double();
+                    break;
+                case /* int32 label_index */ 5:
+                    message.labelIndex = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: SampleMLLabel, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string config_name = 1; */
+        if (message.configName !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.configName);
+        /* string label_type = 2; */
+        if (message.labelType !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.labelType);
+        /* string label_str = 3; */
+        if (message.labelStr !== "")
+            writer.tag(3, WireType.LengthDelimited).string(message.labelStr);
+        /* double label_num = 4; */
+        if (message.labelNum !== 0)
+            writer.tag(4, WireType.Bit64).double(message.labelNum);
+        /* int32 label_index = 5; */
+        if (message.labelIndex !== 0)
+            writer.tag(5, WireType.Varint).int32(message.labelIndex);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.SampleMLLabel
+ */
+export const SampleMLLabel = new SampleMLLabel$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class PreviewDatasetRequest$Type extends MessageType<PreviewDatasetRequest> {
+    constructor() {
+        super("enose.analytics.v1.PreviewDatasetRequest", [
+            { no: 1, name: "config_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "run_ids", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "phase_names", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "train_ratio", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 5, name: "val_ratio", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 6, name: "test_ratio", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 7, name: "sample_ids", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<PreviewDatasetRequest>): PreviewDatasetRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.configName = "";
+        message.runIds = [];
+        message.phaseNames = [];
+        message.trainRatio = 0;
+        message.valRatio = 0;
+        message.testRatio = 0;
+        message.sampleIds = [];
+        if (value !== undefined)
+            reflectionMergePartial<PreviewDatasetRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: PreviewDatasetRequest): PreviewDatasetRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string config_name */ 1:
+                    message.configName = reader.string();
+                    break;
+                case /* repeated int32 run_ids */ 2:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.runIds.push(reader.int32());
+                    else
+                        message.runIds.push(reader.int32());
+                    break;
+                case /* repeated string phase_names */ 3:
+                    message.phaseNames.push(reader.string());
+                    break;
+                case /* double train_ratio */ 4:
+                    message.trainRatio = reader.double();
+                    break;
+                case /* double val_ratio */ 5:
+                    message.valRatio = reader.double();
+                    break;
+                case /* double test_ratio */ 6:
+                    message.testRatio = reader.double();
+                    break;
+                case /* repeated int32 sample_ids */ 7:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.sampleIds.push(reader.int32());
+                    else
+                        message.sampleIds.push(reader.int32());
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: PreviewDatasetRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string config_name = 1; */
+        if (message.configName !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.configName);
+        /* repeated int32 run_ids = 2; */
+        if (message.runIds.length) {
+            writer.tag(2, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.runIds.length; i++)
+                writer.int32(message.runIds[i]);
+            writer.join();
+        }
+        /* repeated string phase_names = 3; */
+        for (let i = 0; i < message.phaseNames.length; i++)
+            writer.tag(3, WireType.LengthDelimited).string(message.phaseNames[i]);
+        /* double train_ratio = 4; */
+        if (message.trainRatio !== 0)
+            writer.tag(4, WireType.Bit64).double(message.trainRatio);
+        /* double val_ratio = 5; */
+        if (message.valRatio !== 0)
+            writer.tag(5, WireType.Bit64).double(message.valRatio);
+        /* double test_ratio = 6; */
+        if (message.testRatio !== 0)
+            writer.tag(6, WireType.Bit64).double(message.testRatio);
+        /* repeated int32 sample_ids = 7; */
+        if (message.sampleIds.length) {
+            writer.tag(7, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.sampleIds.length; i++)
+                writer.int32(message.sampleIds[i]);
+            writer.join();
+        }
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.PreviewDatasetRequest
+ */
+export const PreviewDatasetRequest = new PreviewDatasetRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class PreviewDatasetResponse$Type extends MessageType<PreviewDatasetResponse> {
+    constructor() {
+        super("enose.analytics.v1.PreviewDatasetResponse", [
+            { no: 1, name: "config_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "label_type", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "total_samples", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "train_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 5, name: "val_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 6, name: "test_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 7, name: "label_distribution", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => LabelBucket }
+        ]);
+    }
+    create(value?: PartialMessage<PreviewDatasetResponse>): PreviewDatasetResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.configName = "";
+        message.labelType = "";
+        message.totalSamples = 0;
+        message.trainCount = 0;
+        message.valCount = 0;
+        message.testCount = 0;
+        message.labelDistribution = [];
+        if (value !== undefined)
+            reflectionMergePartial<PreviewDatasetResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: PreviewDatasetResponse): PreviewDatasetResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string config_name */ 1:
+                    message.configName = reader.string();
+                    break;
+                case /* string label_type */ 2:
+                    message.labelType = reader.string();
+                    break;
+                case /* int32 total_samples */ 3:
+                    message.totalSamples = reader.int32();
+                    break;
+                case /* int32 train_count */ 4:
+                    message.trainCount = reader.int32();
+                    break;
+                case /* int32 val_count */ 5:
+                    message.valCount = reader.int32();
+                    break;
+                case /* int32 test_count */ 6:
+                    message.testCount = reader.int32();
+                    break;
+                case /* repeated enose.analytics.v1.LabelBucket label_distribution */ 7:
+                    message.labelDistribution.push(LabelBucket.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: PreviewDatasetResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string config_name = 1; */
+        if (message.configName !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.configName);
+        /* string label_type = 2; */
+        if (message.labelType !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.labelType);
+        /* int32 total_samples = 3; */
+        if (message.totalSamples !== 0)
+            writer.tag(3, WireType.Varint).int32(message.totalSamples);
+        /* int32 train_count = 4; */
+        if (message.trainCount !== 0)
+            writer.tag(4, WireType.Varint).int32(message.trainCount);
+        /* int32 val_count = 5; */
+        if (message.valCount !== 0)
+            writer.tag(5, WireType.Varint).int32(message.valCount);
+        /* int32 test_count = 6; */
+        if (message.testCount !== 0)
+            writer.tag(6, WireType.Varint).int32(message.testCount);
+        /* repeated enose.analytics.v1.LabelBucket label_distribution = 7; */
+        for (let i = 0; i < message.labelDistribution.length; i++)
+            LabelBucket.internalBinaryWrite(message.labelDistribution[i], writer.tag(7, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.PreviewDatasetResponse
+ */
+export const PreviewDatasetResponse = new PreviewDatasetResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class ExportDataRequest$Type extends MessageType<ExportDataRequest> {
+    constructor() {
+        super("enose.analytics.v1.ExportDataRequest", [
+            { no: 1, name: "sample_ids", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "include_params", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 3, name: "include_raw_data", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 4, name: "include_frames", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 5, name: "include_ml_labels", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 6, name: "include_dataset", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 10, name: "frame_method", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 11, name: "frame_n_samples", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 12, name: "frame_format", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 15, name: "ml_label_configs", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
+            { no: 20, name: "dataset_label_config", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 21, name: "dataset_split", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 22, name: "dataset_train_ratio", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 23, name: "dataset_val_ratio", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 24, name: "dataset_format", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<ExportDataRequest>): ExportDataRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.sampleIds = [];
+        message.includeParams = false;
+        message.includeRawData = false;
+        message.includeFrames = false;
+        message.includeMlLabels = false;
+        message.includeDataset = false;
+        message.frameMethod = "";
+        message.frameNSamples = 0;
+        message.frameFormat = "";
+        message.mlLabelConfigs = [];
+        message.datasetLabelConfig = "";
+        message.datasetSplit = false;
+        message.datasetTrainRatio = 0;
+        message.datasetValRatio = 0;
+        message.datasetFormat = "";
+        if (value !== undefined)
+            reflectionMergePartial<ExportDataRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ExportDataRequest): ExportDataRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated int32 sample_ids */ 1:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.sampleIds.push(reader.int32());
+                    else
+                        message.sampleIds.push(reader.int32());
+                    break;
+                case /* bool include_params */ 2:
+                    message.includeParams = reader.bool();
+                    break;
+                case /* bool include_raw_data */ 3:
+                    message.includeRawData = reader.bool();
+                    break;
+                case /* bool include_frames */ 4:
+                    message.includeFrames = reader.bool();
+                    break;
+                case /* bool include_ml_labels */ 5:
+                    message.includeMlLabels = reader.bool();
+                    break;
+                case /* bool include_dataset */ 6:
+                    message.includeDataset = reader.bool();
+                    break;
+                case /* string frame_method */ 10:
+                    message.frameMethod = reader.string();
+                    break;
+                case /* int32 frame_n_samples */ 11:
+                    message.frameNSamples = reader.int32();
+                    break;
+                case /* string frame_format */ 12:
+                    message.frameFormat = reader.string();
+                    break;
+                case /* repeated string ml_label_configs */ 15:
+                    message.mlLabelConfigs.push(reader.string());
+                    break;
+                case /* string dataset_label_config */ 20:
+                    message.datasetLabelConfig = reader.string();
+                    break;
+                case /* bool dataset_split */ 21:
+                    message.datasetSplit = reader.bool();
+                    break;
+                case /* double dataset_train_ratio */ 22:
+                    message.datasetTrainRatio = reader.double();
+                    break;
+                case /* double dataset_val_ratio */ 23:
+                    message.datasetValRatio = reader.double();
+                    break;
+                case /* string dataset_format */ 24:
+                    message.datasetFormat = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: ExportDataRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated int32 sample_ids = 1; */
+        if (message.sampleIds.length) {
+            writer.tag(1, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.sampleIds.length; i++)
+                writer.int32(message.sampleIds[i]);
+            writer.join();
+        }
+        /* bool include_params = 2; */
+        if (message.includeParams !== false)
+            writer.tag(2, WireType.Varint).bool(message.includeParams);
+        /* bool include_raw_data = 3; */
+        if (message.includeRawData !== false)
+            writer.tag(3, WireType.Varint).bool(message.includeRawData);
+        /* bool include_frames = 4; */
+        if (message.includeFrames !== false)
+            writer.tag(4, WireType.Varint).bool(message.includeFrames);
+        /* bool include_ml_labels = 5; */
+        if (message.includeMlLabels !== false)
+            writer.tag(5, WireType.Varint).bool(message.includeMlLabels);
+        /* bool include_dataset = 6; */
+        if (message.includeDataset !== false)
+            writer.tag(6, WireType.Varint).bool(message.includeDataset);
+        /* string frame_method = 10; */
+        if (message.frameMethod !== "")
+            writer.tag(10, WireType.LengthDelimited).string(message.frameMethod);
+        /* int32 frame_n_samples = 11; */
+        if (message.frameNSamples !== 0)
+            writer.tag(11, WireType.Varint).int32(message.frameNSamples);
+        /* string frame_format = 12; */
+        if (message.frameFormat !== "")
+            writer.tag(12, WireType.LengthDelimited).string(message.frameFormat);
+        /* repeated string ml_label_configs = 15; */
+        for (let i = 0; i < message.mlLabelConfigs.length; i++)
+            writer.tag(15, WireType.LengthDelimited).string(message.mlLabelConfigs[i]);
+        /* string dataset_label_config = 20; */
+        if (message.datasetLabelConfig !== "")
+            writer.tag(20, WireType.LengthDelimited).string(message.datasetLabelConfig);
+        /* bool dataset_split = 21; */
+        if (message.datasetSplit !== false)
+            writer.tag(21, WireType.Varint).bool(message.datasetSplit);
+        /* double dataset_train_ratio = 22; */
+        if (message.datasetTrainRatio !== 0)
+            writer.tag(22, WireType.Bit64).double(message.datasetTrainRatio);
+        /* double dataset_val_ratio = 23; */
+        if (message.datasetValRatio !== 0)
+            writer.tag(23, WireType.Bit64).double(message.datasetValRatio);
+        /* string dataset_format = 24; */
+        if (message.datasetFormat !== "")
+            writer.tag(24, WireType.LengthDelimited).string(message.datasetFormat);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.ExportDataRequest
+ */
+export const ExportDataRequest = new ExportDataRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class ExportDataChunk$Type extends MessageType<ExportDataChunk> {
+    constructor() {
+        super("enose.analytics.v1.ExportDataChunk", [
+            { no: 1, name: "data", kind: "scalar", T: 12 /*ScalarType.BYTES*/ },
+            { no: 2, name: "filename", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "progress_percent", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<ExportDataChunk>): ExportDataChunk {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.data = new Uint8Array(0);
+        message.filename = "";
+        message.progressPercent = 0;
+        if (value !== undefined)
+            reflectionMergePartial<ExportDataChunk>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ExportDataChunk): ExportDataChunk {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* bytes data */ 1:
+                    message.data = reader.bytes();
+                    break;
+                case /* string filename */ 2:
+                    message.filename = reader.string();
+                    break;
+                case /* int32 progress_percent */ 3:
+                    message.progressPercent = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: ExportDataChunk, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* bytes data = 1; */
+        if (message.data.length)
+            writer.tag(1, WireType.LengthDelimited).bytes(message.data);
+        /* string filename = 2; */
+        if (message.filename !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.filename);
+        /* int32 progress_percent = 3; */
+        if (message.progressPercent !== 0)
+            writer.tag(3, WireType.Varint).int32(message.progressPercent);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.ExportDataChunk
+ */
+export const ExportDataChunk = new ExportDataChunk$Type();
 /**
  * @generated ServiceType for protobuf service enose.analytics.v1.AnalyticsService
  */
@@ -7930,4 +9784,24 @@ export const SampleService = new ServiceType("enose.analytics.v1.SampleService",
     { name: "GetSampleSensorData", options: {}, I: GetSampleSensorDataRequest, O: GetSampleSensorDataResponse },
     { name: "GetAvailablePhases", options: {}, I: GetAvailablePhasesRequest, O: GetAvailablePhasesResponse },
     { name: "GetPhaseTransitions", options: {}, I: GetPhaseTransitionsRequest, O: GetPhaseTransitionsResponse }
+]);
+/**
+ * @generated ServiceType for protobuf service enose.analytics.v1.MLLabelService
+ */
+export const MLLabelService = new ServiceType("enose.analytics.v1.MLLabelService", [
+    { name: "ListMLLabelConfigs", options: {}, I: ListMLLabelConfigsRequest, O: ListMLLabelConfigsResponse },
+    { name: "GetMLLabelConfig", options: {}, I: GetMLLabelConfigRequest, O: MLLabelConfig },
+    { name: "CreateMLLabelConfig", options: {}, I: CreateMLLabelConfigRequest, O: MLLabelConfig },
+    { name: "UpdateMLLabelConfig", options: {}, I: UpdateMLLabelConfigRequest, O: MLLabelConfig },
+    { name: "DeleteMLLabelConfig", options: {}, I: DeleteMLLabelConfigRequest, O: Empty },
+    { name: "GenerateLabels", options: {}, I: GenerateLabelsRequest, O: GenerateLabelsResponse },
+    { name: "GetLabelDistribution", options: {}, I: GetLabelDistributionRequest, O: GetLabelDistributionResponse },
+    { name: "GetSampleMLLabels", options: {}, I: GetSampleMLLabelsRequest, O: GetSampleMLLabelsResponse },
+    { name: "PreviewDataset", options: {}, I: PreviewDatasetRequest, O: PreviewDatasetResponse }
+]);
+/**
+ * @generated ServiceType for protobuf service enose.analytics.v1.ExportService
+ */
+export const ExportService = new ServiceType("enose.analytics.v1.ExportService", [
+    { name: "ExportData", serverStreaming: true, options: {}, I: ExportDataRequest, O: ExportDataChunk }
 ]);

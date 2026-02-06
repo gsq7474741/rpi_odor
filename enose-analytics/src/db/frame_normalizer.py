@@ -238,6 +238,44 @@ class FrameNormalizer:
 
         return frames_df, meta
 
+    def _filter_by_phases(
+        self,
+        raw_df: pd.DataFrame,
+        sample_id: int,
+        phase_names: list[str],
+    ) -> pd.DataFrame:
+        """按 phase 时间区间过滤传感器数据，仅保留指定 phase 内的读数"""
+        query = """
+            SELECT phase_name, start_time_ms, end_time_ms
+            FROM sample_phase_transitions
+            WHERE sample_id = %s AND phase_name = ANY(%s)
+            ORDER BY phase_order
+        """
+        with get_cursor() as cur:
+            cur.execute(query, [sample_id, phase_names])
+            transitions = cur.fetchall()
+
+        if not transitions:
+            logger.warning(f"No phase transitions for sample_id={sample_id}, phases={phase_names}")
+            return pd.DataFrame()
+
+        # 构建时间范围 mask
+        mask = pd.Series(False, index=raw_df.index)
+        for t in transitions:
+            start = t["start_time_ms"]
+            end = t["end_time_ms"]
+            if end:
+                mask |= (raw_df["time_ms"] >= start) & (raw_df["time_ms"] <= end)
+            else:
+                mask |= raw_df["time_ms"] >= start
+
+        filtered = raw_df[mask]
+        logger.debug(
+            f"Phase filter: sample_id={sample_id} phases={phase_names} "
+            f"kept {len(filtered)}/{len(raw_df)} rows"
+        )
+        return filtered
+
     def _interpolate_channel(
         self,
         normalized_t: np.ndarray,
@@ -270,6 +308,7 @@ class FrameNormalizer:
         sample_id: int,
         n_samples: int = 100,
         method: InterpolationMethod = "linear",
+        phase_names: list[str] | None = None,
     ) -> tuple[np.ndarray, dict]:
         """
         将异步传感器数据归一化为固定长度帧（基于 sample_id 的新接口）
@@ -285,11 +324,16 @@ class FrameNormalizer:
             sample_id: 样本 ID
             n_samples: 输出帧数
             method: 插值方法 ('linear' 或 'pchip')
+            phase_names: 可选的 phase 名称列表，仅使用这些 phase 时间段内的数据
         
         Returns:
             (frames_array, meta): 帧数据 (n_samples, 32) 和元数据
         """
         raw_df = self.get_raw_sensor_data_by_sample(sample_id)
+        
+        # 按 phase 时间区间过滤数据
+        if phase_names and not raw_df.empty:
+            raw_df = self._filter_by_phases(raw_df, sample_id, phase_names)
 
         if raw_df.empty:
             logger.warning(f"No data for sample_id={sample_id}")
@@ -362,6 +406,7 @@ class FrameNormalizer:
             "n_channels": 32,
             "original_point_counts": original_point_counts,
             "time_range_ms": time_range_ms,
+            "phase_names": phase_names,
         }
 
         return frames_array, meta

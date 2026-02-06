@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useSettings } from "@/hooks/use-settings";
 
 interface LatencyState {
   rtt: number | null;        // 完整往返时间 (ms)
@@ -10,9 +11,8 @@ interface LatencyState {
 }
 
 const HISTORY_SIZE = 10;     // 保留最近 10 次测量
-const PING_INTERVAL = 2000;  // 每 2 秒 ping 一次
-
 export function useLatency() {
+  const pingIntervalMs = useSettings((s) => s.connection.pingIntervalMs);
   const [state, setState] = useState<LatencyState>({
     rtt: null,
     grpcTime: null,
@@ -78,14 +78,14 @@ export function useLatency() {
     ping();
     
     // 设置定时器
-    intervalRef.current = setInterval(ping, PING_INTERVAL);
+    intervalRef.current = setInterval(ping, pingIntervalMs);
     
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
     };
-  }, [ping]);
+  }, [ping, pingIntervalMs]);
   
   return {
     ...state,

@@ -175,10 +175,10 @@ message InjectAction {
     lte: 10
   }];
   
-  // 流速 (ml/min)
-  double flow_rate_ml_min = 5 [(buf.validate.field).double = {
-    gte: 0.5,
-    lte: 20
+  // 流速 (ml/s)
+  double flow_rate_ml_s = 5 [(buf.validate.field).double = {
+    gte: 0.01,
+    lte: 50
   }];
   
   // 等待稳定超时 (秒)
@@ -187,12 +187,7 @@ message InjectAction {
     lte: 300
   }];
   
-  // CEL规则: 比例之和为1
-  option (buf.validate.message).cel = {
-    id: "ratio_sum_one"
-    message: "所有液体比例之和必须为1"
-    expression: "math.abs(this.components.map(c, c.ratio).sum() - 1.0) < 0.01"
-  };
+  // 注意: ratio 支持百分比 (如 10:90) 或小数 (如 0.1:0.9)，后端会归一化
 }
 
 // 液体成分
@@ -361,10 +356,11 @@ message PhaseMarkerAction {
 }
 
 // 清洗动作 - 使用清洗泵冲洗反应瓶
-// 流程: 排废确认空瓶 → CLEAN状态(清洗泵开) → 监测重量变化 → 排废
+// 流程: 排废确认空瓶 → CLEAN状态(清洗泵开) → 监测校正后重量变化 → 排废
+// 重量检测使用线性校正: expected_weight_change = target_volume_ml * ml_to_weight_slope + ml_to_weight_offset
 message WashAction {
-  // 目标清洗量 (g) - 重量变化阈值，达到后立即切换到排废
-  double target_weight_g = 1 [(buf.validate.field).double = {
+  // 目标清洗量 (ml) - 经线性校正后与称重传感器重量变化比较
+  double target_volume_ml = 1 [(buf.validate.field).double = {
     gte: 5,
     lte: 200
   }];
@@ -404,6 +400,9 @@ message WashAction {
     gte: 1,
     lte: 30
   }];
+  
+  // 清洗液 ID (对应耗材管理中的液体 ID)
+  string wash_liquid_id = 8;
 }
 
 // 预热动作 - 等待传感器预热稳定

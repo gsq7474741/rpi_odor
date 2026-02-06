@@ -58,7 +58,10 @@ ValidationResultInfo ExperimentValidator::validate(const experiment::ExperimentP
                 info.pump_index = 100 + wash_it->second.front();
             }
         }
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         info.available_ml = inventory->available_ml();
+#pragma GCC diagnostic pop
         
         // 计算该液体的消耗量 (从泵消耗中提取)
         auto it = pump_totals_.find(info.pump_index >= 100 ? info.pump_index - 100 : info.pump_index);
@@ -466,9 +469,9 @@ void ExperimentValidator::calculate_inject_resources(const experiment::InjectAct
     peak_liquid_level_ = std::max(peak_liquid_level_, current_liquid_level_);
     
     // 估算时间: 体积 / 流速 + 稳定时间
-    double flow_rate = action.flow_rate_ml_min();
+    double flow_rate = action.flow_rate_ml_s();
     if (flow_rate > 0) {
-        total_duration_ += (volume / flow_rate) * 60;  // 转换为秒
+        total_duration_ += volume / flow_rate;  // ml / (ml/s) = 秒
     }
     total_duration_ += action.stable_timeout_s();
 }
@@ -538,7 +541,7 @@ void ExperimentValidator::calculate_wash_resources(const experiment::WashAction&
     current_liquid_level_ = 0;
     
     // 2. 注入清洗液 - 使用目标清洗量作为估算
-    double wash_volume = action.target_weight_g();  // 假设密度≈1
+    double wash_volume = action.target_volume_ml();
     current_liquid_level_ = wash_volume;  // 从0开始注入
     if (current_liquid_level_ > peak_liquid_level_) {
         peak_liquid_level_ = current_liquid_level_;
@@ -637,9 +640,12 @@ void ExperimentValidator::check_empty_aspiration_risk() {
         
         // 从数据库查询余量
         double available = repo.get_liquid_available_volume(liquid_id_int);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         if (available <= 0 && inventory->available_ml() > 0) {
             available = inventory->available_ml();
         }
+#pragma GCC diagnostic pop
         
         if (required > available * 0.9 && required <= available) {
             add_warning("hardware.liquids", "LOW_LIQUID_MARGIN",
@@ -690,9 +696,12 @@ void ExperimentValidator::check_liquid_sufficiency() {
         double available = repo.get_liquid_available_volume(liquid_id_int);
         
         // 如果数据库没有余量信息，回退到YAML中的值
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         if (available <= 0 && inventory->available_ml() > 0) {
             available = inventory->available_ml();
         }
+#pragma GCC diagnostic pop
         
         // 获取该液体的消耗量
         double required = 0;

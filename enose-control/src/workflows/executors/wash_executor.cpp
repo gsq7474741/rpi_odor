@@ -22,9 +22,9 @@ PreconditionResult WashExecutor::check_preconditions(
         failures.push_back("Repeat count must be positive");
     }
     
-    // 检查目标重量
-    if (action.target_weight_g() <= 0) {
-        failures.push_back("Target weight must be positive");
+    // 检查目标清洗量
+    if (action.target_volume_ml() <= 0) {
+        failures.push_back("Target volume must be positive");
     }
     
     // 检查系统状态
@@ -55,8 +55,37 @@ ExecuteResult WashExecutor::execute(const enose::experiment::Step& step) {
     }
     
     const auto& action = step.wash();
-    add_log("清洗: 目标重量变化=" + std::to_string(action.target_weight_g()) + 
-            "g, 重复" + std::to_string(action.repeat_count()) + "次");
+    
+    // 目标清洗量 (ml)，需要线性校正转换为期望的称重传感器重量变化
+    // 线性校正: expected_weight_change = target_ml * slope + offset
+    // 反推实际量: actual_ml = (weight_change - offset) / slope
+    float target_ml = action.target_volume_ml();
+    float expected_weight_change = target_ml;  // 默认 1:1
+    float slope = 1.0f;
+    float offset = 0.0f;
+    float lag_comp = 0.0f;
+    float trigger_threshold = target_ml;
+    
+    if (load_cell_) {
+        const auto& lc_config = load_cell_->get_config();
+        slope = lc_config.ml_to_weight_slope;
+        offset = lc_config.ml_to_weight_offset;
+        lag_comp = lc_config.fill_lag_compensation_g;
+        expected_weight_change = target_ml * slope + offset;
+        trigger_threshold = expected_weight_change - lag_comp;
+    }
+    
+    add_log("清洗: 目标=" + std::to_string(target_ml) + 
+            "ml 期望Δw=" + std::to_string(expected_weight_change) + 
+            "g 触发阈值=" + std::to_string(trigger_threshold) +
+            "g (slope=" + std::to_string(slope) +
+            " offset=" + std::to_string(offset) +
+            " lag_comp=" + std::to_string(lag_comp) +
+            "g) 重复" + std::to_string(action.repeat_count()) + "次" +
+            " 排废PWM=" + std::to_string(action.drain_gas_pump_pwm()) + "%");
+    
+    // 排废气泵 PWM 值 (0.0 - 1.0)
+    float drain_pwm = action.drain_gas_pump_pwm() / 100.0f;
     
     // 创建事务守卫 - 不自动切换状态，内部手动管理
     auto guard = create_guard(std::nullopt, "wash");
@@ -71,6 +100,8 @@ ExecuteResult WashExecutor::execute(const enose::experiment::Step& step) {
         // 1. 排废确认空瓶稳态
         add_log("排废确认空瓶...");
         system_state_->transition_to(SystemState::State::DRAIN);
+        // 使用用户配置的排废气泵 PWM，覆盖 DRAIN 状态预设的 100%
+        system_state_->set_air_pump_pwm(drain_pwm);
         
         float baseline_weight = 0;
         if (load_cell_) {
@@ -96,42 +127,57 @@ ExecuteResult WashExecutor::execute(const enose::experiment::Step& step) {
             return ExecuteResult::fail("Wash stopped by user");
         }
         
-        // 2. 切换到 CLEAN 状态
+        // 2. 切换到 CLEAN 状态 (清洗泵开启)
         add_log("开始注入清洗液...");
         system_state_->transition_to(SystemState::State::CLEAN);
         
-        // 3. 监测重量变化
+        // 3. 监测重量变化，达到阈值立即切换到排废
+        // 使用 raw_weight 而非 filtered_weight，避免移动平均滤波延迟导致过冲
+        // 线性校正: expected_weight_change = target_ml * slope + offset
         auto fill_start = std::chrono::steady_clock::now();
         auto fill_timeout = std::chrono::seconds(static_cast<int>(action.fill_timeout_s()));
         bool target_reached = false;
         
         while (!check_stop_or_pause()) {
             if (load_cell_) {
-                float current_weight = load_cell_->get_filtered_weight();
+                // 用原始值检测阈值，避免滤波延迟
+                float current_weight = load_cell_->get_raw_weight();
                 float weight_change = current_weight - baseline_weight;
                 
-                if (weight_change >= action.target_weight_g()) {
-                    add_log("达到目标重量变化: " + std::to_string(weight_change) + "g");
+                if (weight_change >= trigger_threshold) {
+                    float actual_ml = (slope > 0) ? (weight_change - offset) / slope : weight_change;
+                    add_log("达到目标: 重量变化=" + std::to_string(weight_change) + 
+                            "g (约" + std::to_string(actual_ml) + "ml)");
                     target_reached = true;
                     break;
                 }
             }
             
             if (std::chrono::steady_clock::now() - fill_start > fill_timeout) {
-                add_log("清洗注入超时");
+                if (load_cell_) {
+                    float current_weight = load_cell_->get_raw_weight();
+                    float weight_change = current_weight - baseline_weight;
+                    float actual_ml = (slope > 0) ? (weight_change - offset) / slope : weight_change;
+                    add_log("清洗注入超时: 重量变化=" + std::to_string(weight_change) + 
+                            "g (约" + std::to_string(actual_ml) + "ml, 目标" + std::to_string(target_ml) + "ml)");
+                } else {
+                    add_log("清洗注入超时");
+                }
                 break;
             }
             
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
         
         if (check_stop_or_pause()) {
             return ExecuteResult::fail("Wash stopped by user");
         }
         
-        // 4. 排废
+        // 4. 排废清洗液
         add_log("排废清洗液...");
         system_state_->transition_to(SystemState::State::DRAIN);
+        // 使用用户配置的排废气泵 PWM
+        system_state_->set_air_pump_pwm(drain_pwm);
         
         if (load_cell_) {
             auto drain_result = load_cell_->wait_for_empty_bottle(

@@ -124,6 +124,15 @@ private:
     int16_t current_phase_order_ = 0;  // 当前 sample 内的 phase 序号
     std::string current_phase_name_;   // 当前活跃的 phase 名称（集中管理）
     
+    // Phase 转换缓冲：sample 创建前的 phase 暂存于此，创建后 flush 到 DB
+    struct PendingPhaseTransition {
+        std::string phase_name;
+        int64_t start_time_ms = 0;
+        int64_t end_time_ms = 0;   // 0 表示尚未结束
+        int16_t phase_order = 0;
+    };
+    std::vector<PendingPhaseTransition> pending_phases_;
+    
     // 事件队列 (用于订阅者)
     std::mutex event_mutex_;
     std::condition_variable event_cv_;
@@ -170,6 +179,7 @@ private:
     void auto_start_phase(const std::string& phase_name);
     void auto_end_phase(const std::string& phase_name);
     void auto_end_current_phase();
+    void flush_pending_phases(int32_t sample_id);
     
     // 等待辅助方法
     bool wait_for_heater_cycles(int count, double timeout_s);

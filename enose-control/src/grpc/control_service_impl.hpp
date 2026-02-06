@@ -121,9 +121,9 @@ private:
     // 将内部状态转换为 proto 消息
     void fill_peripheral_status(::enose::service::PeripheralStatus* status);
     
-    // 将重量(g)转换为电机距离(mm)
-    // 公式: x = (y - weight_offset) / weight_scale, mm = x / pump_mm_to_ml
-    float weight_to_mm(float weight_g) const;
+    // 将测量重量变化(g)转换为体积(ml)
+    // 公式: ml = (weight_change_g - ml_to_weight_offset) / ml_to_weight_slope
+    float weight_to_ml(float weight_g) const;
 };
 
 } // namespace enose_grpc

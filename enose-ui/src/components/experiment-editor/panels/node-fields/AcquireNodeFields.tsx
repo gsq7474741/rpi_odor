@@ -27,7 +27,18 @@ export function AcquireNodeFields({ data, handleChange }: NodeFieldsProps) {
       <Field label="终止条件">
         <Select
           value={String(data.terminationType || 'cycles')}
-          onValueChange={(v) => handleChange('terminationType', v)}
+          onValueChange={(v) => {
+            handleChange('terminationType', v);
+            // 同步写入默认值，避免切换后字段未定义
+            if (v === 'duration' && !data.durationS) {
+              handleChange('durationS', 60);
+            } else if (v === 'cycles' && !data.heaterCycles) {
+              handleChange('heaterCycles', 10);
+            } else if (v === 'stability') {
+              if (!data.stabilityWindowS) handleChange('stabilityWindowS', 30);
+              if (!data.stabilityThresholdPercent) handleChange('stabilityThresholdPercent', 5);
+            }
+          }}
         >
           <SelectTrigger>
             <SelectValue />

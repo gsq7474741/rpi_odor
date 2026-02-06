@@ -817,11 +817,11 @@ export interface Workflow_DoseConfig {
      */
     maxDurationS: number;
     /**
-     * 流速: 0.5-20 ml/min
+     * 流速: 0.01-50 ml/s
      *
-     * @generated from protobuf field: double flow_rate_ml_min = 2
+     * @generated from protobuf field: double flow_rate_ml_s = 2
      */
-    flowRateMlMin: number;
+    flowRateMlS: number;
     /**
      * 称重容差: 0.1-5 g
      *
@@ -2702,7 +2702,7 @@ class Workflow_DoseConfig$Type extends MessageType<Workflow_DoseConfig> {
     constructor() {
         super("enose.config.Workflow.DoseConfig", [
             { no: 1, name: "max_duration_s", kind: "scalar", T: 5 /*ScalarType.INT32*/, options: { "buf.validate.field": { int32: { lte: 300, gte: 10 } } } },
-            { no: 2, name: "flow_rate_ml_min", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 20, gte: 0.5 } } } },
+            { no: 2, name: "flow_rate_ml_s", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 50, gte: 0.01 } } } },
             { no: 3, name: "weight_tolerance_g", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 5, gte: 0.1 } } } },
             { no: 4, name: "control_mode", kind: "enum", T: () => ["enose.config.Workflow.DoseConfig.ControlMode", Workflow_DoseConfig_ControlMode] }
         ]);
@@ -2710,7 +2710,7 @@ class Workflow_DoseConfig$Type extends MessageType<Workflow_DoseConfig> {
     create(value?: PartialMessage<Workflow_DoseConfig>): Workflow_DoseConfig {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.maxDurationS = 0;
-        message.flowRateMlMin = 0;
+        message.flowRateMlS = 0;
         message.weightToleranceG = 0;
         message.controlMode = 0;
         if (value !== undefined)
@@ -2725,8 +2725,8 @@ class Workflow_DoseConfig$Type extends MessageType<Workflow_DoseConfig> {
                 case /* int32 max_duration_s */ 1:
                     message.maxDurationS = reader.int32();
                     break;
-                case /* double flow_rate_ml_min */ 2:
-                    message.flowRateMlMin = reader.double();
+                case /* double flow_rate_ml_s */ 2:
+                    message.flowRateMlS = reader.double();
                     break;
                 case /* double weight_tolerance_g */ 3:
                     message.weightToleranceG = reader.double();
@@ -2749,9 +2749,9 @@ class Workflow_DoseConfig$Type extends MessageType<Workflow_DoseConfig> {
         /* int32 max_duration_s = 1; */
         if (message.maxDurationS !== 0)
             writer.tag(1, WireType.Varint).int32(message.maxDurationS);
-        /* double flow_rate_ml_min = 2; */
-        if (message.flowRateMlMin !== 0)
-            writer.tag(2, WireType.Bit64).double(message.flowRateMlMin);
+        /* double flow_rate_ml_s = 2; */
+        if (message.flowRateMlS !== 0)
+            writer.tag(2, WireType.Bit64).double(message.flowRateMlS);
         /* double weight_tolerance_g = 3; */
         if (message.weightToleranceG !== 0)
             writer.tag(3, WireType.Bit64).double(message.weightToleranceG);

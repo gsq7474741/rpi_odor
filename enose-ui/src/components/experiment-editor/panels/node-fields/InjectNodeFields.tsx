@@ -88,16 +88,16 @@ export function InjectNodeFields({ data, handleChange, nodes }: InjectNodeFields
         <Input
           type="number"
           step={0.1}
-          value={Number(data.tolerance || 0.5)}
-          onChange={(e) => handleChange('tolerance', parseFloat(e.target.value) || 0.5)}
+          value={Number(data.tolerance || 3)}
+          onChange={(e) => handleChange('tolerance', parseFloat(e.target.value) || 3)}
         />
       </Field>
       <Field label="流速 (ml/s)">
         <Input
           type="number"
           step={0.1}
-          value={Number(data.flowRateMlS || 0.5)}
-          onChange={(e) => handleChange('flowRateMlS', parseFloat(e.target.value) || 0.5)}
+          value={Number(data.flowRateMlS || 5)}
+          onChange={(e) => handleChange('flowRateMlS', parseFloat(e.target.value) || 5)}
         />
       </Field>
       <Field label="稳定超时 (s)">
@@ -106,8 +106,8 @@ export function InjectNodeFields({ data, handleChange, nodes }: InjectNodeFields
           step={1}
           min={5}
           max={300}
-          value={Number(data.stableTimeoutS || 5)}
-          onChange={(e) => handleChange('stableTimeoutS', parseFloat(e.target.value) || 5)}
+          value={Number(data.stableTimeoutS || 10)}
+          onChange={(e) => handleChange('stableTimeoutS', parseFloat(e.target.value) || 10)}
         />
         <p className="text-[10px] text-muted-foreground mt-1">
           进样完成后等待称重稳定的超时时间

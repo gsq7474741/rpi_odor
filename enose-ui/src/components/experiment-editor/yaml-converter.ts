@@ -149,6 +149,8 @@ interface YamlStep {
   };
   drain?: {
     gas_pump_pwm?: number;
+    empty_tolerance_g?: number;
+    stability_window_s?: number;
     timeout_s?: number;
   };
   acquire?: {
@@ -239,15 +241,15 @@ export function compiledStepToYamlStep(step: CompiledStep): YamlStep | null {
 
       const inject: Record<string, unknown> = {
         components: yamlComponents,
-        tolerance: Number(params.tolerance ?? 0.5),
-        flow_rate_ml_s: Number(params.flowRateMlS ?? 0.5),
-        stable_timeout_s: Number(params.stableTimeoutS ?? 5),
+        tolerance: Number(params.tolerance ?? 3),
+        flow_rate_ml_s: Number(params.flowRateMlS ?? 5),
+        stable_timeout_s: Number(params.stableTimeoutS ?? 10),
       };
 
       if (params.targetType === 'weight') {
         inject.target_weight_g = Number(params.targetWeightG || 0);
       } else {
-        inject.target_volume_ml = Number(params.targetVolumeMl ?? step.liquidChangeMl ?? 15);
+        inject.target_volume_ml = Number(params.targetVolumeMl ?? step.liquidChangeMl ?? 30);
       }
 
       return { name, ...(defaultPhase && { phase_name: defaultPhase }), inject };
@@ -259,6 +261,8 @@ export function compiledStepToYamlStep(step: CompiledStep): YamlStep | null {
         ...(defaultPhase && { phase_name: defaultPhase }),
         drain: {
           gas_pump_pwm: Number(params.gasPumpPwm ?? 80),
+          empty_tolerance_g: Number(params.emptyToleranceG ?? 10),
+          stability_window_s: Number(params.stabilityWindowS ?? 2),
           timeout_s: Number(params.timeoutS ?? 60),
         },
       };
@@ -272,6 +276,10 @@ export function compiledStepToYamlStep(step: CompiledStep): YamlStep | null {
           wash_volume_ml: Number(params.washVolumeMl ?? 20),
           repeat_count: Number(params.repeatCount ?? 2),
           gas_pump_pwm: Number(params.gasPumpPwm ?? 50),
+          fill_timeout_s: Number(params.fillTimeoutS ?? 60),
+          drain_timeout_s: Number(params.drainTimeoutS ?? 60),
+          empty_tolerance_g: Number(params.emptyToleranceG ?? 10),
+          empty_stability_window_s: Number(params.emptyStabilityWindowS ?? 2),
         },
       };
 
@@ -1023,6 +1031,8 @@ function nodeToStep(
         ...(nodeDefaultPhase && { phase_name: nodeDefaultPhase }),
         drain: {
           gas_pump_pwm: Number(data.gasPumpPwm || 80),
+          empty_tolerance_g: Number(data.emptyToleranceG || 10),
+          stability_window_s: Number(data.stabilityWindowS || 2),
           timeout_s: Number(data.timeoutS || 60),
         },
       };
@@ -1037,7 +1047,10 @@ function nodeToStep(
           wash_volume_ml: Number(data.washVolumeMl || 20),
           repeat_count: Number(data.repeatCount || 2),
           gas_pump_pwm: Number(data.gasPumpPwm || 50),
-          // 注：后端每次清洗循环都会排废，drain_after 字段已废弃
+          fill_timeout_s: Number(data.fillTimeoutS ?? 60),
+          drain_timeout_s: Number(data.drainTimeoutS ?? 60),
+          empty_tolerance_g: Number(data.emptyToleranceG ?? 10),
+          empty_stability_window_s: Number(data.emptyStabilityWindowS ?? 2),
         },
       };
     }
@@ -1421,6 +1434,8 @@ function stepToNodeData(step: YamlStep): { type: NodeType; data: Record<string, 
       data: {
         name: step.name,
         gasPumpPwm: step.drain.gas_pump_pwm,
+        emptyToleranceG: step.drain.empty_tolerance_g,
+        stabilityWindowS: step.drain.stability_window_s,
         timeoutS: step.drain.timeout_s,
       },
     };
@@ -1436,7 +1451,10 @@ function stepToNodeData(step: YamlStep): { type: NodeType; data: Record<string, 
         washVolumeMl: wash.wash_volume_ml,
         repeatCount: wash.repeat_count,
         gasPumpPwm: wash.gas_pump_pwm,
-        // drainAfter 已废弃，后端每次循环都会排废
+        fillTimeoutS: wash.fill_timeout_s,
+        drainTimeoutS: wash.drain_timeout_s,
+        emptyToleranceG: wash.empty_tolerance_g,
+        emptyStabilityWindowS: wash.empty_stability_window_s,
       },
     };
   }

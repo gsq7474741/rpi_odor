@@ -54,17 +54,16 @@ struct LoadCellConfig {
     float overflow_threshold = 400.0f;     // g (溢出阈值)
     float drain_complete_margin = 10.0f;   // g (排空余量)
     
-    // 泵校准系数 (mm -> 测量重量 g)
-    // 线性模型: measured_weight = mm * pump_mm_to_ml + pump_mm_offset
-    // 由线性度测试得出: 斜率 0.0314 g/mm, 截距 -7.34 g
-    float pump_mm_to_ml = 0.0314f;         // g/mm (斜率)
-    float pump_mm_offset = -7.34f;         // g (截距)
+    // 称重校准系数 (ml -> 测量重量变化 g)
+    // 线性模型: weight_change_g = volume_ml * ml_to_weight_slope + ml_to_weight_offset
+    // 由线性度测试标定
+    float ml_to_weight_slope = 0.0314f;    // g/ml (斜率)
+    float ml_to_weight_offset = -7.34f;    // g (截距)
     
-    // 重量校准系数 (测量值 -> 真实值)
-    // 公式: real_weight = weight_scale * measured_weight + weight_offset
-    // 由校准数据拟合得出: y = 1.2865x - 6.2513
-    float weight_scale = 1.2865f;          // 斜率
-    float weight_offset = -6.2513f;        // 截距 (g)
+    // 清洗泵注入时的称重滞后补偿 (g)
+    // Klipper 称重更新~1Hz + 液体冲击加速度 → 动态读数滞后
+    // 检测阈值 = expected_weight_change - fill_lag_compensation_g
+    float fill_lag_compensation_g = 0.0f;  // g (默认不补偿)
 };
 
 struct LoadCellStatus {

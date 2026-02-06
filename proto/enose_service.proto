@@ -35,8 +35,8 @@ service ControlService {
   // 开始进样 (设置阀门 + 启动指定蠕动泵) - 单位: mm
   rpc StartInjection(StartInjectionRequest) returns (StartInjectionResponse);
   
-  // 开始进样 (按重量) - 单位: g (真实重量)
-  // 内部转换: x = (y - weight_offset) / weight_scale, mm = x / pump_mm_to_ml
+  // 开始进样 (按重量) - 单位: g
+  // 内部转换: ml = (weight_g - ml_to_weight_offset) / ml_to_weight_slope
   rpc StartInjectionByWeight(StartInjectionByWeightRequest) returns (StartInjectionResponse);
   
   // 停止进样
@@ -216,8 +216,8 @@ message StartInjectionResponse {
   string message = 2;
 }
 
-// 按重量进样请求 (单位: g 真实重量)
-// 后端转换: x = (y - weight_offset) / weight_scale, mm = x / pump_mm_to_ml
+// 按重量进样请求 (单位: g)
+// 后端转换: ml = (weight_g - ml_to_weight_offset) / ml_to_weight_slope
 message StartInjectionByWeightRequest {
   // 每个蠕动泵的进样量 (单位: g 真实重量)
   float pump_0_weight = 7;   // 蠕动泵0
@@ -527,15 +527,15 @@ message LoadCellConfig {
   float stable_threshold = 3;       // 稳定判断阈值 (g)
   string last_calibration_time = 4; // 最后标定时间
   
-  // 泵校准系数 (mm -> 测量重量 g)
-  // 线性模型: measured_weight = mm * pump_mm_to_ml + pump_mm_offset
-  float pump_mm_to_ml = 5;          // g/mm (斜率)
-  float pump_mm_offset = 6;         // g (截距)
+  // 称重校准系数 (ml -> 测量重量变化 g)
+  // 线性模型: weight_change_g = volume_ml * ml_to_weight_slope + ml_to_weight_offset
+  float ml_to_weight_slope = 5;     // g/ml (斜率)
+  float ml_to_weight_offset = 6;    // g (截距)
   
-  // 重量校准系数 (测量值 -> 真实值)
-  // 线性模型: real_weight = weight_scale * measured_weight + weight_offset
-  float weight_scale = 7;           // 斜率
-  float weight_offset = 8;          // 截距 (g)
+  // 清洗泵注入时的称重滞后补偿 (g)
+  // 由于 Klipper 称重更新~1Hz + 液体冲击加速度，动态读数滞后于真实重量
+  // 检测阈值 = expected_weight_change - fill_lag_compensation_g
+  float fill_lag_compensation_g = 7; // g (默认 0)
 }
 
 // 泵校准系数请求

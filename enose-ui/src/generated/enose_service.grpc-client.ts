@@ -133,8 +133,8 @@ export interface IControlServiceClient {
     startInjection(input: StartInjectionRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: StartInjectionResponse) => void): grpc.ClientUnaryCall;
     startInjection(input: StartInjectionRequest, callback: (err: grpc.ServiceError | null, value?: StartInjectionResponse) => void): grpc.ClientUnaryCall;
     /**
-     * 开始进样 (按重量) - 单位: g (真实重量)
-     * 内部转换: x = (y - weight_offset) / weight_scale, mm = x / pump_mm_to_ml
+     * 开始进样 (按重量) - 单位: g
+     * 内部转换: ml = (weight_g - ml_to_weight_offset) / ml_to_weight_slope
      *
      * @generated from protobuf rpc: StartInjectionByWeight
      */
@@ -253,8 +253,8 @@ export class ControlServiceClient extends grpc.Client implements IControlService
         return this.makeUnaryRequest<StartInjectionRequest, StartInjectionResponse>(`/${ControlService.typeName}/${method.name}`, (value: StartInjectionRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): StartInjectionResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
-     * 开始进样 (按重量) - 单位: g (真实重量)
-     * 内部转换: x = (y - weight_offset) / weight_scale, mm = x / pump_mm_to_ml
+     * 开始进样 (按重量) - 单位: g
+     * 内部转换: ml = (weight_g - ml_to_weight_offset) / ml_to_weight_slope
      *
      * @generated from protobuf rpc: StartInjectionByWeight
      */

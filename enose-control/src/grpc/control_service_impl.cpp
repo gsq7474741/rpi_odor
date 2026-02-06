@@ -353,29 +353,19 @@ void ControlServiceImpl::fill_peripheral_status(::enose::service::PeripheralStat
     return ::grpc::Status::OK;
 }
 
-float ControlServiceImpl::weight_to_mm(float weight_g) const {
-    // 两阶段线性转换 (逆向):
-    // 正向: measured_weight = mm * pump_mm_to_ml + pump_mm_offset
-    //       real_weight = weight_scale * measured_weight + weight_offset
-    // 逆向: measured_weight = (real_weight - weight_offset) / weight_scale
-    //       mm = (measured_weight - pump_mm_offset) / pump_mm_to_ml
+float ControlServiceImpl::weight_to_ml(float weight_g) const {
+    // 逆向转换: 测量重量变化(g) → 体积(ml)
+    // 正向: weight_change_g = volume_ml * ml_to_weight_slope + ml_to_weight_offset
+    // 逆向: volume_ml = (weight_change_g - ml_to_weight_offset) / ml_to_weight_slope
     
     if (!load_cell_) {
-        // 无 load cell config时使用默认值
-        constexpr float default_weight_scale = 1.635205f;
-        constexpr float default_weight_offset = -5.903611f;
-        constexpr float default_pump_mm_to_ml = 0.0314f;
-        constexpr float default_pump_mm_offset = -7.34f;
-        
-        float measured_weight = (weight_g - default_weight_offset) / default_weight_scale;
-        return (measured_weight - default_pump_mm_offset) / default_pump_mm_to_ml;
+        constexpr float default_slope = 0.0314f;
+        constexpr float default_offset = -7.34f;
+        return (weight_g - default_offset) / default_slope;
     }
     
     const auto& config = load_cell_->get_config();
-    // 第一阶段: 真实重量 -> 测量重量
-    float measured_weight = (weight_g - config.weight_offset) / config.weight_scale;
-    // 第二阶段: 测量重量 -> mm
-    return (measured_weight - config.pump_mm_offset) / config.pump_mm_to_ml;
+    return (weight_g - config.ml_to_weight_offset) / config.ml_to_weight_slope;
 }
 
 ::grpc::Status ControlServiceImpl::StartInjectionByWeight(
@@ -385,30 +375,30 @@ float ControlServiceImpl::weight_to_mm(float weight_g) const {
 ) {
     (void)context;
     
-    // 将重量 (g) 转换为距离 (mm)
-    float pump0_mm = weight_to_mm(request->pump_0_weight());
-    float pump1_mm = weight_to_mm(request->pump_1_weight());
-    float pump2_mm = weight_to_mm(request->pump_2_weight());
-    float pump3_mm = weight_to_mm(request->pump_3_weight());
-    float pump4_mm = weight_to_mm(request->pump_4_weight());
-    float pump5_mm = weight_to_mm(request->pump_5_weight());
-    float pump6_mm = weight_to_mm(request->pump_6_weight());
-    float pump7_mm = weight_to_mm(request->pump_7_weight());
+    // 将重量 (g) 转换为体积 (ml), 由于 1mm=1ml, ml 值直接作为泵行程
+    float pump0_ml = weight_to_ml(request->pump_0_weight());
+    float pump1_ml = weight_to_ml(request->pump_1_weight());
+    float pump2_ml = weight_to_ml(request->pump_2_weight());
+    float pump3_ml = weight_to_ml(request->pump_3_weight());
+    float pump4_ml = weight_to_ml(request->pump_4_weight());
+    float pump5_ml = weight_to_ml(request->pump_5_weight());
+    float pump6_ml = weight_to_ml(request->pump_6_weight());
+    float pump7_ml = weight_to_ml(request->pump_7_weight());
     
     spdlog::info("gRPC: StartInjectionByWeight - input(g): pump0={:.3f}~pump7={:.3f}",
                  request->pump_0_weight(), request->pump_7_weight());
-    spdlog::info("gRPC: StartInjectionByWeight - converted(mm): pump0={:.3f}~pump7={:.3f}",
-                 pump0_mm, pump7_mm);
+    spdlog::info("gRPC: StartInjectionByWeight - converted(ml): pump0={:.3f}~pump7={:.3f}",
+                 pump0_ml, pump7_ml);
     
     workflows::SystemState::InjectionParams params;
-    params.pump_0_volume = pump0_mm;
-    params.pump_1_volume = pump1_mm;
-    params.pump_2_volume = pump2_mm;
-    params.pump_3_volume = pump3_mm;
-    params.pump_4_volume = pump4_mm;
-    params.pump_5_volume = pump5_mm;
-    params.pump_6_volume = pump6_mm;
-    params.pump_7_volume = pump7_mm;
+    params.pump_0_volume = pump0_ml;
+    params.pump_1_volume = pump1_ml;
+    params.pump_2_volume = pump2_ml;
+    params.pump_3_volume = pump3_ml;
+    params.pump_4_volume = pump4_ml;
+    params.pump_5_volume = pump5_ml;
+    params.pump_6_volume = pump6_ml;
+    params.pump_7_volume = pump7_ml;
     
     // 使用可选参数的默认值
     if (request->has_speed()) {

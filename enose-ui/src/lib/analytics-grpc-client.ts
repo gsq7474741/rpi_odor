@@ -1,5 +1,5 @@
 import * as grpc from "@grpc/grpc-js";
-import { AnalyticsServiceClient, LabelServiceClient, ModelServiceClient, DataServiceClient, SampleServiceClient } from "../generated/enose_analytics.grpc-client";
+import { AnalyticsServiceClient, LabelServiceClient, ModelServiceClient, DataServiceClient, SampleServiceClient, MLLabelServiceClient, ExportServiceClient } from "../generated/enose_analytics.grpc-client";
 import { Empty } from "../generated/google/protobuf/empty";
 import type {
   VisualizationRequest,
@@ -47,6 +47,24 @@ import type {
   BatchGenerateSampleFramesResponse,
   GetSampleFramesRequest,
   GetSampleFramesResponse,
+  GetAvailablePhasesRequest,
+  GetAvailablePhasesResponse,
+  GetPhaseTransitionsRequest,
+  GetPhaseTransitionsResponse,
+  ListMLLabelConfigsRequest,
+  ListMLLabelConfigsResponse,
+  GetMLLabelConfigRequest,
+  MLLabelConfig,
+  GenerateLabelsRequest,
+  GenerateLabelsResponse,
+  GetLabelDistributionRequest,
+  GetLabelDistributionResponse,
+  GetSampleMLLabelsRequest,
+  GetSampleMLLabelsResponse,
+  PreviewDatasetRequest,
+  PreviewDatasetResponse,
+  ExportDataRequest,
+  ExportDataChunk,
 } from "../generated/enose_analytics";
 
 // Analytics gRPC 服务器地址 (从环境变量读取，默认与控制服务同机)
@@ -466,4 +484,129 @@ export async function getSampleFrames(request: GetSampleFramesRequest): Promise<
     client.getSampleFrames.bind(client),
     request
   );
+}
+
+// ============================================================
+// Phase API
+// ============================================================
+
+export async function getAvailablePhases(request: GetAvailablePhasesRequest): Promise<GetAvailablePhasesResponse> {
+  const client = getSampleClient();
+  return samplePromisify(
+    client,
+    client.getAvailablePhases.bind(client),
+    request
+  );
+}
+
+export async function getPhaseTransitions(request: GetPhaseTransitionsRequest): Promise<GetPhaseTransitionsResponse> {
+  const client = getSampleClient();
+  return samplePromisify(
+    client,
+    client.getPhaseTransitions.bind(client),
+    request
+  );
+}
+
+// ============================================================
+// ML Label Service API
+// ============================================================
+
+let mlLabelClient: MLLabelServiceClient | null = null;
+
+function getMLLabelClient(): MLLabelServiceClient {
+  if (!mlLabelClient) {
+    mlLabelClient = new MLLabelServiceClient(
+      `${ANALYTICS_GRPC_HOST}:${ANALYTICS_GRPC_PORT}`,
+      grpc.credentials.createInsecure()
+    );
+  }
+  return mlLabelClient;
+}
+
+function mlLabelPromisify<TReq, TRes>(
+  client: MLLabelServiceClient,
+  method: (input: TReq, callback: (err: grpc.ServiceError | null, value?: TRes) => void) => grpc.ClientUnaryCall,
+  request: TReq
+): Promise<TRes> {
+  return new Promise((resolve, reject) => {
+    method.call(client, request, (error: grpc.ServiceError | null, response?: TRes) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(response!);
+      }
+    });
+  });
+}
+
+export async function listMLLabelConfigs(request: ListMLLabelConfigsRequest): Promise<ListMLLabelConfigsResponse> {
+  const client = getMLLabelClient();
+  return mlLabelPromisify(client, client.listMLLabelConfigs.bind(client), request);
+}
+
+export async function getMLLabelConfig(request: GetMLLabelConfigRequest): Promise<MLLabelConfig> {
+  const client = getMLLabelClient();
+  return mlLabelPromisify(client, client.getMLLabelConfig.bind(client), request);
+}
+
+export async function generateLabels(request: GenerateLabelsRequest): Promise<GenerateLabelsResponse> {
+  const client = getMLLabelClient();
+  return mlLabelPromisify(client, client.generateLabels.bind(client), request);
+}
+
+export async function getLabelDistribution(request: GetLabelDistributionRequest): Promise<GetLabelDistributionResponse> {
+  const client = getMLLabelClient();
+  return mlLabelPromisify(client, client.getLabelDistribution.bind(client), request);
+}
+
+export async function getSampleMLLabels(request: GetSampleMLLabelsRequest): Promise<GetSampleMLLabelsResponse> {
+  const client = getMLLabelClient();
+  return mlLabelPromisify(client, client.getSampleMLLabels.bind(client), request);
+}
+
+export async function previewDataset(request: PreviewDatasetRequest): Promise<PreviewDatasetResponse> {
+  const client = getMLLabelClient();
+  return mlLabelPromisify(client, client.previewDataset.bind(client), request);
+}
+
+// ============================================================
+// Export Service API (server streaming)
+// ============================================================
+
+let exportClient: ExportServiceClient | null = null;
+
+function getExportClient(): ExportServiceClient {
+  if (!exportClient) {
+    exportClient = new ExportServiceClient(
+      `${ANALYTICS_GRPC_HOST}:${ANALYTICS_GRPC_PORT}`,
+      grpc.credentials.createInsecure()
+    );
+  }
+  return exportClient;
+}
+
+/**
+ * 导出数据 - 收集 server streaming 的所有 chunks 为一个 Buffer
+ */
+export async function exportData(request: ExportDataRequest): Promise<Buffer> {
+  const client = getExportClient();
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    const stream = client.exportData(request);
+
+    stream.on("data", (chunk: ExportDataChunk) => {
+      if (chunk.data && chunk.data.length > 0) {
+        chunks.push(Buffer.from(chunk.data));
+      }
+    });
+
+    stream.on("end", () => {
+      resolve(Buffer.concat(chunks));
+    });
+
+    stream.on("error", (err: grpc.ServiceError) => {
+      reject(err);
+    });
+  });
 }

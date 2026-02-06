@@ -40,8 +40,20 @@ class SampleServiceImpl(pb_grpc.SampleServiceServicer):
                 params_hash=request.params_hash if request.HasField("params_hash") else None,
             )
 
+            # Batch fetch phase transitions and reading counts
+            sample_ids = [s["id"] for s in samples]
+            transitions_map = self.reader.get_phase_transitions_batch(sample_ids)
+            reading_counts = self.reader.get_reading_counts_batch(sample_ids)
+
             return pb.ListSamplesResponse(
-                samples=[self._to_proto_sample(s) for s in samples],
+                samples=[
+                    self._to_proto_sample(
+                        s,
+                        phase_transitions=transitions_map.get(s["id"]),
+                        reading_count=reading_counts.get(s["id"], 0),
+                    )
+                    for s in samples
+                ],
                 total=total,
             )
         except Exception as e:
@@ -62,7 +74,13 @@ class SampleServiceImpl(pb_grpc.SampleServiceServicer):
                 context.set_code(grpc.StatusCode.NOT_FOUND)
                 context.set_details(f"Sample {request.sample_id} not found")
                 return pb.Sample()
-            return self._to_proto_sample(sample)
+            transitions = self.reader.get_phase_transitions(request.sample_id)
+            reading_count = self.reader.get_reading_count(request.sample_id)
+            return self._to_proto_sample(
+                sample,
+                phase_transitions=transitions,
+                reading_count=reading_count,
+            )
         except Exception as e:
             logger.error(f"GetSample error: {e}")
             context.set_code(grpc.StatusCode.INTERNAL)
@@ -129,7 +147,55 @@ class SampleServiceImpl(pb_grpc.SampleServiceServicer):
             context.set_details(str(e))
             return pb.GetSampleSensorDataResponse()
 
-    def _to_proto_sample(self, sample: dict[str, Any]) -> pb.Sample:
+    def GetAvailablePhases(
+        self,
+        request: pb.GetAvailablePhasesRequest,
+        context: grpc.ServicerContext,
+    ) -> pb.GetAvailablePhasesResponse:
+        """获取可用的 Phase 列表"""
+        try:
+            run_id = request.run_id if request.HasField("run_id") else None
+            phases = self.reader.get_available_phases(run_id=run_id)
+            return pb.GetAvailablePhasesResponse(phase_names=phases)
+        except Exception as e:
+            logger.error(f"GetAvailablePhases error: {e}")
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(str(e))
+            return pb.GetAvailablePhasesResponse()
+
+    def GetPhaseTransitions(
+        self,
+        request: pb.GetPhaseTransitionsRequest,
+        context: grpc.ServicerContext,
+    ) -> pb.GetPhaseTransitionsResponse:
+        """获取样本的 Phase 转换记录"""
+        try:
+            transitions = self.reader.get_phase_transitions(request.sample_id)
+            return pb.GetPhaseTransitionsResponse(
+                transitions=[
+                    pb.PhaseTransition(
+                        id=t["id"],
+                        sample_id=t["sample_id"],
+                        phase_name=t["phase_name"],
+                        start_time_ms=t["start_time_ms"],
+                        end_time_ms=t.get("end_time_ms") or 0,
+                        phase_order=t["phase_order"],
+                    )
+                    for t in transitions
+                ]
+            )
+        except Exception as e:
+            logger.error(f"GetPhaseTransitions error: {e}")
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(str(e))
+            return pb.GetPhaseTransitionsResponse()
+
+    def _to_proto_sample(
+        self,
+        sample: dict[str, Any],
+        phase_transitions: list[dict[str, Any]] | None = None,
+        reading_count: int | None = None,
+    ) -> pb.Sample:
         """将样本字典转换为 proto 消息"""
         liquids = []
         for liq in sample.get("liquids", []):
@@ -175,6 +241,22 @@ class SampleServiceImpl(pb_grpc.SampleServiceServicer):
             proto_sample.termination_value = sample["termination_value"]
         if sample.get("max_duration_s"):
             proto_sample.max_duration_s = sample["max_duration_s"]
+
+        # Phase transitions
+        if phase_transitions:
+            for t in phase_transitions:
+                proto_sample.phase_transitions.append(pb.PhaseTransition(
+                    id=t["id"],
+                    sample_id=t["sample_id"],
+                    phase_name=t["phase_name"],
+                    start_time_ms=t["start_time_ms"],
+                    end_time_ms=t.get("end_time_ms") or 0,
+                    phase_order=t["phase_order"],
+                ))
+
+        # Reading count
+        if reading_count is not None:
+            proto_sample.reading_count = reading_count
 
         return proto_sample
 

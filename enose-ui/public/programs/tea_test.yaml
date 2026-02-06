@@ -1,0 +1,411 @@
+id: tea_test
+name: tea_test
+description: ''
+version: 1.0.0
+hardware:
+  bottle_capacity_ml: 150
+  max_fill_ml: 100
+  liquids:
+    - id: '54'
+      name: Wittard伯爵茶茶汤
+      type: LIQUID_SAMPLE
+    - id: '43'
+      name: 自来水
+      type: LIQUID_SAMPLE
+steps:
+  - name: 配置加热器
+    configure_heater:
+      configs:
+        - profile_name: constant_320
+          temps:
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+          durs:
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+          sensor_indices:
+            - 0
+            - 4
+        - profile_name: constant_320__3
+          temps:
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+          durs:
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+          sensor_indices:
+            - 1
+            - 5
+        - profile_name: low_power__2
+          temps:
+            - 200
+            - 200
+            - 200
+            - 200
+            - 200
+            - 200
+            - 200
+            - 200
+            - 200
+            - 200
+          durs:
+            - 10
+            - 10
+            - 10
+            - 10
+            - 10
+            - 10
+            - 10
+            - 10
+            - 10
+            - 10
+          sensor_indices:
+            - 2
+            - 6
+        - profile_name: temp_scan_100_350__4
+          temps:
+            - 100
+            - 150
+            - 200
+            - 250
+            - 300
+            - 350
+            - 320
+            - 280
+            - 240
+            - 200
+          durs:
+            - 3
+            - 3
+            - 3
+            - 3
+            - 3
+            - 3
+            - 3
+            - 3
+            - 3
+            - 3
+          sensor_indices:
+            - 3
+            - 7
+  - name: 传感器预热
+    phase_name: PREHEAT
+    preheat:
+      max_duration_s: 120
+      record_data: false
+      gas_pump_pwm: 80
+      duration_s: 60
+  - name: '[参数扫描 #1/3] 进样 (10%:90%)'
+    phase_name: INJECT
+    inject:
+      components:
+        - liquid_id: '54'
+          ratio: 10
+        - liquid_id: '43'
+          ratio: 90
+      tolerance: 3
+      flow_rate_ml_s: 5
+      stable_timeout_s: 60
+      target_volume_ml: 30
+  - name: '[参数扫描 #1/3] 数据采集'
+    phase_name: ACQUIRE
+    acquire:
+      gas_pump_pwm: 50
+      duration_s: 60
+  - name: '[参数扫描 #1/3] 排废'
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 100
+      empty_tolerance_g: 10
+      stability_window_s: 2
+      timeout_s: 60
+  - name: '[参数扫描 #2/3] 进样 (20%:80%)'
+    phase_name: INJECT
+    inject:
+      components:
+        - liquid_id: '54'
+          ratio: 20
+        - liquid_id: '43'
+          ratio: 80
+      tolerance: 3
+      flow_rate_ml_s: 5
+      stable_timeout_s: 60
+      target_volume_ml: 30
+  - name: '[参数扫描 #2/3] 数据采集'
+    phase_name: ACQUIRE
+    acquire:
+      gas_pump_pwm: 50
+      duration_s: 60
+  - name: '[参数扫描 #2/3] 排废'
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 100
+      empty_tolerance_g: 10
+      stability_window_s: 2
+      timeout_s: 60
+  - name: '[参数扫描 #3/3] 进样 (30%:70%)'
+    phase_name: INJECT
+    inject:
+      components:
+        - liquid_id: '54'
+          ratio: 30
+        - liquid_id: '43'
+          ratio: 70
+      tolerance: 3
+      flow_rate_ml_s: 5
+      stable_timeout_s: 60
+      target_volume_ml: 30
+  - name: '[参数扫描 #3/3] 数据采集'
+    phase_name: ACQUIRE
+    acquire:
+      gas_pump_pwm: 50
+      duration_s: 60
+  - name: '[参数扫描 #3/3] 排废'
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 100
+      empty_tolerance_g: 10
+      stability_window_s: 2
+      timeout_s: 60
+_compile_estimate:
+  total_duration_s: 609
+  peak_liquid_level_ml: 30
+  peak_liquid_level_ml_with_wash: 0
+  total_inject_ml: 90
+  total_drain_ml: 90
+  total_wash_volume_ml: 0
+  liquid_consumption:
+    - liquid_id: '54'
+      liquid_name: Wittard伯爵茶茶汤
+      pump_index: 3
+      required_ml: 18
+    - liquid_id: '43'
+      liquid_name: 自来水
+      pump_index: 2
+      required_ml: 72
+  pump_estimates:
+    - pump_index: 3
+      volume_ml: 18
+      runtime_s: 18
+    - pump_index: 2
+      volume_ml: 72
+      runtime_s: 18
+_editor_layout:
+  nodes:
+    - id: start
+      type: start
+      position:
+        x: -25
+        'y': -15
+      data:
+        description: ''
+        version: 1.0.0
+    - id: end
+      type: end
+      position:
+        x: -25
+        'y': 814
+      data: {}
+    - id: node_1
+      type: hardwareConfig
+      position:
+        x: -219
+        'y': -18.5
+      data:
+        bottleCapacityMl: 150
+        maxFillMl: 100
+    - id: node_2
+      type: preheat
+      position:
+        x: -25
+        'y': 279
+      data:
+        gasPumpPwm: 80
+        durationS: 60
+    - id: node_3
+      type: configureHeater
+      position:
+        x: -25
+        'y': 120
+      data:
+        sensorProfiles:
+          '0': constant_320
+          '1': constant_320__3
+          '2': low_power__2
+          '3': temp_scan_100_350__4
+          '4': constant_320
+          '5': constant_320__3
+          '6': low_power__2
+          '7': temp_scan_100_350__4
+          '8': ''
+          '9': ''
+          '10': ''
+          '11': ''
+    - id: node_4
+      type: paramSweep
+      position:
+        x: -25
+        'y': 438
+      data:
+        name: 参数扫描
+        paramType: ratio
+        startValue: 10
+        endValue: 30
+        stepValue: 10
+        seqMode: linear
+        ratioSweepPoints:
+          - ratios:
+              '43': 90
+              '54': 10
+          - ratios:
+              '43': 80
+              '54': 20
+          - ratios:
+              '43': 70
+              '54': 30
+        linkedLiquidIds: []
+    - id: node_5
+      type: inject
+      position:
+        x: -222.66666666666666
+        'y': 617
+      data:
+        name: 进样
+        targetType: volume
+        targetVolumeMl: 30
+        tolerance: 3
+        flowRateMlS: 5
+        stableTimeoutS: 60
+        boundVariables:
+          ratio: node_4
+    - id: node_6
+      type: liquidSource
+      position:
+        x: -437.66666666666663
+        'y': 571.5
+      data:
+        liquidId: '54'
+        liquidName: Wittard伯爵茶茶汤
+        ratio: 1
+        pumpIndex: 3
+    - id: node_7
+      type: liquidSource
+      position:
+        x: -437.66666666666663
+        'y': 700.5
+      data:
+        liquidId: '43'
+        liquidName: 自来水
+        ratio: 1
+        pumpIndex: 2
+    - id: node_8
+      type: acquire
+      position:
+        x: 2.333333333333343
+        'y': 617
+      data:
+        name: 数据采集
+        gasPumpPwm: 50
+        terminationType: duration
+        heaterCycles: 10
+        maxDurationS: 300
+        durationS: 60
+    - id: node_9
+      type: drain
+      position:
+        x: 206.33333333333334
+        'y': 617
+      data:
+        name: 排废
+        gasPumpPwm: 100
+        emptyToleranceG: 10
+        stabilityWindowS: 2
+        timeoutS: 60
+  edges:
+    - id: xy-edge__node_1hardware-starthardware
+      source: node_1
+      target: start
+      sourceHandle: hardware
+      targetHandle: hardware
+    - id: xy-edge__startflow-node_3flow
+      source: start
+      target: node_3
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_3flow-node_2flow
+      source: node_3
+      target: node_2
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_2flow-node_4flow
+      source: node_2
+      target: node_4
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_4loopBody-node_5flow
+      source: node_4
+      target: node_5
+      sourceHandle: loopBody
+      targetHandle: flow
+    - id: xy-edge__node_6liquid-node_5liquid
+      source: node_6
+      target: node_5
+      sourceHandle: liquid
+      targetHandle: liquid
+    - id: xy-edge__node_7liquid-node_5liquid
+      source: node_7
+      target: node_5
+      sourceHandle: liquid
+      targetHandle: liquid
+    - id: xy-edge__node_5flow-node_8flow
+      source: node_5
+      target: node_8
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_8flow-node_9flow
+      source: node_8
+      target: node_9
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_4flow-endflow
+      source: node_4
+      target: end
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_9flow-node_4loopBody
+      source: node_9
+      target: node_4
+      sourceHandle: flow
+      targetHandle: loopBody

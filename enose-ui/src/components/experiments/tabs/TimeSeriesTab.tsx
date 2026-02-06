@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { useExperiments } from "../context/ExperimentsContext";
+import { useExperiments, PhaseTransition } from "../context/ExperimentsContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -49,6 +49,9 @@ interface SampleTimeSeriesData {
   phaseName: string;
   data: SensorDataPoint[];
   envData?: EnvDataPoint[];
+  phaseTransitions?: PhaseTransition[];
+  sampleStartTimeMs?: number;
+  sampleEndTimeMs?: number;
 }
 
 type AlignMode = "absolute" | "relative" | "normalized";
@@ -76,6 +79,20 @@ const ENV_COLORS = {
 
 // 样本/运行基色 (HSL 色相角度)
 const SAMPLE_BASE_HUES = [210, 0, 120, 30, 270, 180, 330, 60, 195, 150, 300, 45];
+
+// Phase markArea 色卡（半透明背景色）
+const PHASE_COLORS: Record<string, string> = {
+  PREHEAT: "rgba(255, 152, 0, 0.08)",
+  INJECT: "rgba(33, 150, 243, 0.08)",
+  ACQUIRE: "rgba(76, 175, 80, 0.08)",
+  SAMPLE: "rgba(76, 175, 80, 0.08)",
+  DRAIN: "rgba(158, 158, 158, 0.08)",
+  WASH: "rgba(0, 188, 212, 0.08)",
+  BASELINE: "rgba(121, 85, 72, 0.08)",
+  PURGE: "rgba(244, 67, 54, 0.08)",
+  RECOVERY: "rgba(156, 39, 176, 0.08)",
+};
+const DEFAULT_PHASE_COLOR = "rgba(96, 125, 139, 0.08)";
 
 /**
  * 根据色相和传感器索引生成 HSL 颜色
@@ -176,14 +193,25 @@ export function TimeSeriesTab() {
             const sensorData: SensorDataPoint[] = [];
             const envData: EnvDataPoint[] = [];
 
+            // 将帧索引映射到原始 ms 时间范围
+            const sAbsStart = sampleInfo?.startTimeMs || 0;
+            const sAbsEnd = sampleInfo?.endTimeMs || 0;
+            const totalFrames = data.frames.length;
+            const maxFrameIdx = totalFrames > 1 ? totalFrames - 1 : 1;
+            const sAbsRange = sAbsEnd - sAbsStart || 1;
+
             for (const frame of data.frames) {
               const frameIdx = frame.frameIdx || 0;
               const values = frame.values || [];
+              // 映射到 ms：frameIdx 0 → sAbsStart, maxFrameIdx → sAbsEnd
+              const timeMs = sAbsStart > 0
+                ? sAbsStart + (frameIdx / maxFrameIdx) * sAbsRange
+                : frameIdx;
 
               // 前 8 个值始终是传感器 value
               for (let i = 0; i < 8 && i < values.length; i++) {
                 sensorData.push({
-                  timeMs: frameIdx,
+                  timeMs,
                   value: values[i],
                   sensorIdx: i,
                 });
@@ -198,7 +226,7 @@ export function TimeSeriesTab() {
                   avgPres += values[24 + i] || 0;
                 }
                 envData.push({
-                  timeMs: frameIdx,
+                  timeMs,
                   temperature: avgTemp / 8,
                   humidity: avgHum / 8,
                   pressure: avgPres / 8,
@@ -214,20 +242,30 @@ export function TimeSeriesTab() {
               phaseName: sampleInfo?.phaseName || "",
               data: sensorData,
               envData: envData.length > 0 ? envData : undefined,
+              phaseTransitions: sampleInfo?.phaseTransitions || [],
+              sampleStartTimeMs: sampleInfo?.startTimeMs,
+              sampleEndTimeMs: sampleInfo?.endTimeMs ?? undefined,
             });
           }
         } else {
           // 使用原始数据
           const response = await fetch(
-            `/api/analytics/data?action=sensor-data&experimentId=${runId}&limit=1000`
+            `/api/analytics/data?action=sensor-data&experimentId=${runId}&limit=5000`
           );
           const data = await response.json();
 
           if (data.success && data.rows) {
+            // 过滤到 sample 的时间范围内
+            const sStart = sampleInfo?.startTimeMs || 0;
+            const sEnd = sampleInfo?.endTimeMs || Infinity;
+
             const sensorData: SensorDataPoint[] = [];
             const envData: EnvDataPoint[] = [];
             for (const row of data.rows) {
               const ts = new Date(row.ts).getTime();
+              // 只保留属于当前 sample 时间范围内的数据
+              if (ts < sStart || ts > sEnd) continue;
+
               if (row.moxReadings) {
                 for (let i = 0; i < row.moxReadings.length; i++) {
                   sensorData.push({
@@ -256,6 +294,9 @@ export function TimeSeriesTab() {
               phaseName: sampleInfo?.phaseName || "",
               data: sensorData,
               envData,
+              phaseTransitions: sampleInfo?.phaseTransitions || [],
+              sampleStartTimeMs: sampleInfo?.startTimeMs,
+              sampleEndTimeMs: sampleInfo?.endTimeMs ?? undefined,
             });
           }
         }
@@ -349,7 +390,47 @@ export function TimeSeriesTab() {
         sensorGroups[point.sensorIdx].push({ time: point.timeMs, value: point.value });
       });
 
+      // 构建 phase markArea 数据（仅在第一个传感器系列上标注）
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let phaseMarkArea: any[] | undefined;
+      if (sampleData.phaseTransitions && sampleData.phaseTransitions.length > 0) {
+        // 数据坐标范围（x 轴实际显示的范围）
+        const dataMinX = sampleData.data.length > 0
+          ? Math.min(...sampleData.data.map((p) => p.timeMs))
+          : 0;
+        const dataMaxX = sampleData.data.length > 0
+          ? Math.max(...sampleData.data.map((p) => p.timeMs))
+          : 1;
+
+        phaseMarkArea = sampleData.phaseTransitions.map((pt) => {
+          let xStart: number, xEnd: number;
+
+          if (alignMode === "relative") {
+            const baseMs = dataMinX;
+            xStart = pt.startTimeMs - baseMs;
+            xEnd = (pt.endTimeMs || dataMaxX) - baseMs;
+          } else if (alignMode === "normalized") {
+            const baseMs = dataMinX;
+            const range = dataMaxX - dataMinX || 1;
+            xStart = ((pt.startTimeMs - baseMs) / range) * 100;
+            xEnd = (((pt.endTimeMs || dataMaxX) - baseMs) / range) * 100;
+          } else {
+            xStart = pt.startTimeMs;
+            xEnd = pt.endTimeMs || dataMaxX;
+          }
+          return [
+            {
+              name: pt.phaseName,
+              xAxis: xStart,
+              itemStyle: { color: PHASE_COLORS[pt.phaseName] || DEFAULT_PHASE_COLOR },
+            },
+            { xAxis: xEnd },
+          ];
+        });
+      }
+
       // 为每个传感器创建系列
+      let isFirstSeries = true;
       Object.entries(sensorGroups).forEach(([sensorIdxStr, points]) => {
         const sensorIdx = parseInt(sensorIdxStr);
         const name = `R${sampleData.runId}-S${sampleData.sampleIdx}-Sen${sensorIdx}`;
@@ -358,7 +439,8 @@ export function TimeSeriesTab() {
         const processedPoints = alignPoints(points);
         const color = getSeriesColor(sampleIndex, sensorIdx, sampleData.runId);
 
-        series.push({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const seriesItem: any = {
           name,
           type: "line",
           yAxisIndex: 0,
@@ -369,7 +451,24 @@ export function TimeSeriesTab() {
           itemStyle: { color },
           lineStyle: { width: 1.5, color, opacity: 0.8 },
           emphasis: { lineStyle: { width: 2.5 } },
-        });
+        };
+
+        // 仅在第一个系列上附加 markArea（避免重复渲染）
+        if (isFirstSeries && phaseMarkArea && phaseMarkArea.length > 0) {
+          seriesItem.markArea = {
+            silent: true,
+            label: {
+              show: true,
+              position: "insideTop",
+              fontSize: 10,
+              color: "#666",
+            },
+            data: phaseMarkArea,
+          };
+          isFirstSeries = false;
+        }
+
+        series.push(seriesItem);
       });
 
       // 环境数据系列（温度→Y1, 湿度→Y2, 气压→Y3）
@@ -467,7 +566,7 @@ export function TimeSeriesTab() {
         left: 60,
         right: hasEnvData ? 175 : 20,
         top: 40,
-        bottom: 40,
+        bottom: 70,
       },
       xAxis: {
         type: "value",
@@ -478,7 +577,7 @@ export function TimeSeriesTab() {
       yAxis: yAxes,
       dataZoom: [
         { type: "inside", xAxisIndex: 0 },
-        { type: "slider", xAxisIndex: 0, height: 20, bottom: 5 },
+        { type: "slider", xAxisIndex: 0, height: 20, bottom: 35 },
       ],
       series,
     };

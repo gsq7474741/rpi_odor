@@ -1,3 +1,5 @@
+// @deprecated 此页面已从侧边栏移除，功能已整合到数据中心(/data-center)
+// 保留代码供后续参考，但不再从导航入口访问
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";

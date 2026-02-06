@@ -26,6 +26,7 @@ import {
 import { useTheme } from "next-themes";
 import { useStatusStream } from "@/hooks/use-status-stream";
 import { useLatency } from "@/hooks/use-latency";
+import { useSettings } from "@/hooks/use-settings";
 
 export function TopBar() {
   // 使用 SSE 获取状态（与 ControlPanel 共享同一连接）
@@ -37,6 +38,7 @@ export function TopBar() {
   const [restartLoading, setRestartLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const { theme, setTheme } = useTheme();
+  const { setSettingsOpen, connection: connectionSettings } = useSettings();
   const [mounted, setMounted] = useState(false);
   
   // 延迟等级颜色
@@ -186,8 +188,8 @@ export function TopBar() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* 设置按钮 (预留) */}
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-800">
+        {/* 设置按钮 */}
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-800" onClick={() => setSettingsOpen(true)}>
           <Settings className="w-4 h-4" />
         </Button>
 

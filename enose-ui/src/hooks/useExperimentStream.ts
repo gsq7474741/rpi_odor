@@ -34,7 +34,7 @@ export function useExperimentStream(enabled: boolean = true) {
     }
 
     try {
-      const eventSource = new EventSource('/api/experiment/stream');
+      const eventSource = new EventSource('/api/run/stream');
       eventSourceRef.current = eventSource;
 
       eventSource.onopen = () => {

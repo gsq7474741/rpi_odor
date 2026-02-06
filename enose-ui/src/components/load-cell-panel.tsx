@@ -123,10 +123,9 @@ interface LoadCellConfig {
   overflowThreshold: number;
   drainCompleteMargin: number;
   stableThreshold: number;
-  pumpMmToMl?: number;  // 从后端读取的泵校准系数
-  pumpMmOffset?: number;
-  weightScale?: number;
-  weightOffset?: number;
+  mlToWeightSlope?: number;  // 称重校准斜率 (g/ml)
+  mlToWeightOffset?: number; // 称重校准截距 (g)
+  fillLagCompensationG?: number; // 清洗泵注入滞后补偿 (g)
 }
 
 interface TarePoint {
@@ -358,8 +357,8 @@ export function LoadCellPanel() {
     pumpId: 2,
     volumeSteps: [100, 200, 300, 400, 500, 600, 700, 800], // 测试进样量序列 (ml)
     speed: 5,
-    pumpMmToMl: 0.0314, // 从后端配置加载
-    pumpMmOffset: -7.34, // 从后端配置加载
+    mlToWeightSlope: 0.0314, // 从后端配置加载
+    mlToWeightOffset: -7.34, // 从后端配置加载
   });
   const [weightCalibStep, setWeightCalibStep] = useState<'idle' | 'injecting' | 'waiting_user' | 'draining'>('idle');
   const [weightCalibCurrentIndex, setWeightCalibCurrentIndex] = useState(0);
@@ -429,10 +428,9 @@ export function LoadCellPanel() {
     overflowThreshold: 500,
     drainCompleteMargin: 5,
     stableThreshold: 2,
-    pumpMmToMl: 0,
-    pumpMmOffset: 0,
-    weightScale: 1,
-    weightOffset: 0,
+    mlToWeightSlope: 0,
+    mlToWeightOffset: 0,
+    fillLagCompensationG: 0,
   });
   const [weightCalibSaving, setWeightCalibSaving] = useState(false);
   const [isSavingConfig, setIsSavingConfig] = useState(false);
@@ -529,17 +527,16 @@ export function LoadCellPanel() {
         overflowThreshold: cfg.overflowThreshold,
         drainCompleteMargin: cfg.drainCompleteMargin,
         stableThreshold: cfg.stableThreshold,
-        pumpMmToMl: cfg.pumpMmToMl || 0,
-        pumpMmOffset: cfg.pumpMmOffset || 0,
-        weightScale: cfg.weightScale || 1,
-        weightOffset: cfg.weightOffset || 0,
+        mlToWeightSlope: cfg.mlToWeightSlope || 0,
+        mlToWeightOffset: cfg.mlToWeightOffset || 0,
+        fillLagCompensationG: cfg.fillLagCompensationG || 0,
       });
       // 同步更新称重标定配置中的泵系数
-      if (cfg.pumpMmToMl) {
+      if (cfg.mlToWeightSlope) {
         setWeightCalibConfig(prev => ({
           ...prev,
-          pumpMmToMl: cfg.pumpMmToMl,
-          pumpMmOffset: cfg.pumpMmOffset || 0,
+          mlToWeightSlope: cfg.mlToWeightSlope,
+          mlToWeightOffset: cfg.mlToWeightOffset || 0,
         }));
       }
       // 同时获取后端的动态空瓶值
@@ -1646,7 +1643,7 @@ export function LoadCellPanel() {
         const measuredWeight = fullWeight - emptyWeight;
         
         // 计算ml值
-        const mlValue = setVolume * weightCalibConfig.pumpMmToMl + weightCalibConfig.pumpMmOffset;
+        const mlValue = setVolume * weightCalibConfig.mlToWeightSlope + weightCalibConfig.mlToWeightOffset;
         
         // 记录结果
         setWeightCalibResults(prev => [...prev, {
@@ -3639,8 +3636,8 @@ export function LoadCellPanel() {
                   <div className="col-span-2">
                     <Label className="text-xs">泵线性系数</Label>
                     <div className="h-8 px-3 py-1.5 rounded-md border bg-muted/50 text-sm font-mono flex items-center gap-3">
-                      <span>slope: <strong>{config.pumpMmToMl ? config.pumpMmToMl.toFixed(4) : '未标定'}</strong></span>
-                      <span>offset: <strong>{config.pumpMmOffset !== undefined ? config.pumpMmOffset.toFixed(2) : '未标定'}</strong></span>
+                      <span>slope: <strong>{config.mlToWeightSlope ? config.mlToWeightSlope.toFixed(4) : '未标定'}</strong></span>
+                      <span>offset: <strong>{config.mlToWeightOffset !== undefined ? config.mlToWeightOffset.toFixed(2) : '未标定'}</strong></span>
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5">从线性度检测获取</div>
                   </div>
@@ -3766,18 +3763,8 @@ export function LoadCellPanel() {
                       onClick={async () => {
                         setWeightCalibSaving(true);
                         try {
-                          await saveLoadCellConfig({
-                            ...config,
-                            weightScale: weightCalibRegression.slope,
-                            weightOffset: weightCalibRegression.intercept,
-                          });
-                          // 更新本地config
-                          setConfig(prev => ({
-                            ...prev,
-                            weightScale: weightCalibRegression.slope,
-                            weightOffset: weightCalibRegression.intercept,
-                          }));
-                          addAutoTestLog('✅ 称重校准系数已保存到后端');
+                          // 称重标定结果仅供参考，校准已简化为单阶段 (ml → 测量重量)
+                          addAutoTestLog(`ℹ️ 称重标定结果: slope=${weightCalibRegression.slope.toFixed(4)}, offset=${weightCalibRegression.intercept.toFixed(4)}, R²=${weightCalibRegression.r2.toFixed(4)}`);
                         } catch (err: any) {
                           addAutoTestLog(`❌ 保存失败: ${err.message}`);
                         } finally {

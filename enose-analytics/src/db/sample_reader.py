@@ -303,6 +303,88 @@ class SampleReader:
 
         return row["count"] if row else 0
 
+    def get_phase_transitions(self, sample_id: int) -> list[dict[str, Any]]:
+        """查询单个样本的 phase 转换记录"""
+        query = """
+            SELECT id, sample_id, phase_name, start_time_ms, end_time_ms, phase_order
+            FROM sample_phase_transitions
+            WHERE sample_id = %s
+            ORDER BY phase_order
+        """
+        with get_cursor() as cur:
+            cur.execute(query, [sample_id])
+            rows = cur.fetchall()
+        return [dict(r) for r in rows]
+
+    def get_phase_transitions_batch(self, sample_ids: list[int]) -> dict[int, list[dict[str, Any]]]:
+        """批量查询多个样本的 phase 转换记录（避免 N+1）"""
+        if not sample_ids:
+            return {}
+        query = """
+            SELECT id, sample_id, phase_name, start_time_ms, end_time_ms, phase_order
+            FROM sample_phase_transitions
+            WHERE sample_id = ANY(%s)
+            ORDER BY sample_id, phase_order
+        """
+        with get_cursor() as cur:
+            cur.execute(query, [sample_ids])
+            rows = cur.fetchall()
+
+        result: dict[int, list[dict[str, Any]]] = {}
+        for r in rows:
+            sid = r["sample_id"]
+            if sid not in result:
+                result[sid] = []
+            result[sid].append(dict(r))
+        return result
+
+    def get_available_phases(self, run_id: int | None = None) -> list[str]:
+        """获取可用的 phase 列表（从 sample_phase_transitions 表动态获取）"""
+        if run_id is not None:
+            query = """
+                SELECT DISTINCT spt.phase_name
+                FROM sample_phase_transitions spt
+                JOIN samples s ON s.id = spt.sample_id
+                WHERE s.run_id = %s
+                ORDER BY spt.phase_name
+            """
+            params: list[Any] = [run_id]
+        else:
+            query = """
+                SELECT DISTINCT phase_name
+                FROM sample_phase_transitions
+                ORDER BY phase_name
+            """
+            params = []
+
+        with get_cursor() as cur:
+            cur.execute(query, params)
+            rows = cur.fetchall()
+        return [r["phase_name"] for r in rows]
+
+    def get_reading_count(self, sample_id: int) -> int:
+        """获取样本的传感器读数计数"""
+        query = "SELECT COUNT(*) FROM sensor_readings_v2 WHERE sample_id = %s"
+        with get_cursor() as cur:
+            cur.execute(query, [sample_id])
+            row = cur.fetchone()
+        return row["count"] if row else 0
+
+    def get_reading_counts_batch(self, sample_ids: list[int]) -> dict[int, int]:
+        """批量获取多个样本的传感器读数计数"""
+        if not sample_ids:
+            return {}
+        query = """
+            SELECT sample_id, COUNT(*) as cnt
+            FROM sensor_readings_v2
+            WHERE sample_id = ANY(%s)
+            GROUP BY sample_id
+        """
+        with get_cursor() as cur:
+            cur.execute(query, [sample_ids])
+            rows = cur.fetchall()
+        return {r["sample_id"]: r["cnt"] for r in rows}
+
     def _row_to_sample(self, row: dict[str, Any]) -> dict[str, Any]:
         """将数据库行转换为样本字典"""
         liquids = []
