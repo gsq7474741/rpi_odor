@@ -6,7 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { RefreshCw, ChevronDown } from 'lucide-react';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { RefreshCw, ChevronDown, Scale, Timer } from 'lucide-react';
 import { Field } from './Field';
 import { NodeFieldsWithExternalDataProps } from './types';
 
@@ -73,6 +74,23 @@ export function WashNodeFields({
           需要在耗材管理页面添加清洗液（类别设为 cleaning）
         </p>
       </Field>
+      <Field label="注入控制模式">
+        <ToggleGroup
+          type="single"
+          value={String(data.fillMode || 'weight')}
+          onValueChange={(v) => { if (v) handleChange('fillMode', v); }}
+          className="justify-start"
+        >
+          <ToggleGroupItem value="weight" className="gap-1 text-xs px-3">
+            <Scale className="w-3.5 h-3.5" />
+            称重
+          </ToggleGroupItem>
+          <ToggleGroupItem value="timed" className="gap-1 text-xs px-3">
+            <Timer className="w-3.5 h-3.5" />
+            定时
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </Field>
       <Field label="每次清洗量 (ml)">
         <Input
           type="number"
@@ -80,6 +98,11 @@ export function WashNodeFields({
           value={Number(data.washVolumeMl || 20)}
           onChange={(e) => handleChange('washVolumeMl', parseFloat(e.target.value) || 20)}
         />
+        {data.fillMode === 'timed' && (
+          <p className="text-[10px] text-muted-foreground mt-1">
+            定时模式: 注入约 {((Number(data.washVolumeMl) || 20) / 10).toFixed(1)} 秒（基于 10 ml/s 流速）
+          </p>
+        )}
       </Field>
       <Field label="重复次数">
         <Input
@@ -152,7 +175,11 @@ export function WashNodeFields({
       <div className="p-2 bg-blue-500/10 border border-blue-500/30 rounded text-xs text-blue-600 mt-2">
         <p className="font-medium mb-1">清洗流程说明：</p>
         <p>每次清洗循环：排废确认空瓶 → 注入清洗液 → 排废</p>
-        <p className="mt-1">注入量通过称重传感器线性校正检测，达到目标量即停止。</p>
+        <p className="mt-1">
+          {data.fillMode === 'timed' 
+            ? '定时模式：按体积÷流速计算注入时长，开环控制。' 
+            : '称重模式：通过称重传感器检测注入量，达到目标即停止。'}
+        </p>
       </div>
     </>
   );

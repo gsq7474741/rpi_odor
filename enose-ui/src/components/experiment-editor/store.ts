@@ -25,6 +25,27 @@ interface HistoryState {
   };
 }
 
+export interface TabSnapshot {
+  id: string;
+  filename: string | null;
+  nodes: ExperimentNode[];
+  edges: ExperimentEdge[];
+  programId: string;
+  programName: string;
+  programDescription: string;
+  programVersion: string;
+  bottleCapacityMl: number;
+  maxFillMl: number;
+  isDirty: boolean;
+  history: HistoryState[];
+  historyIndex: number;
+  savedHistoryIndex: number;
+  compilationResult: CompilationResult | null;
+}
+
+let tabIdCounter = 0;
+const generateTabId = () => `tab_${++tabIdCounter}`;
+
 interface EditorState {
   nodes: ExperimentNode[];
   edges: ExperimentEdge[];
@@ -99,6 +120,15 @@ interface EditorState {
   // 未保存更改
   setDirty: (dirty: boolean) => void;
   setCurrentFilename: (filename: string | null) => void;
+  
+  // 多标签页
+  tabs: TabSnapshot[];
+  activeTabId: string;
+  createTab: (filename?: string | null) => string; // returns tab id
+  switchTab: (tabId: string) => void;
+  closeTab: (tabId: string) => boolean; // returns false if it's the last tab
+  updateActiveTabSnapshot: () => void;
+  getTabById: (tabId: string) => TabSnapshot | undefined;
   
   // 获取默认节点数据
   getDefaultNodeData: (type: NodeType) => Record<string, unknown>;
@@ -276,6 +306,170 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   // 当前文件名状态
   currentFilename: null,
   setCurrentFilename: (filename: string | null) => set({ currentFilename: filename }),
+  
+  // 多标签页状态
+  tabs: [{ id: 'tab_0', filename: null, nodes: initialNodes, edges: initialEdges, programId: 'new_experiment', programName: '新实验', programDescription: '', programVersion: '1.0.0', bottleCapacityMl: 150, maxFillMl: 100, isDirty: false, history: [{ nodes: initialNodes, edges: initialEdges }], historyIndex: 0, savedHistoryIndex: 0, compilationResult: null }],
+  activeTabId: 'tab_0',
+  
+  // 将当前编辑器状态快照到活动标签页
+  updateActiveTabSnapshot: () => {
+    const s = get();
+    set({
+      tabs: s.tabs.map(t => t.id === s.activeTabId ? {
+        ...t,
+        filename: s.currentFilename,
+        nodes: JSON.parse(JSON.stringify(s.nodes)),
+        edges: JSON.parse(JSON.stringify(s.edges)),
+        programId: s.programId,
+        programName: s.programName,
+        programDescription: s.programDescription,
+        programVersion: s.programVersion,
+        bottleCapacityMl: s.bottleCapacityMl,
+        maxFillMl: s.maxFillMl,
+        isDirty: s.isDirty,
+        history: JSON.parse(JSON.stringify(s.history)),
+        historyIndex: s.historyIndex,
+        savedHistoryIndex: s.savedHistoryIndex,
+        compilationResult: s.compilationResult ? JSON.parse(JSON.stringify(s.compilationResult)) : null,
+      } : t),
+    });
+  },
+  
+  // 创建新标签页并切换到它
+  createTab: (filename = null) => {
+    // 先快照当前标签
+    get().updateActiveTabSnapshot();
+    
+    const id = generateTabId();
+    const newTab: TabSnapshot = {
+      id,
+      filename,
+      nodes: JSON.parse(JSON.stringify(initialNodes)),
+      edges: [],
+      programId: 'new_experiment',
+      programName: '新实验',
+      programDescription: '',
+      programVersion: '1.0.0',
+      bottleCapacityMl: 150,
+      maxFillMl: 100,
+      isDirty: false,
+      history: [{ nodes: initialNodes, edges: [] }],
+      historyIndex: 0,
+      savedHistoryIndex: 0,
+      compilationResult: null,
+    };
+    
+    // 恢复新标签到编辑器
+    nodeIdCounter = 0;
+    syncNodeIdCounter(newTab.nodes);
+    set({
+      tabs: [...get().tabs, newTab],
+      activeTabId: id,
+      nodes: JSON.parse(JSON.stringify(newTab.nodes)),
+      edges: [],
+      selectedNodeId: null,
+      currentFilename: null,
+      programId: 'new_experiment',
+      programName: '新实验',
+      programDescription: '',
+      programVersion: '1.0.0',
+      bottleCapacityMl: 150,
+      maxFillMl: 100,
+      isDirty: false,
+      history: [{ nodes: initialNodes, edges: [] }],
+      historyIndex: 0,
+      savedHistoryIndex: 0,
+      compilationResult: null,
+    });
+    return id;
+  },
+  
+  // 切换到指定标签页
+  switchTab: (tabId) => {
+    const s = get();
+    if (tabId === s.activeTabId) return;
+    
+    // 快照当前标签
+    s.updateActiveTabSnapshot();
+    
+    // 找到目标标签
+    const target = s.tabs.find(t => t.id === tabId);
+    if (!target) return;
+    
+    // 重置模块级共享状态，避免跨标签残留
+    isDraggingNodes = false;
+    if (updateNodeDataTimer) { clearTimeout(updateNodeDataTimer); updateNodeDataTimer = null; }
+    pendingHistorySave = false;
+    
+    // 恢复目标标签到编辑器
+    syncNodeIdCounter(target.nodes);
+    set({
+      activeTabId: tabId,
+      nodes: JSON.parse(JSON.stringify(target.nodes)),
+      edges: JSON.parse(JSON.stringify(target.edges)),
+      selectedNodeId: null,
+      currentFilename: target.filename,
+      programId: target.programId,
+      programName: target.programName,
+      programDescription: target.programDescription,
+      programVersion: target.programVersion,
+      bottleCapacityMl: target.bottleCapacityMl,
+      maxFillMl: target.maxFillMl,
+      isDirty: target.isDirty,
+      isRecordingHistory: false,
+      history: JSON.parse(JSON.stringify(target.history)),
+      historyIndex: target.historyIndex,
+      savedHistoryIndex: target.savedHistoryIndex,
+      compilationResult: target.compilationResult ? JSON.parse(JSON.stringify(target.compilationResult)) : null,
+    });
+  },
+  
+  // 关闭标签页
+  closeTab: (tabId) => {
+    const s = get();
+    if (s.tabs.length <= 1) return false; // 不能关闭最后一个标签
+    
+    const idx = s.tabs.findIndex(t => t.id === tabId);
+    if (idx === -1) return false;
+    
+    const newTabs = s.tabs.filter(t => t.id !== tabId);
+    
+    // 如果关闭的是当前活动标签，切换到相邻标签
+    if (tabId === s.activeTabId) {
+      const newActiveIdx = Math.min(idx, newTabs.length - 1);
+      const target = newTabs[newActiveIdx];
+      syncNodeIdCounter(target.nodes);
+      // 重置模块级共享状态
+      isDraggingNodes = false;
+      if (updateNodeDataTimer) { clearTimeout(updateNodeDataTimer); updateNodeDataTimer = null; }
+      pendingHistorySave = false;
+      set({
+        tabs: newTabs,
+        activeTabId: target.id,
+        nodes: JSON.parse(JSON.stringify(target.nodes)),
+        edges: JSON.parse(JSON.stringify(target.edges)),
+        selectedNodeId: null,
+        currentFilename: target.filename,
+        programId: target.programId,
+        programName: target.programName,
+        programDescription: target.programDescription,
+        programVersion: target.programVersion,
+        bottleCapacityMl: target.bottleCapacityMl,
+        maxFillMl: target.maxFillMl,
+        isDirty: target.isDirty,
+        isRecordingHistory: false,
+        history: JSON.parse(JSON.stringify(target.history)),
+        historyIndex: target.historyIndex,
+        savedHistoryIndex: target.savedHistoryIndex,
+        compilationResult: target.compilationResult ? JSON.parse(JSON.stringify(target.compilationResult)) : null,
+      });
+    } else {
+      set({ tabs: newTabs });
+    }
+    return true;
+  },
+  
+  getTabById: (tabId) => get().tabs.find(t => t.id === tabId),
   
   saveToHistory: () => {
     const { isRecordingHistory, nodes, edges, history, historyIndex, savedHistoryIndex, programId, programName, programDescription, programVersion } = get();
@@ -509,8 +703,33 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     // 使用 isRecordingHistory 防止双重记录。
     get().saveToHistory();
     set({ isRecordingHistory: true });
+    // 清理其他节点上引用被删除节点的 boundVariables
+    const cleanedNodes = get().nodes
+      .filter((node) => node.id !== nodeId)
+      .map((node) => {
+        const data = node.data as Record<string, unknown>;
+        const bound = data.boundVariables as Record<string, string> | undefined;
+        if (!bound) return node;
+        const cleaned: Record<string, string> = {};
+        let changed = false;
+        for (const [field, sweepId] of Object.entries(bound)) {
+          if (sweepId === nodeId) {
+            changed = true;
+          } else {
+            cleaned[field] = sweepId;
+          }
+        }
+        if (!changed) return node;
+        return {
+          ...node,
+          data: {
+            ...data,
+            boundVariables: Object.keys(cleaned).length > 0 ? cleaned : undefined,
+          },
+        };
+      });
     set({
-      nodes: get().nodes.filter((node) => node.id !== nodeId),
+      nodes: cleanedNodes,
       edges: get().edges.filter(
         (edge) => edge.source !== nodeId && edge.target !== nodeId
       ),
@@ -556,7 +775,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   
   // 实时编译（异步获取外部数据）
   recompile: async () => {
-    const { nodes, edges, bottleCapacityMl, maxFillMl } = get();
+    const { nodes, edges, bottleCapacityMl, maxFillMl, activeTabId } = get();
     set({ isCompiling: true });
     
     try {
@@ -570,7 +789,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         heaterProfiles,
         pumpBindings,
       });
-      set({ compilationResult: result, isCompiling: false });
+      // 仅在仍是同一标签页时才写入结果，避免竞态
+      if (get().activeTabId === activeTabId) {
+        set({ compilationResult: result, isCompiling: false });
+      }
     } catch (error) {
       console.error('编译失败:', error);
       // 即使获取外部数据失败，也尝试编译（不含外部数据）
@@ -579,7 +801,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         maxFillMl,
         expandLoops: true,
       });
-      set({ compilationResult: result, isCompiling: false });
+      if (get().activeTabId === activeTabId) {
+        set({ compilationResult: result, isCompiling: false });
+      }
     }
   },
   

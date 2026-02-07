@@ -209,7 +209,7 @@ function DataCenterContent() {
                     { value: "timeseries", label: "时序图", icon: LineChart },
                     { value: "projector", label: "降维分析", icon: ScatterChart },
                     { value: "compare", label: "参数对比", icon: GitCompare },
-                    { value: "training", label: "训练数据", icon: Brain },
+                    { value: "training", label: "ML 标签", icon: Brain },
                   ].map(({ value, label, icon: Icon }) => (
                     <button
                       key={value}

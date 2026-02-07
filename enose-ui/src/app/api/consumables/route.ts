@@ -137,6 +137,36 @@ export async function GET(request: NextRequest) {
         );
         return NextResponse.json(response);
       }
+
+      case "all-attachments": {
+        // 批量获取所有液体的附件，服务端聚合，前端只需 1 次 HTTP 请求
+        const liquidIds = searchParams.get("liquidIds")?.split(",").map(Number).filter(Boolean) || [];
+        const result: Record<number, Record<string, Array<unknown>>> = {};
+        await Promise.all(
+          liquidIds.map(async (lid) => {
+            try {
+              const res = await promisify(
+                c.getLiquidAttachments.bind(c),
+                { liquidId: lid, fieldKey: "" }
+              );
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const attachments = (res as any).attachments || [];
+              if (attachments.length > 0) {
+                result[lid] = {};
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                for (const att of attachments as any[]) {
+                  const fk = att.fieldKey || att.field_key || "";
+                  if (!result[lid][fk]) result[lid][fk] = [];
+                  result[lid][fk].push(att);
+                }
+              }
+            } catch {
+              // 单个液体查询失败不影响整体
+            }
+          })
+        );
+        return NextResponse.json({ attachmentsMap: result });
+      }
       
       default:
         return NextResponse.json({ error: "Invalid type" }, { status: 400 });

@@ -205,7 +205,28 @@ class MLLabelRepository:
         phase_names: list[str] | None = None,
         sample_ids: list[int] | None = None,
     ) -> dict[str, int]:
-        """获取某策略下的标签分布"""
+        """获取某策略下的标签分布（支持分类和回归）"""
+        config = self.get_config_by_name(config_name)
+        if not config:
+            return {}
+
+        if config["label_type"] == "regression":
+            return self._get_regression_distribution(
+                config_name, run_ids, phase_names, sample_ids
+            )
+        else:
+            return self._get_classification_distribution(
+                config_name, run_ids, phase_names, sample_ids
+            )
+
+    def _get_classification_distribution(
+        self,
+        config_name: str,
+        run_ids: list[int] | None = None,
+        phase_names: list[str] | None = None,
+        sample_ids: list[int] | None = None,
+    ) -> dict[str, int]:
+        """分类/对比学习：按 label_str 分组"""
         query = """
             SELECT sml.label_str, COUNT(*) AS cnt
             FROM sample_ml_labels sml
@@ -229,6 +250,81 @@ class MLLabelRepository:
         with get_cursor() as cur:
             cur.execute(query, params)
             return {r["label_str"]: r["cnt"] for r in cur.fetchall()}
+
+    def _get_regression_distribution(
+        self,
+        config_name: str,
+        run_ids: list[int] | None = None,
+        phase_names: list[str] | None = None,
+        sample_ids: list[int] | None = None,
+        num_buckets: int = 10,
+    ) -> dict[str, int]:
+        """回归：按 label_num 做直方图分桶"""
+        base_where = "mlc.name = %s AND sml.label_num IS NOT NULL"
+        where_params: list[Any] = [config_name]
+
+        filter_clause = ""
+        if sample_ids:
+            filter_clause = " AND s.id = ANY(%s)"
+            where_params.append(sample_ids)
+        elif run_ids:
+            filter_clause = " AND s.run_id = ANY(%s)"
+            where_params.append(run_ids)
+        if phase_names:
+            filter_clause += " AND s.phase_name = ANY(%s)"
+            where_params.append(phase_names)
+
+        from_join = """
+            FROM sample_ml_labels sml
+            JOIN ml_label_configs mlc ON sml.config_id = mlc.id
+            JOIN samples s ON sml.sample_id = s.id
+        """
+
+        with get_cursor() as cur:
+            # 先获取 min/max
+            cur.execute(f"""
+                SELECT MIN(sml.label_num) AS vmin, MAX(sml.label_num) AS vmax,
+                       COUNT(*) AS total
+                {from_join}
+                WHERE {base_where}{filter_clause}
+            """, where_params)
+            row = cur.fetchone()
+            if not row or row["total"] == 0:
+                return {}
+
+            vmin, vmax, total = float(row["vmin"]), float(row["vmax"]), row["total"]
+
+            # 所有值相同 → 单桶
+            if vmin == vmax:
+                return {f"{vmin:.2f}": total}
+
+            # 使用 width_bucket 分桶
+            # 参数顺序: vmin, vmax, num_buckets 在前, WHERE 参数在后
+            bucket_params: list[Any] = [vmin, vmax, num_buckets] + where_params
+            cur.execute(f"""
+                SELECT width_bucket(sml.label_num,
+                       CAST(%s AS double precision),
+                       CAST(%s AS double precision),
+                       CAST(%s AS int)) AS bucket,
+                       COUNT(*) AS cnt
+                {from_join}
+                WHERE {base_where}{filter_clause}
+                GROUP BY bucket ORDER BY bucket
+            """, bucket_params)
+
+            step = (vmax - vmin) / num_buckets
+            result: dict[str, int] = {}
+            for r in cur.fetchall():
+                b = r["bucket"]
+                if b <= 0:
+                    b = 1
+                elif b > num_buckets:
+                    b = num_buckets
+                lo = vmin + (b - 1) * step
+                hi = vmin + b * step
+                label = f"[{lo:.2f}, {hi:.2f})"
+                result[label] = result.get(label, 0) + r["cnt"]
+            return result
 
     def delete_labels_by_config(self, config_id: int) -> int:
         """删除某策略下的所有标签"""

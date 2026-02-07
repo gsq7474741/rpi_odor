@@ -10,6 +10,7 @@ export interface WashDefaults {
   gasPumpPwm: number;
   washVolumeMl: number;
   repeatCount: number;
+  fillMode: 'weight' | 'timed';
 }
 
 export interface SystemDefaults {
@@ -25,6 +26,7 @@ const FALLBACK: SystemDefaults = {
     gasPumpPwm: 50,
     washVolumeMl: 20,
     repeatCount: 2,
+    fillMode: 'weight',
   },
 };
 

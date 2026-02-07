@@ -243,7 +243,7 @@ interface WeightCalibrationResult {
 // 高级测试类型
 type AdvancedTestType = 'deadzone' | 'resolution' | 'baseline' | 'linearity' | 'weight_calibration' | null;
 
-export function LoadCellPanel() {
+export function LoadCellPanel({ active = true }: { active?: boolean }) {
   // 实时读数
   const [reading, setReading] = useState<LoadCellReading | null>(null);
   const [isPolling, setIsPolling] = useState(false);

@@ -4,9 +4,11 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Play, Square, Pause, RotateCcw, Upload, CheckCircle, AlertCircle, Clock, X, Wifi, WifiOff, FileUp, Edit, MoreHorizontal, Eye, FolderOpen } from "lucide-react";
+import { Play, Square, Pause, RotateCcw, Upload, CheckCircle, AlertCircle, Clock, X, Wifi, WifiOff, FileUp, Edit, MoreHorizontal, Eye, FolderOpen, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { ExperimentFlow, ExperimentProgram, parseYamlString } from "@/components/experiment-flow";
+import { SensorMonitor } from "@/components/sensor-monitor";
+import { QualityMonitor, QualityBadge, DataQualitySnapshot } from "@/components/quality-monitor";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable, DataTableColumnHeader } from "@/components/ui/data-table";
 import { ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
@@ -58,7 +60,7 @@ function mapBackendState(state: number | string): ExperimentStatus {
   return stringStateMap[state] || "idle";
 }
 
-type ExperimentStatus = "idle" | "loaded" | "running" | "paused" | "completed" | "error";
+type ExperimentStatus = "idle" | "loaded" | "running" | "pausing" | "paused" | "completed" | "error";
 
 interface ExperimentState {
   status: ExperimentStatus;
@@ -85,6 +87,7 @@ const statusConfig: Record<ExperimentStatus, { label: string; variant: "default"
   idle: { label: "空闲", variant: "secondary" },
   loaded: { label: "已加载", variant: "outline" },
   running: { label: "运行中", variant: "default" },
+  pausing: { label: "暂停中...", variant: "outline" },
   paused: { label: "已暂停", variant: "outline" },
   completed: { label: "已完成", variant: "secondary" },
   error: { label: "错误", variant: "destructive" },
@@ -132,6 +135,7 @@ export default function RunPage() {
   const [programs, setPrograms] = useState<ProgramInfo[]>([]);
   const [selectedProgram, setSelectedProgram] = useState<string | null>(null);
   const [uploadedYaml, setUploadedYaml] = useState<string | null>(null);
+  const [quality, setQuality] = useState<DataQualitySnapshot | undefined>(undefined);
   const fileInputRef = { current: null as HTMLInputElement | null };
   
   // 动态计时器状态
@@ -141,7 +145,7 @@ export default function RunPage() {
 
   // 动态计时器 - 每 100ms 更新一次
   useEffect(() => {
-    if (experiment.status !== "running") {
+    if (experiment.status !== "running" && experiment.status !== "pausing") {
       // 非运行状态直接显示后端返回的时间
       setDisplayTime(experiment.elapsedTime);
       return;
@@ -207,9 +211,15 @@ export default function RunPage() {
           ? (status.elapsedS || prev.elapsedTime)  // 完成时优先用后端值，若为0则保留前端值
           : (status.elapsedS || 0);
         
+        // 处理 "pausing" 中间状态：后端还是 running 时保持 pausing，后端变为 paused 时才切换
+        let resolvedStatus: ExperimentStatus = backendState;
+        if (prev.status === "pausing" && backendState === "running") {
+          resolvedStatus = "pausing";  // 保持等待状态，避免抖动
+        }
+
         return {
           ...prev,
-          status: backendState,
+          status: resolvedStatus,
           programName: programName,
           currentStep: currentStep,
           totalSteps: totalSteps,
@@ -221,6 +231,13 @@ export default function RunPage() {
       // 同步计时器基准时间
       lastSyncTimeRef.current = status.elapsedS || 0;
       lastSyncLocalRef.current = Date.now();
+      
+      // 更新质量数据
+      if (status.quality) {
+        setQuality(status.quality);
+      } else if (backendState === "idle" || backendState === "completed") {
+        setQuality(undefined);
+      }
       
       // 从后端恢复日志（页面刷新时）
       if (status.logs && status.logs.length > 0) {
@@ -434,16 +451,22 @@ export default function RunPage() {
   };
 
   const handlePause = async () => {
-    addLog("暂停实验");
+    addLog("暂停实验 - 将在当前步骤完成后暂停");
+    setExperiment(prev => ({
+      ...prev,
+      status: "pausing",
+      message: "等待当前步骤完成后暂停...",
+    }));
     try {
       await experimentApi("pause");
-      setExperiment(prev => ({
-        ...prev,
-        status: "paused",
-        message: "实验已暂停",
-      }));
     } catch (e: any) {
       addLog(`暂停失败: ${e.message}`);
+      // 失败时恢复为 running
+      setExperiment(prev => ({
+        ...prev,
+        status: "running",
+        message: "实验正在运行...",
+      }));
     }
   };
 
@@ -502,8 +525,9 @@ export default function RunPage() {
 
   const canStart = experiment.status === "loaded";
   const canPause = experiment.status === "running";
+  const isPausing = experiment.status === "pausing";
   const canResume = experiment.status === "paused";
-  const canStop = experiment.status === "running" || experiment.status === "paused" || experiment.status === "loaded";
+  const canStop = experiment.status === "running" || experiment.status === "pausing" || experiment.status === "paused" || experiment.status === "loaded";
 
   // 程序列表列定义
   const programColumns: ColumnDef<ProgramInfo>[] = useMemo(() => [
@@ -589,32 +613,35 @@ export default function RunPage() {
   }, [experiment.status, loadedProgram, programs]);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] p-6 gap-4">
+    <div className="flex flex-col h-[calc(100vh-4rem)] p-3 sm:p-4 lg:p-6 gap-3 sm:gap-4">
       {/* 顶部标题和控制栏 */}
-      <div className="flex items-center justify-between flex-shrink-0">
-        <h1 className="text-2xl font-bold">实验执行</h1>
-        <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 flex-shrink-0">
+        <h1 className="text-xl sm:text-2xl font-bold">实验执行</h1>
+        <div className="flex items-center gap-2 sm:gap-4">
           {/* 状态徽章 */}
-          <div className="flex items-center gap-2">
-            <Badge variant={statusConfig[experiment.status].variant} className="text-sm">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <Badge variant={statusConfig[experiment.status].variant} className="text-xs sm:text-sm">
               {statusConfig[experiment.status].label}
             </Badge>
             {experiment.programName && (
-              <span className="text-sm text-muted-foreground">
+              <span className="text-xs sm:text-sm text-muted-foreground">
                 {experiment.currentStep} / {experiment.totalSteps} · {formatElapsedTime(displayTime)}
               </span>
             )}
+            <QualityBadge quality={quality} />
           </div>
           {/* 控制按钮 */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <Button onClick={handleStart} disabled={!canStart} size="sm">
-              <Play className="mr-1 h-4 w-4" />开始
+              <Play className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">开始</span>
             </Button>
-            <Button onClick={canPause ? handlePause : handleResume} disabled={!canPause && !canResume} variant="outline" size="sm">
-              {canResume ? <><RotateCcw className="mr-1 h-4 w-4" />继续</> : <><Pause className="mr-1 h-4 w-4" />暂停</>}
+            <Button onClick={canPause ? handlePause : handleResume} disabled={!canPause && !canResume && !isPausing} variant="outline" size="sm">
+              {isPausing ? <><Loader2 className="h-4 w-4 animate-spin sm:mr-1" /><span className="hidden sm:inline">暂停中</span></>
+                : canResume ? <><RotateCcw className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">继续</span></>
+                : <><Pause className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">暂停</span></>}
             </Button>
             <Button onClick={handleStop} disabled={!canStop} variant="destructive" size="sm">
-              <Square className="mr-1 h-4 w-4" />停止
+              <Square className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">停止</span>
             </Button>
           </div>
         </div>
@@ -674,7 +701,7 @@ export default function RunPage() {
                       onClick={handleUnload}
                       variant="outline"
                       size="sm"
-                      disabled={experiment.status === "running" || experiment.status === "paused"}
+                      disabled={experiment.status === "running" || experiment.status === "pausing" || experiment.status === "paused"}
                     >
                       <X className="mr-1 h-4 w-4" />卸载
                     </Button>
@@ -700,6 +727,11 @@ export default function RunPage() {
               />
             </CardContent>
           </Card>
+
+          {/* 数据质量监控 */}
+          {(experiment.status === "running" || experiment.status === "paused" || experiment.status === "pausing") && (
+            <QualityMonitor quality={quality} />
+          )}
 
           {/* 实验日志 */}
           <Card className="flex-shrink-0">
@@ -738,30 +770,39 @@ export default function RunPage() {
           </Card>
         </div>
 
-        {/* 右侧：流程图 */}
-        <Card className="flex flex-col min-h-0">
-          <CardHeader className="flex-shrink-0 pb-3">
-            <CardTitle className="text-lg">程序流程</CardTitle>
-            <CardDescription>
-              {loadedProgram ? `已加载: ${loadedProgram.name}` : "加载程序后显示流程图"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex-1 min-h-0 overflow-y-auto">
-            {loadedProgram ? (
-              <ExperimentFlow
-                program={loadedProgram}
-                currentStep={experiment.status === "running" ? experiment.currentStep : undefined}
-              />
-            ) : (
-              <div className="h-full min-h-64 flex items-center justify-center text-muted-foreground border-2 border-dashed rounded-lg">
-                <div className="text-center">
-                  <FolderOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>请先选择并加载实验程序</p>
+        {/* 右侧：流程图 + 传感器监控 */}
+        <div className="flex flex-col gap-3 sm:gap-4 min-h-0">
+          <Card className="flex flex-col min-h-0 flex-1">
+            <CardHeader className="flex-shrink-0 pb-3">
+              <CardTitle className="text-base sm:text-lg">程序流程</CardTitle>
+              <CardDescription>
+                {loadedProgram ? `已加载: ${loadedProgram.name}` : "加载程序后显示流程图"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex-1 min-h-0 overflow-y-auto">
+              {loadedProgram ? (
+                <ExperimentFlow
+                  program={loadedProgram}
+                  currentStep={experiment.status === "running" ? experiment.currentStep : undefined}
+                />
+              ) : (
+                <div className="h-full min-h-64 flex items-center justify-center text-muted-foreground border-2 border-dashed rounded-lg">
+                  <div className="text-center">
+                    <FolderOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    <p>请先选择并加载实验程序</p>
+                  </div>
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* 传感器监控 */}
+          <SensorMonitor
+            active={true}
+            defaultOpen={experiment.status === "running"}
+            experimentRunning={experiment.status === "running" || experiment.status === "pausing"}
+          />
+        </div>
       </div>
     </div>
   );

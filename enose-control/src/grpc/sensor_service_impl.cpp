@@ -1,4 +1,5 @@
 #include "grpc/sensor_service_impl.hpp"
+#include "workflows/data_quality_monitor.hpp"
 #include <spdlog/spdlog.h>
 #include <chrono>
 #include <cstdint>
@@ -105,6 +106,21 @@ void SensorServiceImpl::on_sensor_packet(const nlohmann::json& packet) {
             
             // run_id 和 phase_name 由 SensorRepository 自动填充
             sensor_repo_->buffer_insert(record);
+        }
+        
+        // 转发到数据质量监控器
+        if (quality_monitor_) {
+            auto now = std::chrono::system_clock::now();
+            auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                now.time_since_epoch()).count();
+            quality_monitor_->on_reading(
+                packet.value("s", 0),
+                packet.value("gi", 0),
+                packet.value("v", packet.value("R", 0.0)),
+                packet.value("T", 0.0),
+                packet.value("H", 0.0),
+                packet.value("P", 0.0),
+                ms);
         }
     }
     else if (msg_type == "ready") {

@@ -60,7 +60,7 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
     runs,
   } = useExperiments();
 
-  const [sortField, setSortField] = useState<SortField>("runId");
+  const [sortField, setSortField] = useState<SortField>("time");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [recalculating, setRecalculating] = useState<Set<number>>(new Set());
 

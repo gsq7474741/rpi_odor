@@ -1,7 +1,7 @@
 -- ============================================================
--- 10-samples.sql - 样本分割与聚合表
--- ============================================================
--- 用于存储实验中的样本及其完整参数，支持跨 run 聚合分析
+-- 0010-samples.sql - 样本分割与聚合表
+-- 合并自: 10-samples.sql + 002-sample-solvent.sql
+-- 变更: liquid_is_solvent 列直接包含在 CREATE TABLE 中
 -- ============================================================
 
 -- ============================================================
@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS samples (
     liquid_ids      TEXT[],                        -- 液体 ID 列表 (可为空=无进样)
     liquid_names    TEXT[],                        -- 液体名称列表 (冗余，便于显示)
     liquid_ratios   DOUBLE PRECISION[],            -- 各液体比例 (和为 1)
+    liquid_is_solvent BOOLEAN[],                   -- 各液体在本实验中是否为稀释液 (与 liquid_ids 等平行数组)
     pump_indices    SMALLINT[],                    -- 各液体对应的泵索引
     total_volume_ml DOUBLE PRECISION,              -- 总进样量 (ml)
     flow_rate_ml_s  DOUBLE PRECISION,              -- 进样流速 (ml/s)
@@ -190,5 +191,5 @@ ORDER BY sample_count DESC;
 -- ============================================================
 DO $$
 BEGIN
-    RAISE NOTICE '10-samples.sql: 样本表和索引创建完成';
+    RAISE NOTICE '0010-samples.sql: 样本表和索引创建完成';
 END $$;

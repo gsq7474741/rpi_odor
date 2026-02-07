@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -248,6 +249,7 @@ interface LoadCellFormData {
   mlToWeightSlope: number;
   mlToWeightOffset: number;
   fillLagCompensationG: number;
+  washPumpFlowRateMlS: number;
 }
 
 function LoadCellTab() {
@@ -258,6 +260,7 @@ function LoadCellTab() {
     mlToWeightSlope: 0.0314,
     mlToWeightOffset: -7.34,
     fillLagCompensationG: 0,
+    washPumpFlowRateMlS: 10,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -276,6 +279,7 @@ function LoadCellTab() {
           mlToWeightSlope: data.mlToWeightSlope ?? 0.0314,
           mlToWeightOffset: data.mlToWeightOffset ?? -7.34,
           fillLagCompensationG: data.fillLagCompensationG ?? 0,
+          washPumpFlowRateMlS: data.washPumpFlowRateMlS ?? 10,
         });
         setLastCalibrationTime(data.lastCalibrationTime || "");
       }
@@ -356,6 +360,9 @@ function LoadCellTab() {
           </SettingRow>
           <SettingRow label="注入滞后补偿" description="动态读数滞后于真实重量的补偿">
             <NumberField value={form.fillLagCompensationG} onChange={(v) => updateField("fillLagCompensationG", v)} step={0.5} unit="g" />
+          </SettingRow>
+          <SettingRow label="清洗泵流速" description="100% PWM 下的流速，用于定时注入模式">
+            <NumberField value={form.washPumpFlowRateMlS} onChange={(v) => updateField("washPumpFlowRateMlS", v)} step={0.5} min={0.1} max={50} unit="ml/s" />
           </SettingRow>
         </SettingCard>
       </div>
@@ -591,6 +598,7 @@ export function SettingsDialog() {
   return (
     <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
       <DialogContent className="!block sm:!max-w-4xl h-[80vh] p-0 gap-0 overflow-hidden rounded-xl">
+        <DialogTitle className="sr-only">设置</DialogTitle>
         <div className="flex h-full">
           {/* 左侧导航 */}
           <nav className="w-48 shrink-0 border-r bg-muted/40 flex flex-col">

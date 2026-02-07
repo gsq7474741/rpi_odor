@@ -950,6 +950,7 @@ function compileNode(
             liquidName: d.liquidName as string,
             pumpIndex: (d.pumpIndex as number) ?? -1,  // 获取泵索引
             ratio: d.ratio as number || 1,
+            isSolvent: Boolean(d.isSolvent),
           };
         });
       
@@ -981,7 +982,7 @@ function compileNode(
     case NodeType.WASH: {
       const washVolume = (data.washVolumeMl as number) || 20;
       const repeatCount = (data.repeatCount as number) || 2;
-      const washFlowRate = (data.flowRateMlS as number) || 5; // ml/s，清洗流速
+      const washFlowRate = 10; // ml/s，清洗泵流速 (100% PWM)
       const drainTimeS = 30; // 排放时间估计
       
       // 后端清洗流程：每次循环都是 排废→注入→排废

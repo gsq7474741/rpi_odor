@@ -1,16 +1,22 @@
 -- ============================================================
--- 归一化帧表：存储插值后的固定长度帧数据
--- 原始数据保留在 sensor_readings_v2，此表用于 ML 训练
+-- 0006-normalized-frames.sql - 归一化帧表
+-- 合并自: 07-normalized-frames.sql + 12-fix-normalized-frames-nullable.sql
+-- 变更: run_id/phase_name 从一开始就允许 NULL (使用 sample_id 替代)
 -- ============================================================
 
 -- 插值方法枚举
-CREATE TYPE interpolation_method AS ENUM ('linear', 'pchip');
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'interpolation_method') THEN
+        CREATE TYPE interpolation_method AS ENUM ('linear', 'pchip');
+    END IF;
+END $$;
 
 -- 归一化帧表
 CREATE TABLE IF NOT EXISTS normalized_frames (
     id              BIGSERIAL PRIMARY KEY,
-    run_id          INTEGER NOT NULL,
-    phase_name      TEXT NOT NULL,
+    run_id          INTEGER,                          -- 允许 NULL (使用 sample_id 替代)
+    phase_name      TEXT,                             -- 允许 NULL (使用 sample_id 替代)
     method          interpolation_method NOT NULL,
     n_samples       INTEGER NOT NULL,           -- 采样点数
     frame_idx       INTEGER NOT NULL,           -- 帧索引 0 ~ n_samples-1
@@ -34,8 +40,8 @@ CREATE INDEX IF NOT EXISTS idx_normalized_frames_method
 -- 元数据表：记录每次归一化的参数和统计信息
 CREATE TABLE IF NOT EXISTS normalized_frames_meta (
     id              BIGSERIAL PRIMARY KEY,
-    run_id          INTEGER NOT NULL,
-    phase_name      TEXT NOT NULL,
+    run_id          INTEGER,                          -- 允许 NULL (使用 sample_id 替代)
+    phase_name      TEXT,                             -- 允许 NULL (使用 sample_id 替代)
     method          interpolation_method NOT NULL,
     n_samples       INTEGER NOT NULL,
     

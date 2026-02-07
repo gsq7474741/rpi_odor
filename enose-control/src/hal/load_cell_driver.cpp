@@ -495,6 +495,9 @@ bool LoadCellDriver::load_config_from_file(const std::filesystem::path& path) {
         if (j.contains("fill_lag_compensation_g")) {
             config_.fill_lag_compensation_g = j["fill_lag_compensation_g"].get<float>();
         }
+        if (j.contains("wash_pump_flow_rate_ml_s")) {
+            config_.wash_pump_flow_rate_ml_s = j["wash_pump_flow_rate_ml_s"].get<float>();
+        }
         
         config_path_ = path;
         spdlog::info("LoadCellDriver: Config loaded from {}", path.string());
@@ -503,6 +506,7 @@ bool LoadCellDriver::load_config_from_file(const std::filesystem::path& path) {
         spdlog::info("  stable_stddev_threshold: {:.1f}g", config_.stable_stddev_threshold);
         spdlog::info("  ml_to_weight_slope: {:.4f} g/ml, ml_to_weight_offset: {:.2f} g", config_.ml_to_weight_slope, config_.ml_to_weight_offset);
         spdlog::info("  fill_lag_compensation_g: {:.1f}g", config_.fill_lag_compensation_g);
+        spdlog::info("  wash_pump_flow_rate_ml_s: {:.1f} ml/s", config_.wash_pump_flow_rate_ml_s);
         
         return true;
     } catch (const std::exception& e) {
@@ -528,6 +532,7 @@ bool LoadCellDriver::save_config_to_file(const std::filesystem::path& path) cons
         j["ml_to_weight_slope"] = config_.ml_to_weight_slope;
         j["ml_to_weight_offset"] = config_.ml_to_weight_offset;
         j["fill_lag_compensation_g"] = config_.fill_lag_compensation_g;
+        j["wash_pump_flow_rate_ml_s"] = config_.wash_pump_flow_rate_ml_s;
         
         std::ofstream file(path);
         if (!file.is_open()) {

@@ -19,9 +19,10 @@
 #include "../db/experiment_repository.hpp"
 #include "../db/sensor_repository.hpp"
 #include "../db/phase_transition_repository.hpp"
+#include "../workflows/data_quality_monitor.hpp"
 
 // 前向声明
-namespace grpc_service { class SensorServiceImpl; }
+namespace enose_grpc { class SensorServiceImpl; }
 
 namespace grpc_service {
 
@@ -91,7 +92,7 @@ private:
     std::shared_ptr<db::ExperimentRepository> experiment_repo_;
     std::shared_ptr<db::SensorRepository> sensor_repo_;  // 用于设置运行上下文
     std::shared_ptr<db::PhaseTransitionRepository> phase_transition_repo_;  // 记录 sample 内的 phase 转换
-    SensorServiceImpl* sensor_service_{nullptr};  // 弱引用，不拥有
+    enose_grpc::SensorServiceImpl* sensor_service_{nullptr};  // 弱引用，不拥有
     enose::workflows::ExperimentValidator validator_;
     
     // 状态
@@ -159,7 +160,7 @@ private:
     
 public:
     // 设置传感器服务引用（用于设置 sample_id 上下文）
-    void set_sensor_service(SensorServiceImpl* service) { sensor_service_ = service; }
+    void set_sensor_service(enose_grpc::SensorServiceImpl* service) { sensor_service_ = service; }
     
     // 设置样本仓库
     void set_sample_repository(std::shared_ptr<db::SampleRepository> repo) { sample_repo_ = repo; }
@@ -191,7 +192,8 @@ private:
                    const std::string& message = "",
                    const std::map<std::string, std::string>& data = {});
     void fill_status_response(::enose::experiment::ExperimentStatusResponse* response);
-    bool check_stop_or_pause();
+    bool check_stop_or_pause();  // 步骤间调用：检查停止+暂停（暂停时阻塞）
+    bool check_stop();           // 步骤内调用：仅检查停止（步骤是原子操作，不被暂停打断）
     void wait_if_paused();
     
     // 转换系统状态
@@ -204,6 +206,9 @@ private:
     std::unordered_map<std::string, std::shared_ptr<workflows::IActionExecutor>> executors_;
     void init_executors();
     bool try_execute_with_executor(const ::enose::experiment::Step& step);
+    
+    // 数据质量监控
+    workflows::DataQualityMonitor quality_monitor_;
 };
 
 } // namespace grpc_service

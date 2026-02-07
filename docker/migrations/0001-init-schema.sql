@@ -1,4 +1,14 @@
--- E-Nose 数据库初始化脚本
+-- ============================================================
+-- 0001-init-schema.sql - E-Nose 数据库核心 Schema
+-- 合并自: 01-init-schema.sql + 02-add-pump-columns.sql
+-- ============================================================
+
+-- 迁移状态追踪表 (必须最先创建)
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version     TEXT PRIMARY KEY,
+    applied_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- 启用 TimescaleDB 扩展
 CREATE EXTENSION IF NOT EXISTS timescaledb;
 
@@ -21,7 +31,7 @@ CREATE INDEX IF NOT EXISTS idx_runs_state ON runs(state);
 CREATE INDEX IF NOT EXISTS idx_runs_created_at ON runs(created_at DESC);
 
 -- ============================================================
--- 进样测试结果表
+-- 进样测试结果表 (已合并 pump0/1/6/7 列)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS test_results (
     id                      SERIAL PRIMARY KEY,
@@ -31,10 +41,14 @@ CREATE TABLE IF NOT EXISTS test_results (
     param_set_name          TEXT NOT NULL,
     cycle                   INTEGER NOT NULL,
     total_volume            REAL NOT NULL,      -- mm
+    pump0_volume            REAL DEFAULT 0,
+    pump1_volume            REAL DEFAULT 0,
     pump2_volume            REAL NOT NULL,
     pump3_volume            REAL NOT NULL,
     pump4_volume            REAL NOT NULL,
     pump5_volume            REAL NOT NULL,
+    pump6_volume            REAL DEFAULT 0,
+    pump7_volume            REAL DEFAULT 0,
     speed                   REAL NOT NULL,      -- mm/s
     empty_weight            REAL NOT NULL,      -- g
     full_weight             REAL NOT NULL,      -- g

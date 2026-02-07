@@ -13,14 +13,6 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Tooltip,
   TooltipContent,
@@ -58,12 +50,7 @@ interface ExportConfig {
   includeFrames: boolean;
   frameFormat: FrameFormat;
   includeMlLabels: boolean;
-  mlLabelConfigs: string[];
   includeDataset: boolean;
-  datasetLabelConfig: string;
-  datasetSplit: boolean;
-  datasetTrainRatio: number;
-  datasetValRatio: number;
   datasetFormat: DatasetFormat;
   packageMode: PackageMode;
 }
@@ -74,36 +61,23 @@ const DEFAULT_CONFIG: ExportConfig = {
   includeFrames: false,
   frameFormat: "npz",
   includeMlLabels: false,
-  mlLabelConfigs: [],
   includeDataset: false,
-  datasetLabelConfig: "liquid_identity",
-  datasetSplit: true,
-  datasetTrainRatio: 0.7,
-  datasetValRatio: 0.15,
   datasetFormat: "npz",
   packageMode: "zip",
 };
-
-interface MLLabelConfig {
-  id: number;
-  name: string;
-  labelType: string;
-  description: string;
-  labelCount: number;
-}
 
 export function ExportPopover() {
   const {
     samples,
     selectedSampleIds,
     frameConfig,
+    mlLabelConfig,
+    mlSplitRatios,
   } = useExperiments();
 
   const [open, setOpen] = useState(false);
   const [config, setConfig] = useState<ExportConfig>(DEFAULT_CONFIG);
   const [exporting, setExporting] = useState(false);
-  const [labelConfigs, setLabelConfigs] = useState<MLLabelConfig[]>([]);
-  const [labelConfigsLoaded, setLabelConfigsLoaded] = useState(false);
 
   const selectedSamples = useMemo(
     () => samples.filter((s) => selectedSampleIds.has(s.id)),
@@ -117,31 +91,9 @@ export function ExportPopover() {
   );
   const framesAvailable = samplesWithFrames.length > 0;
 
-  // 加载 ML 标签策略列表
-  const loadLabelConfigs = useCallback(async () => {
-    if (labelConfigsLoaded) return;
-    try {
-      const res = await fetch("/api/ml-labels?action=configs");
-      const data = await res.json();
-      if (data.configs) {
-        setLabelConfigs(data.configs);
-      }
-      setLabelConfigsLoaded(true);
-    } catch (e) {
-      console.error("Failed to load label configs:", e);
-    }
-  }, [labelConfigsLoaded]);
-
-  // 打开 popover 时加载标签策略
-  const handleOpenChange = useCallback(
-    (newOpen: boolean) => {
-      setOpen(newOpen);
-      if (newOpen) {
-        loadLabelConfigs();
-      }
-    },
-    [loadLabelConfigs]
-  );
+  // ML 标签是否可用（在 ML 标签 tab 中已选择策略）
+  const mlLabelAvailable = !!mlLabelConfig;
+  const testRatio = 100 - mlSplitRatios.train - mlSplitRatios.val;
 
   // 估算总大小
   const estimatedSize = useMemo(() => {
@@ -223,12 +175,12 @@ export function ExportPopover() {
         frameNSamples: frameConfig.nSamples,
         frameFormat: config.frameFormat,
         includeMlLabels: config.includeMlLabels,
-        mlLabelConfigs: config.mlLabelConfigs,
+        mlLabelConfigs: mlLabelConfig ? [mlLabelConfig] : [],
         includeDataset: config.includeDataset,
-        datasetLabelConfig: config.datasetLabelConfig,
-        datasetSplit: config.datasetSplit,
-        datasetTrainRatio: config.datasetTrainRatio,
-        datasetValRatio: config.datasetValRatio,
+        datasetLabelConfig: mlLabelConfig,
+        datasetSplit: true,
+        datasetTrainRatio: mlSplitRatios.train / 100,
+        datasetValRatio: mlSplitRatios.val / 100,
         datasetFormat: config.datasetFormat,
       };
 
@@ -278,21 +230,8 @@ export function ExportPopover() {
     []
   );
 
-  // 切换 ML 标签策略
-  const toggleLabelConfig = useCallback(
-    (name: string) => {
-      setConfig((prev) => {
-        const configs = prev.mlLabelConfigs.includes(name)
-          ? prev.mlLabelConfigs.filter((c) => c !== name)
-          : [...prev.mlLabelConfigs, name];
-        return { ...prev, mlLabelConfigs: configs };
-      });
-    },
-    []
-  );
-
   return (
-    <Popover open={open} onOpenChange={handleOpenChange}>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -379,49 +318,23 @@ export function ExportPopover() {
           </div>
 
           {/* D: ML 标签 */}
-          <div className="space-y-1.5">
-            <ExportOption
-              icon={Tags}
-              label="ML 标签"
-              description="CSV，样本标签数据"
-              checked={config.includeMlLabels}
-              onCheckedChange={(v) => updateConfig("includeMlLabels", v)}
-              estimate={formatFileSize(selectedSamples.length * 100)}
-              disabled={labelConfigs.length === 0}
-              disabledReason={
-                labelConfigs.length === 0 ? "无可用标签策略" : undefined
-              }
-            />
-            {config.includeMlLabels && labelConfigs.length > 0 && (
-              <div className="ml-7 space-y-1">
-                <Label className="text-[11px] text-muted-foreground">
-                  选择策略
-                </Label>
-                <div className="flex flex-wrap gap-1.5">
-                  {labelConfigs.map((lc) => (
-                    <label
-                      key={lc.name}
-                      className="flex items-center gap-1 cursor-pointer"
-                    >
-                      <Checkbox
-                        checked={config.mlLabelConfigs.includes(lc.name)}
-                        onCheckedChange={() => toggleLabelConfig(lc.name)}
-                        className="h-3.5 w-3.5"
-                      />
-                      <span className="text-[11px]">{lc.name}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          <ExportOption
+            icon={Tags}
+            label="ML 标签"
+            description={mlLabelAvailable ? `策略: ${mlLabelConfig}` : "请先在 ML 标签 tab 中选择策略"}
+            checked={config.includeMlLabels}
+            onCheckedChange={(v) => updateConfig("includeMlLabels", v)}
+            estimate={formatFileSize(selectedSamples.length * 100)}
+            disabled={!mlLabelAvailable}
+            disabledReason={!mlLabelAvailable ? "请先在「ML 标签」tab 中选择标签策略" : undefined}
+          />
 
           {/* E: 训练数据集 */}
           <div className="space-y-1.5">
             <ExportOption
               icon={Brain}
               label="训练数据集"
-              description="帧矩阵 (N, n, 8) + 标签"
+              description={mlLabelAvailable ? `${mlLabelConfig} · ${mlSplitRatios.train}/${mlSplitRatios.val}/${testRatio}` : "帧矩阵 + 标签"}
               checked={config.includeDataset}
               onCheckedChange={(v) => updateConfig("includeDataset", v)}
               estimate={formatFileSize(
@@ -431,100 +344,20 @@ export function ExportPopover() {
                   config.datasetFormat
                 )
               )}
-              disabled={!framesAvailable || labelConfigs.length === 0}
+              disabled={!framesAvailable || !mlLabelAvailable}
               disabledReason={
                 !framesAvailable
                   ? "请先生成帧"
-                  : labelConfigs.length === 0
-                  ? "无可用标签策略"
+                  : !mlLabelAvailable
+                  ? "请先在「ML 标签」tab 中选择标签策略"
                   : undefined
               }
             />
             {config.includeDataset && (
-              <div className="ml-7 space-y-2">
-                {/* 标签策略 */}
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">
-                    标签策略
-                  </Label>
-                  <Select
-                    value={config.datasetLabelConfig}
-                    onValueChange={(v) =>
-                      updateConfig("datasetLabelConfig", v)
-                    }
-                  >
-                    <SelectTrigger className="h-7 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {labelConfigs.map((lc) => (
-                        <SelectItem key={lc.name} value={lc.name}>
-                          <span className="text-xs">{lc.name}</span>
-                          <span className="text-[10px] text-muted-foreground ml-1">
-                            ({lc.labelType})
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* 分割 */}
-                <div className="space-y-1">
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <Checkbox
-                      checked={config.datasetSplit}
-                      onCheckedChange={(v) =>
-                        updateConfig("datasetSplit", v === true)
-                      }
-                      className="h-3.5 w-3.5"
-                    />
-                    <span className="text-[11px]">分割数据集</span>
-                  </label>
-                  {config.datasetSplit && (
-                    <div className="flex items-center gap-1 text-[11px]">
-                      <span className="text-muted-foreground">比例:</span>
-                      <Input
-                        type="number"
-                        value={Math.round(config.datasetTrainRatio * 100)}
-                        onChange={(e) =>
-                          updateConfig(
-                            "datasetTrainRatio",
-                            Math.max(0.1, Math.min(0.9, parseInt(e.target.value || "70") / 100))
-                          )
-                        }
-                        className="h-6 w-10 text-[11px] text-center px-1"
-                        min={10}
-                        max={90}
-                      />
-                      <span>/</span>
-                      <Input
-                        type="number"
-                        value={Math.round(config.datasetValRatio * 100)}
-                        onChange={(e) =>
-                          updateConfig(
-                            "datasetValRatio",
-                            Math.max(0, Math.min(0.5, parseInt(e.target.value || "15") / 100))
-                          )
-                        }
-                        className="h-6 w-10 text-[11px] text-center px-1"
-                        min={0}
-                        max={50}
-                      />
-                      <span>/</span>
-                      <span className="text-muted-foreground tabular-nums">
-                        {Math.round(
-                          (1 -
-                            config.datasetTrainRatio -
-                            config.datasetValRatio) *
-                            100
-                        )}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* 格式 */}
+              <div className="ml-7 space-y-1">
+                <p className="text-[10px] text-muted-foreground">
+                  策略和分割比例在「ML 标签」tab 中配置
+                </p>
                 <FormatSelector
                   value={config.datasetFormat}
                   onChange={(v) =>

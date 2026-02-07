@@ -92,7 +92,7 @@ function StepNode({ step, index, currentStep, stepElapsedSeconds = 0, depth = 0,
 
   if (step.action.type === "loop" && step.action.steps) {
     return (
-      <div className="relative">
+      <div className="relative" data-step-index={index}>
         {/* 连接线 */}
         {!isLast && (
           <div className="absolute left-5 top-12 bottom-0 w-0.5 bg-border" style={{ marginLeft: depth * 24 }} />
@@ -146,7 +146,7 @@ function StepNode({ step, index, currentStep, stepElapsedSeconds = 0, depth = 0,
 
   // 普通步骤
   return (
-    <div className="relative">
+    <div className="relative" data-step-index={index}>
       {/* 连接线 */}
       {!isLast && depth === 0 && (
         <div className="absolute left-5 top-12 h-full w-0.5 bg-border" />
@@ -412,10 +412,21 @@ export function ExperimentFlow({ program, currentStep, stepElapsedSeconds, class
   // 解析阶段
   const phases = extractPhases(program.steps);
 
+  // 自动滚动到当前步骤
+  const stepsContainerRef = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    if (currentStep === undefined || !stepsContainerRef.current) return;
+    const activeEl = stepsContainerRef.current.querySelector(`[data-step-index="${currentStep - 1}"]`);
+    if (activeEl) {
+      activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [currentStep]);
+
   return (
-    <div className={cn("space-y-4", className)}>
+    <div className={cn("flex flex-col h-full", className)}>
       {/* 程序信息 */}
-      <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg">
+      <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg flex-shrink-0">
         <div className="p-2 bg-primary/10 rounded-lg">
           <Beaker className="h-6 w-6 text-primary" />
         </div>
@@ -431,24 +442,26 @@ export function ExperimentFlow({ program, currentStep, stepElapsedSeconds, class
       </div>
 
       {/* 阶段概览 */}
-      <div className="flex flex-wrap gap-2">
-        {phases.map((phase, index) => (
-          <div
-            key={index}
-            className={cn(
-              "px-3 py-1 rounded-full text-xs font-medium border",
-              phase.active ? "bg-primary text-primary-foreground border-primary" :
-              phase.completed ? "bg-muted text-muted-foreground border-muted" :
-              "bg-background text-foreground border-border"
-            )}
-          >
-            {phase.name}
-          </div>
-        ))}
-      </div>
+      {phases.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-3 flex-shrink-0">
+          {phases.map((phase, index) => (
+            <div
+              key={index}
+              className={cn(
+                "px-3 py-1 rounded-full text-xs font-medium border",
+                phase.active ? "bg-primary text-primary-foreground border-primary" :
+                phase.completed ? "bg-muted text-muted-foreground border-muted" :
+                "bg-background text-foreground border-border"
+              )}
+            >
+              {phase.name}
+            </div>
+          ))}
+        </div>
+      )}
 
-      {/* 步骤流程 */}
-      <div className="space-y-2 max-h-[500px] overflow-y-auto px-1 py-1">
+      {/* 步骤流程 - 可滚动区域 */}
+      <div ref={stepsContainerRef} className="space-y-2 flex-1 min-h-0 overflow-y-auto px-1 py-1 mt-3">
         {program.steps.map((step, index) => (
           <StepNode
             key={index}
@@ -461,19 +474,19 @@ export function ExperimentFlow({ program, currentStep, stepElapsedSeconds, class
         ))}
       </div>
 
-      {/* 统计信息 */}
-      <div className="grid grid-cols-3 gap-4 pt-4 border-t">
+      {/* 统计信息 - 固定底部 */}
+      <div className="grid grid-cols-3 gap-3 pt-3 mt-3 border-t flex-shrink-0">
         <div className="text-center">
-          <div className="text-2xl font-bold text-primary">{countSteps(program.steps)}</div>
-          <div className="text-xs text-muted-foreground">总步骤数</div>
+          <div className="text-lg font-bold text-primary">{countSteps(program.steps)}</div>
+          <div className="text-[10px] text-muted-foreground">总步骤数</div>
         </div>
         <div className="text-center">
-          <div className="text-2xl font-bold text-green-600">{phases.length}</div>
-          <div className="text-xs text-muted-foreground">阶段数</div>
+          <div className="text-lg font-bold text-green-600">{phases.length}</div>
+          <div className="text-[10px] text-muted-foreground">阶段数</div>
         </div>
         <div className="text-center">
-          <div className="text-2xl font-bold text-amber-600">{countLoops(program.steps)}</div>
-          <div className="text-xs text-muted-foreground">循环次数</div>
+          <div className="text-lg font-bold text-amber-600">{countLoops(program.steps)}</div>
+          <div className="text-[10px] text-muted-foreground">循环次数</div>
         </div>
       </div>
     </div>

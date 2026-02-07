@@ -303,6 +303,8 @@ export interface WashNodeData {
   washVolumeMl: number;
   repeatCount: number;
   gasPumpPwm: number;
+  // 注入控制模式: "weight"(称重反馈,默认) 或 "timed"(定时开环)
+  fillMode?: 'weight' | 'timed';
   // 高级参数（后端默认值由 YAML parser 填充）
   fillTimeoutS?: number;           // 清洗泵注入超时 (秒)，默认 60
   drainTimeoutS?: number;          // 排废超时 (秒)，默认 60

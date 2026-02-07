@@ -14,8 +14,7 @@ services:
       TIMESCALEDB_TELEMETRY: "off"
     volumes:
       - timescaledb_data:/var/lib/postgresql/data
-      - ./init-db:/docker-entrypoint-initdb.d:ro
-      - ./migrations:/migrations:ro  # 用于运行时迁移
+      - ./migrations:/migrations:ro  # 纯迁移方案：通过 migrate_db.ps1 执行
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U enose -d enose"]
       interval: 10s

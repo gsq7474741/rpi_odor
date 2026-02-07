@@ -30,10 +30,10 @@ function SystemPageContent() {
             <ControlPanel />
           </TabsContent>
           <TabsContent value="sensor" forceMount className="data-[state=inactive]:hidden mt-6">
-            <SensorPanel />
+            <SensorPanel active={currentTab === "sensor"} />
           </TabsContent>
           <TabsContent value="loadcell" forceMount className="data-[state=inactive]:hidden mt-6">
-            <LoadCellPanel />
+            <LoadCellPanel active={currentTab === "loadcell"} />
           </TabsContent>
         </Tabs>
       </div>

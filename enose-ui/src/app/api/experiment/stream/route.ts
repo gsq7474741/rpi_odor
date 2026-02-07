@@ -60,6 +60,7 @@ export async function GET() {
             message: response.message,
             logs: response.logs,
             error: response.error,
+            quality: (response as any).quality,
             timestamp: Date.now(),
           };
 

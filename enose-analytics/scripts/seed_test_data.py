@@ -114,7 +114,7 @@ def generate_mixed_mox_pattern(
     total = 0.0
     for liq in liquids:
         base = generate_mox_pattern(liq["name"], sensor_idx)
-        total += base * liq["ratio"]
+        total += base * liq["ratio"] / 100.0
     return total
 
 
@@ -213,15 +213,15 @@ def pick_sample_liquids(config: dict) -> list[dict]:
     if config.get("allow_mix") and len(liquids) >= 2 and random.random() < 0.35:
         # 35% 概率生成混合液体 (2种)
         selected = random.sample(liquids, 2)
-        # 生成随机比例 (0.1 步长)
-        r = random.choice([0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8])
+        # 生成随机比例 (10% 步长, 总和 = 100)
+        r = random.choice([20, 30, 40, 50, 60, 70, 80])
         return [
-            {**selected[0], "ratio": r},
-            {**selected[1], "ratio": round(1.0 - r, 2)},
+            {**selected[0], "ratio": float(r)},
+            {**selected[1], "ratio": float(100 - r)},
         ]
     else:
         liq = random.choice(liquids)
-        return [{**liq, "ratio": 1.0}]
+        return [{**liq, "ratio": 100.0}]
 
 
 # ============================================================================
@@ -1138,20 +1138,35 @@ def _seed_ml_labels_sql(
                     label_str = liquid_names[0]
                 else:
                     paired = sorted(zip(liquid_ratios, liquid_names), reverse=True)
-                    label_str = " + ".join(f"{n}({int(r*100)}%)" for r, n in paired)
+                    label_str = " + ".join(n for _, n in paired)
                 labels_to_insert.append((sample_id, cfg_id, label_str, None, None))
             
-            # primary_liquid: 占比最大的液体
+            # primary_liquid: 过滤稀释液后，占比最大的液体
             if "primary_liquid" in config_map:
                 cfg_id, _ = config_map["primary_liquid"]
-                max_idx = liquid_ratios.index(max(liquid_ratios))
-                labels_to_insert.append((sample_id, cfg_id, liquid_names[max_idx], None, None))
+                # 过滤稀释液（包含"水"的液体名称）
+                solvent_keywords = ("纯净水", "蒸馏水", "自来水", "去离子水")
+                non_solvent = [
+                    (n, r) for n, r in zip(liquid_names, liquid_ratios)
+                    if not any(kw in n for kw in solvent_keywords)
+                ]
+                candidates = non_solvent if non_solvent else list(zip(liquid_names, liquid_ratios))
+                primary_name = max(candidates, key=lambda x: x[1])[0]
+                labels_to_insert.append((sample_id, cfg_id, primary_name, None, None))
+            
+            # concentration: 每种液体的浓度
+            if "concentration" in config_map:
+                cfg_id, _ = config_map["concentration"]
+                conc = {n: r for n, r in zip(liquid_names, liquid_ratios)}
+                label_str = "|".join(f"{k}:{v:.0f}" for k, v in sorted(conc.items()))
+                label_json = json.dumps(conc, ensure_ascii=False)
+                labels_to_insert.append((sample_id, cfg_id, label_str, None, label_json))
             
             # mixture_formula: ID:ratio 排序拼接
             if "mixture_formula" in config_map and liquid_ids:
                 cfg_id, _ = config_map["mixture_formula"]
                 paired = sorted(zip(liquid_ids, liquid_ratios))
-                formula = "|".join(f"{lid}:{r:.2f}" for lid, r in paired)
+                formula = "|".join(f"{lid}:{r:.4f}" for lid, r in paired)
                 labels_to_insert.append((sample_id, cfg_id, formula, None, None))
             
             # total_volume: 进样量

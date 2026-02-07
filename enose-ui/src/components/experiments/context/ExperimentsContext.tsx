@@ -136,6 +136,12 @@ export interface ExperimentsState {
   frameConfig: FrameConfig;
   setFrameConfig: (config: Partial<FrameConfig>) => void;
   
+  // ML 标签配置（TrainingTab 写入，ExportPopover 读取）
+  mlLabelConfig: string;
+  setMlLabelConfig: (config: string) => void;
+  mlSplitRatios: { train: number; val: number };
+  setMlSplitRatios: (ratios: { train: number; val: number }) => void;
+  
   // 可用的筛选选项
   availableLiquids: { id: string; name: string }[];
   availablePhases: string[];
@@ -230,6 +236,13 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
   // 可用选项
   const [availableLiquids, setAvailableLiquids] = useState<{ id: string; name: string }[]>([]);
   const [availablePhases, setAvailablePhases] = useState<string[]>([]);
+  
+  // ML 标签共享状态
+  const [mlLabelConfig, setMlLabelConfig] = useState<string>("");
+  const [mlSplitRatios, setMlSplitRatiosState] = useState({ train: 70, val: 15 });
+  const setMlSplitRatios = useCallback((ratios: { train: number; val: number }) => {
+    setMlSplitRatiosState(ratios);
+  }, []);
   
   // 切换运行展开
   const toggleRunExpand = useCallback((runId: number) => {
@@ -392,6 +405,10 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
     filters,
     frameConfig,
     setFrameConfig,
+    mlLabelConfig,
+    setMlLabelConfig,
+    mlSplitRatios,
+    setMlSplitRatios,
     availableLiquids,
     availablePhases,
     setRuns,

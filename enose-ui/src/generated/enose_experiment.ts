@@ -329,6 +329,12 @@ export interface LiquidComponent {
      * @generated from protobuf field: double ratio = 2
      */
     ratio: number;
+    /**
+     * 此液体在本实验中是否为稀释液/溶剂 (实验上下文属性，非液体固有属性)
+     *
+     * @generated from protobuf field: bool is_solvent = 3
+     */
+    isSolvent: boolean;
 }
 /**
  * 等待动作
@@ -622,6 +628,13 @@ export interface WashAction {
      * @generated from protobuf field: string wash_liquid_id = 8
      */
     washLiquidId: string;
+    /**
+     * 注入控制模式: "weight"(称重反馈,默认) 或 "timed"(定时开环)
+     * 定时模式下注入时长 = target_volume_ml / wash_pump_flow_rate_ml_s
+     *
+     * @generated from protobuf field: string fill_mode = 9
+     */
+    fillMode: string;
 }
 /**
  * 预热动作 - 等待传感器预热稳定
@@ -1058,7 +1071,150 @@ export interface ExperimentStatusResponse {
      * @generated from protobuf field: string program_name = 23
      */
     programName: string;
+    /**
+     * 数据质量快照（实时）
+     *
+     * @generated from protobuf field: enose.experiment.DataQualitySnapshot quality = 30
+     */
+    quality?: DataQualitySnapshot;
 }
+/**
+ * 数据质量快照
+ *
+ * @generated from protobuf message enose.experiment.DataQualitySnapshot
+ */
+export interface DataQualitySnapshot {
+    /**
+     * 总体质量等级
+     *
+     * @generated from protobuf field: enose.experiment.QualityLevel overall_level = 1
+     */
+    overallLevel: QualityLevel;
+    /**
+     * 活跃告警数
+     *
+     * @generated from protobuf field: int32 active_alert_count = 2
+     */
+    activeAlertCount: number;
+    /**
+     * 当前活跃告警（最多 20 条）
+     *
+     * @generated from protobuf field: repeated enose.experiment.DataQualityAlert alerts = 3
+     */
+    alerts: DataQualityAlert[];
+    /**
+     * 质量评分 (0-100)
+     *
+     * @generated from protobuf field: double quality_score = 4
+     */
+    qualityScore: number;
+    /**
+     * 每传感器健康状态
+     *
+     * @generated from protobuf field: repeated enose.experiment.SensorHealth sensor_health = 10
+     */
+    sensorHealth: SensorHealth[];
+    /**
+     * 环境状态
+     *
+     * @generated from protobuf field: double current_temp_c = 20
+     */
+    currentTempC: number;
+    /**
+     * @generated from protobuf field: double current_humidity_pct = 21
+     */
+    currentHumidityPct: number;
+    /**
+     * @generated from protobuf field: bool env_stable = 22
+     */
+    envStable: boolean;
+    /**
+     * 周期统计
+     *
+     * @generated from protobuf field: int32 completed_cycles = 30
+     */
+    completedCycles: number;
+    /**
+     * @generated from protobuf field: double mean_cycle_cv = 31
+     */
+    meanCycleCv: number;
+}
+/**
+ * 单传感器健康状态
+ *
+ * @generated from protobuf message enose.experiment.SensorHealth
+ */
+export interface SensorHealth {
+    /**
+     * @generated from protobuf field: int32 sensor_idx = 1
+     */
+    sensorIdx: number;
+    /**
+     * @generated from protobuf field: bool alive = 2
+     */
+    alive: boolean;
+    /**
+     * @generated from protobuf field: int32 completed_cycles = 3
+     */
+    completedCycles: number;
+    /**
+     * @generated from protobuf field: double cycle_cv = 4
+     */
+    cycleCv: number; // 周期可重复性 CV    /**
+     * @generated from protobuf field: bool saturated = 5
+     */
+    saturated: boolean;
+    /**
+     * @generated from protobuf field: double response_ratio = 6
+     */
+    responseRatio: number; // 相对基线的响应比（SAMPLE 阶段）    /**
+     * @generated from protobuf field: string heater_profile = 7
+     */
+    heaterProfile: string; // 当前加热配置名称}
+/**
+ * 数据质量告警
+ *
+ * @generated from protobuf message enose.experiment.DataQualityAlert
+ */
+export interface DataQualityAlert {
+    /**
+     * @generated from protobuf field: string id = 1
+     */
+    id: string; // 告警唯一标识 (用于去重)    /**
+     * @generated from protobuf field: string flag = 2
+     */
+    flag: string; // SENSOR_DEAD / CYCLE_BROKEN / LOW_REPRODUCIBILITY / ...    /**
+     * @generated from protobuf field: string severity = 3
+     */
+    severity: string; // INFO / WARNING / ERROR    /**
+     * @generated from protobuf field: string message = 4
+     */
+    message: string; // 可读消息    /**
+     * @generated from protobuf field: int32 sensor_idx = 5
+     */
+    sensorIdx: number; // -1=全局    /**
+     * @generated from protobuf field: int32 heater_step = 6
+     */
+    heaterStep: number; // -1=全局    /**
+     * @generated from protobuf field: double value = 7
+     */
+    value: number;
+    /**
+     * @generated from protobuf field: double threshold = 8
+     */
+    threshold: number;
+    /**
+     * @generated from protobuf field: int64 first_seen_ms = 9
+     */
+    firstSeenMs: string;
+    /**
+     * @generated from protobuf field: int64 last_seen_ms = 10
+     */
+    lastSeenMs: string;
+    /**
+     * @generated from protobuf field: int32 count = 11
+     */
+    count: number; // 出现次数}
 /**
  * 实验事件
  *
@@ -1299,6 +1455,37 @@ export enum ExperimentState {
      * @generated from protobuf enum value: EXP_ABORTED = 9;
      */
     EXP_ABORTED = 9
+}
+// ============================================================// 数据质量 (DataQuality)// 实时传感器数据质量监控// ============================================================
+
+/**
+ * 质量等级
+ *
+ * @generated from protobuf enum enose.experiment.QualityLevel
+ */
+export enum QualityLevel {
+    /**
+     * @generated from protobuf enum value: QUALITY_UNKNOWN = 0;
+     */
+    QUALITY_UNKNOWN = 0,
+    /**
+     * 绿色 - 所有指标正常
+     *
+     * @generated from protobuf enum value: QUALITY_GOOD = 1;
+     */
+    QUALITY_GOOD = 1,
+    /**
+     * 黄色 - 有警告但数据可用
+     *
+     * @generated from protobuf enum value: QUALITY_WARNING = 2;
+     */
+    QUALITY_WARNING = 2,
+    /**
+     * 红色 - 数据质量差，建议检查
+     *
+     * @generated from protobuf enum value: QUALITY_POOR = 3;
+     */
+    QUALITY_POOR = 3
 }
 // @generated message type with reflection information, may provide speed optimized methods
 class ExperimentProgram$Type extends MessageType<ExperimentProgram> {
@@ -1829,13 +2016,15 @@ class LiquidComponent$Type extends MessageType<LiquidComponent> {
     constructor() {
         super("enose.experiment.LiquidComponent", [
             { no: 1, name: "liquid_id", kind: "scalar", T: 9 /*ScalarType.STRING*/, options: { "buf.validate.field": { string: { minLen: "1" } } } },
-            { no: 2, name: "ratio", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 1, gt: 0 } } } }
+            { no: 2, name: "ratio", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 1, gt: 0 } } } },
+            { no: 3, name: "is_solvent", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
         ]);
     }
     create(value?: PartialMessage<LiquidComponent>): LiquidComponent {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.liquidId = "";
         message.ratio = 0;
+        message.isSolvent = false;
         if (value !== undefined)
             reflectionMergePartial<LiquidComponent>(this, message, value);
         return message;
@@ -1850,6 +2039,9 @@ class LiquidComponent$Type extends MessageType<LiquidComponent> {
                     break;
                 case /* double ratio */ 2:
                     message.ratio = reader.double();
+                    break;
+                case /* bool is_solvent */ 3:
+                    message.isSolvent = reader.bool();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -1869,6 +2061,9 @@ class LiquidComponent$Type extends MessageType<LiquidComponent> {
         /* double ratio = 2; */
         if (message.ratio !== 0)
             writer.tag(2, WireType.Bit64).double(message.ratio);
+        /* bool is_solvent = 3; */
+        if (message.isSolvent !== false)
+            writer.tag(3, WireType.Varint).bool(message.isSolvent);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -2514,7 +2709,8 @@ class WashAction$Type extends MessageType<WashAction> {
             { no: 5, name: "drain_gas_pump_pwm", kind: "scalar", T: 5 /*ScalarType.INT32*/, options: { "buf.validate.field": { int32: { lte: 100, gte: 0 } } } },
             { no: 6, name: "empty_tolerance_g", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 50, gt: 0 } } } },
             { no: 7, name: "empty_stability_window_s", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 30, gte: 1 } } } },
-            { no: 8, name: "wash_liquid_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+            { no: 8, name: "wash_liquid_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 9, name: "fill_mode", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
         ]);
     }
     create(value?: PartialMessage<WashAction>): WashAction {
@@ -2527,6 +2723,7 @@ class WashAction$Type extends MessageType<WashAction> {
         message.emptyToleranceG = 0;
         message.emptyStabilityWindowS = 0;
         message.washLiquidId = "";
+        message.fillMode = "";
         if (value !== undefined)
             reflectionMergePartial<WashAction>(this, message, value);
         return message;
@@ -2559,6 +2756,9 @@ class WashAction$Type extends MessageType<WashAction> {
                     break;
                 case /* string wash_liquid_id */ 8:
                     message.washLiquidId = reader.string();
+                    break;
+                case /* string fill_mode */ 9:
+                    message.fillMode = reader.string();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -2596,6 +2796,9 @@ class WashAction$Type extends MessageType<WashAction> {
         /* string wash_liquid_id = 8; */
         if (message.washLiquidId !== "")
             writer.tag(8, WireType.LengthDelimited).string(message.washLiquidId);
+        /* string fill_mode = 9; */
+        if (message.fillMode !== "")
+            writer.tag(9, WireType.LengthDelimited).string(message.fillMode);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -3451,7 +3654,8 @@ class ExperimentStatusResponse$Type extends MessageType<ExperimentStatusResponse
             { no: 20, name: "program_yaml_hash", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 21, name: "run_id", kind: "scalar", T: 3 /*ScalarType.INT64*/ },
             { no: 22, name: "total_steps", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 23, name: "program_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+            { no: 23, name: "program_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 30, name: "quality", kind: "message", T: () => DataQualitySnapshot }
         ]);
     }
     create(value?: PartialMessage<ExperimentStatusResponse>): ExperimentStatusResponse {
@@ -3529,6 +3733,9 @@ class ExperimentStatusResponse$Type extends MessageType<ExperimentStatusResponse
                 case /* string program_name */ 23:
                     message.programName = reader.string();
                     break;
+                case /* enose.experiment.DataQualitySnapshot quality */ 30:
+                    message.quality = DataQualitySnapshot.internalBinaryRead(reader, reader.uint32(), options, message.quality);
+                    break;
                 default:
                     let u = options.readUnknownField;
                     if (u === "throw")
@@ -3589,6 +3796,9 @@ class ExperimentStatusResponse$Type extends MessageType<ExperimentStatusResponse
         /* string program_name = 23; */
         if (message.programName !== "")
             writer.tag(23, WireType.LengthDelimited).string(message.programName);
+        /* enose.experiment.DataQualitySnapshot quality = 30; */
+        if (message.quality)
+            DataQualitySnapshot.internalBinaryWrite(message.quality, writer.tag(30, WireType.LengthDelimited).fork(), options).join();
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -3599,6 +3809,347 @@ class ExperimentStatusResponse$Type extends MessageType<ExperimentStatusResponse
  * @generated MessageType for protobuf message enose.experiment.ExperimentStatusResponse
  */
 export const ExperimentStatusResponse = new ExperimentStatusResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class DataQualitySnapshot$Type extends MessageType<DataQualitySnapshot> {
+    constructor() {
+        super("enose.experiment.DataQualitySnapshot", [
+            { no: 1, name: "overall_level", kind: "enum", T: () => ["enose.experiment.QualityLevel", QualityLevel] },
+            { no: 2, name: "active_alert_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "alerts", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => DataQualityAlert },
+            { no: 4, name: "quality_score", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 10, name: "sensor_health", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => SensorHealth },
+            { no: 20, name: "current_temp_c", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 21, name: "current_humidity_pct", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 22, name: "env_stable", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 30, name: "completed_cycles", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 31, name: "mean_cycle_cv", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ }
+        ]);
+    }
+    create(value?: PartialMessage<DataQualitySnapshot>): DataQualitySnapshot {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.overallLevel = 0;
+        message.activeAlertCount = 0;
+        message.alerts = [];
+        message.qualityScore = 0;
+        message.sensorHealth = [];
+        message.currentTempC = 0;
+        message.currentHumidityPct = 0;
+        message.envStable = false;
+        message.completedCycles = 0;
+        message.meanCycleCv = 0;
+        if (value !== undefined)
+            reflectionMergePartial<DataQualitySnapshot>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: DataQualitySnapshot): DataQualitySnapshot {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* enose.experiment.QualityLevel overall_level */ 1:
+                    message.overallLevel = reader.int32();
+                    break;
+                case /* int32 active_alert_count */ 2:
+                    message.activeAlertCount = reader.int32();
+                    break;
+                case /* repeated enose.experiment.DataQualityAlert alerts */ 3:
+                    message.alerts.push(DataQualityAlert.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* double quality_score */ 4:
+                    message.qualityScore = reader.double();
+                    break;
+                case /* repeated enose.experiment.SensorHealth sensor_health */ 10:
+                    message.sensorHealth.push(SensorHealth.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* double current_temp_c */ 20:
+                    message.currentTempC = reader.double();
+                    break;
+                case /* double current_humidity_pct */ 21:
+                    message.currentHumidityPct = reader.double();
+                    break;
+                case /* bool env_stable */ 22:
+                    message.envStable = reader.bool();
+                    break;
+                case /* int32 completed_cycles */ 30:
+                    message.completedCycles = reader.int32();
+                    break;
+                case /* double mean_cycle_cv */ 31:
+                    message.meanCycleCv = reader.double();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: DataQualitySnapshot, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* enose.experiment.QualityLevel overall_level = 1; */
+        if (message.overallLevel !== 0)
+            writer.tag(1, WireType.Varint).int32(message.overallLevel);
+        /* int32 active_alert_count = 2; */
+        if (message.activeAlertCount !== 0)
+            writer.tag(2, WireType.Varint).int32(message.activeAlertCount);
+        /* repeated enose.experiment.DataQualityAlert alerts = 3; */
+        for (let i = 0; i < message.alerts.length; i++)
+            DataQualityAlert.internalBinaryWrite(message.alerts[i], writer.tag(3, WireType.LengthDelimited).fork(), options).join();
+        /* double quality_score = 4; */
+        if (message.qualityScore !== 0)
+            writer.tag(4, WireType.Bit64).double(message.qualityScore);
+        /* repeated enose.experiment.SensorHealth sensor_health = 10; */
+        for (let i = 0; i < message.sensorHealth.length; i++)
+            SensorHealth.internalBinaryWrite(message.sensorHealth[i], writer.tag(10, WireType.LengthDelimited).fork(), options).join();
+        /* double current_temp_c = 20; */
+        if (message.currentTempC !== 0)
+            writer.tag(20, WireType.Bit64).double(message.currentTempC);
+        /* double current_humidity_pct = 21; */
+        if (message.currentHumidityPct !== 0)
+            writer.tag(21, WireType.Bit64).double(message.currentHumidityPct);
+        /* bool env_stable = 22; */
+        if (message.envStable !== false)
+            writer.tag(22, WireType.Varint).bool(message.envStable);
+        /* int32 completed_cycles = 30; */
+        if (message.completedCycles !== 0)
+            writer.tag(30, WireType.Varint).int32(message.completedCycles);
+        /* double mean_cycle_cv = 31; */
+        if (message.meanCycleCv !== 0)
+            writer.tag(31, WireType.Bit64).double(message.meanCycleCv);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.experiment.DataQualitySnapshot
+ */
+export const DataQualitySnapshot = new DataQualitySnapshot$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class SensorHealth$Type extends MessageType<SensorHealth> {
+    constructor() {
+        super("enose.experiment.SensorHealth", [
+            { no: 1, name: "sensor_idx", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "alive", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 3, name: "completed_cycles", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "cycle_cv", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 5, name: "saturated", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 6, name: "response_ratio", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 7, name: "heater_profile", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<SensorHealth>): SensorHealth {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.sensorIdx = 0;
+        message.alive = false;
+        message.completedCycles = 0;
+        message.cycleCv = 0;
+        message.saturated = false;
+        message.responseRatio = 0;
+        message.heaterProfile = "";
+        if (value !== undefined)
+            reflectionMergePartial<SensorHealth>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: SensorHealth): SensorHealth {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 sensor_idx */ 1:
+                    message.sensorIdx = reader.int32();
+                    break;
+                case /* bool alive */ 2:
+                    message.alive = reader.bool();
+                    break;
+                case /* int32 completed_cycles */ 3:
+                    message.completedCycles = reader.int32();
+                    break;
+                case /* double cycle_cv */ 4:
+                    message.cycleCv = reader.double();
+                    break;
+                case /* bool saturated */ 5:
+                    message.saturated = reader.bool();
+                    break;
+                case /* double response_ratio */ 6:
+                    message.responseRatio = reader.double();
+                    break;
+                case /* string heater_profile */ 7:
+                    message.heaterProfile = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: SensorHealth, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 sensor_idx = 1; */
+        if (message.sensorIdx !== 0)
+            writer.tag(1, WireType.Varint).int32(message.sensorIdx);
+        /* bool alive = 2; */
+        if (message.alive !== false)
+            writer.tag(2, WireType.Varint).bool(message.alive);
+        /* int32 completed_cycles = 3; */
+        if (message.completedCycles !== 0)
+            writer.tag(3, WireType.Varint).int32(message.completedCycles);
+        /* double cycle_cv = 4; */
+        if (message.cycleCv !== 0)
+            writer.tag(4, WireType.Bit64).double(message.cycleCv);
+        /* bool saturated = 5; */
+        if (message.saturated !== false)
+            writer.tag(5, WireType.Varint).bool(message.saturated);
+        /* double response_ratio = 6; */
+        if (message.responseRatio !== 0)
+            writer.tag(6, WireType.Bit64).double(message.responseRatio);
+        /* string heater_profile = 7; */
+        if (message.heaterProfile !== "")
+            writer.tag(7, WireType.LengthDelimited).string(message.heaterProfile);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.experiment.SensorHealth
+ */
+export const SensorHealth = new SensorHealth$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class DataQualityAlert$Type extends MessageType<DataQualityAlert> {
+    constructor() {
+        super("enose.experiment.DataQualityAlert", [
+            { no: 1, name: "id", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "flag", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "severity", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "message", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 5, name: "sensor_idx", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 6, name: "heater_step", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 7, name: "value", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 8, name: "threshold", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 9, name: "first_seen_ms", kind: "scalar", T: 3 /*ScalarType.INT64*/ },
+            { no: 10, name: "last_seen_ms", kind: "scalar", T: 3 /*ScalarType.INT64*/ },
+            { no: 11, name: "count", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<DataQualityAlert>): DataQualityAlert {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.id = "";
+        message.flag = "";
+        message.severity = "";
+        message.message = "";
+        message.sensorIdx = 0;
+        message.heaterStep = 0;
+        message.value = 0;
+        message.threshold = 0;
+        message.firstSeenMs = "0";
+        message.lastSeenMs = "0";
+        message.count = 0;
+        if (value !== undefined)
+            reflectionMergePartial<DataQualityAlert>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: DataQualityAlert): DataQualityAlert {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string id */ 1:
+                    message.id = reader.string();
+                    break;
+                case /* string flag */ 2:
+                    message.flag = reader.string();
+                    break;
+                case /* string severity */ 3:
+                    message.severity = reader.string();
+                    break;
+                case /* string message */ 4:
+                    message.message = reader.string();
+                    break;
+                case /* int32 sensor_idx */ 5:
+                    message.sensorIdx = reader.int32();
+                    break;
+                case /* int32 heater_step */ 6:
+                    message.heaterStep = reader.int32();
+                    break;
+                case /* double value */ 7:
+                    message.value = reader.double();
+                    break;
+                case /* double threshold */ 8:
+                    message.threshold = reader.double();
+                    break;
+                case /* int64 first_seen_ms */ 9:
+                    message.firstSeenMs = reader.int64().toString();
+                    break;
+                case /* int64 last_seen_ms */ 10:
+                    message.lastSeenMs = reader.int64().toString();
+                    break;
+                case /* int32 count */ 11:
+                    message.count = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: DataQualityAlert, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string id = 1; */
+        if (message.id !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.id);
+        /* string flag = 2; */
+        if (message.flag !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.flag);
+        /* string severity = 3; */
+        if (message.severity !== "")
+            writer.tag(3, WireType.LengthDelimited).string(message.severity);
+        /* string message = 4; */
+        if (message.message !== "")
+            writer.tag(4, WireType.LengthDelimited).string(message.message);
+        /* int32 sensor_idx = 5; */
+        if (message.sensorIdx !== 0)
+            writer.tag(5, WireType.Varint).int32(message.sensorIdx);
+        /* int32 heater_step = 6; */
+        if (message.heaterStep !== 0)
+            writer.tag(6, WireType.Varint).int32(message.heaterStep);
+        /* double value = 7; */
+        if (message.value !== 0)
+            writer.tag(7, WireType.Bit64).double(message.value);
+        /* double threshold = 8; */
+        if (message.threshold !== 0)
+            writer.tag(8, WireType.Bit64).double(message.threshold);
+        /* int64 first_seen_ms = 9; */
+        if (message.firstSeenMs !== "0")
+            writer.tag(9, WireType.Varint).int64(message.firstSeenMs);
+        /* int64 last_seen_ms = 10; */
+        if (message.lastSeenMs !== "0")
+            writer.tag(10, WireType.Varint).int64(message.lastSeenMs);
+        /* int32 count = 11; */
+        if (message.count !== 0)
+            writer.tag(11, WireType.Varint).int32(message.count);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.experiment.DataQualityAlert
+ */
+export const DataQualityAlert = new DataQualityAlert$Type();
 // @generated message type with reflection information, may provide speed optimized methods
 class ExperimentEvent$Type extends MessageType<ExperimentEvent> {
     constructor() {

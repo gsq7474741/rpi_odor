@@ -81,6 +81,8 @@ void GrpcServer::start(const std::string& address) {
                         std::shared_ptr<db::SensorRepository>(sensor_repo, [](db::SensorRepository*){}));
                     spdlog::info("GrpcServer: Shared SensorRepository between ExperimentService and SensorService");
                 }
+                // 关联 SensorService 引用，用于注入质量监控器
+                experiment_service->set_sensor_service(sensor_service.get());
             }
         }
         

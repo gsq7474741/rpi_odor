@@ -124,7 +124,7 @@ class LabelGenerator:
         elif strategy == "mixture_formula":
             return self._label_mixture_formula(liquids)
         elif strategy == "concentration":
-            return self._label_concentration(liquids, config.get("config", {}))
+            return self._label_concentration(liquids)
         elif strategy == "total_volume":
             return {"label_num": sample.get("total_volume_ml", 0)}
         elif strategy == "gas_pump_speed":
@@ -150,10 +150,12 @@ class LabelGenerator:
         return {"label_str": label}
 
     def _label_primary_liquid(self, liquids: list[dict]) -> dict[str, Any]:
-        """主成分液体：占比最大的液体名称"""
+        """主成分液体：过滤稀释液后，占比最大的液体名称"""
         if not liquids:
             return {"label_str": "unknown"}
-        primary = max(liquids, key=lambda l: l.get("ratio", 0))
+        non_solvent = [l for l in liquids if not l.get("is_solvent")]
+        candidates = non_solvent if non_solvent else liquids
+        primary = max(candidates, key=lambda l: l.get("ratio", 0))
         return {"label_str": primary.get("name", "unknown")}
 
     def _label_mixture_formula(self, liquids: list[dict]) -> dict[str, Any]:
@@ -167,17 +169,24 @@ class LabelGenerator:
         return {"label_str": formula}
 
     def _label_concentration(
-        self, liquids: list[dict], config: dict
+        self, liquids: list[dict]
     ) -> dict[str, Any] | None:
-        """浓度：指定目标液体的比例值"""
-        target_id = config.get("target_liquid_id")
-        if not target_id:
+        """浓度：输出配方中每种液体的浓度（归一化为百分比）"""
+        if not liquids:
             return None
-        target_id = str(target_id)
-        for liq in liquids:
-            if str(liq.get("id", "")) == target_id:
-                return {"label_num": liq.get("ratio", 0.0)}
-        return {"label_num": 0.0}
+        raw = {liq.get("name", "?"): float(liq.get("ratio", 0.0)) for liq in liquids}
+        # 归一化：如果总和 ≈ 1（小数比例），转为百分比；否则保持原值
+        total = sum(raw.values())
+        if total > 0 and total <= 1.01:
+            conc = {k: v / total * 100 for k, v in raw.items()}
+        elif total > 0:
+            conc = {k: v / total * 100 for k, v in raw.items()}
+        else:
+            conc = raw
+        label_str = "|".join(
+            f"{k}:{v:.1f}" for k, v in sorted(conc.items())
+        )
+        return {"label_str": label_str, "label_json": conc}
 
     def _assign_label_indices(self, labels: list[dict[str, Any]]) -> None:
         """为分类标签分配连续的 label_index (0, 1, 2, ...)"""

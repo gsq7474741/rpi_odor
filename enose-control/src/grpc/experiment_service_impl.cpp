@@ -1,4 +1,5 @@
 #include "experiment_service_impl.hpp"
+#include "sensor_service_impl.hpp"
 #include "../workflows/yaml_parser.hpp"
 #include "../workflows/transaction_guard.hpp"
 #include "../workflows/executors/executors.hpp"
@@ -282,21 +283,26 @@ ExperimentServiceImpl::~ExperimentServiceImpl() {
     const google::protobuf::Empty* request,
     experiment::ExperimentStatusResponse* response) {
     
-    std::lock_guard<std::mutex> lock(mutex_);
-    
-    if (state_ != experiment::EXP_RUNNING) {
-        fill_status_response(response);
-        return ::grpc::Status::OK;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        
+        if (state_ != experiment::EXP_RUNNING) {
+            fill_status_response(response);
+            return ::grpc::Status::OK;
+        }
+        
+        spdlog::info("暂停实验请求 - 将在当前步骤完成后暂停");
+        pause_requested_ = true;
+        // 不立即切换状态，等当前步骤完成后在 check_stop_or_pause() 中切换
     }
+    // add_log 需要获取 mutex_，必须在锁释放后调用
+    add_log("暂停请求已接收，将在当前步骤完成后暂停");
+    emit_event(experiment::ExperimentEvent::EXPERIMENT_PAUSED, "暂停请求已接收，将在当前步骤完成后暂停");
     
-    spdlog::info("暂停实验");
-    
-    pause_requested_ = true;
-    state_ = experiment::EXP_PAUSED;
-    
-    emit_event(experiment::ExperimentEvent::EXPERIMENT_PAUSED, "实验已暂停");
-    
-    fill_status_response(response);
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        fill_status_response(response);
+    }
     return ::grpc::Status::OK;
 }
 
@@ -387,6 +393,11 @@ void ExperimentServiceImpl::execution_thread_func() {
         spdlog::info("传感器数据关联到 run_id={}", *current_run_id_);
     }
     
+    // 将质量监控器注入到传感器服务，使其能接收每个数据包
+    if (sensor_service_) {
+        sensor_service_->set_quality_monitor(&quality_monitor_);
+    }
+    
     // 1. 发送 sync 命令检查固件连接
     if (sensor_driver_) {
         spdlog::info("发送 sync 命令检查固件连接");
@@ -467,6 +478,12 @@ void ExperimentServiceImpl::execution_thread_func() {
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
     
+    // 清除质量监控器引用
+    if (sensor_service_) {
+        sensor_service_->clear_quality_monitor();
+    }
+    quality_monitor_.reset();
+    
     // 清除传感器数据的运行上下文
     if (sensor_repo_) {
         sensor_repo_->clear_run_context();
@@ -483,6 +500,7 @@ void ExperimentServiceImpl::execute_steps(
     const google::protobuf::RepeatedPtrField<experiment::Step>& steps) {
     
     for (int i = 0; i < steps.size(); ++i) {
+        // 步骤间检查：暂停在此生效（当前步骤已完成，下一步骤未开始）
         if (check_stop_or_pause()) return;
         
         {
@@ -644,6 +662,7 @@ void ExperimentServiceImpl::execute_inject(const experiment::InjectAction& actio
         liq_info.name = liquid_name;
         liq_info.ratio = comp.ratio();
         liq_info.pump_index = pump_index;
+        liq_info.is_solvent = comp.is_solvent();
         current_sample_ctx_.liquids.push_back(liq_info);
         
         // 设置泵进样量
@@ -680,12 +699,12 @@ void ExperimentServiceImpl::execute_inject(const experiment::InjectAction& actio
     
     // 分段等待，以便可以响应停止请求
     int waited = 0;
-    while (waited < wait_ms && !check_stop_or_pause()) {
+    while (waited < wait_ms && !check_stop()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         waited += 100;
     }
     
-    if (!check_stop_or_pause()) {
+    if (!check_stop()) {
         add_log("进样完成: " + std::to_string(total_volume) + "ml");
     }
     
@@ -715,7 +734,7 @@ void ExperimentServiceImpl::execute_wait(const experiment::WaitAction& action) {
             auto end = std::chrono::steady_clock::now() + 
                       std::chrono::milliseconds(static_cast<int>(action.duration_s() * 1000));
             while (std::chrono::steady_clock::now() < end) {
-                if (check_stop_or_pause()) return;
+                if (check_stop()) return;
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
             break;
@@ -729,7 +748,7 @@ void ExperimentServiceImpl::execute_wait(const experiment::WaitAction& action) {
             auto end = std::chrono::steady_clock::now() + 
                       std::chrono::milliseconds(cycles * cycle_time_ms);
             while (std::chrono::steady_clock::now() < end) {
-                if (check_stop_or_pause()) return;
+                if (check_stop()) return;
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
             break;
@@ -741,7 +760,7 @@ void ExperimentServiceImpl::execute_wait(const experiment::WaitAction& action) {
                 action.empty().tolerance_g(),
                 action.timeout_s(),
                 action.empty().stability_window_s(),
-                [this]() { return check_stop_or_pause(); }
+                [this]() { return check_stop(); }
             );
             if (result.stopped) {
                 add_log("空瓶检测被中断");
@@ -784,7 +803,7 @@ void ExperimentServiceImpl::execute_drain(const experiment::DrainAction& action)
         action.empty_tolerance_g(),
         action.timeout_s(),
         action.stability_window_s(),
-        [this]() { return check_stop_or_pause(); }
+        [this]() { return check_stop(); }
     );
     
     if (result.stopped) {
@@ -895,7 +914,7 @@ void ExperimentServiceImpl::execute_acquire(const experiment::AcquireAction& act
             auto end = std::chrono::steady_clock::now() + 
                       std::chrono::milliseconds(static_cast<int>(action.duration_s() * 1000));
             while (std::chrono::steady_clock::now() < end) {
-                if (check_stop_or_pause()) return;  // guard 析构时会自动回滚
+                if (check_stop()) return;  // guard 析构时会自动回滚
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
             break;
@@ -925,7 +944,7 @@ void ExperimentServiceImpl::execute_acquire(const experiment::AcquireAction& act
             auto end = std::chrono::steady_clock::now() + 
                       std::chrono::milliseconds(static_cast<int>(action.max_duration_s() * 1000));
             while (std::chrono::steady_clock::now() < end) {
-                if (check_stop_or_pause()) return;  // guard 析构时会自动回滚
+                if (check_stop()) return;  // guard 析构时会自动回滚
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
             break;
@@ -946,6 +965,28 @@ void ExperimentServiceImpl::execute_acquire(const experiment::AcquireAction& act
         
         sample_repo_->complete_sample(
             current_sample_ctx_.sample_id, end_time_ms, current_sample_ctx_);
+        
+        // 生成数据质量报告并更新样本记录
+        auto quality_summary = quality_monitor_.finalize_sample();
+        try {
+            auto conn = db::ConnectionPool::instance().acquire();
+            pqxx::work txn(conn.get());
+            txn.exec_params(
+                "UPDATE samples SET quality_score = $1, quality_level = $2, quality_report = $3 WHERE id = $4",
+                quality_summary.score,
+                quality_summary.level,
+                quality_summary.report_json,
+                current_sample_ctx_.sample_id);
+            txn.commit();
+            add_log("样本质量评分: " + std::to_string(static_cast<int>(quality_summary.score)) + 
+                    " (" + quality_summary.level + ")");
+        } catch (const std::exception& e) {
+            spdlog::warn("写入样本质量评分失败: {}", e.what());
+        }
+        
+        // 重置监控器准备下一个样本
+        quality_monitor_.reset_for_new_sample();
+        
         add_log("完成样本记录: id=" + std::to_string(current_sample_ctx_.sample_id));
         
         // 清除传感器上下文
@@ -988,7 +1029,7 @@ void ExperimentServiceImpl::execute_loop(const experiment::LoopAction& action) {
     }
     
     for (int i = 0; i < count; ++i) {
-        if (check_stop_or_pause()) return;
+        if (check_stop()) return;
         
         {
             std::lock_guard<std::mutex> lock(mutex_);
@@ -1032,6 +1073,9 @@ void ExperimentServiceImpl::auto_start_phase(const std::string& phase_name) {
     current_phase_order_++;
     add_log("阶段开始: " + phase_name);
     emit_event(experiment::ExperimentEvent::PHASE_STARTED, phase_name);
+    
+    // 通知质量监控器阶段切换
+    quality_monitor_.on_phase_change(phase_name);
     
     // 更新样本上下文 - 阶段信息
     current_sample_ctx_.phase_name = phase_name;
@@ -1141,26 +1185,39 @@ void ExperimentServiceImpl::execute_phase_marker(const experiment::PhaseMarkerAc
 }
 
 void ExperimentServiceImpl::execute_wash(const experiment::WashAction& action) {
-    // 目标清洗量 (ml)，需要线性校正转换为期望的称重传感器重量变化
-    // 由于瓶子斜挂在称重传感器上，测量的重量变化 ≠ 实际注入量
-    // 线性校正: expected_weight_change = target_ml * slope + offset
-    // 反推实际量: actual_ml = (weight_change - offset) / slope
     const auto& lc_config = load_cell_->get_config();
     float target_ml = action.target_volume_ml();
+    
+    // 判断注入控制模式: "timed" 为定时开环，其他为称重反馈(默认)
+    bool timed_mode = (action.fill_mode() == "timed");
+    
+    // 称重模式参数
     float slope = lc_config.ml_to_weight_slope;
     float offset = lc_config.ml_to_weight_offset;
     float lag_comp = lc_config.fill_lag_compensation_g;
     float expected_weight_change = target_ml * slope + offset;
     float trigger_threshold = expected_weight_change - lag_comp;
     
-    add_log("清洗: 目标=" + std::to_string(target_ml) + 
-            "ml 期望Δw=" + std::to_string(expected_weight_change) + 
-            "g 触发阈值=" + std::to_string(trigger_threshold) +
-            "g (slope=" + std::to_string(slope) +
-            " offset=" + std::to_string(offset) +
-            " lag_comp=" + std::to_string(lag_comp) +
-            "g) 重复" + std::to_string(action.repeat_count()) + "次" +
-            " 排废PWM=" + std::to_string(action.drain_gas_pump_pwm()) + "%");
+    // 定时模式参数
+    float flow_rate = lc_config.wash_pump_flow_rate_ml_s;
+    float timed_duration_s = (flow_rate > 0) ? target_ml / flow_rate : 0;
+    
+    if (timed_mode) {
+        add_log("清洗[定时]: 目标=" + std::to_string(target_ml) + 
+                "ml 注入时长=" + std::to_string(timed_duration_s) + 
+                "s (流速=" + std::to_string(flow_rate) +
+                "ml/s) 重复" + std::to_string(action.repeat_count()) + "次" +
+                " 排废PWM=" + std::to_string(action.drain_gas_pump_pwm()) + "%");
+    } else {
+        add_log("清洗[称重]: 目标=" + std::to_string(target_ml) + 
+                "ml 期望Δw=" + std::to_string(expected_weight_change) + 
+                "g 触发阈值=" + std::to_string(trigger_threshold) +
+                "g (slope=" + std::to_string(slope) +
+                " offset=" + std::to_string(offset) +
+                " lag_comp=" + std::to_string(lag_comp) +
+                "g) 重复" + std::to_string(action.repeat_count()) + "次" +
+                " 排废PWM=" + std::to_string(action.drain_gas_pump_pwm()) + "%");
+    }
     
     // 更新样本上下文 - 清洗参数
     current_sample_ctx_.pre_wash_count += action.repeat_count();
@@ -1181,7 +1238,7 @@ void ExperimentServiceImpl::execute_wash(const experiment::WashAction& action) {
     );
     
     for (int i = 0; i < action.repeat_count(); ++i) {
-        if (check_stop_or_pause()) return;  // guard 析构时会自动回滚到 INITIAL
+        if (check_stop()) return;  // guard 析构时会自动回滚到 INITIAL
         
         add_log("清洗循环 " + std::to_string(i + 1) + "/" + std::to_string(action.repeat_count()));
         
@@ -1195,7 +1252,7 @@ void ExperimentServiceImpl::execute_wash(const experiment::WashAction& action) {
             action.empty_tolerance_g(),
             action.drain_timeout_s(),
             action.empty_stability_window_s(),
-            [this]() { return check_stop_or_pause(); }
+            [this]() { return check_stop(); }
         );
         
         if (empty_result.stopped) {
@@ -1208,41 +1265,61 @@ void ExperimentServiceImpl::execute_wash(const experiment::WashAction& action) {
         float baseline_weight = load_cell_->get_filtered_weight();
         add_log("空瓶基线重量: " + std::to_string(baseline_weight) + "g");
         
-        if (check_stop_or_pause()) return;
+        if (check_stop()) return;
         
         // 2. 切换到 CLEAN 状态 (清洗泵开启)
         add_log("开始注入清洗液...");
         system_state_->transition_to(workflows::SystemState::State::CLEAN);
         
-        // 3. 监测重量变化，达到补偿后阈值立即切换到排废
-        // 使用 raw_weight 减少滤波延迟，trigger_threshold 已减去 lag 补偿
+        // 3. 根据模式控制注入
         auto fill_start = std::chrono::steady_clock::now();
         auto fill_timeout = std::chrono::seconds(static_cast<int>(action.fill_timeout_s()));
         bool target_reached = false;
         
-        while (!check_stop_or_pause()) {
-            float current_weight = load_cell_->get_raw_weight();
-            float weight_change = current_weight - baseline_weight;
+        if (timed_mode) {
+            // 定时模式: 按计算的时长运行清洗泵，每 20ms 检查停止
+            auto timed_end = fill_start + std::chrono::milliseconds(
+                static_cast<int>(timed_duration_s * 1000));
+            // fill_timeout 仍作为安全上限
+            auto deadline = std::min(timed_end, fill_start + fill_timeout);
             
-            if (weight_change >= trigger_threshold) {
-                float actual_ml = (slope > 0) ? (weight_change - offset) / slope : weight_change;
-                add_log("达到目标: Δw=" + std::to_string(weight_change) + 
-                        "g (约" + std::to_string(actual_ml) + "ml)");
-                target_reached = true;
-                break;
+            while (!check_stop()) {
+                if (std::chrono::steady_clock::now() >= deadline) {
+                    auto elapsed_s = std::chrono::duration<double>(
+                        std::chrono::steady_clock::now() - fill_start).count();
+                    add_log("定时注入完成: " + std::to_string(elapsed_s) + 
+                            "s (目标" + std::to_string(timed_duration_s) + "s)");
+                    target_reached = true;
+                    break;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(20));
             }
-            
-            if (std::chrono::steady_clock::now() - fill_start > fill_timeout) {
-                float actual_ml = (slope > 0) ? (weight_change - offset) / slope : weight_change;
-                add_log("清洗注入超时: Δw=" + std::to_string(weight_change) + 
-                        "g (约" + std::to_string(actual_ml) + "ml, 目标" + std::to_string(target_ml) + "ml)");
-                break;
+        } else {
+            // 称重模式: 监测重量变化，达到补偿后阈值立即停泵
+            while (!check_stop()) {
+                float current_weight = load_cell_->get_raw_weight();
+                float weight_change = current_weight - baseline_weight;
+                
+                if (weight_change >= trigger_threshold) {
+                    float actual_ml = (slope > 0) ? (weight_change - offset) / slope : weight_change;
+                    add_log("达到目标: Δw=" + std::to_string(weight_change) + 
+                            "g (约" + std::to_string(actual_ml) + "ml)");
+                    target_reached = true;
+                    break;
+                }
+                
+                if (std::chrono::steady_clock::now() - fill_start > fill_timeout) {
+                    float actual_ml = (slope > 0) ? (weight_change - offset) / slope : weight_change;
+                    add_log("清洗注入超时: Δw=" + std::to_string(weight_change) + 
+                            "g (约" + std::to_string(actual_ml) + "ml, 目标" + std::to_string(target_ml) + "ml)");
+                    break;
+                }
+                
+                std::this_thread::sleep_for(std::chrono::milliseconds(20));
             }
-            
-            std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
         
-        if (check_stop_or_pause()) return;
+        if (check_stop()) return;
         
         // 4. 排废直到空瓶稳定
         add_log("排废清洗液...");
@@ -1254,7 +1331,7 @@ void ExperimentServiceImpl::execute_wash(const experiment::WashAction& action) {
             action.empty_tolerance_g(),
             action.drain_timeout_s(),
             action.empty_stability_window_s(),
-            [this]() { return check_stop_or_pause(); }
+            [this]() { return check_stop(); }
         );
         
         if (drain_result.stopped) {
@@ -1281,7 +1358,7 @@ bool ExperimentServiceImpl::wait_for_heater_cycles(int count, double timeout_s) 
         auto end = std::chrono::steady_clock::now() + 
                   std::chrono::milliseconds(static_cast<int>(std::min(total_time, timeout_s) * 1000));
         while (std::chrono::steady_clock::now() < end) {
-            if (check_stop_or_pause()) return false;
+            if (check_stop()) return false;
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
         return true;
@@ -1333,7 +1410,7 @@ bool ExperimentServiceImpl::wait_for_heater_cycles(int count, double timeout_s) 
     {
         std::unique_lock<std::mutex> lock(cycle_mutex);
         while (completed_cycles < count) {
-            if (check_stop_or_pause()) {
+            if (check_stop()) {
                 conn.disconnect();
                 return false;
             }
@@ -1359,7 +1436,7 @@ bool ExperimentServiceImpl::wait_for_sensor_stability(double window_s, double th
         auto end = std::chrono::steady_clock::now() + 
                   std::chrono::milliseconds(static_cast<int>(timeout_s * 1000));
         while (std::chrono::steady_clock::now() < end) {
-            if (check_stop_or_pause()) return false;
+            if (check_stop()) return false;
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
         return true;
@@ -1409,7 +1486,7 @@ bool ExperimentServiceImpl::wait_for_sensor_stability(double window_s, double th
     });
     
     while (!stable) {
-        if (check_stop_or_pause()) {
+        if (check_stop()) {
             conn.disconnect();
             return false;
         }
@@ -1524,14 +1601,66 @@ void ExperimentServiceImpl::fill_status_response(experiment::ExperimentStatusRes
     if (!error_message_.empty()) {
         response->set_error(error_message_);
     }
+    
+    // 数据质量快照
+    if (state_ == experiment::EXP_RUNNING || state_ == experiment::EXP_PAUSED) {
+        auto qsnap = quality_monitor_.get_snapshot();
+        auto* quality = response->mutable_quality();
+        quality->set_overall_level(
+            static_cast<::enose::experiment::QualityLevel>(qsnap.overall_level));
+        quality->set_active_alert_count(qsnap.active_alert_count);
+        quality->set_quality_score(qsnap.quality_score);
+        quality->set_current_temp_c(qsnap.current_temp_c);
+        quality->set_current_humidity_pct(qsnap.current_humidity_pct);
+        quality->set_env_stable(qsnap.env_stable);
+        quality->set_completed_cycles(qsnap.completed_cycles);
+        quality->set_mean_cycle_cv(qsnap.mean_cycle_cv);
+        
+        for (const auto& sh : qsnap.sensor_health) {
+            auto* h = quality->add_sensor_health();
+            h->set_sensor_idx(sh.sensor_idx);
+            h->set_alive(sh.alive);
+            h->set_completed_cycles(sh.completed_cycles);
+            h->set_cycle_cv(sh.cycle_cv);
+            h->set_saturated(sh.saturated);
+            h->set_response_ratio(sh.response_ratio);
+            h->set_heater_profile(sh.heater_profile);
+        }
+        
+        for (const auto& alert : qsnap.alerts) {
+            auto* a = quality->add_alerts();
+            a->set_id(alert.id);
+            a->set_flag(alert.flag);
+            a->set_severity(alert.severity);
+            a->set_message(alert.message);
+            a->set_sensor_idx(alert.sensor_idx);
+            a->set_heater_step(alert.heater_step);
+            a->set_value(alert.value);
+            a->set_threshold(alert.threshold);
+            a->set_first_seen_ms(alert.first_seen_ms);
+            a->set_last_seen_ms(alert.last_seen_ms);
+            a->set_count(alert.count);
+        }
+    }
 }
 
 bool ExperimentServiceImpl::check_stop_or_pause() {
     if (stop_requested_) return true;
     if (pause_requested_) {
+        add_log("当前步骤完成，实验暂停中...");
+        state_ = experiment::EXP_PAUSED;
+        emit_event(experiment::ExperimentEvent::EXPERIMENT_PAUSED, "当前步骤完成，实验已暂停");
         wait_if_paused();
+        if (!stop_requested_) {
+            state_ = experiment::EXP_RUNNING;
+            add_log("实验已恢复");
+        }
     }
     return stop_requested_;
+}
+
+bool ExperimentServiceImpl::check_stop() {
+    return stop_requested_.load();
 }
 
 void ExperimentServiceImpl::wait_if_paused() {
@@ -1628,6 +1757,9 @@ void ExperimentServiceImpl::execute_configure_heater(
     // 更新样本上下文 - 加热器配置
     current_sample_ctx_.heater_configs.clear();
     
+    // 收集加热器分组信息用于质量监控
+    std::vector<workflows::HeaterGroupConfig> quality_groups;
+    
     for (const auto& config : action.configs()) {
         db::HeaterConfigInfo info;
         
@@ -1648,6 +1780,14 @@ void ExperimentServiceImpl::execute_configure_heater(
         
         current_sample_ctx_.heater_configs.push_back(info);
         
+        // 同时构建质量监控分组
+        workflows::HeaterGroupConfig qg;
+        qg.profile_name = info.profile_name;
+        qg.sensor_indices.assign(info.sensor_indices.begin(), info.sensor_indices.end());
+        qg.temps.assign(info.temps.begin(), info.temps.end());
+        qg.durs.assign(info.durs.begin(), info.durs.end());
+        quality_groups.push_back(std::move(qg));
+        
         add_log("  传感器 " + std::to_string(info.sensor_indices.size()) + 
                 " 个, 配置: " + (info.profile_name.empty() ? "自定义" : info.profile_name));
         
@@ -1667,6 +1807,11 @@ void ExperimentServiceImpl::execute_configure_heater(
             // 等待固件处理配置
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
+    }
+    
+    // 初始化数据质量监控器
+    if (!quality_groups.empty()) {
+        quality_monitor_.initialize(quality_groups);
     }
 }
 
@@ -1720,7 +1865,7 @@ void ExperimentServiceImpl::execute_preheat(const experiment::PreheatAction& act
             auto end = std::chrono::steady_clock::now() + 
                       std::chrono::milliseconds(static_cast<int>(action.duration_s() * 1000));
             while (std::chrono::steady_clock::now() < end) {
-                if (check_stop_or_pause()) return;
+                if (check_stop()) return;
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
             break;
@@ -1731,7 +1876,7 @@ void ExperimentServiceImpl::execute_preheat(const experiment::PreheatAction& act
             auto end = std::chrono::steady_clock::now() + 
                       std::chrono::milliseconds(static_cast<int>(action.max_duration_s() * 1000));
             while (std::chrono::steady_clock::now() < end) {
-                if (check_stop_or_pause()) return;
+                if (check_stop()) return;
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
             break;

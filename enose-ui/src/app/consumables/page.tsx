@@ -175,40 +175,44 @@ export default function ConsumablesPage() {
       const consumablesData = await consumablesRes.json();
       const fieldsData = await fieldsRes.json();
       
-      setLiquids(liquidsData.liquids || []);
+      const liquidsArr: Liquid[] = liquidsData.liquids || [];
+      const fieldsArr: MetadataField[] = fieldsData.fields || [];
+      
+      // 批量获取所有液体附件（1 次 HTTP 请求，服务端聚合）
+      let attachmentsMap: Record<number, Record<string, Attachment[]>> = {};
+      const hasImageFields = fieldsArr.some((f) => f.fieldType === 8);
+      if (hasImageFields && liquidsArr.length > 0) {
+        try {
+          const ids = liquidsArr.map((l) => l.id).join(",");
+          const batchRes = await fetch(`/api/consumables?type=all-attachments&liquidIds=${ids}`);
+          if (batchRes.ok) {
+            const batchData = await batchRes.json();
+            const raw = batchData.attachmentsMap || {};
+            // 补全 fileUrl
+            for (const lid of Object.keys(raw)) {
+              attachmentsMap[Number(lid)] = {};
+              for (const fk of Object.keys(raw[lid])) {
+                attachmentsMap[Number(lid)][fk] = (raw[lid][fk] || []).map(
+                  (att: { filePath: string; fileUrl?: string; [key: string]: unknown }) => ({
+                    ...att,
+                    fileUrl: att.fileUrl || buildProxyUrl(att.filePath),
+                  })
+                );
+              }
+            }
+          }
+        } catch (e) {
+          console.error('批量加载附件失败:', e);
+        }
+      }
+      
+      // 所有数据就绪后一次性更新状态，避免竞态
+      setLiquids(liquidsArr);
       setPumps(pumpsData.assignments || []);
       setWashPumps(washPumpsData.assignments || []);
       setConsumables(consumablesData.consumables || []);
-      setMetadataFields(fieldsData.fields || []);
-      
-      // 预加载所有液体的图片附件
-      const imageFields = (fieldsData.fields || []).filter((f: MetadataField) => f.fieldType === 8);
-      if (imageFields.length > 0 && liquidsData.liquids?.length > 0) {
-        const attachmentsMap: Record<number, Record<string, Attachment[]>> = {};
-        await Promise.all(
-          (liquidsData.liquids as Liquid[]).map(async (liquid) => {
-            attachmentsMap[liquid.id] = {};
-            await Promise.all(
-              imageFields.map(async (field: MetadataField) => {
-                try {
-                  const res = await fetch(`/api/consumables?type=attachments&liquidId=${liquid.id}&fieldKey=${field.fieldKey}`);
-                  if (res.ok) {
-                    const data = await res.json();
-                    const attachments = (data.attachments || []).map((att: { filePath: string; fileUrl?: string; [key: string]: unknown }) => ({
-                      ...att,
-                      fileUrl: att.fileUrl || buildProxyUrl(att.filePath),
-                    }));
-                    attachmentsMap[liquid.id][field.fieldKey] = attachments;
-                  }
-                } catch (e) {
-                  console.error('加载附件失败:', e);
-                }
-              })
-            );
-          })
-        );
-        setLiquidAttachmentsMap(attachmentsMap);
-      }
+      setMetadataFields(fieldsArr);
+      setLiquidAttachmentsMap(attachmentsMap);
     } catch (error) {
       console.error("Failed to fetch data:", error);
     } finally {
@@ -660,42 +664,42 @@ export default function ConsumablesPage() {
           }
           const firstAttachment = attachments[0];
           return (
-            <HoverCard>
-              <HoverCardTrigger asChild>
-                <Dialog>
+            <Dialog>
+              <HoverCard>
+                <HoverCardTrigger asChild>
                   <DialogTrigger asChild>
                     <Button variant="ghost" size="sm" className="gap-1 h-7 px-2">
                       <Eye className="h-3.5 w-3.5" />
                       <span className="text-xs">{attachments.length}</span>
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-3xl">
-                    <DialogHeader>
-                      <DialogTitle>{row.original.name} - {field.fieldName}</DialogTitle>
-                    </DialogHeader>
-                    <div className="grid gap-4 max-h-[70vh] overflow-y-auto">
-                      {attachments.map((att) => (
-                        <div key={att.id} className="space-y-2">
-                          <img
-                            src={att.fileUrl}
-                            alt={att.fileName}
-                            className="w-full h-auto rounded-md"
-                          />
-                          <p className="text-sm text-muted-foreground">{att.fileName}</p>
-                        </div>
-                      ))}
+                </HoverCardTrigger>
+                <HoverCardContent className="w-48 p-2" side="right">
+                  <img
+                    src={firstAttachment.fileUrl}
+                    alt={firstAttachment.fileName}
+                    className="w-full h-auto rounded-md"
+                  />
+                </HoverCardContent>
+              </HoverCard>
+              <DialogContent className="max-w-3xl">
+                <DialogHeader>
+                  <DialogTitle>{row.original.name} - {field.fieldName}</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 max-h-[70vh] overflow-y-auto">
+                  {attachments.map((att) => (
+                    <div key={att.id} className="space-y-2">
+                      <img
+                        src={att.fileUrl}
+                        alt={att.fileName}
+                        className="w-full h-auto rounded-md"
+                      />
+                      <p className="text-sm text-muted-foreground">{att.fileName}</p>
                     </div>
-                  </DialogContent>
-                </Dialog>
-              </HoverCardTrigger>
-              <HoverCardContent className="w-48 p-2" side="right">
-                <img
-                  src={firstAttachment.fileUrl}
-                  alt={firstAttachment.fileName}
-                  className="w-full h-auto rounded-md"
-                />
-              </HoverCardContent>
-            </HoverCard>
+                  ))}
+                </div>
+              </DialogContent>
+            </Dialog>
           );
         }
         

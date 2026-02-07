@@ -21,8 +21,9 @@ steps:
       drain_timeout_s: 60
       empty_tolerance_g: 10
       empty_stability_window_s: 2
+      fill_mode: timed
 _compile_estimate:
-  total_duration_s: 70
+  total_duration_s: 65
   peak_liquid_level_ml: 0
   peak_liquid_level_ml_with_wash: 50
   total_inject_ml: 0
@@ -63,6 +64,7 @@ _editor_layout:
         gasPumpPwm: 100
         drainAfter: true
         washLiquidName: 纯净水
+        fillMode: timed
     - id: node_10
       type: hardwareConfig
       position:

@@ -10,6 +10,8 @@
 #include <condition_variable>
 #include <atomic>
 
+namespace workflows { class DataQualityMonitor; }
+
 namespace enose_grpc {
 
 class SensorServiceImpl final : public ::enose::service::SensorService::Service {
@@ -99,6 +101,13 @@ public:
     void set_run_context(int32_t run_id, const std::string& phase_name = "");
     void clear_run_context();
     db::SensorRepository* sensor_repository() { return sensor_repo_.get(); }
+    
+    // 数据质量监控
+    void set_quality_monitor(workflows::DataQualityMonitor* monitor) { quality_monitor_ = monitor; }
+    void clear_quality_monitor() { quality_monitor_ = nullptr; }
+    
+private:
+    workflows::DataQualityMonitor* quality_monitor_{nullptr};
 };
 
 } // namespace enose_grpc

@@ -3,6 +3,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import { Field } from './Field';
@@ -124,6 +125,17 @@ export function LiquidSourceFields({
           disabled={!!ratioBindingForLiquid}
           className={ratioBindingForLiquid ? 'opacity-50' : ''}
         />
+      </Field>
+      <Field label="标记为稀释液">
+        <div className="flex items-center gap-2">
+          <Switch
+            checked={Boolean(data.isSolvent)}
+            onCheckedChange={(v) => handleChange('isSolvent', v)}
+          />
+          <span className="text-xs text-muted-foreground">
+            {data.isSolvent ? '此液体在本实验中为稀释液/溶剂' : '非稀释液'}
+          </span>
+        </div>
       </Field>
       <p className="text-xs text-muted-foreground mt-2">
         注：泵编号在耗材管理中配置，此处只需选择液体类型和比例

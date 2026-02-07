@@ -18,13 +18,15 @@ struct LiquidInfo {
     std::string name;
     double ratio{0.0};
     int32_t pump_index{-1};
+    bool is_solvent{false};
     
     nlohmann::json to_json() const {
         return {
             {"id", id},
             {"name", name},
             {"ratio", ratio},
-            {"pump_index", pump_index}
+            {"pump_index", pump_index},
+            {"is_solvent", is_solvent}
         };
     }
 };
@@ -121,6 +123,7 @@ struct SampleRecord {
     std::vector<std::string> liquid_names;
     std::vector<double> liquid_ratios;
     std::vector<int16_t> pump_indices;
+    std::vector<bool> liquid_is_solvent;
     double total_volume_ml{0.0};
     double flow_rate_ml_s{0.0};
     
@@ -230,6 +233,7 @@ private:
     std::vector<std::string> parse_pg_text_array(const std::string& arr);
     std::vector<double> parse_pg_double_array(const std::string& arr);
     std::vector<int16_t> parse_pg_int16_array(const std::string& arr);
+    std::vector<bool> parse_pg_bool_array(const std::string& arr);
 };
 
 } // namespace db

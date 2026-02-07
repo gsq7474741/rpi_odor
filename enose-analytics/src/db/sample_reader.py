@@ -29,6 +29,7 @@ class SampleReader:
             SELECT 
                 id, run_id, sample_idx, start_time_ms, end_time_ms,
                 params_hash, liquid_ids, liquid_names, liquid_ratios, pump_indices,
+                liquid_is_solvent,
                 total_volume_ml, flow_rate_ml_s, gas_pump_pwm,
                 termination_type, termination_value, max_duration_s,
                 heater_configs, pre_wash_count, pre_wash_volume_ml, wash_liquid_id,
@@ -67,6 +68,7 @@ class SampleReader:
             SELECT 
                 id, run_id, sample_idx, start_time_ms, end_time_ms,
                 params_hash, liquid_ids, liquid_names, liquid_ratios, pump_indices,
+                liquid_is_solvent,
                 total_volume_ml, flow_rate_ml_s, gas_pump_pwm,
                 termination_type, termination_value, max_duration_s,
                 heater_configs, pre_wash_count, pre_wash_volume_ml, wash_liquid_id,
@@ -389,12 +391,14 @@ class SampleReader:
         """将数据库行转换为样本字典"""
         liquids = []
         if row.get("liquid_ids"):
+            is_solvent_arr = row.get("liquid_is_solvent") or []
             for i, lid in enumerate(row["liquid_ids"]):
                 liquids.append({
                     "id": lid,
                     "name": row["liquid_names"][i] if row.get("liquid_names") else "",
                     "ratio": row["liquid_ratios"][i] if row.get("liquid_ratios") else 0,
                     "pump_index": row["pump_indices"][i] if row.get("pump_indices") else -1,
+                    "is_solvent": is_solvent_arr[i] if i < len(is_solvent_arr) else False,
                 })
 
         heater_configs = []

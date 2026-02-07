@@ -23,6 +23,7 @@ import { edgeTypes } from './edges';
 import { NodePalette } from './panels/NodePalette';
 import { PropertyPanel } from './panels/PropertyPanel';
 import { SelectionToolbar } from './panels/SelectionToolbar';
+import { TabBar } from './panels/TabBar';
 import { CompilerPanel } from './panels/CompilerPanel';
 import { StatusBar } from './panels/StatusBar';
 import { NodeType, NODE_CATEGORIES } from './types';
@@ -429,7 +430,22 @@ function EditorCanvas() {
       saveToHistory();
       const selectedIds = new Set(selectedNodesList.map(n => n.id));
       useEditorStore.setState({ isRecordingHistory: true });
-      setNodes(nodes => nodes.filter(n => !selectedIds.has(n.id)));
+      setNodes(nodes => nodes.filter(n => !selectedIds.has(n.id)).map(node => {
+        const data = node.data as Record<string, unknown>;
+        const bound = data.boundVariables as Record<string, string> | undefined;
+        if (!bound) return node;
+        const cleaned: Record<string, string> = {};
+        let changed = false;
+        for (const [field, sweepId] of Object.entries(bound)) {
+          if (selectedIds.has(sweepId)) {
+            changed = true;
+          } else {
+            cleaned[field] = sweepId;
+          }
+        }
+        if (!changed) return node;
+        return { ...node, data: { ...data, boundVariables: Object.keys(cleaned).length > 0 ? cleaned : undefined } };
+      }));
       setEdges(edges => edges.filter(e => !selectedIds.has(e.source) && !selectedIds.has(e.target)));
       queueMicrotask(() => useEditorStore.setState({ isRecordingHistory: false }));
     }
@@ -522,6 +538,12 @@ function EditorToolbar() {
     recompile,
     resetHistory,
     markSaved,
+    createTab,
+    switchTab,
+    closeTab,
+    tabs,
+    activeTabId,
+    updateActiveTabSnapshot,
   } = useEditorStore();
   
   // 面板可见性状态（监听变化以触发重渲染）
@@ -583,17 +605,19 @@ function EditorToolbar() {
   
   const { isDirty, setDirty, currentFilename, setCurrentFilename } = useEditorStore();
   
-  // beforeunload 警告：未保存时防止意外关闭
+  // beforeunload 警告：任何标签有未保存更改时防止意外关闭
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (isDirty) {
+      const s = useEditorStore.getState();
+      const anyDirty = s.isDirty || s.tabs.some(t => t.isDirty);
+      if (anyDirty) {
         e.preventDefault();
         e.returnValue = '';
       }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [isDirty]);
+  }, []);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [yamlPreview, setYamlPreview] = useState<string | null>(null);
@@ -648,16 +672,33 @@ function EditorToolbar() {
     });
   };
   
-  // 监听从 URL 参数加载文件事件
+  // 监听从 URL 参数加载文件事件（适配多标签）
   useEffect(() => {
     const handleLoadFile = async (e: Event) => {
       const { filename } = (e as CustomEvent).detail;
       if (filename) {
+        // 检查是否已在某个标签打开
+        const s = useEditorStore.getState();
+        const existingTab = s.tabs.find(t => t.filename === filename);
+        if (existingTab) {
+          switchTab(existingTab.id);
+          addToRecentFiles(filename);
+          return;
+        }
+        
         try {
           const res = await fetch(`/api/run/programs?filename=${encodeURIComponent(filename)}`);
           const data = await res.json();
           if (data.content) {
             const { nodes: newNodes, edges: newEdges, programMeta } = yamlToGraph(data.content);
+            
+            // 如果当前标签是空白的，复用；否则新建标签
+            const cur = useEditorStore.getState();
+            const isCurrentEmpty = !cur.isDirty && !cur.currentFilename && cur.nodes.length <= 2;
+            if (!isCurrentEmpty) {
+              createTab();
+            }
+            
             loadGraph(newNodes, newEdges);
             setProgramMeta(programMeta);
             setCurrentFilename(filename);
@@ -689,7 +730,7 @@ function EditorToolbar() {
       window.removeEventListener('editor:loadFile', handleLoadFile);
       window.removeEventListener('editor:requestLoad', handleRequestLoad);
     };
-  }, [loadGraph, setProgramMeta, resetHistory]);
+  }, [loadGraph, setProgramMeta, resetHistory, switchTab, createTab]);
   
   // 自动保存草稿到 localStorage
   useEffect(() => {
@@ -788,6 +829,8 @@ function EditorToolbar() {
       try {
         const content = event.target?.result as string;
         const { nodes: newNodes, edges: newEdges, programMeta } = yamlToGraph(content);
+        // 在新标签页中打开导入的文件
+        createTab();
         loadGraph(newNodes, newEdges);
         setProgramMeta(programMeta);
         setCurrentFilename(null); // 导入的文件未保存到系统
@@ -837,21 +880,9 @@ function EditorToolbar() {
     setShowSaveDialog(true);
   };
 
-  // 新建文档
+  // 新建文档（在新标签页中打开）
   const handleNew = () => {
-    checkUnsavedChanges(() => {
-      clearGraph();
-      setProgramMeta({
-        programId: 'new_experiment',
-        programName: '新实验',
-        programDescription: '',
-        programVersion: '1.0.0',
-      });
-      setCurrentFilename(null);
-      setDirty(false);
-      resetHistory();
-      localStorage.removeItem('experiment-editor-draft');
-    });
+    createTab();
   };
   
   // 更新快捷键回调 ref
@@ -859,6 +890,20 @@ function EditorToolbar() {
     handleSaveRef.current = handleSave;
     handleNewRef.current = handleNew;
   });
+
+  // 监听"保存并关闭标签页"事件
+  useEffect(() => {
+    const handleSaveAndClose = async (e: Event) => {
+      const { tabId } = (e as CustomEvent).detail;
+      await handleSave();
+      // 保存成功后关闭标签
+      if (!useEditorStore.getState().isDirty) {
+        closeTab(tabId);
+      }
+    };
+    window.addEventListener('editor:saveAndCloseTab', handleSaveAndClose);
+    return () => window.removeEventListener('editor:saveAndCloseTab', handleSaveAndClose);
+  }, [closeTab]);
 
   // 执行保存
   const doSave = async (filename: string) => {
@@ -890,6 +935,7 @@ function EditorToolbar() {
         setShowSaveDialog(false);
         setSaveFilename('');
         markSaved(); // 保存后标记保存点，清除未保存状态
+        updateActiveTabSnapshot(); // 同步标签快照
         localStorage.removeItem('experiment-editor-draft');
         toast.success(`已保存到 ${data.filename}`);
         addToRecentFiles(data.filename);
@@ -948,22 +994,46 @@ function EditorToolbar() {
     }
   };
 
-  // 从系统加载
+  // 从系统加载（在新标签页打开，或切换到已打开的标签）
   const handleLoadFromSystem = async (filename: string) => {
+    // 检查是否已经在某个标签中打开
+    const existingTab = tabs.find(t => t.filename === filename);
+    if (existingTab) {
+      // 先快照当前标签，再切换
+      switchTab(existingTab.id);
+      setShowLoadDialog(false);
+      return;
+    }
+    
     try {
       const res = await fetch(`/api/run/programs?filename=${encodeURIComponent(filename)}`);
       const data = await res.json();
       
       if (data.content) {
         const { nodes: newNodes, edges: newEdges, programMeta } = yamlToGraph(data.content);
-        loadGraph(newNodes, newEdges);
-        setProgramMeta(programMeta);
-        setCurrentFilename(filename); // 记录当前文件名
-        setDirty(false); // 加载后重置未保存状态
-        resetHistory(); // 清空历史栈，防止撤销回旧文件
-        localStorage.removeItem('experiment-editor-draft');
+        
+        // 如果当前标签是空白的未修改标签，复用它；否则新建标签
+        const isCurrentEmpty = !isDirty && !currentFilename && nodes.length <= 2;
+        
+        if (isCurrentEmpty) {
+          // 复用当前标签
+          loadGraph(newNodes, newEdges);
+          setProgramMeta(programMeta);
+          setCurrentFilename(filename);
+          setDirty(false);
+          resetHistory();
+        } else {
+          // 新建标签
+          createTab();
+          loadGraph(newNodes, newEdges);
+          setProgramMeta(programMeta);
+          setCurrentFilename(filename);
+          setDirty(false);
+          resetHistory();
+        }
+        
         setShowLoadDialog(false);
-        addToRecentFiles(filename); // 添加到最近文件
+        addToRecentFiles(filename);
       } else {
         toast.error('加载失败', { description: data.error || '未知错误' });
       }
@@ -1227,13 +1297,12 @@ function EditorToolbar() {
                     <DropdownMenuItem
                       key={`template-${t.id}-${index}`}
                       onClick={() => {
-                        checkUnsavedChanges(() => {
-                          loadGraph(t.nodes, t.edges);
-                          setProgramMeta(t.programMeta);
-                          setCurrentFilename(null);
-                          setDirty(false);
-                          resetHistory();
-                        });
+                        createTab();
+                        loadGraph(t.nodes, t.edges);
+                        setProgramMeta(t.programMeta);
+                        setCurrentFilename(null);
+                        setDirty(false);
+                        resetHistory();
                       }}
                     >
                       <LayoutTemplate className="w-4 h-4 mr-2" />
@@ -1247,11 +1316,9 @@ function EditorToolbar() {
               </DropdownMenuSub>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => {
-                checkUnsavedChanges(() => {
-                  loadSavedPrograms();
-                  setLoadSearch('');
-                  setShowLoadDialog(true);
-                });
+                loadSavedPrograms();
+                setLoadSearch('');
+                setShowLoadDialog(true);
               }}>
                 <FolderOpen className="w-4 h-4 mr-2" />
                 打开...
@@ -1267,11 +1334,7 @@ function EditorToolbar() {
                     {recentFiles.map((filename, index) => (
                       <DropdownMenuItem
                         key={`recent-${filename}-${index}`}
-                        onClick={() => {
-                          checkUnsavedChanges(() => {
-                            handleLoadFromSystem(filename);
-                          });
-                        }}
+                        onClick={() => handleLoadFromSystem(filename)}
                       >
                         <File className="w-4 h-4 mr-2" />
                         <span className="truncate">{filename}</span>
@@ -1292,9 +1355,7 @@ function EditorToolbar() {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => {
-                checkUnsavedChanges(() => {
-                  fileInputRef.current?.click();
-                });
+                fileInputRef.current?.click();
               }}>
                 <Upload className="w-4 h-4 mr-2" />
                 导入 YAML...
@@ -1391,18 +1452,8 @@ function EditorToolbar() {
           </Tooltip>
         </div>
         
-        {/* 中间：文件名 + dirty 标记 */}
-        <div className="flex-1 flex justify-center">
-          <div className="flex items-center gap-2 text-sm">
-            <FileText className="w-4 h-4 text-muted-foreground" />
-            <span className="font-medium truncate max-w-[300px]">
-              {currentFilename || (programName !== 'new_experiment' && programName ? programName : '未命名')}
-            </span>
-            {isDirty && (
-              <span className="w-2 h-2 rounded-full bg-orange-400" title="有未保存的更改" />
-            )}
-          </div>
-        </div>
+        {/* 中间：占位（文件名已通过标签栏显示） */}
+        <div className="flex-1" />
         
         {/* 右侧：操作按钮 */}
         <div className="flex items-center gap-1.5">
@@ -1698,6 +1749,46 @@ export function ExperimentEditor() {
   const [showPropertyPanel, setShowPropertyPanel] = useState(true);
   const [showCompilerPanel, setShowCompilerPanel] = useState(true);
   
+  const { createTab, closeTab, switchTab, tabs, activeTabId } = useEditorStore();
+  
+  // 关闭标签页（带未保存检查）
+  const [showCloseTabDialog, setShowCloseTabDialog] = useState(false);
+  const [pendingCloseTabId, setPendingCloseTabId] = useState<string | null>(null);
+  
+  const handleCloseTab = useCallback((tabId: string, isDirty: boolean) => {
+    if (tabs.length <= 1) return;
+    if (isDirty) {
+      setPendingCloseTabId(tabId);
+      setShowCloseTabDialog(true);
+    } else {
+      closeTab(tabId);
+    }
+  }, [tabs.length, closeTab]);
+  
+  const handleCloseOtherTabs = useCallback((keepTabId: string) => {
+    // 先快照当前标签再切换
+    const store = useEditorStore.getState();
+    store.updateActiveTabSnapshot();
+    switchTab(keepTabId);
+    
+    // 重新读取最新的 tabs（快照后）
+    const latestTabs = useEditorStore.getState().tabs;
+    const dirtyCount = latestTabs.filter(t => t.id !== keepTabId && t.isDirty).length;
+    const cleanIds = latestTabs.filter(t => t.id !== keepTabId && !t.isDirty).map(t => t.id);
+    
+    for (const id of cleanIds) {
+      closeTab(id);
+    }
+    
+    if (dirtyCount > 0) {
+      toast.info(`${dirtyCount} 个标签有未保存更改，未关闭`);
+    }
+  }, [switchTab, closeTab]);
+  
+  const handleNewTab = useCallback(() => {
+    createTab();
+  }, [createTab]);
+  
   // 同步全局状态
   useEffect(() => {
     panelVisibility.nodePalette = showNodePalette;
@@ -1721,6 +1812,11 @@ export function ExperimentEditor() {
     <ReactFlowProvider>
       <div className="flex flex-col h-full">
         <EditorToolbar />
+        <TabBar
+          onNewTab={handleNewTab}
+          onCloseTab={handleCloseTab}
+          onCloseOtherTabs={handleCloseOtherTabs}
+        />
         <ResizablePanelGroup direction="horizontal" className="flex-1">
           {/* 左侧节点面板 */}
           {showNodePalette && (
@@ -1758,6 +1854,33 @@ export function ExperimentEditor() {
           )}
         </ResizablePanelGroup>
         <StatusBar />
+        
+        {/* 关闭标签页时的未保存确认对话框 */}
+        <UnsavedChangesDialog
+          open={showCloseTabDialog}
+          onOpenChange={setShowCloseTabDialog}
+          onSave={async () => {
+            // 如果要关闭的标签不是当前标签，先切换过去
+            if (pendingCloseTabId && pendingCloseTabId !== activeTabId) {
+              switchTab(pendingCloseTabId);
+            }
+            // 触发保存（通过事件让 EditorToolbar 处理）
+            window.dispatchEvent(new CustomEvent('editor:saveAndCloseTab', { detail: { tabId: pendingCloseTabId } }));
+            setShowCloseTabDialog(false);
+            setPendingCloseTabId(null);
+          }}
+          onDiscard={() => {
+            if (pendingCloseTabId) {
+              closeTab(pendingCloseTabId);
+            }
+            setShowCloseTabDialog(false);
+            setPendingCloseTabId(null);
+          }}
+          onCancel={() => {
+            setShowCloseTabDialog(false);
+            setPendingCloseTabId(null);
+          }}
+        />
       </div>
     </ReactFlowProvider>
   );

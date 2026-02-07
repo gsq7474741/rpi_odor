@@ -1,5 +1,6 @@
 -- ============================================================
--- 11-sample-phase-refactor.sql - Sample 跨 Phase 采集与 Redis 帧缓存重构
+-- 0012-sample-phase-refactor.sql - Sample 跨 Phase 采集重构
+-- 来源: 11-sample-phase-refactor.sql
 -- ============================================================
 -- 重新定义 Sample 的语义（可跨 Phase），添加 Phase 转换时间标记
 -- 修改 normalized_frames 以 sample_id 为主键
@@ -119,7 +120,7 @@ $$ LANGUAGE plpgsql;
 -- ============================================================
 DO $$
 BEGIN
-    RAISE NOTICE '11-sample-phase-refactor.sql: Sample Phase 重构完成';
+    RAISE NOTICE '0012-sample-phase-refactor.sql: Sample Phase 重构完成';
     RAISE NOTICE '  - 创建 sample_phase_transitions 表';
     RAISE NOTICE '  - normalized_frames 改为 sample_id 索引';
     RAISE NOTICE '  - 历史归一化帧数据已清空';

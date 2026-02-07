@@ -1,6 +1,7 @@
 -- ============================================================================
--- ML 标签体系
--- 从 samples 表的结构化参数自动派生 ML 标签，支持分类、回归、对比学习
+-- 0014-ml-labels.sql - ML 标签体系
+-- 合并自: 14-ml-labels.sql + 002-update-concentration-config.sql
+-- 变更: concentration 策略已直接定义为 classification 类型
 -- ============================================================================
 
 -- ============================================================================
@@ -75,7 +76,7 @@ CREATE TABLE IF NOT EXISTS ml_datasets (
 );
 
 -- ============================================================================
--- 内置标签策略
+-- 内置标签策略 (concentration 已为 classification 类型)
 -- ============================================================================
 
 INSERT INTO ml_label_configs (name, label_type, strategy, config, description) VALUES
@@ -102,10 +103,10 @@ INSERT INTO ml_label_configs (name, label_type, strategy, config, description) V
 ),
 (
     'concentration',
-    'regression',
+    'classification',
     'auto_from_params',
-    '{"target_liquid_id": null}',
-    '浓度标签：指定目标液体的比例值 (0-1)，需在 config 中设置 target_liquid_id'
+    '{}',
+    '浓度标签：输出配方中每种液体的浓度，label_json 存储结构化浓度数据'
 ),
 (
     'total_volume',

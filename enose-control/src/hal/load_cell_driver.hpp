@@ -64,6 +64,10 @@ struct LoadCellConfig {
     // Klipper 称重更新~1Hz + 液体冲击加速度 → 动态读数滞后
     // 检测阈值 = expected_weight_change - fill_lag_compensation_g
     float fill_lag_compensation_g = 0.0f;  // g (默认不补偿)
+    
+    // 清洗泵流速 (ml/s, 100% PWM)
+    // 用于定时注入模式: duration_s = target_volume_ml / wash_pump_flow_rate_ml_s
+    float wash_pump_flow_rate_ml_s = 10.0f;
 };
 
 struct LoadCellStatus {

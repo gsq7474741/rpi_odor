@@ -902,7 +902,13 @@ export interface LoadCellConfig {
      *
      * @generated from protobuf field: float fill_lag_compensation_g = 7
      */
-    fillLagCompensationG: number; // g (默认 0)}
+    fillLagCompensationG: number; // g (默认 0)    /**
+     * 清洗泵流速 (ml/s, 100% PWM)
+     * 用于定时注入模式: duration_s = target_volume_ml / wash_pump_flow_rate_ml_s
+     *
+     * @generated from protobuf field: float wash_pump_flow_rate_ml_s = 8
+     */
+    washPumpFlowRateMlS: number; // 默认 10}
 /**
  * 泵校准系数请求
  *
@@ -4216,7 +4222,8 @@ class LoadCellConfig$Type extends MessageType<LoadCellConfig> {
             { no: 4, name: "last_calibration_time", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 5, name: "ml_to_weight_slope", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
             { no: 6, name: "ml_to_weight_offset", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
-            { no: 7, name: "fill_lag_compensation_g", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ }
+            { no: 7, name: "fill_lag_compensation_g", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 8, name: "wash_pump_flow_rate_ml_s", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ }
         ]);
     }
     create(value?: PartialMessage<LoadCellConfig>): LoadCellConfig {
@@ -4228,6 +4235,7 @@ class LoadCellConfig$Type extends MessageType<LoadCellConfig> {
         message.mlToWeightSlope = 0;
         message.mlToWeightOffset = 0;
         message.fillLagCompensationG = 0;
+        message.washPumpFlowRateMlS = 0;
         if (value !== undefined)
             reflectionMergePartial<LoadCellConfig>(this, message, value);
         return message;
@@ -4257,6 +4265,9 @@ class LoadCellConfig$Type extends MessageType<LoadCellConfig> {
                     break;
                 case /* float fill_lag_compensation_g */ 7:
                     message.fillLagCompensationG = reader.float();
+                    break;
+                case /* float wash_pump_flow_rate_ml_s */ 8:
+                    message.washPumpFlowRateMlS = reader.float();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -4291,6 +4302,9 @@ class LoadCellConfig$Type extends MessageType<LoadCellConfig> {
         /* float fill_lag_compensation_g = 7; */
         if (message.fillLagCompensationG !== 0)
             writer.tag(7, WireType.Bit32).float(message.fillLagCompensationG);
+        /* float wash_pump_flow_rate_ml_s = 8; */
+        if (message.washPumpFlowRateMlS !== 0)
+            writer.tag(8, WireType.Bit32).float(message.washPumpFlowRateMlS);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);

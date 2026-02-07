@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogHeader,
+  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
@@ -109,6 +111,9 @@ export function ImageInput({
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-3xl">
+                  <DialogHeader className="sr-only">
+                    <DialogTitle>{attachment.fileName}</DialogTitle>
+                  </DialogHeader>
                   <img
                     src={attachment.fileUrl}
                     alt={attachment.fileName}
@@ -187,6 +192,9 @@ export function ImagePreviewButton({
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-3xl">
+        <DialogHeader className="sr-only">
+          <DialogTitle>图片预览</DialogTitle>
+        </DialogHeader>
         <div className="grid gap-4">
           {attachments.map((att) => (
             <div key={att.id} className="space-y-2">

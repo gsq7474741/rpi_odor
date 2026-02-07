@@ -12,6 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
+import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -19,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import {
   Table,
   TableBody,
@@ -40,6 +42,7 @@ import {
   Loader2,
   Sparkles,
   BarChart3,
+  SplitSquareVertical,
   Info,
   CheckCircle2,
   AlertTriangle,
@@ -63,6 +66,16 @@ interface LabelBucket {
   labelIndex: number;
 }
 
+interface DatasetPreview {
+  configName: string;
+  labelType: string;
+  totalSamples: number;
+  trainCount: number;
+  valCount: number;
+  testCount: number;
+  labelDistribution: LabelBucket[];
+}
+
 const LABEL_TYPE_COLORS: Record<string, string> = {
   classification: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
   regression: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
@@ -76,15 +89,24 @@ const LABEL_TYPE_LABELS: Record<string, string> = {
 };
 
 export function TrainingTab() {
-  const { selectedSampleIds, samples } = useExperiments();
+  const { selectedSampleIds, samples, mlLabelConfig, setMlLabelConfig, mlSplitRatios, setMlSplitRatios } = useExperiments();
 
   const [configs, setConfigs] = useState<LabelConfig[]>([]);
-  const [selectedConfig, setSelectedConfig] = useState<string>("");
+  const selectedConfig = mlLabelConfig;
+  const setSelectedConfig = setMlLabelConfig;
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [generateResult, setGenerateResult] = useState<string>("");
   const [distribution, setDistribution] = useState<LabelBucket[]>([]);
   const [distributionTotal, setDistributionTotal] = useState(0);
+  const [preview, setPreview] = useState<DatasetPreview | null>(null);
+
+  // 分割比例（与 Context 共享，导出面板读取）
+  const trainRatio = mlSplitRatios.train;
+  const valRatio = mlSplitRatios.val;
+  const setTrainRatio = (v: number) => setMlSplitRatios({ ...mlSplitRatios, train: v });
+  const setValRatio = (v: number) => setMlSplitRatios({ ...mlSplitRatios, val: v });
+
   // 获取选中样本的 runIds 和 sampleIds
   const selectedRunIds = Array.from(
     new Set(
@@ -103,8 +125,8 @@ export function TrainingTab() {
       if (response.ok) {
         const data = await response.json();
         setConfigs(data.configs || []);
-        if (data.configs?.length > 0 && !selectedConfig) {
-          setSelectedConfig(data.configs[0].name);
+        if (data.configs?.length > 0 && !mlLabelConfig) {
+          setMlLabelConfig(data.configs[0].name);
         }
       }
     } catch (error) {
@@ -133,6 +155,31 @@ export function TrainingTab() {
     }
   }, [selectedConfig, selectedSampleIdsList.join(",")]);
 
+  // 预览数据集
+  const fetchPreview = useCallback(async () => {
+    if (!selectedConfig) return;
+    try {
+      const testRatio = 100 - trainRatio - valRatio;
+      const params = new URLSearchParams({
+        action: "preview",
+        configName: selectedConfig,
+        trainRatio: (trainRatio / 100).toString(),
+        valRatio: (valRatio / 100).toString(),
+        testRatio: (testRatio / 100).toString(),
+      });
+      if (selectedSampleIdsList.length > 0) {
+        params.set("sampleIds", selectedSampleIdsList.join(","));
+      }
+      const response = await fetch(`/api/ml-labels?${params}`);
+      if (response.ok) {
+        const data = await response.json();
+        setPreview(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch preview:", error);
+    }
+  }, [selectedConfig, trainRatio, valRatio, selectedSampleIdsList.join(",")]);
+
   // 生成标签
   const handleGenerate = async () => {
     setGenerating(true);
@@ -153,6 +200,7 @@ export function TrainingTab() {
         setGenerateResult(data.message || "标签生成完成");
         // 刷新分布
         fetchDistribution();
+        fetchPreview();
         fetchConfigs();
       }
     } catch (error) {
@@ -170,10 +218,12 @@ export function TrainingTab() {
   useEffect(() => {
     if (selectedConfig) {
       fetchDistribution();
+      fetchPreview();
     }
-  }, [selectedConfig, fetchDistribution]);
+  }, [selectedConfig, fetchDistribution, fetchPreview]);
 
   const currentConfig = configs.find((c) => c.name === selectedConfig);
+  const testRatio = 100 - trainRatio - valRatio;
   const maxDistCount = Math.max(...distribution.map((b) => b.count), 1);
 
   // 动态计算下方区域可用高度
@@ -206,10 +256,10 @@ export function TrainingTab() {
           <div>
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <Brain className="h-5 w-5" />
-              训练数据集
+              ML 标签
             </h2>
             <p className="text-sm text-muted-foreground">
-              从样本参数自动派生 ML 标签，构建训练数据集
+              从样本参数自动派生 ML 标签，配置数据集分割
             </p>
           </div>
           <div className="flex gap-2">

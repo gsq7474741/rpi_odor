@@ -67,6 +67,9 @@ static bool parse_step(const YAML::Node& node, experiment::Step* step, std::stri
                 } else {
                     comp->set_ratio(1.0);
                 }
+                if (comp_node["is_solvent"]) {
+                    comp->set_is_solvent(comp_node["is_solvent"].as<bool>());
+                }
             }
         }
         
@@ -255,6 +258,9 @@ static bool parse_step(const YAML::Node& node, experiment::Step* step, std::stri
         
         if (wash["wash_liquid_id"]) {
             action->set_wash_liquid_id(wash["wash_liquid_id"].as<std::string>());
+        }
+        if (wash["fill_mode"]) {
+            action->set_fill_mode(wash["fill_mode"].as<std::string>());
         }
     }
     else if (node["preheat"]) {

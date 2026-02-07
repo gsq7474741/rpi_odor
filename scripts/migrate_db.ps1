@@ -4,28 +4,36 @@
 
 .DESCRIPTION
     同步 SQL 文件到 RPi5 的 docker/migrations 目录，
-    然后通过 Docker 挂载的目录执行迁移（避免 sudo 管道问题）
+    然后通过 Docker 挂载的目录执行迁移。
+    使用 schema_migrations 表追踪已执行的迁移，-All 会自动跳过已执行的。
 
 .PARAMETER File
-    指定要执行的单个 SQL 文件名 (如 06-sensor-v2.sql)
+    指定要执行的单个 SQL 文件名 (如 0005-sensor-v2.sql)，强制执行（不检查状态）
 
 .PARAMETER All
-    执行所有 SQL 文件
+    执行所有未执行的 SQL 文件（自动跳过 schema_migrations 中已记录的）
 
 .PARAMETER Sync
     仅同步文件，不执行迁移
 
+.PARAMETER Force
+    与 -All 配合使用，忽略 schema_migrations 记录，强制重新执行所有文件
+
 .EXAMPLE
-    .\scripts\migrate_db.ps1 -File 07-heater-profiles.sql
+    .\scripts\migrate_db.ps1 -File 0005-sensor-v2.sql
 
 .EXAMPLE
     .\scripts\migrate_db.ps1 -All
+
+.EXAMPLE
+    .\scripts\migrate_db.ps1 -All -Force
 #>
 
 param(
     [string]$File = "",
     [switch]$All = $false,
-    [switch]$Sync = $false
+    [switch]$Sync = $false,
+    [switch]$Force = $false
 )
 
 $ErrorActionPreference = "Stop"
@@ -37,7 +45,7 @@ $DbContainer = "enose-timescaledb"
 $DbUser = "enose"
 $DbName = "enose"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
-$LocalMigrationDir = Join-Path $ProjectRoot "docker\init-db"
+$LocalMigrationDir = Join-Path $ProjectRoot "docker\migrations"
 $RemoteDockerDir = "/home/user/rpi_odor/docker"
 $RemoteMigrationDir = "$RemoteDockerDir/migrations"
 $ContainerMigrationPath = "/migrations"  # Docker 内挂载路径
@@ -72,27 +80,17 @@ if ($mkdirResult -match "OK") {
     Write-Host "  $mkdirResult" -ForegroundColor DarkGray
 }
 
-# 使用 scp 批量复制
-$sqlFiles = Get-ChildItem -Path $LocalMigrationDir -Filter "*.sql" | Sort-Object Name
-$copyFailCount = 0
-foreach ($f in $sqlFiles) {
-    Write-Host "  复制: $($f.Name)" -ForegroundColor DarkGray
-    & scp -q $f.FullName "${RpiHost}:${RemoteMigrationDir}/"
-    if ($LASTEXITCODE -ne 0) { 
-        Write-Host "    复制失败" -ForegroundColor Red
-        $copyFailCount++
-    }
-}
-if ($copyFailCount -gt 0) {
-    Write-Host "  警告: $copyFailCount 个文件复制失败，尝试修复权限后重试..." -ForegroundColor Yellow
+# 使用 scp -r 一次性复制整个目录 (避免逐文件 SSH 握手)
+$sqlFiles = Get-ChildItem -Path $LocalMigrationDir -Filter "*.sql"
+Write-Host "  复制 $($sqlFiles.Count) 个文件..." -ForegroundColor DarkGray
+& scp -r -q "${LocalMigrationDir}\*" "${RpiHost}:${RemoteMigrationDir}/"
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "  首次复制失败，尝试修复权限后重试..." -ForegroundColor Yellow
     ssh $RpiHost "echo $RpiPassword | sudo -S chown -R user:user $RemoteMigrationDir 2>/dev/null && echo $RpiPassword | sudo -S chmod -R 755 $RemoteMigrationDir 2>/dev/null"
-    # 重试复制
-    foreach ($f in $sqlFiles) {
-        Write-Host "  重试: $($f.Name)" -ForegroundColor DarkGray
-        & scp -q $f.FullName "${RpiHost}:${RemoteMigrationDir}/"
-        if ($LASTEXITCODE -ne 0) { 
-            Write-Host "    重试失败" -ForegroundColor Red
-        }
+    & scp -r -q "${LocalMigrationDir}\*" "${RpiHost}:${RemoteMigrationDir}/"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  重试仍失败，退出" -ForegroundColor Red
+        exit 1
     }
 }
 Write-Host "  同步完成: $($sqlFiles.Count) 个文件" -ForegroundColor Green
@@ -103,21 +101,31 @@ if ($Sync) {
     exit 0
 }
 
-# 重启 TimescaleDB 容器以加载挂载目录 (使用 sudo docker)
-Write-Host "`n[3/4] 重启 TimescaleDB 容器 (加载挂载目录)..." -ForegroundColor Yellow
-$restartResult = ssh $RpiHost "cd $RemoteDockerDir && echo $RpiPassword | sudo -S docker compose restart timescaledb 2>&1" 2>&1
-Write-Host "  $restartResult" -ForegroundColor DarkGray
-Write-Host "  等待容器就绪..." -ForegroundColor DarkGray
-Start-Sleep -Seconds 5
-
-# 检查容器健康状态 (使用 sudo docker)
+# 检查容器健康状态 (不再需要重启)
+Write-Host "`n[3/5] 检查 TimescaleDB 容器状态..." -ForegroundColor Yellow
 $healthCheck = ssh $RpiHost "echo $RpiPassword | sudo -S docker exec $DbContainer pg_isready -U $DbUser -d $DbName 2>&1" 2>&1
 if ($healthCheck -notmatch "accepting connections") {
-    Write-Host "  警告: 容器可能未就绪，继续尝试..." -ForegroundColor Yellow
-    Write-Host "  $healthCheck" -ForegroundColor DarkGray
-    Start-Sleep -Seconds 3
+    Write-Host "  警告: 容器可能未就绪，尝试启动..." -ForegroundColor Yellow
+    $startResult = ssh $RpiHost "cd $RemoteDockerDir && echo $RpiPassword | sudo -S docker compose up -d timescaledb 2>&1" 2>&1
+    Write-Host "  $startResult" -ForegroundColor DarkGray
+    Start-Sleep -Seconds 5
+    $healthCheck = ssh $RpiHost "echo $RpiPassword | sudo -S docker exec $DbContainer pg_isready -U $DbUser -d $DbName 2>&1" 2>&1
+    if ($healthCheck -notmatch "accepting connections") {
+        Write-Host "  容器仍未就绪，退出" -ForegroundColor Red
+        exit 1
+    }
+}
+Write-Host "  容器就绪" -ForegroundColor Green
+
+# 查询已执行的迁移
+Write-Host "`n[4/5] 查询已执行的迁移..." -ForegroundColor Yellow
+$appliedRaw = ssh $RpiHost "echo $RpiPassword | sudo -S docker exec $DbContainer psql -U $DbUser -d $DbName -t -A -c `"SELECT version FROM schema_migrations ORDER BY version`" 2>&1" 2>&1
+$appliedMigrations = @()
+if ($appliedRaw -and $appliedRaw -notmatch "ERROR:|does not exist") {
+    $appliedMigrations = @($appliedRaw -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^\d{4}-' })
+    Write-Host "  已执行 $($appliedMigrations.Count) 个迁移" -ForegroundColor Green
 } else {
-    Write-Host "  容器就绪" -ForegroundColor Green
+    Write-Host "  schema_migrations 表不存在或为空 (首次迁移)" -ForegroundColor Yellow
 }
 
 # 获取要执行的文件
@@ -133,24 +141,41 @@ if ($File) {
 } elseif ($All) {
     $files = Get-ChildItem -Path $LocalMigrationDir -Filter "*.sql" | Sort-Object Name
     foreach ($f in $files) {
+        # 提取版本号 (文件名去掉 .sql)
+        $version = $f.BaseName
+        if (-not $Force -and $appliedMigrations -contains $version) {
+            Write-Host "  跳过 (已执行): $($f.Name)" -ForegroundColor DarkGray
+            continue
+        }
         $filesToExecute += $f.Name
     }
+    if ($filesToExecute.Count -eq 0) {
+        Write-Host "`n所有迁移已执行完毕，无需操作" -ForegroundColor Green
+        exit 0
+    }
+    Write-Host "  待执行: $($filesToExecute.Count) 个迁移" -ForegroundColor Cyan
 } else {
     Write-Host "`n用法:" -ForegroundColor Yellow
-    Write-Host "  .\scripts\migrate_db.ps1 -File <filename.sql>  # 执行单个文件"
-    Write-Host "  .\scripts\migrate_db.ps1 -All                   # 执行所有文件"
+    Write-Host "  .\scripts\migrate_db.ps1 -File <filename.sql>  # 执行单个文件 (强制)"
+    Write-Host "  .\scripts\migrate_db.ps1 -All                   # 执行所有未执行的文件"
+    Write-Host "  .\scripts\migrate_db.ps1 -All -Force             # 强制重新执行所有文件"
     Write-Host "  .\scripts\migrate_db.ps1 -Sync                  # 仅同步文件"
     Write-Host ""
     Write-Host "可用的迁移文件:" -ForegroundColor Yellow
     $files = Get-ChildItem -Path $LocalMigrationDir -Filter "*.sql" | Sort-Object Name
     foreach ($f in $files) {
-        Write-Host "  - $($f.Name)" -ForegroundColor DarkGray
+        $version = $f.BaseName
+        if ($appliedMigrations -contains $version) {
+            Write-Host "  [已执行] $($f.Name)" -ForegroundColor DarkGray
+        } else {
+            Write-Host "  [待执行] $($f.Name)" -ForegroundColor Yellow
+        }
     }
     exit 0
 }
 
 # 执行迁移
-Write-Host "`n[4/4] 执行数据库迁移..." -ForegroundColor Yellow
+Write-Host "`n[5/5] 执行数据库迁移..." -ForegroundColor Yellow
 $successCount = 0
 $failCount = 0
 
@@ -197,6 +222,14 @@ foreach ($fileName in $filesToExecute) {
             Write-Host "  结果: 成功" -ForegroundColor Green
         }
         $successCount++
+        
+        # 记录已执行的迁移到 schema_migrations
+        $version = [System.IO.Path]::GetFileNameWithoutExtension($fileName)
+        $insertCmd = "echo $RpiPassword | sudo -S docker exec $DbContainer psql -U $DbUser -d $DbName -c `"INSERT INTO schema_migrations (version) VALUES ('$version') ON CONFLICT (version) DO UPDATE SET applied_at = NOW()`" 2>&1"
+        $insertResult = ssh $RpiHost $insertCmd 2>&1
+        if ($insertResult -match "ERROR:") {
+            Write-Host "  警告: 无法记录迁移状态 (schema_migrations 可能不存在)" -ForegroundColor Yellow
+        }
     }
 }
 

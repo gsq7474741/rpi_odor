@@ -37,7 +37,7 @@ function downsample(data: DataPoint[], threshold: number): DataPoint[] {
   return data.filter((_, i) => i % step === 0);
 }
 
-export function SensorPanel() {
+export function SensorPanel({ active = true }: { active?: boolean }) {
   const [sensorStatus, setSensorStatus] = useState<SensorBoardStatus>({ connected: false, running: false, sensorCount: 8, firmwareVersion: "", port: "" });
   const [grpcConnected, setGrpcConnected] = useState(false);
   const [lastRefreshTime, setLastRefreshTime] = useState<number | null>(null);
@@ -313,13 +313,13 @@ export function SensorPanel() {
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
-          <ReactECharts 
+          {active && <ReactECharts 
             option={resistanceOption} 
             style={{ height: 300 }} 
             notMerge={!isChartLocked('resistance')} 
             lazyUpdate={true}
             onEvents={{ datazoom: () => handleChartZoom('resistance') }}
-          />
+          />}
         </CardContent>
       </Card>
 
@@ -333,13 +333,13 @@ export function SensorPanel() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0 pb-2">
-            <ReactECharts 
+            {active && <ReactECharts 
               option={temperatureOption} 
               style={{ height: 150 }} 
               notMerge={!isChartLocked('temperature')} 
               lazyUpdate={true}
               onEvents={{ datazoom: () => handleChartZoom('temperature') }}
-            />
+            />}
           </CardContent>
         </Card>
         <Card className="overflow-hidden">
@@ -350,13 +350,13 @@ export function SensorPanel() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0 pb-2">
-            <ReactECharts 
+            {active && <ReactECharts 
               option={humidityOption} 
               style={{ height: 150 }} 
               notMerge={!isChartLocked('humidity')} 
               lazyUpdate={true}
               onEvents={{ datazoom: () => handleChartZoom('humidity') }}
-            />
+            />}
           </CardContent>
         </Card>
         <Card className="overflow-hidden">
@@ -367,13 +367,13 @@ export function SensorPanel() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0 pb-2">
-            <ReactECharts 
+            {active && <ReactECharts 
               option={pressureOption} 
               style={{ height: 150 }} 
               notMerge={!isChartLocked('pressure')} 
               lazyUpdate={true}
               onEvents={{ datazoom: () => handleChartZoom('pressure') }}
-            />
+            />}
           </CardContent>
         </Card>
       </div>

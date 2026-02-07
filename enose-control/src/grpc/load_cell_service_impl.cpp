@@ -210,6 +210,7 @@ void LoadCellServiceImpl::fill_calibration_status(::enose::service::CalibrationS
     response->set_ml_to_weight_slope(config.ml_to_weight_slope);
     response->set_ml_to_weight_offset(config.ml_to_weight_offset);
     response->set_fill_lag_compensation_g(config.fill_lag_compensation_g);
+    response->set_wash_pump_flow_rate_ml_s(config.wash_pump_flow_rate_ml_s);
     
     return ::grpc::Status::OK;
 }
@@ -231,13 +232,16 @@ void LoadCellServiceImpl::fill_calibration_status(::enose::service::CalibrationS
     }
     config.ml_to_weight_offset = request->ml_to_weight_offset(); // offset可以为0
     config.fill_lag_compensation_g = request->fill_lag_compensation_g();
+    if (request->wash_pump_flow_rate_ml_s() > 0) {
+        config.wash_pump_flow_rate_ml_s = request->wash_pump_flow_rate_ml_s();
+    }
     
     load_cell_->set_config(config);
     
     // 持久化到文件
     if (load_cell_->save_config()) {
-        spdlog::info("LoadCellServiceImpl: Config saved to file (slope={:.4f}, offset={:.4f}, lag_comp={:.1f})",
-                     config.ml_to_weight_slope, config.ml_to_weight_offset, config.fill_lag_compensation_g);
+        spdlog::info("LoadCellServiceImpl: Config saved to file (slope={:.4f}, offset={:.4f}, lag_comp={:.1f}, flow_rate={:.1f})",
+                     config.ml_to_weight_slope, config.ml_to_weight_offset, config.fill_lag_compensation_g, config.wash_pump_flow_rate_ml_s);
     } else {
         spdlog::warn("LoadCellServiceImpl: Config updated but not persisted to file");
     }

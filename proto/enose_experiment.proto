@@ -200,6 +200,9 @@ message LiquidComponent {
     gt: 0,
     lte: 1
   }];
+
+  // 此液体在本实验中是否为稀释液/溶剂 (实验上下文属性，非液体固有属性)
+  bool is_solvent = 3;
 }
 
 // 等待动作
@@ -403,6 +406,10 @@ message WashAction {
   
   // 清洗液 ID (对应耗材管理中的液体 ID)
   string wash_liquid_id = 8;
+  
+  // 注入控制模式: "weight"(称重反馈,默认) 或 "timed"(定时开环)
+  // 定时模式下注入时长 = target_volume_ml / wash_pump_flow_rate_ml_s
+  string fill_mode = 9;
 }
 
 // 预热动作 - 等待传感器预热稳定
@@ -643,6 +650,75 @@ message ExperimentStatusResponse {
   
   // 程序名称
   string program_name = 23;
+  
+  // 数据质量快照（实时）
+  DataQualitySnapshot quality = 30;
+}
+
+// ============================================================
+// 数据质量 (DataQuality)
+// 实时传感器数据质量监控
+// ============================================================
+
+// 质量等级
+enum QualityLevel {
+  QUALITY_UNKNOWN = 0;
+  QUALITY_GOOD = 1;      // 绿色 - 所有指标正常
+  QUALITY_WARNING = 2;   // 黄色 - 有警告但数据可用
+  QUALITY_POOR = 3;      // 红色 - 数据质量差，建议检查
+}
+
+// 数据质量快照
+message DataQualitySnapshot {
+  // 总体质量等级
+  QualityLevel overall_level = 1;
+  
+  // 活跃告警数
+  int32 active_alert_count = 2;
+  
+  // 当前活跃告警（最多 20 条）
+  repeated DataQualityAlert alerts = 3;
+  
+  // 质量评分 (0-100)
+  double quality_score = 4;
+  
+  // 每传感器健康状态
+  repeated SensorHealth sensor_health = 10;
+  
+  // 环境状态
+  double current_temp_c = 20;
+  double current_humidity_pct = 21;
+  bool env_stable = 22;
+  
+  // 周期统计
+  int32 completed_cycles = 30;
+  double mean_cycle_cv = 31;
+}
+
+// 单传感器健康状态
+message SensorHealth {
+  int32 sensor_idx = 1;
+  bool alive = 2;
+  int32 completed_cycles = 3;
+  double cycle_cv = 4;            // 周期可重复性 CV
+  bool saturated = 5;
+  double response_ratio = 6;      // 相对基线的响应比（SAMPLE 阶段）
+  string heater_profile = 7;      // 当前加热配置名称
+}
+
+// 数据质量告警
+message DataQualityAlert {
+  string id = 1;                  // 告警唯一标识 (用于去重)
+  string flag = 2;                // SENSOR_DEAD / CYCLE_BROKEN / LOW_REPRODUCIBILITY / ...
+  string severity = 3;            // INFO / WARNING / ERROR
+  string message = 4;             // 可读消息
+  int32 sensor_idx = 5;           // -1=全局
+  int32 heater_step = 6;          // -1=全局
+  double value = 7;
+  double threshold = 8;
+  int64 first_seen_ms = 9;
+  int64 last_seen_ms = 10;
+  int32 count = 11;               // 出现次数
 }
 
 // 实验事件
