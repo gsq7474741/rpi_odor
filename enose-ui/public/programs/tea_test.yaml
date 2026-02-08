@@ -16,18 +16,18 @@ steps:
   - name: 配置加热器
     configure_heater:
       configs:
-        - profile_name: constant_320
+        - profile_name: constant_100
           temps:
-            - 320
-            - 320
-            - 320
-            - 320
-            - 320
-            - 320
-            - 320
-            - 320
-            - 320
-            - 320
+            - 100
+            - 100
+            - 100
+            - 100
+            - 100
+            - 100
+            - 100
+            - 100
+            - 100
+            - 100
           durs:
             - 5
             - 5
@@ -42,18 +42,18 @@ steps:
           sensor_indices:
             - 0
             - 4
-        - profile_name: constant_320__3
+        - profile_name: constant_200__3
           temps:
-            - 320
-            - 320
-            - 320
-            - 320
-            - 320
-            - 320
-            - 320
-            - 320
-            - 320
-            - 320
+            - 200
+            - 200
+            - 200
+            - 200
+            - 200
+            - 200
+            - 200
+            - 200
+            - 200
+            - 200
           durs:
             - 5
             - 5
@@ -68,55 +68,55 @@ steps:
           sensor_indices:
             - 1
             - 5
-        - profile_name: low_power__2
+        - profile_name: constant_320__2
           temps:
-            - 200
-            - 200
-            - 200
-            - 200
-            - 200
-            - 200
-            - 200
-            - 200
-            - 200
-            - 200
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
           durs:
-            - 10
-            - 10
-            - 10
-            - 10
-            - 10
-            - 10
-            - 10
-            - 10
-            - 10
-            - 10
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
           sensor_indices:
             - 2
             - 6
-        - profile_name: temp_scan_100_350__4
+        - profile_name: constant_400__4
           temps:
-            - 100
-            - 150
-            - 200
-            - 250
-            - 300
-            - 350
-            - 320
-            - 280
-            - 240
-            - 200
+            - 400
+            - 400
+            - 400
+            - 400
+            - 400
+            - 400
+            - 400
+            - 400
+            - 400
+            - 400
           durs:
-            - 3
-            - 3
-            - 3
-            - 3
-            - 3
-            - 3
-            - 3
-            - 3
-            - 3
-            - 3
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
           sensor_indices:
             - 3
             - 7
@@ -124,60 +124,12 @@ steps:
     phase_name: PREHEAT
     preheat:
       max_duration_s: 120
-      record_data: false
-      gas_pump_pwm: 80
-      duration_s: 60
-  - name: '[参数扫描 #1/3] [循环 #1/2] 进样 (10%:90%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 10
-        - liquid_id: '43'
-          ratio: 90
-          is_solvent: true
-      tolerance: 3
-      flow_rate_ml_s: 5
-      stable_timeout_s: 60
-      target_volume_ml: 30
-  - name: '[参数扫描 #1/3] [循环 #1/2] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
+      record_data: true
       gas_pump_pwm: 50
-      duration_s: 60
-  - name: '[参数扫描 #1/3] [循环 #1/2] 排废'
-    phase_name: DRAIN
-    drain:
-      gas_pump_pwm: 100
-      empty_tolerance_g: 10
-      stability_window_s: 2
-      timeout_s: 60
-  - name: '[参数扫描 #1/3] [循环 #2/2] 进样 (10%:90%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 10
-        - liquid_id: '43'
-          ratio: 90
-          is_solvent: true
-      tolerance: 3
-      flow_rate_ml_s: 5
-      stable_timeout_s: 60
-      target_volume_ml: 30
-  - name: '[参数扫描 #1/3] [循环 #2/2] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      duration_s: 60
-  - name: '[参数扫描 #1/3] [循环 #2/2] 排废'
-    phase_name: DRAIN
-    drain:
-      gas_pump_pwm: 100
-      empty_tolerance_g: 10
-      stability_window_s: 2
-      timeout_s: 60
-  - name: '[参数扫描 #2/3] [循环 #1/2] 进样 (20%:80%)'
+      stability:
+        window_s: 10
+        threshold_percent: 5
+  - name: '[参数扫描 #1/4] [循环 #1/3] 进样 (20%:80%)'
     phase_name: INJECT
     inject:
       components:
@@ -190,19 +142,19 @@ steps:
       flow_rate_ml_s: 5
       stable_timeout_s: 60
       target_volume_ml: 30
-  - name: '[参数扫描 #2/3] [循环 #1/2] 数据采集'
+  - name: '[参数扫描 #1/4] [循环 #1/3] 数据采集'
     phase_name: ACQUIRE
     acquire:
       gas_pump_pwm: 50
       duration_s: 60
-  - name: '[参数扫描 #2/3] [循环 #1/2] 排废'
+  - name: '[参数扫描 #1/4] [循环 #1/3] 排废'
     phase_name: DRAIN
     drain:
       gas_pump_pwm: 100
       empty_tolerance_g: 10
       stability_window_s: 2
       timeout_s: 60
-  - name: '[参数扫描 #2/3] [循环 #2/2] 进样 (20%:80%)'
+  - name: '[参数扫描 #1/4] [循环 #2/3] 进样 (20%:80%)'
     phase_name: INJECT
     inject:
       components:
@@ -215,62 +167,262 @@ steps:
       flow_rate_ml_s: 5
       stable_timeout_s: 60
       target_volume_ml: 30
-  - name: '[参数扫描 #2/3] [循环 #2/2] 数据采集'
+  - name: '[参数扫描 #1/4] [循环 #2/3] 数据采集'
     phase_name: ACQUIRE
     acquire:
       gas_pump_pwm: 50
       duration_s: 60
-  - name: '[参数扫描 #2/3] [循环 #2/2] 排废'
+  - name: '[参数扫描 #1/4] [循环 #2/3] 排废'
     phase_name: DRAIN
     drain:
       gas_pump_pwm: 100
       empty_tolerance_g: 10
       stability_window_s: 2
       timeout_s: 60
-  - name: '[参数扫描 #3/3] [循环 #1/2] 进样 (30%:70%)'
+  - name: '[参数扫描 #1/4] [循环 #3/3] 进样 (20%:80%)'
     phase_name: INJECT
     inject:
       components:
         - liquid_id: '54'
-          ratio: 30
+          ratio: 20
         - liquid_id: '43'
-          ratio: 70
+          ratio: 80
           is_solvent: true
       tolerance: 3
       flow_rate_ml_s: 5
       stable_timeout_s: 60
       target_volume_ml: 30
-  - name: '[参数扫描 #3/3] [循环 #1/2] 数据采集'
+  - name: '[参数扫描 #1/4] [循环 #3/3] 数据采集'
     phase_name: ACQUIRE
     acquire:
       gas_pump_pwm: 50
       duration_s: 60
-  - name: '[参数扫描 #3/3] [循环 #1/2] 排废'
+  - name: '[参数扫描 #1/4] [循环 #3/3] 排废'
     phase_name: DRAIN
     drain:
       gas_pump_pwm: 100
       empty_tolerance_g: 10
       stability_window_s: 2
       timeout_s: 60
-  - name: '[参数扫描 #3/3] [循环 #2/2] 进样 (30%:70%)'
+  - name: '[参数扫描 #2/4] [循环 #1/3] 进样 (40%:60%)'
     phase_name: INJECT
     inject:
       components:
         - liquid_id: '54'
-          ratio: 30
+          ratio: 40
         - liquid_id: '43'
-          ratio: 70
+          ratio: 60
           is_solvent: true
       tolerance: 3
       flow_rate_ml_s: 5
       stable_timeout_s: 60
       target_volume_ml: 30
-  - name: '[参数扫描 #3/3] [循环 #2/2] 数据采集'
+  - name: '[参数扫描 #2/4] [循环 #1/3] 数据采集'
     phase_name: ACQUIRE
     acquire:
       gas_pump_pwm: 50
       duration_s: 60
-  - name: '[参数扫描 #3/3] [循环 #2/2] 排废'
+  - name: '[参数扫描 #2/4] [循环 #1/3] 排废'
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 100
+      empty_tolerance_g: 10
+      stability_window_s: 2
+      timeout_s: 60
+  - name: '[参数扫描 #2/4] [循环 #2/3] 进样 (40%:60%)'
+    phase_name: INJECT
+    inject:
+      components:
+        - liquid_id: '54'
+          ratio: 40
+        - liquid_id: '43'
+          ratio: 60
+          is_solvent: true
+      tolerance: 3
+      flow_rate_ml_s: 5
+      stable_timeout_s: 60
+      target_volume_ml: 30
+  - name: '[参数扫描 #2/4] [循环 #2/3] 数据采集'
+    phase_name: ACQUIRE
+    acquire:
+      gas_pump_pwm: 50
+      duration_s: 60
+  - name: '[参数扫描 #2/4] [循环 #2/3] 排废'
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 100
+      empty_tolerance_g: 10
+      stability_window_s: 2
+      timeout_s: 60
+  - name: '[参数扫描 #2/4] [循环 #3/3] 进样 (40%:60%)'
+    phase_name: INJECT
+    inject:
+      components:
+        - liquid_id: '54'
+          ratio: 40
+        - liquid_id: '43'
+          ratio: 60
+          is_solvent: true
+      tolerance: 3
+      flow_rate_ml_s: 5
+      stable_timeout_s: 60
+      target_volume_ml: 30
+  - name: '[参数扫描 #2/4] [循环 #3/3] 数据采集'
+    phase_name: ACQUIRE
+    acquire:
+      gas_pump_pwm: 50
+      duration_s: 60
+  - name: '[参数扫描 #2/4] [循环 #3/3] 排废'
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 100
+      empty_tolerance_g: 10
+      stability_window_s: 2
+      timeout_s: 60
+  - name: '[参数扫描 #3/4] [循环 #1/3] 进样 (60%:40%)'
+    phase_name: INJECT
+    inject:
+      components:
+        - liquid_id: '54'
+          ratio: 60
+        - liquid_id: '43'
+          ratio: 40
+          is_solvent: true
+      tolerance: 3
+      flow_rate_ml_s: 5
+      stable_timeout_s: 60
+      target_volume_ml: 30
+  - name: '[参数扫描 #3/4] [循环 #1/3] 数据采集'
+    phase_name: ACQUIRE
+    acquire:
+      gas_pump_pwm: 50
+      duration_s: 60
+  - name: '[参数扫描 #3/4] [循环 #1/3] 排废'
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 100
+      empty_tolerance_g: 10
+      stability_window_s: 2
+      timeout_s: 60
+  - name: '[参数扫描 #3/4] [循环 #2/3] 进样 (60%:40%)'
+    phase_name: INJECT
+    inject:
+      components:
+        - liquid_id: '54'
+          ratio: 60
+        - liquid_id: '43'
+          ratio: 40
+          is_solvent: true
+      tolerance: 3
+      flow_rate_ml_s: 5
+      stable_timeout_s: 60
+      target_volume_ml: 30
+  - name: '[参数扫描 #3/4] [循环 #2/3] 数据采集'
+    phase_name: ACQUIRE
+    acquire:
+      gas_pump_pwm: 50
+      duration_s: 60
+  - name: '[参数扫描 #3/4] [循环 #2/3] 排废'
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 100
+      empty_tolerance_g: 10
+      stability_window_s: 2
+      timeout_s: 60
+  - name: '[参数扫描 #3/4] [循环 #3/3] 进样 (60%:40%)'
+    phase_name: INJECT
+    inject:
+      components:
+        - liquid_id: '54'
+          ratio: 60
+        - liquid_id: '43'
+          ratio: 40
+          is_solvent: true
+      tolerance: 3
+      flow_rate_ml_s: 5
+      stable_timeout_s: 60
+      target_volume_ml: 30
+  - name: '[参数扫描 #3/4] [循环 #3/3] 数据采集'
+    phase_name: ACQUIRE
+    acquire:
+      gas_pump_pwm: 50
+      duration_s: 60
+  - name: '[参数扫描 #3/4] [循环 #3/3] 排废'
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 100
+      empty_tolerance_g: 10
+      stability_window_s: 2
+      timeout_s: 60
+  - name: '[参数扫描 #4/4] [循环 #1/3] 进样 (10%:90%)'
+    phase_name: INJECT
+    inject:
+      components:
+        - liquid_id: '54'
+          ratio: 10
+        - liquid_id: '43'
+          ratio: 90
+          is_solvent: true
+      tolerance: 3
+      flow_rate_ml_s: 5
+      stable_timeout_s: 60
+      target_volume_ml: 30
+  - name: '[参数扫描 #4/4] [循环 #1/3] 数据采集'
+    phase_name: ACQUIRE
+    acquire:
+      gas_pump_pwm: 50
+      duration_s: 60
+  - name: '[参数扫描 #4/4] [循环 #1/3] 排废'
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 100
+      empty_tolerance_g: 10
+      stability_window_s: 2
+      timeout_s: 60
+  - name: '[参数扫描 #4/4] [循环 #2/3] 进样 (10%:90%)'
+    phase_name: INJECT
+    inject:
+      components:
+        - liquid_id: '54'
+          ratio: 10
+        - liquid_id: '43'
+          ratio: 90
+          is_solvent: true
+      tolerance: 3
+      flow_rate_ml_s: 5
+      stable_timeout_s: 60
+      target_volume_ml: 30
+  - name: '[参数扫描 #4/4] [循环 #2/3] 数据采集'
+    phase_name: ACQUIRE
+    acquire:
+      gas_pump_pwm: 50
+      duration_s: 60
+  - name: '[参数扫描 #4/4] [循环 #2/3] 排废'
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 100
+      empty_tolerance_g: 10
+      stability_window_s: 2
+      timeout_s: 60
+  - name: '[参数扫描 #4/4] [循环 #3/3] 进样 (10%:90%)'
+    phase_name: INJECT
+    inject:
+      components:
+        - liquid_id: '54'
+          ratio: 10
+        - liquid_id: '43'
+          ratio: 90
+          is_solvent: true
+      tolerance: 3
+      flow_rate_ml_s: 5
+      stable_timeout_s: 60
+      target_volume_ml: 30
+  - name: '[参数扫描 #4/4] [循环 #3/3] 数据采集'
+    phase_name: ACQUIRE
+    acquire:
+      gas_pump_pwm: 50
+      duration_s: 60
+  - name: '[参数扫描 #4/4] [循环 #3/3] 排废'
     phase_name: DRAIN
     drain:
       gas_pump_pwm: 100
@@ -278,75 +430,79 @@ steps:
       stability_window_s: 2
       timeout_s: 60
 _compile_estimate:
-  total_duration_s: 1158
+  total_duration_s: 2316
   peak_liquid_level_ml: 30
   peak_liquid_level_ml_with_wash: 0
-  total_inject_ml: 180
-  total_drain_ml: 180
+  total_inject_ml: 360
+  total_drain_ml: 360
   total_wash_volume_ml: 0
   liquid_consumption:
     - liquid_id: '54'
       liquid_name: Wittard伯爵茶茶汤
       pump_index: 3
-      required_ml: 36
+      required_ml: 117
     - liquid_id: '43'
       liquid_name: 自来水
       pump_index: 2
-      required_ml: 144
+      required_ml: 243
   pump_estimates:
     - pump_index: 3
-      volume_ml: 36
-      runtime_s: 36
+      volume_ml: 117
+      runtime_s: 72
     - pump_index: 2
-      volume_ml: 144
-      runtime_s: 36
+      volume_ml: 243
+      runtime_s: 72
 _editor_layout:
   nodes:
     - id: start
       type: start
       position:
-        x: -312.66666666666674
-        'y': -22
+        x: -382.3333333333335
+        'y': -25.5
       data:
         description: ''
         version: 1.0.0
     - id: end
       type: end
       position:
-        x: -312.66666666666674
-        'y': 946
+        x: -382.3333333333335
+        'y': 942.5
       data: {}
     - id: node_1
       type: hardwareConfig
       position:
-        x: -506.66666666666674
-        'y': -25.5
+        x: -576.3333333333335
+        'y': -29
       data:
         bottleCapacityMl: 150
         maxFillMl: 100
     - id: node_2
       type: preheat
       position:
-        x: -312.66666666666674
-        'y': 272
+        x: -382.3333333333335
+        'y': 268.5
       data:
-        gasPumpPwm: 80
+        gasPumpPwm: 50
         durationS: 60
+        mode: stability
+        stabilityWindowS: 10
+        stabilityThresholdPercent: 5
+        recordData: true
     - id: node_3
       type: configureHeater
       position:
-        x: -312.66666666666674
-        'y': 113
+        x: -382.3333333333335
+        'y': 109.5
       data:
         sensorProfiles:
-          '0': constant_320
-          '1': constant_320__3
-          '2': low_power__2
-          '3': temp_scan_100_350__4
-          '4': constant_320
-          '5': constant_320__3
-          '6': low_power__2
-          '7': temp_scan_100_350__4
+          '0': constant_100
+          '1': constant_200__3
+          '2': constant_320__2
+          '3': constant_400__4
+          '4': constant_100
+          '5': constant_200__3
+          '6': constant_320__2
+          '7': constant_400__4
           '8': ''
           '9': ''
           '10': ''
@@ -354,8 +510,8 @@ _editor_layout:
     - id: node_4
       type: paramSweep
       position:
-        x: -312.66666666666674
-        'y': 431
+        x: -382.3333333333335
+        'y': 427.5
       data:
         name: 参数扫描
         paramType: ratio
@@ -365,20 +521,23 @@ _editor_layout:
         seqMode: linear
         ratioSweepPoints:
           - ratios:
-              '43': 90
-              '54': 10
-          - ratios:
               '43': 80
               '54': 20
           - ratios:
-              '43': 70
-              '54': 30
+              '43': 60
+              '54': 40
+          - ratios:
+              '43': 40
+              '54': 60
+          - ratios:
+              '43': 90
+              '54': 10
         linkedLiquidIds: []
     - id: node_5
       type: inject
       position:
-        x: -367.3333333333334
-        'y': 749
+        x: -437.00000000000017
+        'y': 745.5
       data:
         name: 进样
         targetType: volume
@@ -391,8 +550,8 @@ _editor_layout:
     - id: node_6
       type: liquidSource
       position:
-        x: -582.3333333333335
-        'y': 703.5
+        x: -652.0000000000002
+        'y': 700
       data:
         liquidId: '54'
         liquidName: Wittard伯爵茶茶汤
@@ -401,8 +560,8 @@ _editor_layout:
     - id: node_7
       type: liquidSource
       position:
-        x: -582.3333333333335
-        'y': 832.5
+        x: -652.0000000000002
+        'y': 829
       data:
         liquidId: '43'
         liquidName: 自来水
@@ -412,8 +571,8 @@ _editor_layout:
     - id: node_8
       type: acquire
       position:
-        x: -142.33333333333343
-        'y': 749
+        x: -212.00000000000017
+        'y': 745.5
       data:
         name: 数据采集
         gasPumpPwm: 50
@@ -424,8 +583,8 @@ _editor_layout:
     - id: node_9
       type: drain
       position:
-        x: 61.66666666666657
-        'y': 749
+        x: -8.00000000000017
+        'y': 745.5
       data:
         name: 排废
         gasPumpPwm: 100
@@ -435,10 +594,10 @@ _editor_layout:
     - id: node_10
       type: loop
       position:
-        x: -367.3333333333334
-        'y': 610
+        x: -437.00000000000017
+        'y': 606.5
       data:
-        count: 2
+        count: 3
   edges:
     - id: xy-edge__node_1hardware-starthardware
       source: node_1

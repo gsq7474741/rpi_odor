@@ -17,9 +17,13 @@ import {
   Sparkles,
   Flame,
   Thermometer,
+  Clock,
+  AlertTriangle,
+  CheckCircle2,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export interface StepAction {
   type: "inject" | "drain" | "wait" | "acquire" | "set_state" | "set_gas_pump" | "phase_marker" | "loop" | "wash" | "preheat" | "configure_heater";
@@ -31,6 +35,27 @@ export interface StepAction {
 export interface ExperimentStep {
   name: string;
   action: StepAction;
+}
+
+// 编译估算数据（来自 YAML 的 _compile_estimate）
+export interface CompileEstimate {
+  total_duration_s: number;
+  peak_liquid_level_ml: number;
+  peak_liquid_level_ml_with_wash: number;
+  total_inject_ml: number;
+  total_drain_ml: number;
+  total_wash_volume_ml: number;
+  liquid_consumption: Array<{
+    liquid_id: string;
+    liquid_name: string;
+    pump_index: number;
+    required_ml: number;
+  }>;
+  pump_estimates: Array<{
+    pump_index: number;
+    volume_ml: number;
+    runtime_s: number;
+  }>;
 }
 
 export interface ExperimentProgram {
@@ -49,6 +74,7 @@ export interface ExperimentProgram {
     }>;
   };
   steps: ExperimentStep[];
+  compileEstimate?: CompileEstimate;
 }
 
 const actionConfig: Record<string, { icon: React.ElementType; color: string; bgColor: string; label: string }> = {
@@ -372,14 +398,27 @@ function getStepDescription(action: StepAction): string {
   }
 }
 
+// 泵余量状态（由父组件查询后传入）
+export interface PumpStatusInfo {
+  pumpIndex: number;
+  liquidId?: number;
+  liquidName?: string;
+  initialVolumeMl: number;
+  consumedVolumeMl: number;
+  remainingVolumeMl: number;
+  isLowVolume: boolean;
+  isWashPump?: boolean;
+}
+
 interface ExperimentFlowProps {
   program: ExperimentProgram;
   currentStep?: number;
   stepElapsedSeconds?: number;
   className?: string;
+  pumpStatus?: PumpStatusInfo[];
 }
 
-export function ExperimentFlow({ program, currentStep, stepElapsedSeconds, className }: ExperimentFlowProps) {
+export function ExperimentFlow({ program, currentStep, stepElapsedSeconds, className, pumpStatus }: ExperimentFlowProps) {
   // 本地计时器：当 currentStep 变化时重置
   const [localElapsed, setLocalElapsed] = useState(0);
   const stepStartTimeRef = useRef<number>(Date.now());
@@ -475,20 +514,80 @@ export function ExperimentFlow({ program, currentStep, stepElapsedSeconds, class
       </div>
 
       {/* 统计信息 - 固定底部 */}
-      <div className="grid grid-cols-3 gap-3 pt-3 mt-3 border-t flex-shrink-0">
-        <div className="text-center">
-          <div className="text-lg font-bold text-primary">{countSteps(program.steps)}</div>
-          <div className="text-[10px] text-muted-foreground">总步骤数</div>
+      {program.compileEstimate ? (
+        <div className="pt-3 mt-3 border-t flex-shrink-0 space-y-2">
+          {/* 第一行：时长 + 步骤数 */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="flex items-center gap-1.5 px-2 py-1.5 rounded bg-blue-500/10">
+              <Clock className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+              <div className="min-w-0">
+                <div className="text-[10px] text-muted-foreground">预计时长</div>
+                <div className="text-xs font-semibold truncate">{formatDurationCompact(program.compileEstimate.total_duration_s)}</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 px-2 py-1.5 rounded bg-cyan-500/10">
+              <Beaker className="w-3.5 h-3.5 text-cyan-500 flex-shrink-0" />
+              <div className="min-w-0">
+                <div className="text-[10px] text-muted-foreground">峰值液位</div>
+                <div className="text-xs font-semibold">{program.compileEstimate.peak_liquid_level_ml.toFixed(0)} ml</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 px-2 py-1.5 rounded bg-primary/10">
+              <Repeat className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+              <div className="min-w-0">
+                <div className="text-[10px] text-muted-foreground">总步骤</div>
+                <div className="text-xs font-semibold">{countSteps(program.steps)}</div>
+              </div>
+            </div>
+          </div>
+          {/* 第二行：进样 / 排废 */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex items-center gap-1.5 px-2 py-1.5 rounded bg-green-500/10">
+              <Droplets className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+              <div className="min-w-0">
+                <div className="text-[10px] text-muted-foreground">总进样</div>
+                <div className="text-xs font-semibold">{program.compileEstimate.total_inject_ml.toFixed(1)} ml</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 px-2 py-1.5 rounded bg-orange-500/10">
+              <Trash2 className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
+              <div className="min-w-0">
+                <div className="text-[10px] text-muted-foreground">总排废</div>
+                <div className="text-xs font-semibold">
+                  {program.compileEstimate.total_drain_ml.toFixed(1)} ml
+                  {program.compileEstimate.total_wash_volume_ml > 0 && (
+                    <span className="text-[10px] font-normal text-muted-foreground ml-0.5">
+                      (含清洗{program.compileEstimate.total_wash_volume_ml.toFixed(0)})
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+          {/* 液体消耗明细 */}
+          {program.compileEstimate.liquid_consumption.length > 0 && (
+            <LiquidConsumptionPanel
+              consumption={program.compileEstimate.liquid_consumption}
+              pumpStatus={pumpStatus}
+            />
+          )}
         </div>
-        <div className="text-center">
-          <div className="text-lg font-bold text-green-600">{phases.length}</div>
-          <div className="text-[10px] text-muted-foreground">阶段数</div>
+      ) : (
+        <div className="grid grid-cols-3 gap-3 pt-3 mt-3 border-t flex-shrink-0">
+          <div className="text-center">
+            <div className="text-lg font-bold text-primary">{countSteps(program.steps)}</div>
+            <div className="text-[10px] text-muted-foreground">总步骤数</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-bold text-green-600">{phases.length}</div>
+            <div className="text-[10px] text-muted-foreground">阶段数</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-bold text-amber-600">{countLoops(program.steps)}</div>
+            <div className="text-[10px] text-muted-foreground">循环次数</div>
+          </div>
         </div>
-        <div className="text-center">
-          <div className="text-lg font-bold text-amber-600">{countLoops(program.steps)}</div>
-          <div className="text-[10px] text-muted-foreground">循环次数</div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -546,6 +645,141 @@ function countLoops(steps: ExperimentStep[]): number {
   return count;
 }
 
+function formatDurationCompact(seconds: number): string {
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  if (seconds < 3600) {
+    const m = Math.floor(seconds / 60);
+    const s = Math.round(seconds % 60);
+    return s > 0 ? `${m}m${s}s` : `${m}m`;
+  }
+  const h = Math.floor(seconds / 3600);
+  const m = Math.round((seconds % 3600) / 60);
+  return m > 0 ? `${h}h${m}m` : `${h}h`;
+}
+
+// 液体消耗面板：显示需求量 vs 泵余量
+function LiquidConsumptionPanel({ 
+  consumption, 
+  pumpStatus 
+}: { 
+  consumption: CompileEstimate['liquid_consumption'];
+  pumpStatus?: PumpStatusInfo[];
+}) {
+  // 按泵索引建立查找表（样品泵）；按 liquidId 建立查找表（清洗泵）
+  const samplePumpMap = new Map<number, PumpStatusInfo>();
+  const washPumpByLiquidId = new Map<number, PumpStatusInfo>();
+  if (pumpStatus) {
+    for (const p of pumpStatus) {
+      if (p.isWashPump) {
+        if (p.liquidId) washPumpByLiquidId.set(p.liquidId, p);
+      } else {
+        samplePumpMap.set(p.pumpIndex, p);
+      }
+    }
+  }
+
+  // 根据 liquid_consumption 条目找到对应的泵
+  function findPump(lc: CompileEstimate['liquid_consumption'][0]): PumpStatusInfo | undefined {
+    if (lc.pump_index >= 0) {
+      return samplePumpMap.get(lc.pump_index);
+    }
+    // 清洗液 pump_index=-1，按 liquid_id 匹配清洗泵
+    const lid = parseInt(lc.liquid_id);
+    if (!isNaN(lid)) return washPumpByLiquidId.get(lid);
+    return undefined;
+  }
+
+  // 判断整体是否有不足
+  const hasInsufficient = pumpStatus ? consumption.some(lc => {
+    const pump = findPump(lc);
+    return pump && pump.initialVolumeMl > 0 && pump.remainingVolumeMl < lc.required_ml;
+  }) : false;
+
+  // 是否所有泵都有数据
+  const hasPumpData = pumpStatus && pumpStatus.length > 0;
+
+  return (
+    <div className={cn(
+      "px-2 py-1.5 rounded border",
+      hasInsufficient ? "border-red-500/40 bg-red-500/5" : "bg-muted/30"
+    )}>
+      <div className="flex items-center justify-between mb-1">
+        <div className="text-[10px] font-medium text-muted-foreground">液体消耗</div>
+        {hasPumpData && (
+          hasInsufficient ? (
+            <div className="flex items-center gap-0.5 text-[10px] text-red-600 font-medium">
+              <AlertTriangle className="w-3 h-3" />余量不足
+            </div>
+          ) : (
+            <div className="flex items-center gap-0.5 text-[10px] text-green-600">
+              <CheckCircle2 className="w-3 h-3" />余量充足
+            </div>
+          )
+        )}
+      </div>
+      <div className="space-y-1">
+        {consumption.map((lc) => {
+          const pump = findPump(lc);
+          const hasData = pump && pump.initialVolumeMl > 0;
+          const insufficient = hasData && pump!.remainingVolumeMl < lc.required_ml;
+          const ratio = hasData ? Math.min(100, (lc.required_ml / pump!.remainingVolumeMl) * 100) : 0;
+          const isWash = lc.pump_index < 0;
+
+          return (
+            <div key={`${lc.liquid_id}-${lc.pump_index}`}>
+              <div className="flex justify-between items-center text-[11px]">
+                <span className={cn("truncate", insufficient ? "text-red-600 font-medium" : "text-muted-foreground")}>
+                  {lc.liquid_name}
+                  {isWash ? (
+                    <span className="text-[10px] ml-0.5">(清洗)</span>
+                  ) : lc.pump_index >= 0 ? (
+                    <span className="text-[10px] ml-0.5">(泵{lc.pump_index})</span>
+                  ) : null}
+                </span>
+                <span className="flex items-center gap-1 ml-2 flex-shrink-0">
+                  <span className={cn("font-medium", insufficient && "text-red-600")}>
+                    {lc.required_ml.toFixed(1)}
+                  </span>
+                  {hasData && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className={cn(
+                          "text-[10px]",
+                          insufficient ? "text-red-500" : "text-muted-foreground"
+                        )}>
+                          / {pump!.remainingVolumeMl.toFixed(0)} ml
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="text-xs">
+                        <div>需要 {lc.required_ml.toFixed(1)} ml</div>
+                        <div>余量 {pump!.remainingVolumeMl.toFixed(1)} / {pump!.initialVolumeMl.toFixed(0)} ml</div>
+                        {insufficient && <div className="text-red-400 font-medium">不足 {(lc.required_ml - pump!.remainingVolumeMl).toFixed(1)} ml</div>}
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                  {!hasData && <span className="text-[10px] text-muted-foreground">ml</span>}
+                </span>
+              </div>
+              {/* 余量进度条 */}
+              {hasData && (
+                <div className="mt-0.5 h-1 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className={cn(
+                      "h-full rounded-full transition-all",
+                      insufficient ? "bg-red-500" : ratio > 70 ? "bg-yellow-500" : "bg-green-500"
+                    )}
+                    style={{ width: `${Math.min(100, ratio)}%` }}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // 从YAML字符串解析为程序对象
 export function parseYamlString(yamlStr: string): ExperimentProgram {
   const parsed = yaml.load(yamlStr) as Record<string, unknown>;
@@ -554,6 +788,7 @@ export function parseYamlString(yamlStr: string): ExperimentProgram {
 
 // 从YAML解析的原始数据转换为组件需要的格式
 export function parseYamlProgram(data: Record<string, unknown>): ExperimentProgram {
+  const compileEstimateRaw = data._compile_estimate as Record<string, unknown> | undefined;
   return {
     id: data.id as string || "unknown",
     name: data.name as string || "未命名程序",
@@ -561,6 +796,25 @@ export function parseYamlProgram(data: Record<string, unknown>): ExperimentProgr
     version: data.version as string,
     hardware: data.hardware as ExperimentProgram["hardware"],
     steps: parseSteps(data.steps as Array<Record<string, unknown>> || []),
+    compileEstimate: compileEstimateRaw ? {
+      total_duration_s: Number(compileEstimateRaw.total_duration_s) || 0,
+      peak_liquid_level_ml: Number(compileEstimateRaw.peak_liquid_level_ml) || 0,
+      peak_liquid_level_ml_with_wash: Number(compileEstimateRaw.peak_liquid_level_ml_with_wash) || 0,
+      total_inject_ml: Number(compileEstimateRaw.total_inject_ml) || 0,
+      total_drain_ml: Number(compileEstimateRaw.total_drain_ml) || 0,
+      total_wash_volume_ml: Number(compileEstimateRaw.total_wash_volume_ml) || 0,
+      liquid_consumption: (compileEstimateRaw.liquid_consumption as Array<Record<string, unknown>> || []).map(lc => ({
+        liquid_id: String(lc.liquid_id),
+        liquid_name: String(lc.liquid_name),
+        pump_index: Number(lc.pump_index),
+        required_ml: Number(lc.required_ml),
+      })),
+      pump_estimates: (compileEstimateRaw.pump_estimates as Array<Record<string, unknown>> || []).map(pe => ({
+        pump_index: Number(pe.pump_index),
+        volume_ml: Number(pe.volume_ml),
+        runtime_s: Number(pe.runtime_s),
+      })),
+    } : undefined,
   };
 }
 

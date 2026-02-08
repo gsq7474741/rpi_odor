@@ -238,7 +238,7 @@ export function FilterBar() {
             selectedIds={filters.liquidIds}
             onToggle={toggleLiquid}
             onClear={() => updateFilters({ liquidIds: [] })}
-            width="w-36"
+            width="w-52"
           />
         </div>
       )}

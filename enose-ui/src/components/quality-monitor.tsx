@@ -225,6 +225,82 @@ export function QualityMonitor({ quality }: { quality?: DataQualitySnapshot }) {
 }
 
 // ============================================================
+// QualityMonitorInline — Tab 内嵌的质量监控 (无折叠)
+// ============================================================
+
+export function QualityMonitorInline({ quality }: { quality: DataQualitySnapshot }) {
+  const info = qualityLevelInfo(quality.overallLevel);
+  const Icon = info.icon;
+  const aliveSensors = quality.sensorHealth?.filter(s => s.alive).length ?? 0;
+  const totalSensors = quality.sensorHealth?.length ?? 8;
+
+  return (
+    <div className="flex flex-col gap-4 h-full">
+      {/* 概览行 */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <Icon className={`h-4 w-4 ${info.textColor}`} />
+          <Badge variant={info.variant} className="text-[11px]">
+            {Math.round(quality.qualityScore)}分 · {info.label}
+          </Badge>
+        </div>
+        <div className="flex items-center gap-2.5 text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-1"><Activity className="h-3 w-3" />{aliveSensors}/{totalSensors}</span>
+          <span className="flex items-center gap-1"><Zap className="h-3 w-3" />{quality.completedCycles} 周期</span>
+        </div>
+      </div>
+
+      {/* 传感器健康状态 */}
+      {quality.sensorHealth && quality.sensorHealth.length > 0 && (
+        <div>
+          <h4 className="text-xs font-medium text-muted-foreground mb-2">传感器状态</h4>
+          <div className="grid grid-cols-4 gap-1.5">
+            {quality.sensorHealth.map((sensor) => (
+              <SensorHealthCard key={sensor.sensorIdx} sensor={sensor} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 环境参数 */}
+      <div>
+        <h4 className="text-xs font-medium text-muted-foreground mb-2">环境参数</h4>
+        <div className="flex flex-wrap gap-3 text-sm">
+          <div className="flex items-center gap-1.5">
+            <Thermometer className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs">{quality.currentTempC.toFixed(1)}°C</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Droplets className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs">{quality.currentHumidityPct.toFixed(1)}%</span>
+          </div>
+          <Badge variant={quality.envStable ? "default" : "secondary"} className="text-[10px] h-5">
+            {quality.envStable ? "稳定" : "波动中"}
+          </Badge>
+          {quality.meanCycleCv > 0 && (
+            <span className="text-xs text-muted-foreground">CV: {formatCv(quality.meanCycleCv)}</span>
+          )}
+        </div>
+      </div>
+
+      {/* 活跃告警 - 填充剩余空间 */}
+      {quality.alerts && quality.alerts.length > 0 && (
+        <div className="flex flex-col flex-1 min-h-0">
+          <h4 className="text-xs font-medium text-muted-foreground mb-2 flex-shrink-0">
+            活跃告警 ({quality.alerts.length})
+          </h4>
+          <div className="space-y-1.5 overflow-y-auto flex-1 min-h-0">
+            {quality.alerts.map((alert) => (
+              <AlertItem key={alert.id} alert={alert} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
 // SensorHealthCard
 // ============================================================
 
@@ -268,14 +344,30 @@ function SensorHealthCard({ sensor }: { sensor: SensorHealth }) {
 // AlertItem
 // ============================================================
 
+function alertBgColor(severity: string) {
+  switch (severity) {
+    case "ERROR": return "bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800";
+    case "WARNING": return "bg-yellow-50 border-yellow-200 dark:bg-yellow-950/30 dark:border-yellow-800";
+    default: return "bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800";
+  }
+}
+
+function alertTextColor(severity: string) {
+  switch (severity) {
+    case "ERROR": return "text-red-700 dark:text-red-400";
+    case "WARNING": return "text-yellow-700 dark:text-yellow-400";
+    default: return "text-blue-700 dark:text-blue-400";
+  }
+}
+
 function AlertItem({ alert }: { alert: QualityAlert }) {
   return (
-    <div className="flex items-start gap-2 text-xs p-2 rounded-md bg-muted/50">
+    <div className={`flex items-start gap-2 text-xs p-2 rounded-md border ${alertBgColor(alert.severity)}`}>
       <Badge variant={severityColor(alert.severity) as any} className="text-[10px] shrink-0 mt-0.5">
         {alert.severity}
       </Badge>
       <div className="flex-1 min-w-0">
-        <p className="truncate">{alert.message}</p>
+        <p className={`truncate font-medium ${alertTextColor(alert.severity)}`}>{alert.message}</p>
         {alert.count > 1 && (
           <p className="text-muted-foreground">出现 {alert.count} 次</p>
         )}

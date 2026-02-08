@@ -130,10 +130,12 @@ int main(int argc, char* argv[]) {
         // Start Load Cell Driver
         load_cell_driver->start();
 
-        // Signal Handling (Ctrl+C)
+        // Signal Handling (Ctrl+C / systemctl stop)
         boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);
-        signals.async_wait([&](const boost::system::error_code&, int) {
-            spdlog::info("Shutting down...");
+        signals.async_wait([&](const boost::system::error_code&, int sig) {
+            spdlog::info("Received signal {}, shutting down...", sig);
+            // 通知 systemd 正在停止（防止 watchdog 误判）
+            sd_notify(0, "STOPPING=1");
             grpc_srv.stop();
             sensor_driver->stop();
             db::ConnectionPool::instance().shutdown();

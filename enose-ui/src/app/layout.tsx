@@ -50,7 +50,7 @@ export default function RootLayout({
               </div>
             </div>
             <SettingsDialog />
-            <Toaster richColors position="top-right" />
+            <Toaster richColors position="top-center" />
           </TooltipProvider>
         </ThemeProvider>
       </body>

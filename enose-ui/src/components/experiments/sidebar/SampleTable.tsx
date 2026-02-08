@@ -54,8 +54,8 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
     setSamplesPage,
     selectedSampleIds,
     toggleSampleSelection,
-    selectAllSamples,
-    clearSampleSelection,
+    addSamplesToSelection,
+    removeSamplesFromSelection,
     filters,
     runs,
   } = useExperiments();
@@ -226,12 +226,13 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
   const someSelected = samples.some((s) => selectedSampleIds.has(s.id));
 
   const handleSelectAll = useCallback(() => {
+    const pageIds = samples.map(s => s.id);
     if (allSelected) {
-      clearSampleSelection();
+      removeSamplesFromSelection(pageIds);
     } else {
-      selectAllSamples();
+      addSamplesToSelection(pageIds);
     }
-  }, [allSelected, clearSampleSelection, selectAllSamples]);
+  }, [allSelected, samples, addSamplesToSelection, removeSamplesFromSelection]);
 
   if (samplesLoading && samples.length === 0) {
     return (
@@ -248,10 +249,9 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
       {/* 表头 */}
       <div className="flex items-center gap-2 px-3 py-2 border-b bg-muted/30">
         <Checkbox
-          checked={allSelected}
+          checked={allSelected ? true : someSelected ? "indeterminate" : false}
           onCheckedChange={handleSelectAll}
           aria-label="全选"
-          className={cn(someSelected && !allSelected && "data-[state=checked]:bg-primary/50")}
         />
         <span className="text-sm font-medium">
           样本 ({samplesTotal})

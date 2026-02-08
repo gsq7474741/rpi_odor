@@ -419,6 +419,7 @@ message PreheatAction {
   oneof mode {
     int32 cycles = 1;           // 等待N个加热周期 (温度扫描模式)
     double duration_s = 2;      // 等待N秒 (恒温模式)
+    StabilityCondition stability = 7;  // 稳态检测 (传感器读数稳定后结束)
   }
   
   // 最大等待时间 (秒)

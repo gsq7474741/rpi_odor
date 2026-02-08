@@ -659,6 +659,11 @@ export interface PreheatAction {
          * @generated from protobuf field: double duration_s = 2
          */
         durationS: number; // 等待N秒 (恒温模式)    } | {
+        oneofKind: "stability";
+        /**
+         * @generated from protobuf field: enose.experiment.StabilityCondition stability = 7
+         */
+        stability: StabilityCondition; // 稳态检测 (传感器读数稳定后结束)    } | {
         oneofKind: undefined;
     };
     /**
@@ -2815,6 +2820,7 @@ class PreheatAction$Type extends MessageType<PreheatAction> {
         super("enose.experiment.PreheatAction", [
             { no: 1, name: "cycles", kind: "scalar", oneof: "mode", T: 5 /*ScalarType.INT32*/ },
             { no: 2, name: "duration_s", kind: "scalar", oneof: "mode", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 7, name: "stability", kind: "message", oneof: "mode", T: () => StabilityCondition },
             { no: 3, name: "max_duration_s", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/, options: { "buf.validate.field": { double: { lte: 600, gte: 10 } } } },
             { no: 4, name: "sensor_indices", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ },
             { no: 5, name: "record_data", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
@@ -2847,6 +2853,12 @@ class PreheatAction$Type extends MessageType<PreheatAction> {
                     message.mode = {
                         oneofKind: "durationS",
                         durationS: reader.double()
+                    };
+                    break;
+                case /* enose.experiment.StabilityCondition stability */ 7:
+                    message.mode = {
+                        oneofKind: "stability",
+                        stability: StabilityCondition.internalBinaryRead(reader, reader.uint32(), options, (message.mode as any).stability)
                     };
                     break;
                 case /* double max_duration_s */ 3:
@@ -2899,6 +2911,9 @@ class PreheatAction$Type extends MessageType<PreheatAction> {
         /* int32 gas_pump_pwm = 6; */
         if (message.gasPumpPwm !== 0)
             writer.tag(6, WireType.Varint).int32(message.gasPumpPwm);
+        /* enose.experiment.StabilityCondition stability = 7; */
+        if (message.mode.oneofKind === "stability")
+            StabilityCondition.internalBinaryWrite(message.mode.stability, writer.tag(7, WireType.LengthDelimited).fork(), options).join();
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);

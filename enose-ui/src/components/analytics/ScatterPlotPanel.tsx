@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback, useState, useMemo } from "react";
+import { useTheme } from "next-themes";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -17,9 +18,15 @@ interface VisualizationPoint {
   label?: string;
   experimentId?: string;
   phase?: string;
+  paramsHash?: string;
+  liquidNames?: string[];
+  liquidRatios?: number[];
+  gasPumpPwm?: number;
+  totalVolumeMl?: number;
+  flowRateMlS?: number;
 }
 
-type ColorBy = "cluster" | "label" | "experiment" | "phase";
+type ColorBy = "cluster" | "label" | "experiment" | "phase" | "paramsHash";
 
 interface ScatterPlotPanelProps {
   points: VisualizationPoint[];
@@ -73,6 +80,11 @@ export function ScatterPlotPanel({
   onPointClick,
   onPointHover,
 }: ScatterPlotPanelProps) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+  const bgColor = useMemo(() => isDark ? 0x0a0a0b : 0xffffff, [isDark]);
+  const bgCss = isDark ? "rgb(10, 10, 11)" : "rgb(255, 255, 255)";
+
   // Compute actual cluster count from points if not provided
   const actualClusterCount = nClusters ?? (points.length > 0 
     ? Math.max(...points.map(p => p.cluster)) + 1 
@@ -129,6 +141,7 @@ export function ScatterPlotPanel({
             onPointClick?.(pointsRef.current[pointIndices[0]]);
           }
         },
+        backgroundColor: bgColor,
       });
 
       const visualizer = new ScatterPlotVisualizerSprites();
@@ -154,6 +167,13 @@ export function ScatterPlotPanel({
       }
     };
   }, []);
+
+  // Handle theme change - update background color dynamically
+  useEffect(() => {
+    if (scatterPlotRef.current) {
+      scatterPlotRef.current.setBackgroundColor(bgColor);
+    }
+  }, [bgColor]);
 
   // Handle dimension change
   useEffect(() => {
@@ -229,6 +249,9 @@ export function ScatterPlotPanel({
         case "phase":
           colorIndex = p.phase ? hashString(p.phase) : 0;
           break;
+        case "paramsHash":
+          colorIndex = p.paramsHash ? hashString(p.paramsHash) : 0;
+          break;
       }
       const color = CLUSTER_COLORS[Math.abs(colorIndex) % CLUSTER_COLORS.length];
       colors[i * 3] = color[0];
@@ -290,7 +313,7 @@ export function ScatterPlotPanel({
           <div 
             ref={containerRef} 
             className="absolute inset-0"
-            style={{ background: 'rgb(255, 255, 255)' }}
+            style={{ background: bgCss }}
           />
 
           {points.length === 0 && (
@@ -301,13 +324,33 @@ export function ScatterPlotPanel({
 
           {/* 悬停信息 */}
           {hoveredPoint && (
-            <div className="absolute top-2 left-2 bg-background/90 border rounded-lg px-3 py-2 text-xs shadow-lg z-10 pointer-events-none">
-              <div className="font-medium">{hoveredPoint.label || hoveredPoint.id}</div>
+            <div className="absolute top-2 left-2 bg-background/90 border rounded-lg px-3 py-2 text-xs shadow-lg z-10 pointer-events-none max-w-xs">
+              <div className="font-medium">样本 #{hoveredPoint.id}</div>
+              {hoveredPoint.liquidNames && hoveredPoint.liquidNames.length > 0 && (
+                <div className="text-muted-foreground">
+                  液体: {hoveredPoint.liquidNames.map((name, i) => {
+                    const ratio = hoveredPoint.liquidRatios?.[i];
+                    return ratio !== undefined ? `${name}(${ratio.toFixed(0)}%)` : name;
+                  }).join(", ")}
+                </div>
+              )}
               <div className="text-muted-foreground">
                 聚类: {hoveredPoint.cluster}
                 {hoveredPoint.experimentId && ` | 实验: ${hoveredPoint.experimentId}`}
                 {hoveredPoint.phase && ` | 阶段: ${hoveredPoint.phase}`}
               </div>
+              {(hoveredPoint.totalVolumeMl !== undefined || hoveredPoint.flowRateMlS !== undefined || hoveredPoint.gasPumpPwm !== undefined) && (
+                <div className="text-muted-foreground">
+                  {hoveredPoint.totalVolumeMl !== undefined && `进样: ${hoveredPoint.totalVolumeMl}ml`}
+                  {hoveredPoint.flowRateMlS !== undefined && ` | 流速: ${hoveredPoint.flowRateMlS}ml/s`}
+                  {hoveredPoint.gasPumpPwm !== undefined && ` | 气泵: ${hoveredPoint.gasPumpPwm}`}
+                </div>
+              )}
+              {hoveredPoint.paramsHash && (
+                <div className="text-muted-foreground font-mono">
+                  哈希: {hoveredPoint.paramsHash.slice(0, 8)}
+                </div>
+              )}
               <div className="text-muted-foreground">
                 坐标: ({hoveredPoint.x.toFixed(2)}, {hoveredPoint.y.toFixed(2)}
                 {hoveredPoint.z !== undefined && `, ${hoveredPoint.z.toFixed(2)}`})

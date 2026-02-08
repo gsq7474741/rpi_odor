@@ -583,6 +583,7 @@ export function TimeSeriesTab() {
     };
 
     chartInstance.current.setOption(option, true);
+    chartInstance.current.resize();
   }, [timeSeriesData, selectedSensors, alignMode, dataSource, colorMode, showEnv, getSeriesColor, alignPoints]);
 
   // 选中项变化时自动加载数据
@@ -651,22 +652,22 @@ export function TimeSeriesTab() {
   };
 
   const selectedSamples = getSelectedSamples();
-
-  if (selectedSamples.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-center p-8">
-        <LineChart className="h-12 w-12 text-muted-foreground mb-4" />
-        <h3 className="text-lg font-medium mb-2">选择样本查看时序图</h3>
-        <p className="text-muted-foreground text-sm max-w-md">
-          在左侧列表中展开运行并选择样本，或启用对比模式选择多个样本进行叠加对比。
-        </p>
-      </div>
-    );
-  }
+  const hasSelection = selectedSamples.length > 0;
 
   return (
-    <div className="h-full flex flex-col p-4 gap-3">
-      {/* 控制栏 */}
+    <div className="h-full flex flex-col p-4 gap-3 relative">
+      {/* 无选中时的占位提示 - 绝对定位覆盖 */}
+      {!hasSelection && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-center p-8 bg-background">
+          <LineChart className="h-12 w-12 text-muted-foreground mb-4" />
+          <h3 className="text-lg font-medium mb-2">选择样本查看时序图</h3>
+          <p className="text-muted-foreground text-sm max-w-md">
+            在左侧列表中展开运行并选择样本，或启用对比模式选择多个样本进行叠加对比。
+          </p>
+        </div>
+      )}
+      {/* 控制栏 - 无选中时隐藏但不卸载 */}
+      <div style={{ display: hasSelection ? undefined : 'none' }}>
       <TooltipProvider delayDuration={300}>
       <div className="flex items-center gap-1.5 flex-wrap">
         {/* 传感器选择组 */}
@@ -856,22 +857,23 @@ export function TimeSeriesTab() {
         </div>
       </div>
       </TooltipProvider>
+      </div>
 
-      {/* 图表区域 */}
+      {/* 图表区域 - 始终在 DOM 中，确保 ECharts 实例不被销毁 */}
       <div className="flex-1 min-h-0 relative">
-        {/* ECharts 容器始终渲染，通过 visibility 控制显示 */}
         <div 
           ref={chartRef} 
           className="w-full h-full absolute inset-0"
-          style={{ visibility: loading || timeSeriesData.length === 0 ? 'hidden' : 'visible' }}
+          style={{ visibility: !hasSelection || loading || timeSeriesData.length === 0 ? 'hidden' : 'visible' }}
         />
-        {/* Loading 和空状态覆盖层 */}
-        {loading && (
+        {/* Loading 覆盖层 */}
+        {hasSelection && loading && (
           <div className="h-full flex items-center justify-center absolute inset-0 bg-background">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         )}
-        {!loading && timeSeriesData.length === 0 && (
+        {/* 数据为空覆盖层 */}
+        {hasSelection && !loading && timeSeriesData.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center text-muted-foreground absolute inset-0 bg-background">
             <LineChart className="h-12 w-12 mb-4 opacity-50" />
             <p>点击刷新按钮加载数据</p>
@@ -880,7 +882,7 @@ export function TimeSeriesTab() {
       </div>
 
       {/* 样本信息 */}
-      {timeSeriesData.length > 0 && (
+      {hasSelection && timeSeriesData.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {timeSeriesData.map((sample) => (
             <Badge key={sample.sampleId} variant="outline">

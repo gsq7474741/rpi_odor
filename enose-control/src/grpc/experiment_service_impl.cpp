@@ -2,6 +2,7 @@
 #include "sensor_service_impl.hpp"
 #include "../workflows/yaml_parser.hpp"
 #include "../workflows/transaction_guard.hpp"
+#include "../workflows/stability_monitor.hpp"
 #include "../workflows/executors/executors.hpp"
 #include <spdlog/spdlog.h>
 #include <google/protobuf/util/time_util.h>
@@ -742,11 +743,21 @@ void ExperimentServiceImpl::execute_wait(const experiment::WaitAction& action) {
         
         case experiment::WaitAction::kHeaterCycles: {
             add_log("等待加热器循环: " + std::to_string(action.heater_cycles()) + "次");
-            // TODO: 实现加热器循环等待
             int cycles = action.heater_cycles();
-            int cycle_time_ms = 2500;  // 假设每个循环2.5秒
+            // 从数据库查询当前活跃的加热器配置，精确计算周期时长
+            double cycle_time_s = 26.0;
+            if (sensor_repo_) {
+                auto assignment = sensor_repo_->get_active_assignment(0);
+                if (assignment && !assignment->durs_snapshot.empty()) {
+                    double total_ms = 0;
+                    for (auto d : assignment->durs_snapshot) {
+                        total_ms += d * 140.0;
+                    }
+                    cycle_time_s = total_ms / 1000.0;
+                }
+            }
             auto end = std::chrono::steady_clock::now() + 
-                      std::chrono::milliseconds(cycles * cycle_time_ms);
+                      std::chrono::milliseconds(static_cast<int>(cycles * cycle_time_s * 1000));
             while (std::chrono::steady_clock::now() < end) {
                 if (check_stop()) return;
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -1352,8 +1363,17 @@ void ExperimentServiceImpl::execute_wash(const experiment::WashAction& action) {
 bool ExperimentServiceImpl::wait_for_heater_cycles(int count, double timeout_s) {
     if (!sensor_driver_) {
         add_log("警告: 无传感器驱动，使用估算时间");
-        // 降级: 无传感器时用估算时间 (假设每个周期约 26 秒，可根据实际配置调整)
         double estimated_cycle_time = 26.0;
+        if (sensor_repo_) {
+            auto assignment = sensor_repo_->get_active_assignment(0);
+            if (assignment && !assignment->durs_snapshot.empty()) {
+                double total_ms = 0;
+                for (auto d : assignment->durs_snapshot) {
+                    total_ms += d * 140.0;
+                }
+                estimated_cycle_time = total_ms / 1000.0;
+            }
+        }
         double total_time = count * estimated_cycle_time;
         auto end = std::chrono::steady_clock::now() + 
                   std::chrono::milliseconds(static_cast<int>(std::min(total_time, timeout_s) * 1000));
@@ -1374,15 +1394,15 @@ bool ExperimentServiceImpl::wait_for_heater_cycles(int count, double timeout_s) 
     auto start = std::chrono::steady_clock::now();
     auto timeout = std::chrono::seconds(static_cast<int>(timeout_s));
     
-    // 订阅传感器数据，监听 heater_step 变化
+    // 订阅传感器数据，监听 heater step 变化 (固件字段: "gi")
     std::mutex cycle_mutex;
     std::condition_variable cycle_cv;
     
     auto conn = sensor_driver_->on_packet.connect([&](const nlohmann::json& packet) {
         if (!packet.contains("type") || packet["type"] != "data") return;
-        if (!packet.contains("heater_step")) return;
+        if (!packet.contains("gi")) return;
         
-        int current_step = packet["heater_step"].get<int>();
+        int current_step = packet["gi"].get<int>();
         
         std::lock_guard<std::mutex> lock(cycle_mutex);
         
@@ -1442,67 +1462,20 @@ bool ExperimentServiceImpl::wait_for_sensor_stability(double window_s, double th
         return true;
     }
     
-    add_log("等待传感器稳定 (窗口=" + std::to_string(window_s) + "s, 阈值=" + 
-            std::to_string(threshold_percent) + "%)");
+    workflows::StabilityMonitor::Config config{
+        .window_s = window_s,
+        .threshold_percent = threshold_percent,
+        .timeout_s = timeout_s,
+        .log_prefix = "ExperimentService"
+    };
     
-    std::deque<double> readings;
-    auto window_duration = std::chrono::milliseconds(static_cast<int>(window_s * 1000));
-    auto start = std::chrono::steady_clock::now();
-    auto timeout = std::chrono::seconds(static_cast<int>(timeout_s));
+    auto result = workflows::StabilityMonitor::wait_for_stability(
+        *sensor_driver_, config,
+        [this]() { return check_stop(); },
+        [this](const std::string& msg) { add_log(msg); }
+    );
     
-    std::mutex readings_mutex;
-    bool stable = false;
-    
-    auto conn = sensor_driver_->on_packet.connect([&](const nlohmann::json& packet) {
-        if (!packet.contains("type") || packet["type"] != "data") return;
-        if (!packet.contains("value")) return;
-        
-        double value = packet["value"].get<double>();
-        
-        std::lock_guard<std::mutex> lock(readings_mutex);
-        readings.push_back(value);
-        
-        // 只保留窗口内的数据
-        auto now = std::chrono::steady_clock::now();
-        while (readings.size() > 1 && 
-               (now - start) > window_duration && 
-               readings.size() > static_cast<size_t>(window_s * 10)) {  // 假设约 10Hz 采样
-            readings.pop_front();
-        }
-        
-        // 检查稳定性: 计算变化百分比
-        if (readings.size() >= 10) {
-            double min_val = *std::min_element(readings.begin(), readings.end());
-            double max_val = *std::max_element(readings.begin(), readings.end());
-            double mean_val = (min_val + max_val) / 2.0;
-            
-            if (mean_val > 0) {
-                double variation_percent = ((max_val - min_val) / mean_val) * 100.0;
-                if (variation_percent <= threshold_percent) {
-                    stable = true;
-                }
-            }
-        }
-    });
-    
-    while (!stable) {
-        if (check_stop()) {
-            conn.disconnect();
-            return false;
-        }
-        
-        if (std::chrono::steady_clock::now() - start > timeout) {
-            add_log("等待稳定超时");
-            conn.disconnect();
-            return false;
-        }
-        
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
-    
-    conn.disconnect();
-    add_log("传感器已稳定");
-    return true;
+    return result.stabilized;
 }
 
 void ExperimentServiceImpl::add_log(const std::string& message) {
@@ -1868,6 +1841,18 @@ void ExperimentServiceImpl::execute_preheat(const experiment::PreheatAction& act
                 if (check_stop()) return;
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
+            break;
+        }
+        case experiment::PreheatAction::kStability: {
+            // 稳态检测 - 传感器读数稳定后结束预热
+            add_log("预热模式: 稳态检测 (窗口=" + 
+                    std::to_string(action.stability().window_s()) + "s, 阈值=" +
+                    std::to_string(action.stability().threshold_percent()) + "%)");
+            wait_for_sensor_stability(
+                action.stability().window_s(),
+                action.stability().threshold_percent(),
+                action.max_duration_s()
+            );
             break;
         }
         default: {

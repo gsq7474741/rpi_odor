@@ -15,7 +15,7 @@ namespace workflows {
  * - 设置气泵 PWM
  * - 启动传感器采集
  * - 启用数据持久化 (phase_name = "PREHEAT")
- * - 根据模式等待 (周期数/固定时间)
+ * - 根据模式等待 (周期数/固定时间/稳态检测)
  * - 等待预热完成
  */
 class PreheatExecutor : public ActionExecutorBase {
@@ -53,6 +53,7 @@ private:
     // 等待辅助方法
     void wait_for_duration(double seconds);
     void wait_for_heater_cycles(int count, double timeout_s);
+    void wait_for_stability(double window_s, double threshold_percent, double timeout_s);
 };
 
 } // namespace workflows

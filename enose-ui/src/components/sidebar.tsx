@@ -30,6 +30,11 @@ const navItems: NavItem[] = [
     href: "/system",
     icon: Settings,
   },
+    {
+    title: "耗材管理",
+    href: "/consumables",
+    icon: Package,
+  },
   {
     title: "实验执行",
     href: "/run",
@@ -39,11 +44,6 @@ const navItems: NavItem[] = [
     title: "实验编排",
     href: "/workflow",
     icon: Workflow,
-  },
-  {
-    title: "耗材管理",
-    href: "/consumables",
-    icon: Package,
   },
   {
     title: "数据中心",

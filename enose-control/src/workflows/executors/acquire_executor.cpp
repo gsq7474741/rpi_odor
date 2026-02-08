@@ -1,4 +1,6 @@
 #include "workflows/executors/acquire_executor.hpp"
+#include "workflows/stability_monitor.hpp"
+#include "db/sensor_repository.hpp"
 #include <spdlog/spdlog.h>
 #include <chrono>
 #include <thread>
@@ -119,6 +121,17 @@ void AcquireExecutor::wait_for_heater_cycles(int count, double timeout_s) {
     if (!sensor_) {
         add_log("警告: 无传感器驱动，使用估算时间");
         double estimated_cycle_time = 26.0;
+        try {
+            db::SensorRepository sensor_repo;
+            auto assignment = sensor_repo.get_active_assignment(0);
+            if (assignment && !assignment->durs_snapshot.empty()) {
+                double total_ms = 0;
+                for (auto d : assignment->durs_snapshot) {
+                    total_ms += d * 140.0;
+                }
+                estimated_cycle_time = total_ms / 1000.0;
+            }
+        } catch (...) {}
         double total_time = count * estimated_cycle_time;
         wait_for_duration(std::min(total_time, timeout_s));
         return;
@@ -138,9 +151,9 @@ void AcquireExecutor::wait_for_heater_cycles(int count, double timeout_s) {
     
     auto conn = sensor_->on_packet.connect([&](const nlohmann::json& packet) {
         if (!packet.contains("type") || packet["type"] != "data") return;
-        if (!packet.contains("heater_step")) return;
+        if (!packet.contains("gi")) return;
         
-        int current_step = packet["heater_step"].get<int>();
+        int current_step = packet["gi"].get<int>();
         
         std::lock_guard<std::mutex> lock(cycle_mutex);
         
@@ -186,12 +199,18 @@ void AcquireExecutor::wait_for_stability(double window_s, double threshold_perce
         return;
     }
     
-    add_log("等待传感器稳定 (窗口=" + std::to_string(window_s) + 
-            "s, 阈值=" + std::to_string(threshold_percent) + "%)");
+    StabilityMonitor::Config config{
+        .window_s = window_s,
+        .threshold_percent = threshold_percent,
+        .timeout_s = timeout_s,
+        .log_prefix = "AcquireExecutor"
+    };
     
-    // TODO: 实现稳定性检测逻辑
-    // 暂时使用超时等待
-    wait_for_duration(timeout_s);
+    StabilityMonitor::wait_for_stability(
+        *sensor_, config,
+        [this]() { return check_stop_or_pause(); },
+        [this](const std::string& msg) { add_log(msg); }
+    );
 }
 
 double AcquireExecutor::estimate_duration(const enose::experiment::Step& step) const {
@@ -202,8 +221,22 @@ double AcquireExecutor::estimate_duration(const enose::experiment::Step& step) c
     switch (action.termination_case()) {
         case enose::experiment::AcquireAction::kDurationS:
             return action.duration_s();
-        case enose::experiment::AcquireAction::kHeaterCycles:
-            return action.heater_cycles() * 26.0;  // 估算每周期26秒
+        case enose::experiment::AcquireAction::kHeaterCycles: {
+            // 从数据库查询当前活跃的加热器配置，精确计算周期时长
+            double cycle_duration = 26.0;
+            try {
+                db::SensorRepository sensor_repo;
+                auto assignment = sensor_repo.get_active_assignment(0);
+                if (assignment && !assignment->durs_snapshot.empty()) {
+                    double total_ms = 0;
+                    for (auto d : assignment->durs_snapshot) {
+                        total_ms += d * 140.0;
+                    }
+                    cycle_duration = total_ms / 1000.0;
+                }
+            } catch (...) {}
+            return action.heater_cycles() * cycle_duration;
+        }
         default:
             return action.max_duration_s();
     }

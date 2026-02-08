@@ -1,0 +1,203 @@
+id: preheat_test
+name: preheat_test
+description: ''
+version: 1.0.0
+hardware:
+  bottle_capacity_ml: 150
+  max_fill_ml: 100
+  liquids:
+    - id: default
+      name: 默认液体
+      type: LIQUID_SAMPLE
+steps:
+  - name: 配置加热器
+    configure_heater:
+      configs:
+        - profile_name: temp_scan_100_350
+          temps:
+            - 100
+            - 150
+            - 200
+            - 250
+            - 300
+            - 350
+            - 320
+            - 280
+            - 240
+            - 200
+          durs:
+            - 3
+            - 3
+            - 3
+            - 3
+            - 3
+            - 3
+            - 3
+            - 3
+            - 3
+            - 3
+          sensor_indices:
+            - 0
+            - 4
+        - profile_name: constant_200__3
+          temps:
+            - 200
+            - 200
+            - 200
+            - 200
+            - 200
+            - 200
+            - 200
+            - 200
+            - 200
+            - 200
+          durs:
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+          sensor_indices:
+            - 1
+            - 5
+        - profile_name: constant_320__2
+          temps:
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+          durs:
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+          sensor_indices:
+            - 2
+            - 6
+        - profile_name: constant_400__4
+          temps:
+            - 400
+            - 400
+            - 400
+            - 400
+            - 400
+            - 400
+            - 400
+            - 400
+            - 400
+            - 400
+          durs:
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+          sensor_indices:
+            - 3
+            - 7
+  - name: 传感器预热
+    phase_name: PREHEAT
+    preheat:
+      max_duration_s: 300
+      record_data: true
+      gas_pump_pwm: 50
+      stability:
+        window_s: 10
+        threshold_percent: 5
+_compile_estimate:
+  total_duration_s: 150
+  peak_liquid_level_ml: 0
+  peak_liquid_level_ml_with_wash: 0
+  total_inject_ml: 0
+  total_drain_ml: 0
+  total_wash_volume_ml: 0
+  liquid_consumption: []
+  pump_estimates: []
+_editor_layout:
+  nodes:
+    - id: start
+      type: start
+      position:
+        x: 240
+        'y': 75
+      data:
+        description: ''
+        version: 1.0.0
+    - id: end
+      type: end
+      position:
+        x: 240
+        'y': 795
+      data: {}
+    - id: node_1
+      type: configureHeater
+      position:
+        x: 240
+        'y': 315
+      data:
+        sensorProfiles:
+          '0': temp_scan_100_350
+          '1': constant_200__3
+          '2': constant_320__2
+          '3': constant_400__4
+          '4': temp_scan_100_350
+          '5': constant_200__3
+          '6': constant_320__2
+          '7': constant_400__4
+          '8': ''
+          '9': ''
+          '10': ''
+          '11': ''
+    - id: node_11
+      type: preheat
+      position:
+        x: 240
+        'y': 495
+      data:
+        name: 传感器预热
+        mode: stability
+        durationS: 60
+        maxDurationS: 300
+        sensorIndices: []
+        recordData: true
+        gasPumpPwm: 50
+        stabilityWindowS: 10
+        stabilityThresholdPercent: 5
+  edges:
+    - id: xy-edge__startflow-node_1flow
+      source: start
+      target: node_1
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_1flow-node_11flow
+      source: node_1
+      target: node_11
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_11flow-endflow
+      source: node_11
+      target: end
+      sourceHandle: flow
+      targetHandle: flow

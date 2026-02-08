@@ -27,9 +27,11 @@ interface SensorMonitorProps {
   active?: boolean;
   defaultOpen?: boolean;
   experimentRunning?: boolean;
+  inline?: boolean;
+  runId?: number | null;
 }
 
-export function SensorMonitor({ active = true, defaultOpen = true, experimentRunning = false }: SensorMonitorProps) {
+export function SensorMonitor({ active = true, defaultOpen = true, experimentRunning = false, inline = false, runId }: SensorMonitorProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [sensorData, setSensorData] = useState<MultiDataPoint[][]>(Array.from({ length: 8 }, () => []));
   const [visibleSensors, setVisibleSensors] = useState<boolean[]>(Array(8).fill(true));
@@ -61,6 +63,8 @@ export function SensorMonitor({ active = true, defaultOpen = true, experimentRun
   const lastProcessedIndexRef = useRef<number>(0);
   const prevExperimentRunningRef = useRef<boolean>(false);
 
+  const historyLoadedRef = useRef<boolean>(false);
+
   // 实验开始时清空数据
   useEffect(() => {
     const wasRunning = prevExperimentRunningRef.current;
@@ -72,8 +76,54 @@ export function SensorMonitor({ active = true, defaultOpen = true, experimentRun
       setDataCount(0);
       startTimeRef.current = null;
       lastProcessedIndexRef.current = 0;
+      historyLoadedRef.current = false;
     }
   }, [experimentRunning]);
+
+  // 页面刷新时从数据库加载历史传感器数据
+  useEffect(() => {
+    if (!experimentRunning || !runId || historyLoadedRef.current) return;
+    historyLoadedRef.current = true;
+
+    const loadHistory = async () => {
+      try {
+        const res = await fetch(
+          `/api/analytics/data?action=sensor-data&experimentId=${runId}&limit=5000&downsample=1`
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.success || !data.rows || data.rows.length === 0) return;
+
+        // 用第一行的时间戳作为起始时间
+        const firstTs = new Date(data.rows[0].ts).getTime();
+        if (startTimeRef.current === null) startTimeRef.current = firstTs;
+        const baseTime = startTimeRef.current;
+
+        const newData: MultiDataPoint[][] = Array.from({ length: 8 }, () => []);
+        for (const row of data.rows) {
+          const ts = new Date(row.ts).getTime();
+          const time = (ts - baseTime) / 1000;
+          const mox: number[] = row.moxReadings || [];
+          for (let i = 0; i < Math.min(mox.length, 8); i++) {
+            newData[i].push({
+              time,
+              resistance: mox[i],
+              temperature: row.temperature ?? 0,
+              humidity: row.humidity ?? 0,
+              pressure: 0,
+            });
+          }
+        }
+
+        setSensorData(newData);
+        setDataCount(data.rows.length * 8);
+      } catch {
+        // silent fail - real-time stream will still work
+      }
+    };
+
+    loadHistory();
+  }, [experimentRunning, runId]);
 
   // 处理新读数
   useEffect(() => {
@@ -135,32 +185,8 @@ export function SensorMonitor({ active = true, defaultOpen = true, experimentRun
   const humidityOption = useMemo(() => makeChartOption('humidity', '%RH', undefined, true), [makeChartOption]);
   const pressureOption = useMemo(() => makeChartOption('pressure', 'hPa', undefined, true), [makeChartOption]);
 
-  return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <Card>
-        <CollapsibleTrigger asChild>
-          <CardHeader className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors">
-            <CardTitle className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-2">
-                {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                <Activity className="w-4 h-4" />
-                传感器监控
-              </div>
-              <div className="flex items-center gap-1.5 font-normal">
-                <Badge variant={sensorStatus?.connected ? "outline" : "destructive"} className="gap-1 text-[10px] h-5">
-                  {sensorStatus?.connected ? "已连接" : "未连接"}
-                </Badge>
-                <Badge variant={experimentRunning && readingsConnected ? "default" : "secondary"} className="gap-1 text-[10px] h-5">
-                  {experimentRunning && readingsConnected ? "● 采集中" : "○ 停止"}
-                </Badge>
-                <span className="text-[10px] text-muted-foreground ml-1">{dataCount} 点</span>
-              </div>
-            </CardTitle>
-          </CardHeader>
-        </CollapsibleTrigger>
-
-        <CollapsibleContent>
-          <CardContent className="pt-0 space-y-3">
+  const sensorContent = (
+          <div className={inline ? "space-y-3" : "pt-0 space-y-3"}>
             {/* 传感器选择 + 窗口 */}
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-1">
@@ -251,6 +277,56 @@ export function SensorMonitor({ active = true, defaultOpen = true, experimentRun
             <div className="text-[10px] text-muted-foreground border-t pt-1.5">
               传感器: {sensorStatus?.sensorCount ?? 0} | 固件: {sensorStatus?.firmwareVersion || '-'} | 端口: {sensorStatus?.port || '-'}
             </div>
+          </div>
+  );
+
+  if (inline) {
+    return (
+      <div className="flex flex-col h-full overflow-y-auto">
+        {/* 状态栏 */}
+        <div className="flex items-center justify-between mb-3 flex-shrink-0">
+          <div className="flex items-center gap-1.5 font-normal">
+            <Badge variant={sensorStatus?.connected ? "outline" : "destructive"} className="gap-1 text-[10px] h-5">
+              {sensorStatus?.connected ? "已连接" : "未连接"}
+            </Badge>
+            <Badge variant={experimentRunning && readingsConnected ? "default" : "secondary"} className="gap-1 text-[10px] h-5">
+              {experimentRunning && readingsConnected ? "● 采集中" : "○ 停止"}
+            </Badge>
+            <span className="text-[10px] text-muted-foreground ml-1">{dataCount} 点</span>
+          </div>
+        </div>
+        {sensorContent}
+      </div>
+    );
+  }
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <Card>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors">
+            <CardTitle className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2">
+                {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                <Activity className="w-4 h-4" />
+                传感器监控
+              </div>
+              <div className="flex items-center gap-1.5 font-normal">
+                <Badge variant={sensorStatus?.connected ? "outline" : "destructive"} className="gap-1 text-[10px] h-5">
+                  {sensorStatus?.connected ? "已连接" : "未连接"}
+                </Badge>
+                <Badge variant={experimentRunning && readingsConnected ? "default" : "secondary"} className="gap-1 text-[10px] h-5">
+                  {experimentRunning && readingsConnected ? "● 采集中" : "○ 停止"}
+                </Badge>
+                <span className="text-[10px] text-muted-foreground ml-1">{dataCount} 点</span>
+              </div>
+            </CardTitle>
+          </CardHeader>
+        </CollapsibleTrigger>
+
+        <CollapsibleContent>
+          <CardContent className="pt-0">
+            {sensorContent}
           </CardContent>
         </CollapsibleContent>
       </Card>

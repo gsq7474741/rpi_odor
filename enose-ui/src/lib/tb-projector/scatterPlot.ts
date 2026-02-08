@@ -40,6 +40,7 @@ export interface ScatterPlotParams {
   onHover?: (pointIndex: number | null) => void;
   onClick?: (pointIndices: number[]) => void;
   onSelect?: (pointIndices: number[]) => void;
+  backgroundColor?: number;
 }
 
 /**
@@ -91,6 +92,9 @@ export class ScatterPlot {
   ) {
     this.hoverCallback = params?.onHover;
     this.clickCallback = params?.onClick;
+    if (params?.backgroundColor !== undefined) {
+      this.backgroundColor = params.backgroundColor;
+    }
 
     this.getLayoutValues();
     this.scene = new THREE.Scene();
@@ -102,7 +106,7 @@ export class ScatterPlot {
       antialias: false,
       preserveDrawingBuffer: true, // Important for stable picking
     });
-    this.renderer.setClearColor(BACKGROUND_COLOR, 1);
+    this.renderer.setClearColor(this.backgroundColor, 1);
     this.container.appendChild(this.renderer.domElement);
     
     this.light = new THREE.PointLight(0xffecbf, 1, 0);
@@ -505,6 +509,13 @@ export class ScatterPlot {
   /** Set the scale factors for every data point. (scalars) */
   setPointScaleFactors(scaleFactors: Float32Array) {
     this.pointScaleFactors = scaleFactors;
+  }
+
+  setBackgroundColor(color: number) {
+    this.backgroundColor = color;
+    this.renderer.setClearColor(color, 1);
+    this.visualizers.forEach((v) => v.onBackgroundColorChanged?.(color));
+    this.render();
   }
 
   resetZoom() {

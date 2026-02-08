@@ -251,6 +251,16 @@ const getDefaultNodeData = (type: NodeType): Record<string, unknown> => {
         bottleCapacityMl: 150,
         maxFillMl: 100,
       };
+    case NodeType.PREHEAT:
+      return {
+        name: '传感器预热',
+        mode: 'duration',
+        durationS: 60,
+        maxDurationS: 300,
+        sensorIndices: [],
+        recordData: false,
+        gasPumpPwm: 50,
+      };
     default:
       return {};
   }
@@ -427,10 +437,53 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   // 关闭标签页
   closeTab: (tabId) => {
     const s = get();
-    if (s.tabs.length <= 1) return false; // 不能关闭最后一个标签
-    
     const idx = s.tabs.findIndex(t => t.id === tabId);
     if (idx === -1) return false;
+    
+    // 关闭最后一个标签时，重置为新的空白标签
+    if (s.tabs.length <= 1) {
+      const id = generateTabId();
+      const newTab: TabSnapshot = {
+        id,
+        filename: null,
+        nodes: JSON.parse(JSON.stringify(initialNodes)),
+        edges: [],
+        programId: 'new_experiment',
+        programName: '新实验',
+        programDescription: '',
+        programVersion: '1.0.0',
+        bottleCapacityMl: 150,
+        maxFillMl: 100,
+        isDirty: false,
+        history: [{ nodes: initialNodes, edges: [] }],
+        historyIndex: 0,
+        savedHistoryIndex: 0,
+        compilationResult: null,
+      };
+      nodeIdCounter = 0;
+      syncNodeIdCounter(newTab.nodes);
+      set({
+        tabs: [newTab],
+        activeTabId: id,
+        nodes: JSON.parse(JSON.stringify(newTab.nodes)),
+        edges: [],
+        selectedNodeId: null,
+        currentFilename: null,
+        programId: 'new_experiment',
+        programName: '新实验',
+        programDescription: '',
+        programVersion: '1.0.0',
+        bottleCapacityMl: 150,
+        maxFillMl: 100,
+        isDirty: false,
+        isRecordingHistory: false,
+        history: [{ nodes: initialNodes, edges: [] }],
+        historyIndex: 0,
+        savedHistoryIndex: 0,
+        compilationResult: null,
+      });
+      return true;
+    }
     
     const newTabs = s.tabs.filter(t => t.id !== tabId);
     

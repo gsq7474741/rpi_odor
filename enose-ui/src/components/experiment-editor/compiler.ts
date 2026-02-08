@@ -113,6 +113,9 @@ export interface CompilerConfig {
   // 外部数据（用于查询加热器预设和泵绑定）
   heaterProfiles?: HeaterProfileInfo[];
   pumpBindings?: PumpBindingInfo[];
+  
+  // 加热器单周期精确时长(秒)，由编译器在遍历过程中自动更新
+  heaterCycleDurationS: number;
 }
 
 const DEFAULT_CONFIG: CompilerConfig = {
@@ -120,6 +123,7 @@ const DEFAULT_CONFIG: CompilerConfig = {
   maxFillMl: 100,
   expandLoops: true,  // 默认展开循环，显示真实编译产物
   maxLoopExpansion: 100,
+  heaterCycleDurationS: 0, // 0表示未配置，使用估算值26s
 };
 
 /**
@@ -214,6 +218,23 @@ export function compile(
     
     // 编译节点
     if (node.type !== NodeType.START && node.type !== NodeType.END) {
+      // 遇到 CONFIGURE_HEATER 节点时，从 heaterProfiles 提取 durs 精确计算周期时长
+      if (node.type === NodeType.CONFIGURE_HEATER && cfg.heaterProfiles) {
+        const heaterData = node.data as Record<string, unknown>;
+        const sensorProfiles = (heaterData.sensorProfiles as Record<number, string>) || {};
+        // 取第一个非空 profile（通常所有传感器使用相同配置）
+        const firstProfileName = Object.values(sensorProfiles).find(name => name);
+        if (firstProfileName) {
+          const baseProfileName = firstProfileName.replace(/__\d+$/, '');
+          const profile = cfg.heaterProfiles.find(p => p.name === baseProfileName);
+          if (profile && profile.durs && profile.durs.length > 0) {
+            // 精确计算: sum(durs) × 140ms / 1000
+            const sumDurs = profile.durs.reduce((s, d) => s + d, 0);
+            cfg.heaterCycleDurationS = sumDurs * 0.14;
+          }
+        }
+      }
+      
       const compiledStep = compileNode(node, nodes, liquidConnections, cfg, diagnostics);
       
       if (compiledStep) {
@@ -980,16 +1001,15 @@ function compileNode(
     }
     
     case NodeType.WASH: {
-      const washVolume = (data.washVolumeMl as number) || 20;
       const repeatCount = (data.repeatCount as number) || 2;
-      const washFlowRate = 10; // ml/s，清洗泵流速 (100% PWM)
-      const drainTimeS = 30; // 排放时间估计
+      const fillTimeoutS = (data.fillTimeoutS as number) || 60;
+      const drainTimeoutS = (data.drainTimeoutS as number) || 60;
       
-      // 后端清洗流程：每次循环都是 排废→注入→排废
-      // 每次循环时间：排废 + 注入 + 排废
-      baseStep.estimatedDurationS = repeatCount * (drainTimeS + washVolume / washFlowRate + drainTimeS);
+      // 后端清洗流程：每次循环 = 排废确认空瓶 + 注入清洗液 + 排废清洗液
+      // 排废和注入都是称重反馈的非确定过程，用 timeout 作为上界估算
+      baseStep.estimatedDurationS = repeatCount * (drainTimeoutS + fillTimeoutS + drainTimeoutS);
       // 清洗后液位始终为0（最后一次循环会排废）
-      baseStep.liquidChangeMl = -config.maxFillMl; // 清洗会先排废，液位归零
+      baseStep.liquidChangeMl = -config.maxFillMl;
       break;
     }
     
@@ -1001,7 +1021,11 @@ function compileNode(
         baseStep.estimatedDurationS = (data.durationS as number) || 60;
       } else if (terminationType === 'cycles') {
         const cycles = (data.heaterCycles as number) || 10;
-        baseStep.estimatedDurationS = cycles * 20; // 假设每周期 20s
+        const cycleDur = config.heaterCycleDurationS > 0 ? config.heaterCycleDurationS : 26;
+        baseStep.estimatedDurationS = cycles * cycleDur;
+      } else if (terminationType === 'stability') {
+        // 稳态模式：无法准确估算，使用 max_duration_s × 0.5 作为乐观估计
+        baseStep.estimatedDurationS = maxDuration * 0.5;
       } else {
         baseStep.estimatedDurationS = maxDuration;
       }
@@ -1015,12 +1039,15 @@ function compileNode(
     
     case NodeType.WAIT_CYCLES: {
       const cycles = (data.heaterCycles as number) || 5;
-      baseStep.estimatedDurationS = cycles * 20; // 假设每周期 20s
+      const cycleDur = config.heaterCycleDurationS > 0 ? config.heaterCycleDurationS : 26;
+      baseStep.estimatedDurationS = cycles * cycleDur;
       break;
     }
     
     case NodeType.WAIT_STABILITY: {
-      baseStep.estimatedDurationS = (data.timeoutS as number) || 300;
+      // 稳态模式：无法准确估算，使用 timeout × 0.5 作为乐观估计
+      const stabilityTimeout = (data.timeoutS as number) || 300;
+      baseStep.estimatedDurationS = stabilityTimeout * 0.5;
       break;
     }
     
@@ -1047,7 +1074,12 @@ function compileNode(
       // 预热模式
       if (data.mode === 'cycles') {
         const cycles = (data.cycles as number) || 5;
-        baseStep.estimatedDurationS = cycles * 20; // 假设每周期 20s
+        const cycleDur = config.heaterCycleDurationS > 0 ? config.heaterCycleDurationS : 26;
+        baseStep.estimatedDurationS = cycles * cycleDur;
+      } else if (data.mode === 'stability') {
+        // 稳态模式：无法准确估算，使用 max_duration_s 的一半作为乐观估计
+        const maxDur = (data.maxDurationS as number) || 300;
+        baseStep.estimatedDurationS = maxDur * 0.5;
       } else {
         baseStep.estimatedDurationS = (data.durationS as number) || 60;
       }

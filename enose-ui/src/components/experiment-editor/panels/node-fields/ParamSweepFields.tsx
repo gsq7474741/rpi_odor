@@ -135,38 +135,44 @@ export function ParamSweepFields({ data, handleChange, nodes }: ParamSweepFields
               {liquidSourceNodes.length === 2 && (
                 <>
                   <Field label="主液体比例范围 (%)">
-                    <div className="flex gap-2">
-                      <Input
-                        type="number"
-                        min={0}
-                        max={100}
-                        step={5}
-                        value={start}
-                        onChange={(e) => handleChange('startValue', parseInt(e.target.value) || 10)}
-                        className="w-16"
-                        placeholder="起始"
-                      />
-                      <span className="text-muted-foreground self-center">→</span>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={100}
-                        step={5}
-                        value={end}
-                        onChange={(e) => handleChange('endValue', parseInt(e.target.value) || 90)}
-                        className="w-16"
-                        placeholder="结束"
-                      />
-                      <Input
-                        type="number"
-                        min={1}
-                        max={50}
-                        step={5}
-                        value={stepVal}
-                        onChange={(e) => handleChange('stepValue', parseInt(e.target.value) || 10)}
-                        className="w-16"
-                        placeholder="步长"
-                      />
+                    <div className="flex gap-2 items-end">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[10px] text-muted-foreground">起始</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={5}
+                          value={start}
+                          onChange={(e) => handleChange('startValue', parseInt(e.target.value) || 10)}
+                          className="w-16"
+                        />
+                      </div>
+                      <span className="text-muted-foreground pb-1.5">→</span>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[10px] text-muted-foreground">结束</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={5}
+                          value={end}
+                          onChange={(e) => handleChange('endValue', parseInt(e.target.value) || 90)}
+                          className="w-16"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[10px] text-muted-foreground">步长</span>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={50}
+                          step={5}
+                          value={stepVal}
+                          onChange={(e) => handleChange('stepValue', parseInt(e.target.value) || 10)}
+                          className="w-16"
+                        />
+                      </div>
                     </div>
                   </Field>
                   <Button

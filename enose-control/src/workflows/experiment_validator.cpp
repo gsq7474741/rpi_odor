@@ -1,6 +1,7 @@
 #include "experiment_validator.hpp"
 #include <spdlog/spdlog.h>
 #include <algorithm>
+#include <numeric>
 #include <cmath>
 
 namespace enose::workflows {
@@ -134,6 +135,7 @@ void ExperimentValidator::reset() {
     peak_liquid_level_ = 0;
     total_duration_ = 0;
     total_heater_cycles_ = 0;
+    current_heater_cycle_duration_s_ = 0;
 }
 
 void ExperimentValidator::build_liquid_map() {
@@ -298,7 +300,8 @@ void ExperimentValidator::validate_step(const experiment::Step& step, const std:
             break;
             
         case experiment::Step::kConfigureHeater:
-            // ConfigureHeater 动作无需额外验证和时长计算（瞬时操作）
+            // ConfigureHeater 是瞬时操作，但需跟踪加热器配置以精确计算后续周期时长
+            update_heater_config(step.configure_heater());
             break;
             
         case experiment::Step::kPreheat:
@@ -455,23 +458,21 @@ void ExperimentValidator::calculate_inject_resources(const experiment::InjectAct
     for (const auto& comp : action.components()) {
         auto pump_it = sample_pump_bindings_.find(comp.liquid_id());
         if (pump_it != sample_pump_bindings_.end() && !pump_it->second.empty()) {
-            // 使用编号最小的泵（已按顺序存储）
             int32_t pump_index = pump_it->second.front();
-            // 归一化比例后计算实际体积
             double comp_volume = volume * comp.ratio() / total_ratio;
             pump_totals_[pump_index] += comp_volume;
         }
-        // 如果没有泵绑定，不累计消耗（验证阶段已警告）
     }
     
     // 更新液位
     current_liquid_level_ += volume;
     peak_liquid_level_ = std::max(peak_liquid_level_, current_liquid_level_);
     
-    // 估算时间: 体积 / 流速 + 稳定时间
+    // 估算时间: 多泵并行时，用最大单泵体积 / 流速（对齐前端逻辑）
     double flow_rate = action.flow_rate_ml_s();
     if (flow_rate > 0) {
-        total_duration_ += volume / flow_rate;  // ml / (ml/s) = 秒
+        double max_pump_volume = get_inject_max_pump_volume(action);
+        total_duration_ += max_pump_volume / flow_rate;
     }
     total_duration_ += action.stable_timeout_s();
 }
@@ -492,12 +493,12 @@ void ExperimentValidator::calculate_wait_resources(const experiment::WaitAction&
             
         case experiment::WaitAction::kHeaterCycles:
             total_heater_cycles_ += action.heater_cycles();
-            // 假设每个加热周期约 2-3 秒
-            total_duration_ += action.heater_cycles() * 2.5;
+            total_duration_ += action.heater_cycles() * get_heater_cycle_duration_s();
             break;
             
         case experiment::WaitAction::kStability:
-            total_duration_ += action.stability().window_s();
+            // 稳态模式：无法准确估算，使用 timeout × 0.5 作为乐观估计
+            total_duration_ += action.timeout_s() * 0.5;
             break;
             
         case experiment::WaitAction::kWeight:
@@ -519,11 +520,12 @@ void ExperimentValidator::calculate_acquire_resources(const experiment::AcquireA
             
         case experiment::AcquireAction::kHeaterCycles:
             total_heater_cycles_ += action.heater_cycles();
-            total_duration_ += action.heater_cycles() * 2.5;
+            total_duration_ += action.heater_cycles() * get_heater_cycle_duration_s();
             break;
             
         case experiment::AcquireAction::kStability:
-            total_duration_ += action.stability().window_s();
+            // 稳态模式：无法准确估算，使用 max_duration_s × 0.5 作为乐观估计
+            total_duration_ += action.max_duration_s() * 0.5;
             break;
             
         default:
@@ -550,8 +552,8 @@ void ExperimentValidator::calculate_wash_resources(const experiment::WashAction&
     // 3. 清洗后排废
     current_liquid_level_ = 0;
     
-    // 时长估算: (注入超时 + 排废超时) * 重复次数
-    double single_cycle = action.fill_timeout_s() + action.drain_timeout_s();
+    // 时长估算: 每次循环 = 排废确认空瓶 + 注入清洗液 + 排废清洗液
+    double single_cycle = action.drain_timeout_s() + action.fill_timeout_s() + action.drain_timeout_s();
     total_duration_ += single_cycle * action.repeat_count();
 }
 
@@ -561,9 +563,12 @@ void ExperimentValidator::calculate_preheat_resources(const experiment::PreheatA
         // 固定时间模式
         total_duration_ += action.duration_s();
     } else if (action.has_cycles()) {
-        // 加热器循环模式 - 假设每个周期约 7 秒 (10个温度点 * 140ms * 5)
-        total_duration_ += action.cycles() * 7.0;
+        // 加热器循环模式 - 从数据库加热器配置精确计算
+        total_duration_ += action.cycles() * get_heater_cycle_duration_s();
         total_heater_cycles_ += action.cycles();
+    } else if (action.has_stability()) {
+        // 稳态检测模式 - 无法准确估算，使用 max_duration_s 的一半作为乐观估计
+        total_duration_ += action.max_duration_s() * 0.5;
     } else {
         // 使用最大时间
         total_duration_ += action.max_duration_s();
@@ -759,6 +764,71 @@ double ExperimentValidator::get_inject_volume(const experiment::InjectAction& ac
 const experiment::LiquidInventory* ExperimentValidator::find_liquid(const std::string& liquid_id) {
     auto it = liquid_map_.find(liquid_id);
     return (it != liquid_map_.end()) ? it->second : nullptr;
+}
+
+void ExperimentValidator::update_heater_config(const experiment::ConfigureHeaterAction& action) {
+    // 从 ConfigureHeater 动作中提取加热器配置，计算精确的单周期时长
+    // 取第一个 config（通常所有传感器使用相同配置）
+    if (action.configs_size() == 0) return;
+    
+    const auto& config = action.configs(0);
+    
+    std::vector<int32_t> durs;
+    
+    if (config.temps_size() > 0 && config.durs_size() > 0) {
+        // 自定义曲线，直接使用 durs
+        durs.assign(config.durs().begin(), config.durs().end());
+    } else if (!config.profile_name().empty()) {
+        // 从数据库加载预设
+        db::SensorRepository sensor_repo;
+        auto profile = sensor_repo.get_heater_profile_by_name(config.profile_name());
+        if (profile) {
+            durs.assign(profile->durs.begin(), profile->durs.end());
+            spdlog::debug("从数据库加载加热器预设 '{}': {} 步", 
+                         config.profile_name(), durs.size());
+        } else {
+            spdlog::warn("未找到加热器预设 '{}', 使用估算值", config.profile_name());
+        }
+    }
+    
+    if (!durs.empty()) {
+        // 精确计算: sum(durs) × 140ms
+        double total_ms = 0;
+        for (auto d : durs) {
+            total_ms += d * 140.0;
+        }
+        current_heater_cycle_duration_s_ = total_ms / 1000.0;
+        spdlog::info("加热器单周期精确时长: {:.2f}s ({}步, sum_durs={})", 
+                    current_heater_cycle_duration_s_, durs.size(),
+                    std::accumulate(durs.begin(), durs.end(), 0));
+    }
+}
+
+double ExperimentValidator::get_heater_cycle_duration_s() const {
+    if (current_heater_cycle_duration_s_ > 0) {
+        return current_heater_cycle_duration_s_;
+    }
+    // 未配置加热器时的估算值 (10步 × 平均 ~2.6s = 26s)
+    return 26.0;
+}
+
+double ExperimentValidator::get_inject_max_pump_volume(const experiment::InjectAction& action) {
+    double volume = get_inject_volume(action);
+    
+    double total_ratio = 0;
+    for (const auto& comp : action.components()) {
+        total_ratio += comp.ratio();
+    }
+    if (total_ratio <= 0) return volume;
+    
+    // 多泵并行: 取最大单泵体积（与前端 compiler.ts 对齐）
+    double max_pump_volume = 0;
+    for (const auto& comp : action.components()) {
+        double comp_volume = volume * comp.ratio() / total_ratio;
+        max_pump_volume = std::max(max_pump_volume, comp_volume);
+    }
+    
+    return max_pump_volume > 0 ? max_pump_volume : volume;
 }
 
 void ExperimentValidator::cross_validate_compile_estimate() {

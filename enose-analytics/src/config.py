@@ -104,6 +104,16 @@ class QualityConfig(BaseModel):
     disabled_flags: list[str] = []
 
 
+class FrameBackfillConfig(BaseModel):
+    """帧自动回填配置"""
+
+    enabled: bool = True
+    n_samples: int = 100
+    methods: list[str] = ["linear", "pchip"]
+    poll_interval_s: int = 300
+    batch_size: int = 50
+
+
 class ModelConfig(BaseModel):
     """MLP 模型默认配置"""
 
@@ -142,6 +152,7 @@ class Settings(BaseSettings):
     redis: RedisConfig = RedisConfig()
     minio: MinioConfig = MinioConfig()
     quality: QualityConfig = QualityConfig()
+    frame_backfill: FrameBackfillConfig = FrameBackfillConfig()
     model: ModelConfig = ModelConfig()
     visualization: VisualizationConfig = VisualizationConfig()
     logging: LoggingConfig = LoggingConfig()

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode } from "react";
 
 // 运行记录
 export interface Run {
@@ -122,6 +122,8 @@ export interface ExperimentsState {
   
   // 选中项 - 唯一选择实体是样本
   selectedSampleIds: Set<number>;
+  // 所有选中样本的缓存数据（跨页保持）
+  allSelectedSamples: SampleWithFrameStatus[];
   // @deprecated 待移除，保留用于兼容
   selectedRunIds: Set<number>;
   
@@ -160,6 +162,8 @@ export interface ExperimentsState {
   toggleSampleSelection: (sampleId: number) => void;
   selectAllSamples: () => void;
   clearSampleSelection: () => void;
+  addSamplesToSelection: (sampleIds: number[]) => void;
+  removeSamplesFromSelection: (sampleIds: number[]) => void;
   // @deprecated
   selectAllRuns: () => void;
   clearRunSelection: () => void;
@@ -219,7 +223,45 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
   // 选中状态
   const [selectedRunIds, setSelectedRunIds] = useState<Set<number>>(new Set());
   const [selectedSampleIds, setSelectedSampleIds] = useState<Set<number>>(new Set());
+  // 跨页选中样本缓存：当样本被选中时缓存其数据，取消时移除
+  const [selectedSamplesCache, setSelectedSamplesCache] = useState<Map<number, SampleWithFrameStatus>>(new Map());
   
+  // 当前页样本变化时，将已选中的样本数据同步到缓存
+  useEffect(() => {
+    if (samples.length === 0) return;
+    setSelectedSamplesCache(prev => {
+      let changed = false;
+      const next = new Map(prev);
+      // 添加当前页中已选中的样本到缓存
+      for (const s of samples) {
+        if (selectedSampleIds.has(s.id) && !next.has(s.id)) {
+          next.set(s.id, s);
+          changed = true;
+        }
+      }
+      // 移除已不在选中集中的缓存
+      for (const id of next.keys()) {
+        if (!selectedSampleIds.has(id)) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [samples, selectedSampleIds]);
+
+  // 所有选中样本（缓存中的 + 当前页中新选的）
+  const allSelectedSamples = useMemo(() => {
+    const map = new Map(selectedSamplesCache);
+    // 确保当前页中已选中的样本也在结果中
+    for (const s of samples) {
+      if (selectedSampleIds.has(s.id)) {
+        map.set(s.id, s);
+      }
+    }
+    return Array.from(map.values());
+  }, [selectedSamplesCache, samples, selectedSampleIds]);
+
   // 对比模式
   const [comparisonMode, setComparisonMode] = useState(false);
   const [comparisonItems, setComparisonItems] = useState<ComparisonItem[]>([]);
@@ -294,6 +336,7 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
       const next = new Set(prev);
       if (next.has(sampleId)) {
         next.delete(sampleId);
+        setSelectedSamplesCache(c => { const m = new Map(c); m.delete(sampleId); return m; });
       } else {
         next.add(sampleId);
       }
@@ -301,14 +344,42 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
     });
   }, []);
   
-  // 全选样本
+  // 全选样本（并集：将当前页样本添加到已有选择）
   const selectAllSamples = useCallback(() => {
-    setSelectedSampleIds(new Set(samples.map(s => s.id)));
+    setSelectedSampleIds(prev => {
+      const next = new Set(prev);
+      samples.forEach(s => next.add(s.id));
+      return next;
+    });
   }, [samples]);
   
   // 清除样本选中
   const clearSampleSelection = useCallback(() => {
     setSelectedSampleIds(new Set());
+    setSelectedSamplesCache(new Map());
+  }, []);
+  
+  // 批量添加样本到选择
+  const addSamplesToSelection = useCallback((sampleIds: number[]) => {
+    setSelectedSampleIds(prev => {
+      const next = new Set(prev);
+      sampleIds.forEach(id => next.add(id));
+      return next;
+    });
+  }, []);
+  
+  // 批量移除样本从选择
+  const removeSamplesFromSelection = useCallback((sampleIds: number[]) => {
+    setSelectedSampleIds(prev => {
+      const next = new Set(prev);
+      sampleIds.forEach(id => next.delete(id));
+      return next;
+    });
+    setSelectedSamplesCache(prev => {
+      const next = new Map(prev);
+      sampleIds.forEach(id => next.delete(id));
+      return next;
+    });
   }, []);
   
   // @deprecated 全选运行
@@ -400,6 +471,7 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
     runSamplesLoading,
     selectedRunIds,
     selectedSampleIds,
+    allSelectedSamples,
     comparisonMode,
     comparisonItems,
     filters,
@@ -426,6 +498,8 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
     toggleSampleSelection,
     selectAllSamples,
     clearSampleSelection,
+    addSamplesToSelection,
+    removeSamplesFromSelection,
     selectAllRuns,
     clearRunSelection,
     toggleComparisonMode,

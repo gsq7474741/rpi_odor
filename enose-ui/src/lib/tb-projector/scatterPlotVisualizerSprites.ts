@@ -313,6 +313,8 @@ export class ScatterPlotVisualizerSprites implements ScatterPlotVisualizer {
     if (this.renderMaterial) {
       this.renderMaterial.uniforms.sizeAttenuation.value =
         rc.cameraType === CameraType.Perspective;
+      // Sync fog color with background for dark mode support
+      this.renderMaterial.uniforms.fogColor.value = new THREE.Color(rc.backgroundColor);
     }
 
     // Update colors if provided
@@ -341,6 +343,13 @@ export class ScatterPlotVisualizerSprites implements ScatterPlotVisualizer {
       if (this.pickingScaleFactors) {
         this.pickingScaleFactors.needsUpdate = true;
       }
+    }
+  }
+
+  onBackgroundColorChanged(color: number) {
+    if (this.renderMaterial) {
+      const c = new THREE.Color(color);
+      this.renderMaterial.uniforms.fogColor.value = c;
     }
   }
 

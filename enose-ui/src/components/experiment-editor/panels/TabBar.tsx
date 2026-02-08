@@ -78,25 +78,23 @@ function TabItem({
           {isDirty && (
             <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />
           )}
-          {tabCount > 1 && (
-            <button
-              className={cn(
-                'ml-auto w-4 h-4 rounded-sm flex items-center justify-center shrink-0',
-                'opacity-0 group-hover:opacity-100 hover:bg-muted-foreground/20 transition-opacity',
-                isActive && 'opacity-60'
-              )}
-              onClick={(e) => {
-                e.stopPropagation();
-                onClose();
-              }}
-            >
-              <X className="w-3 h-3" />
-            </button>
-          )}
+          <button
+            className={cn(
+              'ml-auto w-4 h-4 rounded-sm flex items-center justify-center shrink-0',
+              'opacity-0 group-hover:opacity-100 hover:bg-muted-foreground/20 transition-opacity',
+              isActive && 'opacity-60'
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
+          >
+            <X className="w-3 h-3" />
+          </button>
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent>
-        <ContextMenuItem onClick={onClose} disabled={tabCount <= 1}>
+        <ContextMenuItem onClick={onClose}>
           关闭
         </ContextMenuItem>
         <ContextMenuItem onClick={onCloseOthers} disabled={tabCount <= 1}>

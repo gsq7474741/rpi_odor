@@ -58,9 +58,25 @@ def serve() -> None:
     server.start()
     logger.info(f"gRPC server started on {address}")
 
+    # 启动后台帧回填任务
+    backfill_task = None
+    if settings.frame_backfill.enabled:
+        from .tasks import FrameBackfillTask
+        backfill_task = FrameBackfillTask(
+            n_samples=settings.frame_backfill.n_samples,
+            methods=settings.frame_backfill.methods,  # type: ignore
+            poll_interval_s=settings.frame_backfill.poll_interval_s,
+            batch_size=settings.frame_backfill.batch_size,
+        )
+        backfill_task.start()
+    else:
+        logger.info("帧自动回填任务已禁用")
+
     # 信号处理
     def shutdown(signum: int, frame: object) -> None:
         logger.info("Shutting down...")
+        if backfill_task:
+            backfill_task.stop()
         server.stop(grace=5)
         sys.exit(0)
 

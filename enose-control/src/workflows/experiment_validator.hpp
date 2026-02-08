@@ -2,6 +2,7 @@
 
 #include "enose_experiment.pb.h"
 #include "../db/consumable_repository.hpp"
+#include "../db/sensor_repository.hpp"
 #include <string>
 #include <vector>
 #include <map>
@@ -93,6 +94,7 @@ private:
     double peak_liquid_level_ = 0;            // 峰值液位
     double total_duration_ = 0;               // 累计时长
     int32_t total_heater_cycles_ = 0;         // 累计加热器循环
+    double current_heater_cycle_duration_s_ = 0; // 当前加热器单周期精确时长(秒)
     
     // 验证步骤
     void reset();
@@ -128,10 +130,15 @@ private:
     // 前后端估算对比
     void cross_validate_compile_estimate();
     
+    // 加热器配置跟踪
+    void update_heater_config(const experiment::ConfigureHeaterAction& action);
+    double get_heater_cycle_duration_s() const;
+    
     // 辅助函数
     void add_error(const std::string& path, const std::string& code, const std::string& message);
     void add_warning(const std::string& path, const std::string& code, const std::string& message);
     double get_inject_volume(const experiment::InjectAction& action);
+    double get_inject_max_pump_volume(const experiment::InjectAction& action);
     const experiment::LiquidInventory* find_liquid(const std::string& liquid_id);
 };
 

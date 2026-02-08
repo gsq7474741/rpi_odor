@@ -51,6 +51,12 @@ interface VisPoint {
   experimentId?: string;
   phase?: string;
   ts?: string;
+  paramsHash?: string;
+  liquidNames?: string[];
+  liquidRatios?: number[];
+  gasPumpPwm?: number;
+  totalVolumeMl?: number;
+  flowRateMlS?: number;
 }
 
 interface VisualizationResult {
@@ -63,7 +69,7 @@ interface VisualizationResult {
 }
 
 type VisType = "PCA" | "TSNE" | "UMAP";
-type ColorBy = "cluster" | "label" | "experiment" | "phase";
+type ColorBy = "cluster" | "label" | "experiment" | "phase" | "paramsHash";
 type ComputeMode = "frontend" | "backend";
 
 const MAX_FRONTEND_SAMPLES = 5000;
@@ -201,6 +207,12 @@ export function ProjectorTab() {
         label: (sample as { labelName?: string })?.labelName || undefined,
         experimentId: sample?.runId?.toString(),
         phase: sample?.phaseName || undefined,
+        paramsHash: sample?.paramsHash || undefined,
+        liquidNames: sample?.liquidNames || undefined,
+        liquidRatios: sample?.liquidRatios || undefined,
+        gasPumpPwm: sample?.gasPumpPwm,
+        totalVolumeMl: sample?.totalVolumeMl,
+        flowRateMlS: sample?.flowRateMlS,
       };
     });
 
@@ -555,6 +567,12 @@ export function ProjectorTab() {
       label: p.label,
       experimentId: p.experimentId,
       phase: p.phase,
+      paramsHash: p.paramsHash,
+      liquidNames: p.liquidNames,
+      liquidRatios: p.liquidRatios,
+      gasPumpPwm: p.gasPumpPwm,
+      totalVolumeMl: p.totalVolumeMl,
+      flowRateMlS: p.flowRateMlS,
     })) || []
   , [visResult?.points, is3D]);
 
@@ -707,6 +725,7 @@ export function ProjectorTab() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="cluster">聚类</SelectItem>
+                      <SelectItem value="paramsHash">参数哈希</SelectItem>
                       <SelectItem value="label">标签</SelectItem>
                       <SelectItem value="experiment">实验</SelectItem>
                       <SelectItem value="phase">阶段</SelectItem>

@@ -373,6 +373,11 @@ export function compiledStepToYamlStep(step: CompiledStep): YamlStep | null {
       // 预热模式
       if (params.mode === 'cycles') {
         preheat.cycles = Number(params.cycles ?? 5);
+      } else if (params.mode === 'stability') {
+        preheat.stability = {
+          window_s: Number(params.stabilityWindowS ?? 30),
+          threshold_percent: Number(params.stabilityThresholdPercent ?? 5),
+        };
       } else {
         preheat.duration_s = Number(params.durationS ?? 60);
       }
@@ -956,9 +961,11 @@ function stepToNodeData(step: YamlStep): { type: NodeType; data: Record<string, 
       type: NodeType.PREHEAT,
       data: {
         name: step.name,
-        mode: preheat.cycles ? 'cycles' : 'duration',
+        mode: preheat.cycles ? 'cycles' : preheat.stability ? 'stability' : 'duration',
         cycles: preheat.cycles,
         durationS: preheat.duration_s,
+        stabilityWindowS: (preheat.stability as Record<string, unknown>)?.window_s,
+        stabilityThresholdPercent: (preheat.stability as Record<string, unknown>)?.threshold_percent,
         maxDurationS: preheat.max_duration_s || 120,
         sensorIndices: preheat.sensor_indices || [],
         recordData: preheat.record_data ?? false,

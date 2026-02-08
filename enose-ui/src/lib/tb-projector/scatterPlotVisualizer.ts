@@ -31,6 +31,9 @@ export interface ScatterPlotVisualizer {
    */
   onRender(renderContext: RenderContext): void;
 
+  /** Called when the background color changes (for dark mode support). */
+  onBackgroundColorChanged?(color: number): void;
+
   /** Called to clean up any resources. */
   dispose(): void;
 }

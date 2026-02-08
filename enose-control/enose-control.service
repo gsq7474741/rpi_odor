@@ -12,6 +12,7 @@ ExecStart=/home/user/rpi_odor/enose-control/build/bin/enose-control
 Restart=on-failure
 RestartSec=5
 WatchdogSec=5
+TimeoutStopSec=10
 StandardOutput=journal
 StandardError=journal
 

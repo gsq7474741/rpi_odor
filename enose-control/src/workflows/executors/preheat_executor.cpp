@@ -1,4 +1,5 @@
 #include "preheat_executor.hpp"
+#include "workflows/stability_monitor.hpp"
 #include "enose_experiment.pb.h"
 #include <spdlog/spdlog.h>
 #include <nlohmann/json.hpp>
@@ -19,8 +20,8 @@ PreconditionResult PreheatExecutor::check_preconditions(
     const auto& action = step.preheat();
     
     // 检查必须指定预热模式
-    if (!action.has_cycles() && !action.has_duration_s()) {
-        return PreconditionResult::fail({"Preheat action must specify cycles or duration_s"});
+    if (!action.has_cycles() && !action.has_duration_s() && !action.has_stability()) {
+        return PreconditionResult::fail({"Preheat action must specify cycles, duration_s, or stability"});
     }
     
     // 检查最大时间
@@ -39,9 +40,10 @@ PreconditionResult PreheatExecutor::check_preconditions(
 ExecuteResult PreheatExecutor::execute(const enose::experiment::Step& step) {
     const auto& action = step.preheat();
     
+    const char* mode_str = action.has_cycles() ? "cycles" : 
+                           action.has_stability() ? "stability" : "duration";
     spdlog::info("PreheatExecutor: starting preheat, mode={}, max_duration={}s",
-                 action.has_cycles() ? "cycles" : "duration",
-                 action.max_duration_s());
+                 mode_str, action.max_duration_s());
     
     // 1. 设置气泵 PWM (如果指定)
     if (action.gas_pump_pwm() > 0) {
@@ -76,6 +78,11 @@ ExecuteResult PreheatExecutor::execute(const enose::experiment::Step& step) {
     try {
         if (action.has_cycles()) {
             wait_for_heater_cycles(action.cycles(), action.max_duration_s());
+        } else if (action.has_stability()) {
+            wait_for_stability(
+                action.stability().window_s(),
+                action.stability().threshold_percent(),
+                action.max_duration_s());
         } else if (action.has_duration_s()) {
             wait_for_duration(action.duration_s());
         }
@@ -100,8 +107,24 @@ double PreheatExecutor::estimate_duration(
     }
     
     if (action.has_cycles()) {
-        // 估算: 每个周期约 26 秒 (10步 × 平均2.6s/步)
-        return action.cycles() * 26.0;
+        // 从数据库查询当前活跃的加热器配置，精确计算周期时长
+        double cycle_duration = 26.0; // 默认估算值
+        if (sensor_repo_) {
+            auto assignment = sensor_repo_->get_active_assignment(0);
+            if (assignment && !assignment->durs_snapshot.empty()) {
+                double total_ms = 0;
+                for (auto d : assignment->durs_snapshot) {
+                    total_ms += d * 140.0;
+                }
+                cycle_duration = total_ms / 1000.0;
+            }
+        }
+        return action.cycles() * cycle_duration;
+    }
+    
+    if (action.has_stability()) {
+        // 稳态模式：无法准确估算，使用 max_duration_s 的一半作为乐观估计
+        return action.max_duration_s() * 0.5;
     }
     
     return action.max_duration_s();
@@ -133,12 +156,12 @@ void PreheatExecutor::wait_for_heater_cycles(int count, double timeout_s) {
     std::mutex cycle_mutex;
     std::condition_variable cycle_cv;
     
-    // 订阅传感器数据包
+    // 订阅传感器数据包 (固件字段: "gi" = heater step index)
     auto conn = sensor_->on_packet.connect([&](const nlohmann::json& packet) {
         if (!packet.contains("type") || packet["type"] != "data") return;
-        if (!packet.contains("heater_step")) return;
+        if (!packet.contains("gi")) return;
         
-        int current_step = packet["heater_step"].get<int>();
+        int current_step = packet["gi"].get<int>();
         
         std::lock_guard<std::mutex> lock(cycle_mutex);
         
@@ -181,6 +204,27 @@ void PreheatExecutor::wait_for_heater_cycles(int count, double timeout_s) {
     }
     
     spdlog::info("PreheatExecutor: all {} heater cycles completed", count);
+}
+
+void PreheatExecutor::wait_for_stability(double window_s, double threshold_percent, double timeout_s) {
+    if (!sensor_) {
+        spdlog::warn("PreheatExecutor: no sensor driver, using timeout for stability wait");
+        wait_for_duration(timeout_s);
+        return;
+    }
+    
+    StabilityMonitor::Config config{
+        .window_s = window_s,
+        .threshold_percent = threshold_percent,
+        .timeout_s = timeout_s,
+        .log_prefix = "PreheatExecutor"
+    };
+    
+    StabilityMonitor::wait_for_stability(
+        *sensor_, config,
+        [this]() { return check_stop_or_pause(); },
+        [this](const std::string& msg) { add_log(msg); }
+    );
 }
 
 } // namespace workflows

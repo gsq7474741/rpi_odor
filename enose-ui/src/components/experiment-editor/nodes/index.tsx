@@ -557,6 +557,10 @@ export const PreheatNode = memo(function PreheatNode(props: NodeProps) {
           <div className="text-muted-foreground">
             等待 {String(data.durationS ?? 60)} 秒
           </div>
+        ) : mode === 'stability' ? (
+          <div className="text-muted-foreground">
+            稳态 窗口{String(data.stabilityWindowS ?? 30)}s 阈值{String(data.stabilityThresholdPercent ?? 5)}%
+          </div>
         ) : (
           <div className="text-muted-foreground">
             等待 {String(data.cycles ?? 5)} 个周期

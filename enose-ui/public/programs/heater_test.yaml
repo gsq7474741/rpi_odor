@@ -62,7 +62,7 @@ steps:
       record_data: true
       gas_pump_pwm: 100
       duration_s: 10
-  - name: 进样
+  - name: '[循环 #1/5] 进样'
     phase_name: INJECT
     inject:
       components:
@@ -75,12 +75,112 @@ steps:
       flow_rate_ml_s: 3
       stable_timeout_s: 5
       target_volume_ml: 30
-  - name: 数据采集
+  - name: '[循环 #1/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
       gas_pump_pwm: 80
       duration_s: 30
-  - name: 排废
+  - name: '[循环 #1/5] 排废'
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 100
+      empty_tolerance_g: 10
+      stability_window_s: 2
+      timeout_s: 20
+  - name: '[循环 #2/5] 进样'
+    phase_name: INJECT
+    inject:
+      components:
+        - liquid_id: '43'
+          ratio: 0.8
+          is_solvent: true
+        - liquid_id: '19'
+          ratio: 0.2
+      tolerance: 0.53
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
+      target_volume_ml: 30
+  - name: '[循环 #2/5] 数据采集'
+    phase_name: ACQUIRE
+    acquire:
+      gas_pump_pwm: 80
+      duration_s: 30
+  - name: '[循环 #2/5] 排废'
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 100
+      empty_tolerance_g: 10
+      stability_window_s: 2
+      timeout_s: 20
+  - name: '[循环 #3/5] 进样'
+    phase_name: INJECT
+    inject:
+      components:
+        - liquid_id: '43'
+          ratio: 0.8
+          is_solvent: true
+        - liquid_id: '19'
+          ratio: 0.2
+      tolerance: 0.53
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
+      target_volume_ml: 30
+  - name: '[循环 #3/5] 数据采集'
+    phase_name: ACQUIRE
+    acquire:
+      gas_pump_pwm: 80
+      duration_s: 30
+  - name: '[循环 #3/5] 排废'
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 100
+      empty_tolerance_g: 10
+      stability_window_s: 2
+      timeout_s: 20
+  - name: '[循环 #4/5] 进样'
+    phase_name: INJECT
+    inject:
+      components:
+        - liquid_id: '43'
+          ratio: 0.8
+          is_solvent: true
+        - liquid_id: '19'
+          ratio: 0.2
+      tolerance: 0.53
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
+      target_volume_ml: 30
+  - name: '[循环 #4/5] 数据采集'
+    phase_name: ACQUIRE
+    acquire:
+      gas_pump_pwm: 80
+      duration_s: 30
+  - name: '[循环 #4/5] 排废'
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 100
+      empty_tolerance_g: 10
+      stability_window_s: 2
+      timeout_s: 20
+  - name: '[循环 #5/5] 进样'
+    phase_name: INJECT
+    inject:
+      components:
+        - liquid_id: '43'
+          ratio: 0.8
+          is_solvent: true
+        - liquid_id: '19'
+          ratio: 0.2
+      tolerance: 0.53
+      flow_rate_ml_s: 3
+      stable_timeout_s: 5
+      target_volume_ml: 30
+  - name: '[循环 #5/5] 数据采集'
+    phase_name: ACQUIRE
+    acquire:
+      gas_pump_pwm: 80
+      duration_s: 30
+  - name: '[循环 #5/5] 排废'
     phase_name: DRAIN
     drain:
       gas_pump_pwm: 100
@@ -88,35 +188,35 @@ steps:
       stability_window_s: 2
       timeout_s: 20
 _compile_estimate:
-  total_duration_s: 93
+  total_duration_s: 345
   peak_liquid_level_ml: 30
-  peak_liquid_level_ml_with_wash: 30
-  total_inject_ml: 30
-  total_drain_ml: 30
+  peak_liquid_level_ml_with_wash: 0
+  total_inject_ml: 150
+  total_drain_ml: 150
   total_wash_volume_ml: 0
   liquid_consumption:
     - liquid_id: '43'
       liquid_name: 自来水
       pump_index: 2
-      required_ml: 24
+      required_ml: 120
     - liquid_id: '19'
       liquid_name: 橙汁
       pump_index: 5
-      required_ml: 6
+      required_ml: 30
   pump_estimates:
     - pump_index: 2
-      volume_ml: 24
-      runtime_s: 10
+      volume_ml: 120
+      runtime_s: 50
     - pump_index: 5
-      volume_ml: 6
-      runtime_s: 10
+      volume_ml: 30
+      runtime_s: 50
 _editor_layout:
   nodes:
     - id: start
       type: start
       position:
-        x: 185
-        'y': -90
+        x: 126
+        'y': -93.5
       data:
         programId: new_experiment
         programName: 新实验
@@ -125,22 +225,22 @@ _editor_layout:
     - id: end
       type: end
       position:
-        x: 185
-        'y': 1046
+        x: 126
+        'y': 839.5
       data: {}
     - id: node_1
       type: hardwareConfig
       position:
-        x: -9
-        'y': -93.5
+        x: -68
+        'y': -97
       data:
         bottleCapacityMl: 150
         maxFillMl: 100
     - id: node_2
       type: drain
       position:
-        x: 185
-        'y': 45
+        x: 126
+        'y': 41.5
       data:
         name: 排废
         gasPumpPwm: 80
@@ -150,8 +250,8 @@ _editor_layout:
     - id: node_3
       type: preheat
       position:
-        x: 185
-        'y': 366
+        x: 126
+        'y': 362.5
       data:
         durationS: 10
         gasPumpPwm: 100
@@ -159,8 +259,8 @@ _editor_layout:
     - id: node_4
       type: configureHeater
       position:
-        x: 185
-        'y': 207
+        x: 126
+        'y': 203.5
       data:
         sensorProfiles:
           '0': constant_320
@@ -175,8 +275,8 @@ _editor_layout:
     - id: node_5
       type: inject
       position:
-        x: 185
-        'y': 525
+        x: -64.66666666666666
+        'y': 660.5
       data:
         name: 进样
         targetType: volume
@@ -187,8 +287,8 @@ _editor_layout:
     - id: node_6
       type: liquidSource
       position:
-        x: -9
-        'y': 479.5
+        x: -258.66666666666663
+        'y': 623
       data:
         liquidId: '43'
         liquidName: 自来水
@@ -198,8 +298,8 @@ _editor_layout:
     - id: node_7
       type: acquire
       position:
-        x: 185
-        'y': 722
+        x: 139.33333333333334
+        'y': 660.5
       data:
         name: 数据采集
         gasPumpPwm: 80
@@ -210,8 +310,8 @@ _editor_layout:
     - id: node_8
       type: drain
       position:
-        x: 185
-        'y': 884
+        x: 343.33333333333337
+        'y': 660.5
       data:
         name: 排废
         gasPumpPwm: 100
@@ -221,13 +321,20 @@ _editor_layout:
     - id: node_9
       type: liquidSource
       position:
-        x: -9
-        'y': 608.5
+        x: -258.66666666666663
+        'y': 735
       data:
         liquidId: '19'
         liquidName: 橙汁
         ratio: 0.2
         pumpIndex: -1
+    - id: node_10
+      type: loop
+      position:
+        x: 126
+        'y': 521.5
+      data:
+        count: 5
   edges:
     - id: xy-edge__node_1hardware-starthardware
       source: node_1
@@ -269,13 +376,23 @@ _editor_layout:
       target: node_5
       sourceHandle: liquid
       targetHandle: liquid
-    - id: xy-edge__node_3flow-node_5flow
+    - id: xy-edge__node_3flow-node_10flow
       source: node_3
-      target: node_5
+      target: node_10
       sourceHandle: flow
       targetHandle: flow
-    - id: xy-edge__node_8flow-endflow
+    - id: xy-edge__node_10loopBody-node_5flow
+      source: node_10
+      target: node_5
+      sourceHandle: loopBody
+      targetHandle: flow
+    - id: xy-edge__node_8flow-node_10loopBody
       source: node_8
+      target: node_10
+      sourceHandle: flow
+      targetHandle: loopBody
+    - id: xy-edge__node_10flow-endflow
+      source: node_10
       target: end
       sourceHandle: flow
       targetHandle: flow

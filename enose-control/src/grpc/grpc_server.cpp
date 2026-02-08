@@ -122,8 +122,12 @@ void GrpcServer::start(const std::string& address) {
 
 void GrpcServer::stop() {
     if (server_) {
-        spdlog::info("GrpcServer: Shutting down...");
-        server_->Shutdown();
+        spdlog::info("GrpcServer: Shutting down (5s deadline for in-flight RPCs)...");
+        // 带 deadline 的 Shutdown：给活跃的流式 RPC 5 秒时间完成，
+        // 超时后强制取消所有 context（使 IsCancelled() 返回 true）
+        auto deadline = std::chrono::system_clock::now() + std::chrono::seconds(5);
+        server_->Shutdown(deadline);
+        spdlog::info("GrpcServer: gRPC server shutdown complete");
     }
     
     if (server_thread_.joinable()) {

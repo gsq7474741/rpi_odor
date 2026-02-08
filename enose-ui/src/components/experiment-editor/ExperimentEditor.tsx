@@ -705,6 +705,7 @@ function EditorToolbar() {
             setDirty(false);
             resetHistory();
             addToRecentFiles(filename);
+            setTimeout(() => window.dispatchEvent(new CustomEvent('editor:fitView')), 100);
           }
         } catch (error) {
           console.error('加载文件失败:', error);
@@ -836,6 +837,7 @@ function EditorToolbar() {
         setCurrentFilename(null); // 导入的文件未保存到系统
         setDirty(true); // 标记为未保存
         resetHistory();
+        setTimeout(() => window.dispatchEvent(new CustomEvent('editor:fitView')), 100);
       } catch (error) {
         console.error('导入失败:', error);
         toast.error('导入失败', { description: error instanceof Error ? error.message : '未知错误' });
@@ -1034,6 +1036,7 @@ function EditorToolbar() {
         
         setShowLoadDialog(false);
         addToRecentFiles(filename);
+        setTimeout(() => window.dispatchEvent(new CustomEvent('editor:fitView')), 100);
       } else {
         toast.error('加载失败', { description: data.error || '未知错误' });
       }
@@ -1303,6 +1306,7 @@ function EditorToolbar() {
                         setCurrentFilename(null);
                         setDirty(false);
                         resetHistory();
+                        setTimeout(() => window.dispatchEvent(new CustomEvent('editor:fitView')), 100);
                       }}
                     >
                       <LayoutTemplate className="w-4 h-4 mr-2" />
@@ -1695,6 +1699,7 @@ function EditorToolbar() {
             setDirty(true);
             resetHistory();
             localStorage.removeItem('experiment-editor-draft');
+            setTimeout(() => window.dispatchEvent(new CustomEvent('editor:fitView')), 100);
           }
           setShowDraftDialog(false);
           setDraftData(null);
@@ -1756,7 +1761,6 @@ export function ExperimentEditor() {
   const [pendingCloseTabId, setPendingCloseTabId] = useState<string | null>(null);
   
   const handleCloseTab = useCallback((tabId: string, isDirty: boolean) => {
-    if (tabs.length <= 1) return;
     if (isDirty) {
       setPendingCloseTabId(tabId);
       setShowCloseTabDialog(true);

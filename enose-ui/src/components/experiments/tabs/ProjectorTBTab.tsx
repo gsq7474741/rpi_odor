@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useTheme } from "next-themes";
 import { useExperiments } from "../context/ExperimentsContext";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -51,6 +52,10 @@ const CLUSTER_COLORS = [
 
 export function ProjectorTBTab() {
   const { selectedSampleIds, samples, frameConfig } = useExperiments();
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+  const bgColor = useMemo(() => isDark ? 0x0a0a0b : 0xffffff, [isDark]);
+  const bgCss = isDark ? "rgb(10, 10, 11)" : "rgb(255, 255, 255)";
 
   const [loading, setLoading] = useState(false);
   const [visType, setVisType] = useState<VisType>("PCA");
@@ -102,6 +107,7 @@ export function ProjectorTBTab() {
         onClick: (pointIndices) => {
           // Handle click
         },
+        backgroundColor: bgColor,
       });
 
       const visualizer = new ScatterPlotVisualizerSprites();
@@ -128,6 +134,13 @@ export function ProjectorTBTab() {
       }
     };
   }, []);
+
+  // Handle theme change - update background color dynamically
+  useEffect(() => {
+    if (scatterPlotRef.current) {
+      scatterPlotRef.current.setBackgroundColor(bgColor);
+    }
+  }, [bgColor]);
 
   // Handle dimension change
   useEffect(() => {
@@ -493,7 +506,7 @@ export function ProjectorTBTab() {
           <div 
             ref={containerRef} 
             className="w-full h-full min-h-[400px]"
-            style={{ background: '#ffffff' }}
+            style={{ background: bgCss }}
           />
           {selectedSampleIds.size === 0 && (
             <div className="absolute inset-0 flex items-center justify-center bg-muted/50">

@@ -4,11 +4,13 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Play, Square, Pause, RotateCcw, Upload, CheckCircle, AlertCircle, Clock, X, Wifi, WifiOff, FileUp, Edit, MoreHorizontal, Eye, FolderOpen, Loader2 } from "lucide-react";
+import { Play, Square, Pause, RotateCcw, Upload, CheckCircle, AlertCircle, Clock, X, Wifi, WifiOff, FileUp, Edit, MoreHorizontal, Eye, FolderOpen, Loader2, Activity, Zap, ScatterChart } from "lucide-react";
+
 import Link from "next/link";
-import { ExperimentFlow, ExperimentProgram, parseYamlString } from "@/components/experiment-flow";
+import { ExperimentFlow, ExperimentProgram, parseYamlString, PumpStatusInfo } from "@/components/experiment-flow";
 import { SensorMonitor } from "@/components/sensor-monitor";
-import { QualityMonitor, QualityBadge, DataQualitySnapshot } from "@/components/quality-monitor";
+import { QualityMonitorInline, QualityBadge, DataQualitySnapshot } from "@/components/quality-monitor";
+import { LivePcaPanel } from "@/components/live-pca-panel";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable, DataTableColumnHeader } from "@/components/ui/data-table";
 import { ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
@@ -83,6 +85,19 @@ function formatElapsedTime(seconds: number): string {
   return `${m}:${sStr}`;
 }
 
+// 格式化预估时长为紧凑字符串
+function formatEstimateDuration(seconds: number): string {
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  if (seconds < 3600) {
+    const m = Math.floor(seconds / 60);
+    const s = Math.round(seconds % 60);
+    return s > 0 ? `${m}m${s}s` : `${m}m`;
+  }
+  const h = Math.floor(seconds / 3600);
+  const m = Math.round((seconds % 3600) / 60);
+  return m > 0 ? `${h}h${m}m` : `${h}h`;
+}
+
 const statusConfig: Record<ExperimentStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   idle: { label: "空闲", variant: "secondary" },
   loaded: { label: "已加载", variant: "outline" },
@@ -130,12 +145,15 @@ export default function RunPage() {
   });
 
   const [loadedProgram, setLoadedProgram] = useState<ExperimentProgram | null>(null);
+  const [previewProgram, setPreviewProgram] = useState<ExperimentProgram | null>(null);
   const [connected, setConnected] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [programs, setPrograms] = useState<ProgramInfo[]>([]);
   const [selectedProgram, setSelectedProgram] = useState<string | null>(null);
   const [uploadedYaml, setUploadedYaml] = useState<string | null>(null);
   const [quality, setQuality] = useState<DataQualitySnapshot | undefined>(undefined);
+  const [runId, setRunId] = useState<number | null>(null);
+  const [pumpStatus, setPumpStatus] = useState<PumpStatusInfo[]>([]);
   const fileInputRef = { current: null as HTMLInputElement | null };
   
   // 动态计时器状态
@@ -164,6 +182,54 @@ export default function RunPage() {
   useEffect(() => {
     fetchBuiltinPrograms().then(setPrograms);
   }, []);
+
+  // 查询泵绑定和余量（样品泵 + 清洗泵）
+  const fetchPumpStatus = useCallback(async () => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mapAssignment = (a: any, isWash: boolean): PumpStatusInfo => ({
+        pumpIndex: a.pumpIndex ?? a.pump_index ?? 0,
+        liquidId: a.liquidId ?? a.liquid_id,
+        liquidName: a.liquid?.name ?? a.liquidName ?? "",
+        initialVolumeMl: a.initialVolumeMl ?? a.initial_volume_ml ?? 0,
+        consumedVolumeMl: a.consumedVolumeMl ?? a.consumed_volume_ml ?? 0,
+        remainingVolumeMl: a.remainingVolumeMl ?? a.remaining_volume_ml ?? 0,
+        isLowVolume: a.isLowVolume ?? a.is_low_volume ?? false,
+        isWashPump: isWash,
+      });
+
+      const [pumpsRes, washRes] = await Promise.all([
+        fetch("/api/consumables?type=pumps"),
+        fetch("/api/consumables?type=wash-pumps"),
+      ]);
+
+      const all: PumpStatusInfo[] = [];
+      if (pumpsRes.ok) {
+        const data = await pumpsRes.json();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        all.push(...(data.assignments || []).map((a: any) => mapAssignment(a, false)));
+      }
+      if (washRes.ok) {
+        const data = await washRes.json();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        all.push(...(data.assignments || []).map((a: any) => mapAssignment(a, true)));
+      }
+      setPumpStatus(all);
+    } catch {
+      // 查询失败时不阻塞页面
+    }
+  }, []);
+
+  // 页面加载时查询一次泵余量；程序加载/预览变化时也刷新
+  useEffect(() => {
+    fetchPumpStatus();
+  }, [fetchPumpStatus]);
+
+  useEffect(() => {
+    if (loadedProgram?.compileEstimate || previewProgram?.compileEstimate) {
+      fetchPumpStatus();
+    }
+  }, [loadedProgram, previewProgram, fetchPumpStatus]);
 
   const addLog = useCallback((message: string) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -231,6 +297,13 @@ export default function RunPage() {
       // 同步计时器基准时间
       lastSyncTimeRef.current = status.elapsedS || 0;
       lastSyncLocalRef.current = Date.now();
+      
+      // 更新 runId
+      if (status.runId && status.runId > 0) {
+        setRunId(status.runId);
+      } else if (backendState === "idle") {
+        setRunId(null);
+      }
       
       // 更新质量数据
       if (status.quality) {
@@ -364,6 +437,7 @@ export default function RunPage() {
     // 解析 YAML 为前端程序对象
     const programData = parseYamlString(yamlContent);
     setLoadedProgram(programData);
+    setPreviewProgram(null);
 
     try {
       const result = await experimentApi("load", { yaml_content: yamlContent });
@@ -417,6 +491,7 @@ export default function RunPage() {
     try {
       await experimentApi("unload");
       setLoadedProgram(null);
+      setPreviewProgram(null);
       setExperiment({
         status: "idle",
         programName: "",
@@ -501,6 +576,7 @@ export default function RunPage() {
     }));
     setSelectedProgram(null);
     setLoadedProgram(null);
+    setPreviewProgram(null);
   };
 
   const handleUnload = async () => {
@@ -520,6 +596,7 @@ export default function RunPage() {
     });
     setSelectedProgram(null);
     setLoadedProgram(null);
+    setPreviewProgram(null);
     addLog("程序已卸载");
   };
 
@@ -558,11 +635,20 @@ export default function RunPage() {
     },
   ], []);
 
-  // 程序行点击处理
-  const handleProgramRowClick = useCallback((program: ProgramInfo) => {
+  // 程序行点击处理 - 单击即预览
+  const handleProgramRowClick = useCallback(async (program: ProgramInfo) => {
     if (experiment.status === "idle") {
       setSelectedProgram(program.filename);
       setUploadedYaml(null);
+      try {
+        const yaml = await fetchProgramYaml(program.filename);
+        const prog = parseYamlString(yaml);
+        if (prog) {
+          setPreviewProgram(prog);
+        }
+      } catch {
+        // 预览失败静默处理
+      }
     }
   }, [experiment.status]);
 
@@ -601,7 +687,8 @@ export default function RunPage() {
             const yaml = await fetchProgramYaml(program.filename);
             const prog = parseYamlString(yaml);
             if (prog) {
-              setLoadedProgram(prog);
+              setPreviewProgram(prog);
+              setSelectedProgram(program.filename);
             }
           }}
         >
@@ -612,198 +699,278 @@ export default function RunPage() {
     );
   }, [experiment.status, loadedProgram, programs]);
 
-  return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] p-3 sm:p-4 lg:p-6 gap-3 sm:gap-4">
-      {/* 顶部标题和控制栏 */}
-      <div className="flex flex-wrap items-center justify-between gap-2 flex-shrink-0">
-        <h1 className="text-xl sm:text-2xl font-bold">实验执行</h1>
-        <div className="flex items-center gap-2 sm:gap-4">
-          {/* 状态徽章 */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <Badge variant={statusConfig[experiment.status].variant} className="text-xs sm:text-sm">
-              {statusConfig[experiment.status].label}
-            </Badge>
-            {experiment.programName && (
-              <span className="text-xs sm:text-sm text-muted-foreground">
-                {experiment.currentStep} / {experiment.totalSteps} · {formatElapsedTime(displayTime)}
-              </span>
+  // 运行态判断
+  const isRunning = experiment.status === "running" || experiment.status === "pausing" || experiment.status === "paused";
+  const isActive = isRunning || experiment.status === "loaded" || experiment.status === "completed";
+
+  // 日志组件（共用）
+  const logPanel = (
+    <Card className="flex-shrink-0">
+      <CardHeader className="py-2 px-4">
+        <CardTitle className="text-xs font-medium text-muted-foreground">实验日志</CardTitle>
+      </CardHeader>
+      <CardContent className="px-4 pb-3 pt-0">
+        <div className="h-24 bg-muted/30 rounded-md p-2 font-mono text-[11px] leading-relaxed overflow-auto flex flex-col-reverse">
+          <div className="space-y-px">
+            {logs.length === 0 ? (
+              <div className="text-muted-foreground/60">等待操作...</div>
+            ) : (
+              logs.map((log, i) => (
+                <div key={i} className={
+                  log.includes("失败") || log.includes("错误") || log.includes("❌") ? "text-red-600" :
+                  log.includes("成功") || log.includes("启动") || log.includes("✅") ? "text-green-600" :
+                  log.includes("加载") || log.includes("阶段") ? "text-blue-600" :
+                  log.includes("⚠️") ? "text-yellow-600" :
+                  "text-muted-foreground"
+                }>
+                  {log}
+                </div>
+              ))
             )}
-            <QualityBadge quality={quality} />
           </div>
-          {/* 控制按钮 */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <Button onClick={handleStart} disabled={!canStart} size="sm">
-              <Play className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">开始</span>
-            </Button>
-            <Button onClick={canPause ? handlePause : handleResume} disabled={!canPause && !canResume && !isPausing} variant="outline" size="sm">
-              {isPausing ? <><Loader2 className="h-4 w-4 animate-spin sm:mr-1" /><span className="hidden sm:inline">暂停中</span></>
-                : canResume ? <><RotateCcw className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">继续</span></>
-                : <><Pause className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">暂停</span></>}
-            </Button>
-            <Button onClick={handleStop} disabled={!canStop} variant="destructive" size="sm">
-              <Square className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">停止</span>
-            </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  return (
+    <div className="flex flex-col h-[calc(100vh-4rem)] p-3 sm:p-4 lg:p-6 gap-3">
+      {/* ═══════════════ 顶部控制栏 ═══════════════ */}
+      <div className="flex flex-wrap items-center justify-between gap-2 flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-bold">实验执行</h1>
+          <Badge variant={statusConfig[experiment.status].variant}>
+            {statusConfig[experiment.status].label}
+          </Badge>
+          {experiment.programName && (
+            <span className="text-sm text-muted-foreground tabular-nums">
+              {experiment.currentStep}/{experiment.totalSteps} · {formatElapsedTime(displayTime)}
+            </span>
+          )}
+          <QualityBadge quality={quality} />
+        </div>
+        <div className="flex items-center gap-1.5">
+          {/* 连接状态 */}
+          <div className="flex items-center gap-1 text-xs mr-2">
+            {connected ? (
+              <><Wifi className="h-3.5 w-3.5 text-green-500" /><span className="text-green-600 hidden sm:inline">已连接</span></>
+            ) : (
+              <><WifiOff className="h-3.5 w-3.5 text-red-500" /><span className="text-red-600 hidden sm:inline">未连接</span></>
+            )}
           </div>
+          <Button onClick={handleStart} disabled={!canStart} size="sm">
+            <Play className="h-3.5 w-3.5 mr-1" />开始
+          </Button>
+          <Button onClick={canPause ? handlePause : handleResume} disabled={!canPause && !canResume && !isPausing} variant="outline" size="sm">
+            {isPausing ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />暂停中</>
+              : canResume ? <><RotateCcw className="h-3.5 w-3.5 mr-1" />继续</>
+              : <><Pause className="h-3.5 w-3.5 mr-1" />暂停</>}
+          </Button>
+          <Button onClick={handleStop} disabled={!canStop} variant="destructive" size="sm">
+            <Square className="h-3.5 w-3.5 mr-1" />停止
+          </Button>
         </div>
       </div>
 
-      {/* 进度条 */}
-      {experiment.totalSteps > 0 && (
-        <div className="h-2 bg-secondary rounded-full overflow-hidden flex-shrink-0">
-          <div
-            className="h-full bg-primary transition-all duration-300"
-            style={{ width: `${(experiment.currentStep / experiment.totalSteps) * 100}%` }}
-          />
-        </div>
-      )}
+      {/* ═══════════════ 进度条 ═══════════════ */}
+      <div className="h-1.5 bg-secondary rounded-full overflow-hidden flex-shrink-0">
+        <div
+          className="h-full bg-primary transition-all duration-300"
+          style={{ width: experiment.totalSteps > 0 ? `${(experiment.currentStep / experiment.totalSteps) * 100}%` : '0%' }}
+        />
+      </div>
 
-      {/* 主内容区域 */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 flex-1 min-h-0">
-        {/* 左侧：程序列表和日志 */}
-        <div className="flex flex-col gap-4 min-h-0">
-          {/* 程序列表 */}
-          <Card className="flex flex-col flex-1 min-h-0">
-            <CardHeader className="flex-shrink-0 pb-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg">实验程序</CardTitle>
-                  <CardDescription>选择要执行的实验程序，右键查看更多选项</CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  {/* 上传按钮 */}
-                  {experiment.status === "idle" && (
-                    <>
-                      <input
-                        type="file"
-                        accept=".yaml,.yml"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                        id="yaml-upload"
-                      />
-                      <label htmlFor="yaml-upload">
-                        <Button variant="outline" size="sm" asChild>
-                          <span><FileUp className="mr-1 h-4 w-4" />上传</span>
-                        </Button>
-                      </label>
-                    </>
-                  )}
-                  {/* 加载/卸载按钮 */}
-                  {experiment.status === "idle" ? (
-                    <Button
-                      onClick={handleLoadProgram}
-                      disabled={!selectedProgram && !uploadedYaml}
-                      size="sm"
-                    >
-                      <Upload className="mr-1 h-4 w-4" />加载
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={handleUnload}
-                      variant="outline"
-                      size="sm"
-                      disabled={experiment.status === "running" || experiment.status === "pausing" || experiment.status === "paused"}
-                    >
-                      <X className="mr-1 h-4 w-4" />卸载
+      {/* ═══════════════ 主内容区域 — 运行时3列，空闲2列 ═══════════════ */}
+      {isActive ? (
+        /* ━━━━━ 运行态: 流程 | 传感器 | 质量 ━━━━━ */
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,2.5fr)_minmax(0,1fr)] gap-3 flex-1 min-h-0">
+          
+          {/* 左列: 程序流程 + 日志 */}
+          <div className="flex flex-col min-h-0 gap-3">
+            <Card className="flex flex-col flex-1 min-h-0">
+              <CardHeader className="flex-shrink-0 py-2.5 px-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xs font-medium flex items-center gap-1.5">
+                    <Eye className="h-3.5 w-3.5" />
+                    {loadedProgram?.name || "程序流程"}
+                  </CardTitle>
+                  {(experiment.status === "loaded" || experiment.status === "completed") && (
+                    <Button onClick={handleUnloadProgram} variant="outline" size="sm">
+                      <X className="h-3.5 w-3.5 mr-1" />卸载
                     </Button>
                   )}
                 </div>
-              </div>
-              {uploadedYaml && (
-                <Badge variant="secondary" className="mt-2 w-fit">
-                  <FileUp className="mr-1 h-3 w-3" />已选择上传文件
-                </Badge>
-              )}
-            </CardHeader>
-            <CardContent className="flex-1 min-h-0 overflow-hidden">
-              <DataTable
-                columns={programColumns}
-                data={programs}
-                searchKey="name"
-                searchPlaceholder="搜索程序名称..."
-                onRowClick={handleProgramRowClick}
-                selectedRow={programs.find(p => p.filename === selectedProgram) || null}
-                getRowId={(row) => row.filename}
-                rowContextMenu={renderProgramContextMenu}
-              />
-            </CardContent>
-          </Card>
+                {loadedProgram && (
+                  <CardDescription className="text-[11px]">
+                    {experiment.currentStep}/{loadedProgram.steps.length} 步
+                    {loadedProgram.compileEstimate && (
+                      <> · 预计 {formatEstimateDuration(loadedProgram.compileEstimate.total_duration_s)}</>
+                    )}
+                    {experiment.status === "completed" && " · 已完成"}
+                  </CardDescription>
+                )}
+              </CardHeader>
+              <CardContent className="flex-1 min-h-0 overflow-y-auto px-3 pb-2">
+                {loadedProgram ? (
+                  <ExperimentFlow
+                    program={loadedProgram}
+                    currentStep={experiment.status === "running" ? experiment.currentStep : undefined}
+                    pumpStatus={pumpStatus}
+                  />
+                ) : (
+                  <div className="h-full flex items-center justify-center text-muted-foreground">
+                    <p className="text-xs">未加载程序</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            {logPanel}
+          </div>
 
-          {/* 数据质量监控 */}
-          {(experiment.status === "running" || experiment.status === "paused" || experiment.status === "pausing") && (
-            <QualityMonitor quality={quality} />
-          )}
-
-          {/* 实验日志 */}
-          <Card className="flex-shrink-0">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center justify-between">
-                实验日志
-                <div className="flex items-center gap-1 text-xs font-normal">
-                  {connected ? (
-                    <><Wifi className="h-3 w-3 text-green-500" /><span className="text-green-600">已连接</span></>
-                  ) : (
-                    <><WifiOff className="h-3 w-3 text-red-500" /><span className="text-red-600">未连接</span></>
-                  )}
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-32 bg-muted/50 rounded-lg p-2 font-mono text-xs overflow-auto flex flex-col-reverse">
-                <div className="space-y-0.5">
-                  {logs.length === 0 ? (
-                    <div className="text-muted-foreground">等待操作...</div>
-                  ) : (
-                    logs.map((log, i) => (
-                      <div key={i} className={
-                        log.includes("失败") || log.includes("错误") ? "text-red-600" :
-                        log.includes("成功") || log.includes("启动") ? "text-green-600" :
-                        log.includes("加载") ? "text-blue-600" :
-                        "text-muted-foreground"
-                      }>
-                        {log}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* 右侧：流程图 + 传感器监控 */}
-        <div className="flex flex-col gap-3 sm:gap-4 min-h-0">
-          <Card className="flex flex-col min-h-0 flex-1">
-            <CardHeader className="flex-shrink-0 pb-3">
-              <CardTitle className="text-base sm:text-lg">程序流程</CardTitle>
-              <CardDescription>
-                {loadedProgram ? `已加载: ${loadedProgram.name}` : "加载程序后显示流程图"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex-1 min-h-0 overflow-y-auto">
-              {loadedProgram ? (
-                <ExperimentFlow
-                  program={loadedProgram}
-                  currentStep={experiment.status === "running" ? experiment.currentStep : undefined}
+          {/* 中列: 实时PCA + 传感器监控 */}
+          <div className="flex flex-col min-h-0 gap-3">
+            {/* 实时 PCA 降维面板 */}
+            <Card className="flex flex-col min-h-0" style={{ flex: "0 0 45%" }}>
+              <CardHeader className="flex-shrink-0 py-2 px-4">
+                <CardTitle className="text-xs font-medium flex items-center gap-1.5">
+                  <ScatterChart className="h-3.5 w-3.5" />实时 PCA
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 min-h-0 px-4 pb-2 pt-0">
+                <LivePcaPanel runId={runId} active={isActive} experimentStatus={experiment.status} />
+              </CardContent>
+            </Card>
+            {/* 传感器监控 */}
+            <Card className="flex flex-col flex-1 min-h-0">
+              <CardHeader className="flex-shrink-0 py-2.5 px-4">
+                <CardTitle className="text-xs font-medium flex items-center gap-1.5">
+                  <Zap className="h-3.5 w-3.5" />传感器监控
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 min-h-0 overflow-y-auto px-4 pb-3">
+                <SensorMonitor
+                  active={true}
+                  defaultOpen={true}
+                  experimentRunning={isRunning}
+                  inline={true}
+                  runId={runId}
                 />
-              ) : (
-                <div className="h-full min-h-64 flex items-center justify-center text-muted-foreground border-2 border-dashed rounded-lg">
-                  <div className="text-center">
-                    <FolderOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                    <p>请先选择并加载实验程序</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 右列: 数据质量 */}
+          <div className="flex flex-col min-h-0">
+            <Card className="flex flex-col h-full">
+              <CardHeader className="flex-shrink-0 py-2.5 px-3">
+                <CardTitle className="text-xs font-medium flex items-center gap-1.5">
+                  <Activity className="h-3.5 w-3.5" />数据质量
+                  {quality && quality.activeAlertCount > 0 && (
+                    <Badge variant="destructive" className="text-[10px] h-4 min-w-4 px-1">
+                      {quality.activeAlertCount}
+                    </Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 min-h-0 overflow-y-auto px-3 pb-3">
+                {quality && quality.overallLevel > 0 ? (
+                  <QualityMonitorInline quality={quality} />
+                ) : (
+                  <div className="h-full flex items-center justify-center">
+                    <div className="text-center text-muted-foreground py-8">
+                      <Activity className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                      <p className="text-xs">等待数据...</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      ) : (
+        /* ━━━━━ 空闲态: 程序列表 | 流程预览 ━━━━━ */
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-3 flex-1 min-h-0">
+          
+          {/* 左列: 程序列表 + 日志 */}
+          <div className="flex flex-col min-h-0 gap-3">
+            <Card className="flex flex-col flex-1 min-h-0">
+              <CardHeader className="flex-shrink-0 py-3 px-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm">实验程序</CardTitle>
+                  <div className="flex items-center gap-1.5">
+                    <input type="file" accept=".yaml,.yml" onChange={handleFileUpload} className="hidden" id="yaml-upload" />
+                    <label htmlFor="yaml-upload">
+                      <Button variant="outline" size="sm" asChild>
+                        <span><FileUp className="mr-1 h-3.5 w-3.5" />上传</span>
+                      </Button>
+                    </label>
+                    <Button onClick={handleLoadProgram} disabled={!selectedProgram && !uploadedYaml} size="sm">
+                      <Upload className="mr-1 h-3.5 w-3.5" />加载
+                    </Button>
                   </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+                {uploadedYaml && (
+                  <Badge variant="secondary" className="mt-1.5 w-fit text-xs">
+                    <FileUp className="mr-1 h-3 w-3" />已选择上传文件
+                  </Badge>
+                )}
+              </CardHeader>
+              <CardContent className="flex-1 min-h-0 overflow-hidden px-4 pb-3">
+                <DataTable
+                  columns={programColumns}
+                  data={programs}
+                  searchKey="name"
+                  searchPlaceholder="搜索程序名称..."
+                  onRowClick={handleProgramRowClick}
+                  selectedRow={programs.find(p => p.filename === selectedProgram) || null}
+                  getRowId={(row) => row.filename}
+                  rowContextMenu={renderProgramContextMenu}
+                />
+              </CardContent>
+            </Card>
+            {logPanel}
+          </div>
 
-          {/* 传感器监控 */}
-          <SensorMonitor
-            active={true}
-            defaultOpen={experiment.status === "running"}
-            experimentRunning={experiment.status === "running" || experiment.status === "pausing"}
-          />
+          {/* 右列: 程序流程预览 */}
+          <div className="flex flex-col min-h-0">
+            <Card className="flex flex-col h-full">
+              <CardHeader className="flex-shrink-0 py-3 px-4">
+                <CardTitle className="text-sm">
+                  {(previewProgram || loadedProgram)?.name || "程序流程"}
+                </CardTitle>
+                {(previewProgram || loadedProgram) && (
+                  <CardDescription className="text-xs">
+                    {(previewProgram || loadedProgram)!.steps.length} 个步骤
+                    {(previewProgram || loadedProgram)!.compileEstimate && (
+                      <> · 预计 {formatEstimateDuration((previewProgram || loadedProgram)!.compileEstimate!.total_duration_s)}
+                        {(previewProgram || loadedProgram)!.compileEstimate!.total_inject_ml > 0 && (
+                          <> · 进样 {(previewProgram || loadedProgram)!.compileEstimate!.total_inject_ml.toFixed(0)} ml</>
+                        )}
+                      </>
+                    )}
+                  </CardDescription>
+                )}
+              </CardHeader>
+              <CardContent className="flex-1 min-h-0 overflow-y-auto px-4 pb-3">
+                {(previewProgram || loadedProgram) ? (
+                  <ExperimentFlow
+                    program={(previewProgram || loadedProgram)!}
+                    currentStep={undefined}
+                    pumpStatus={pumpStatus}
+                  />
+                ) : (
+                  <div className="h-full min-h-48 flex items-center justify-center text-muted-foreground border-2 border-dashed rounded-lg">
+                    <div className="text-center">
+                      <FolderOpen className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                      <p className="text-sm">点击左侧程序即可预览</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

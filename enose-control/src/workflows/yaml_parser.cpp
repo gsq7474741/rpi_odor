@@ -267,9 +267,22 @@ static bool parse_step(const YAML::Node& node, experiment::Step* step, std::stri
         auto* action = step->mutable_preheat();
         auto preheat = node["preheat"];
         
-        // 预热模式: cycles 或 duration_s (二选一)
+        // 预热模式: cycles / duration_s / stability (三选一)
         if (preheat["cycles"]) {
             action->set_cycles(preheat["cycles"].as<int>());
+        } else if (preheat["stability"]) {
+            auto stability = preheat["stability"];
+            auto* cond = action->mutable_stability();
+            if (stability["window_s"]) {
+                cond->set_window_s(stability["window_s"].as<double>());
+            } else {
+                cond->set_window_s(30.0);
+            }
+            if (stability["threshold_percent"]) {
+                cond->set_threshold_percent(stability["threshold_percent"].as<double>());
+            } else {
+                cond->set_threshold_percent(5.0);
+            }
         } else if (preheat["duration_s"]) {
             action->set_duration_s(preheat["duration_s"].as<double>());
         }

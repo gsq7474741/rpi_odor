@@ -420,9 +420,11 @@ export interface HardwareConfigNodeData {
 
 export interface PreheatNodeData {
   name: string;
-  mode: 'cycles' | 'duration';
+  mode: 'cycles' | 'duration' | 'stability';
   cycles?: number;
   durationS?: number;
+  stabilityWindowS?: number;
+  stabilityThresholdPercent?: number;
   maxDurationS: number;
   sensorIndices: number[];
   recordData: boolean;
