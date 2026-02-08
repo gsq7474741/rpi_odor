@@ -39,9 +39,6 @@ htmlcov/
 # mypy
 .mypy_cache/
 
-# Generated protobuf
-src/generated/
-
 # Logs
 *.log
 
