@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     const response = await generateNormalizedFrames({
       runId,
       phaseNames: phaseNames || [],
-      nSamples: nSamples || 100,
+      nSamples: nSamples || 50,
       methods: methods || ["linear", "pchip"],
     });
 

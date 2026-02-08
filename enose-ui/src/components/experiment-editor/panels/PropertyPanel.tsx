@@ -233,8 +233,8 @@ export function PropertyPanel() {
   const boundVariables = (data.boundVariables || {}) as Record<string, string>;
 
   return (
-    <div className="h-full bg-muted/30 border-l overflow-y-auto">
-      <div className="p-3 border-b flex items-center justify-between">
+    <div className="h-full bg-muted/30 border-l flex flex-col">
+      <div className="p-3 border-b flex items-center justify-between shrink-0">
         <h3 className="font-semibold text-sm">{meta.label}</h3>
         {nodeType !== NodeType.START && nodeType !== NodeType.END && (
           <Button
@@ -247,7 +247,7 @@ export function PropertyPanel() {
           </Button>
         )}
       </div>
-      <div className="p-3 space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-4">
         {renderFields()}
         
         {/* 扫描变量绑定区域 */}

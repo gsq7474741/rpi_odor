@@ -26,9 +26,15 @@ interface VisualizationPoint {
   label?: string;
   experimentId?: string;
   phase?: string;
+  paramsHash?: string;
+  liquidNames?: string[];
+  liquidRatios?: number[];
+  gasPumpPwm?: number;
+  totalVolumeMl?: number;
+  flowRateMlS?: number;
 }
 
-type ColorBy = "cluster" | "label" | "experiment" | "phase";
+type ColorBy = "cluster" | "label" | "experiment" | "phase" | "paramsHash";
 
 interface ScatterGLPanelProps {
   points: VisualizationPoint[];
@@ -47,15 +53,43 @@ const CLUSTER_COLORS = [
   "#ea7ccc", "#48b8d0", "#ff9f7f", "#87ceeb",
 ];
 
-// 简单的字符串哈希函数
-function hashString(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
+// HSL → hex string
+function hslToHex(h: number, s: number, l: number): string {
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => {
+    const k = (n + h * 12) % 12;
+    return l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+  };
+  const toHex = (v: number) => Math.round(v * 255).toString(16).padStart(2, "0");
+  return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`;
+}
+
+// Build a color map: unique values → maximally separated hex colors via golden angle
+function buildColorMapHex(
+  points: VisualizationPoint[],
+  colorBy: string
+): Map<string, string> {
+  const unique = new Set<string>();
+  for (const p of points) {
+    let val = "";
+    switch (colorBy) {
+      case "label":      val = p.label || ""; break;
+      case "experiment":  val = p.experimentId || ""; break;
+      case "phase":       val = p.phase || ""; break;
+      case "paramsHash":  val = p.paramsHash || ""; break;
+    }
+    if (val) unique.add(val);
   }
-  return hash;
+  const sorted = Array.from(unique).sort();
+  const map = new Map<string, string>();
+  const goldenAngle = 137.508 / 360; // ≈ 0.38197
+  for (let i = 0; i < sorted.length; i++) {
+    const hue = (i * goldenAngle) % 1.0;
+    const sat = 0.60 + (i % 3) * 0.10; // 0.60, 0.70, 0.80
+    const lit = 0.48 + (i % 2) * 0.08; // 0.48, 0.56
+    map.set(sorted[i], hslToHex(hue, sat, lit));
+  }
+  return map;
 }
 
 interface ScatterGLModule {
@@ -204,26 +238,24 @@ export function ScatterGLPanel({
     });
 
     // 设置点颜色 - 根据 colorBy 决定染色方式
+    const colorMap = colorBy !== "cluster" ? buildColorMapHex(points, colorBy) : null;
     scatter.setPointColorer((i: number) => {
       const point = points[i];
       if (!point) return CLUSTER_COLORS[0];
       
-      let colorIndex = 0;
-      switch (colorBy) {
-        case "cluster":
-          colorIndex = point.cluster ?? 0;
-          break;
-        case "label":
-          colorIndex = point.label ? hashString(point.label) : 0;
-          break;
-        case "experiment":
-          colorIndex = point.experimentId ? hashString(point.experimentId) : 0;
-          break;
-        case "phase":
-          colorIndex = point.phase ? hashString(point.phase) : 0;
-          break;
+      if (colorBy === "cluster") {
+        const colorIndex = point.cluster ?? 0;
+        return CLUSTER_COLORS[Math.abs(colorIndex) % CLUSTER_COLORS.length];
       }
-      return CLUSTER_COLORS[Math.abs(colorIndex) % CLUSTER_COLORS.length];
+
+      let val = "";
+      switch (colorBy) {
+        case "label":      val = point.label || ""; break;
+        case "experiment":  val = point.experimentId || ""; break;
+        case "phase":       val = point.phase || ""; break;
+        case "paramsHash":  val = point.paramsHash || ""; break;
+      }
+      return (val && colorMap?.get(val)) || CLUSTER_COLORS[0];
     });
 
     // 渲染

@@ -1,5 +1,7 @@
 """归一化帧生成模块 - 将异步传感器数据重采样为固定长度帧"""
 
+import threading
+import time
 from typing import Literal
 
 import numpy as np
@@ -15,21 +17,43 @@ InterpolationMethod = Literal["linear", "pchip"]
 
 # 全局 Redis 缓存实例（懒加载）
 _frame_cache: FrameCache | None = None
+_frame_cache_last_fail: float = 0.0  # 上次连接失败的时间戳
+_FRAME_CACHE_RETRY_INTERVAL = 60.0  # 失败后 60 秒内不重试
+
+# 并发请求去重锁 (防止 thundering herd)
+_inflight_locks: dict[str, threading.Lock] = {}
+_inflight_meta_lock = threading.Lock()  # 保护 _inflight_locks 字典本身
+
+
+def _get_inflight_lock(key: str) -> threading.Lock:
+    """获取指定 key 的去重锁（线程安全）"""
+    with _inflight_meta_lock:
+        if key not in _inflight_locks:
+            _inflight_locks[key] = threading.Lock()
+        return _inflight_locks[key]
 
 
 def get_frame_cache() -> FrameCache | None:
-    """获取或创建 Redis 缓存实例"""
-    global _frame_cache
-    if _frame_cache is None:
-        try:
-            _frame_cache = FrameCache()
-            if not _frame_cache.health_check():
-                logger.warning("Redis 健康检查失败，禁用缓存")
-                _frame_cache = None
-        except Exception as e:
-            logger.warning(f"Redis 连接失败，禁用缓存: {e}")
-            _frame_cache = None
-    return _frame_cache
+    """获取或创建 Redis 缓存实例（带失败退避）"""
+    global _frame_cache, _frame_cache_last_fail
+    if _frame_cache is not None:
+        return _frame_cache
+    # 退避：距上次失败不足 60 秒则跳过
+    if time.time() - _frame_cache_last_fail < _FRAME_CACHE_RETRY_INTERVAL:
+        return None
+    try:
+        cache = FrameCache()
+        if not cache.health_check():
+            logger.warning("Redis 健康检查失败，禁用缓存 (%.0fs 后重试)", _FRAME_CACHE_RETRY_INTERVAL)
+            _frame_cache_last_fail = time.time()
+            return None
+        _frame_cache = cache
+        logger.info("Redis 缓存已连接")
+        return _frame_cache
+    except Exception as e:
+        logger.warning(f"Redis 连接失败，禁用缓存 ({_FRAME_CACHE_RETRY_INTERVAL:.0f}s 后重试): {e}")
+        _frame_cache_last_fail = time.time()
+        return None
 
 
 class FrameNormalizer:
@@ -740,6 +764,57 @@ class FrameNormalizer:
 
         return results
 
+    def _try_read_from_cache(
+        self,
+        sample_id: int,
+        method: InterpolationMethod,
+        n_samples: int,
+        n_channels: int,
+        redis_cache: FrameCache | None,
+    ) -> tuple[np.ndarray | None, bool, str]:
+        """尝试从 Redis / DB 读取缓存，返回 (frames, from_cache, source)"""
+        # 1. 尝试从 Redis 读取
+        if redis_cache:
+            cached = redis_cache.get(sample_id, method, n_samples)
+            if cached is not None and cached.shape == (n_samples, n_channels):
+                return cached, True, "redis"
+            elif cached is not None:
+                logger.info(f"缓存 STALE (redis {cached.shape}): sample={sample_id}, 需重新生成")
+                redis_cache.delete(sample_id, method, n_samples)
+
+        # 2. 尝试从数据库读取
+        query = """
+            SELECT frame_idx, mox_readings
+            FROM normalized_frames
+            WHERE sample_id = %s AND method = %s AND n_samples = %s
+            ORDER BY frame_idx
+        """
+        with get_cursor() as cur:
+            cur.execute(query, [sample_id, method, n_samples])
+            rows = cur.fetchall()
+
+        if rows and len(rows) == n_samples:
+            first_readings = rows[0]["mox_readings"]
+            actual_channels = len(first_readings) if isinstance(first_readings, list) else 0
+
+            if actual_channels == n_channels:
+                frames = np.zeros((n_samples, n_channels))
+                for row in rows:
+                    idx = row["frame_idx"]
+                    readings = row["mox_readings"]
+                    if isinstance(readings, list) and len(readings) == n_channels:
+                        frames[idx] = readings
+
+                # 回填 Redis
+                if redis_cache:
+                    redis_cache.set(sample_id, method, n_samples, frames)
+
+                return frames, True, "db"
+            else:
+                logger.info(f"缓存 STALE (db {actual_channels}ch): sample={sample_id}, 需重新生成")
+
+        return None, False, "miss"
+
     def get_normalized_frames_by_sample(
         self,
         sample_id: int,
@@ -750,6 +825,7 @@ class FrameNormalizer:
         """获取或生成归一化帧（基于 sample_id 的新接口）
         
         缓存优先级: Redis -> PostgreSQL -> 重新生成
+        使用 per-key 锁防止并发 thundering herd
         
         新版本输出 (n_samples, 32)：每传感器 4 通道 (value, temp, humidity, pressure)
         旧缓存 (n_samples, 8) 会被自动重新生成为 32 通道版本
@@ -765,20 +841,46 @@ class FrameNormalizer:
         """
         n_channels = 32  # 8 sensors × 4 channels
         redis_cache = get_frame_cache()
-        
-        # 1. 尝试从 Redis 读取
-        if use_cache and redis_cache:
-            cached = redis_cache.get(sample_id, method, n_samples)
-            if cached is not None and cached.shape == (n_samples, n_channels):
-                logger.debug(f"Redis HIT (32ch): sample_id={sample_id}, method={method}")
-                return cached, True
-            elif cached is not None:
-                # 旧格式缓存，清除并重新生成
-                logger.info(f"Redis cache outdated ({cached.shape}), regenerating: sample_id={sample_id}")
-                redis_cache.delete(sample_id, method, n_samples)
-        
-        # 2. 尝试从数据库读取
+        cache_key = f"{sample_id}:{method}:{n_samples}"
+
+        # ── 快速路径: 无锁读缓存 ──
         if use_cache:
+            frames, from_cache, source = self._try_read_from_cache(
+                sample_id, method, n_samples, n_channels, redis_cache
+            )
+            if frames is not None:
+                logger.info(f"缓存 HIT ({source}): sample={sample_id}, {method}/{n_samples}")
+                return frames, from_cache
+
+        # ── 慢路径: 加锁生成, 防止并发重复计算 ──
+        lock = _get_inflight_lock(cache_key)
+        acquired = lock.acquire(timeout=120)  # 最多等 2 分钟
+        if not acquired:
+            logger.warning(f"缓存锁超时: sample={sample_id}, {method}/{n_samples}")
+            return None, False
+
+        try:
+            # double-check: 可能其他线程已经生成完毕
+            if use_cache:
+                frames, from_cache, source = self._try_read_from_cache(
+                    sample_id, method, n_samples, n_channels, redis_cache
+                )
+                if frames is not None:
+                    logger.info(f"缓存 HIT ({source}, after lock): sample={sample_id}, {method}/{n_samples}")
+                    return frames, from_cache
+
+            # 3. 生成新数据 (32 通道)
+            logger.info(f"缓存 MISS → 生成: sample={sample_id}, {method}/{n_samples}")
+            result = self.save_normalized_frames_by_sample(
+                sample_id=sample_id,
+                n_samples=n_samples,
+                methods=[method],
+            )
+
+            if result.get(method, 0) == 0:
+                return None, False
+
+            # 重新读取生成的数据
             query = """
                 SELECT frame_idx, mox_readings
                 FROM normalized_frames
@@ -789,65 +891,24 @@ class FrameNormalizer:
                 cur.execute(query, [sample_id, method, n_samples])
                 rows = cur.fetchall()
 
-            if rows and len(rows) == n_samples:
-                first_readings = rows[0]["mox_readings"]
-                actual_channels = len(first_readings) if isinstance(first_readings, list) else 0
-                
-                if actual_channels == n_channels:
-                    # 32 通道数据，正常读取
-                    frames = np.zeros((n_samples, n_channels))
-                    for row in rows:
-                        idx = row["frame_idx"]
-                        readings = row["mox_readings"]
-                        if isinstance(readings, list) and len(readings) == n_channels:
-                            frames[idx] = readings
-                    
-                    if redis_cache:
-                        redis_cache.set(sample_id, method, n_samples, frames)
-                        logger.debug(f"Redis SET (from DB 32ch): sample_id={sample_id}")
-                    
-                    return frames, True
-                else:
-                    # 旧格式 (8ch)，需要重新生成
-                    logger.info(f"DB cache outdated ({actual_channels}ch), regenerating: sample_id={sample_id}")
+            if not rows or len(rows) != n_samples:
+                return None, False
 
-        # 3. 生成新数据 (32 通道)
-        result = self.save_normalized_frames_by_sample(
-            sample_id=sample_id,
-            n_samples=n_samples,
-            methods=[method],
-        )
-        
-        if result.get(method, 0) == 0:
-            return None, False
-        
-        # 重新读取生成的数据
-        query = """
-            SELECT frame_idx, mox_readings
-            FROM normalized_frames
-            WHERE sample_id = %s AND method = %s AND n_samples = %s
-            ORDER BY frame_idx
-        """
-        with get_cursor() as cur:
-            cur.execute(query, [sample_id, method, n_samples])
-            rows = cur.fetchall()
+            frames = np.zeros((n_samples, n_channels))
+            for row in rows:
+                idx = row["frame_idx"]
+                readings = row["mox_readings"]
+                if isinstance(readings, list) and len(readings) == n_channels:
+                    frames[idx] = readings
 
-        if not rows or len(rows) != n_samples:
-            return None, False
+            # 写入 Redis 缓存
+            if redis_cache:
+                redis_cache.set(sample_id, method, n_samples, frames)
+                logger.info(f"缓存 SET (redis): sample={sample_id}, {method}/{n_samples}")
 
-        frames = np.zeros((n_samples, n_channels))
-        for row in rows:
-            idx = row["frame_idx"]
-            readings = row["mox_readings"]
-            if isinstance(readings, list) and len(readings) == n_channels:
-                frames[idx] = readings
-
-        # 写入 Redis 缓存
-        if redis_cache:
-            redis_cache.set(sample_id, method, n_samples, frames)
-            logger.debug(f"Redis SET (new 32ch): sample_id={sample_id}")
-
-        return frames, False
+            return frames, False
+        finally:
+            lock.release()
 
     def get_normalized_frames_status_by_sample(
         self,

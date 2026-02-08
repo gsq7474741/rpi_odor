@@ -108,7 +108,7 @@ class FrameBackfillConfig(BaseModel):
     """帧自动回填配置"""
 
     enabled: bool = True
-    n_samples: int = 100
+    n_samples: int = 50
     methods: list[str] = ["linear", "pchip"]
     poll_interval_s: int = 300
     batch_size: int = 50

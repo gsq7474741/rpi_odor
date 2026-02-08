@@ -270,7 +270,7 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
   
   // 数据帧使用配置
-  const [frameConfig, setFrameConfigState] = useState<FrameConfig>({ method: "linear", nSamples: 100 });
+  const [frameConfig, setFrameConfigState] = useState<FrameConfig>({ method: "linear", nSamples: 50 });
   const setFrameConfig = useCallback((partial: Partial<FrameConfig>) => {
     setFrameConfigState(prev => ({ ...prev, ...partial }));
   }, []);

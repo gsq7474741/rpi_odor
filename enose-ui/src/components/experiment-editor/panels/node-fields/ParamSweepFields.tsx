@@ -196,7 +196,7 @@ export function ParamSweepFields({ data, handleChange, nodes }: ParamSweepFields
                 </div>
                 
                 {ratioSweepPoints.length > 0 && (
-                  <div className="max-h-48 overflow-y-auto space-y-1">
+                  <div className="space-y-1">
                     {ratioSweepPoints.map((point, pointIdx) => {
                       const total = Object.values(point.ratios).reduce((sum, v) => sum + v, 0);
                       const isValid = Math.abs(total - 100) < 0.1;

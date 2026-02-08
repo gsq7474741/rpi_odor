@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       includeMlLabels: body.includeMlLabels ?? false,
       includeDataset: body.includeDataset ?? false,
       frameMethod: body.frameMethod || "linear",
-      frameNSamples: body.frameNSamples || 100,
+      frameNSamples: body.frameNSamples || 50,
       frameFormat: body.frameFormat || "npz",
       mlLabelConfigs: body.mlLabelConfigs || [],
       datasetLabelConfig: body.datasetLabelConfig || "",

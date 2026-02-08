@@ -54,13 +54,42 @@ const CLUSTER_COLORS: [number, number, number][] = [
   [0.53, 0.81, 0.92], // #87ceeb
 ];
 
-function hashString(str: string): number {
-  let hash = 5381;
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) + hash) + str.charCodeAt(i);
-    hash = hash >>> 0; // Convert to unsigned 32-bit integer
+// HSL → RGB (all values 0-1)
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => {
+    const k = (n + h * 12) % 12;
+    return l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+  };
+  return [f(0), f(8), f(4)];
+}
+
+// Build a color map: unique values → maximally separated RGB colors via golden angle
+function buildColorMapRGB(
+  points: VisualizationPoint[],
+  colorBy: string
+): Map<string, [number, number, number]> {
+  const unique = new Set<string>();
+  for (const p of points) {
+    let val = "";
+    switch (colorBy) {
+      case "label":      val = p.label || ""; break;
+      case "experiment":  val = p.experimentId || ""; break;
+      case "phase":       val = p.phase || ""; break;
+      case "paramsHash":  val = p.paramsHash || ""; break;
+    }
+    if (val) unique.add(val);
   }
-  return hash;
+  const sorted = Array.from(unique).sort();
+  const map = new Map<string, [number, number, number]>();
+  const goldenAngle = 137.508 / 360; // ≈ 0.38197
+  for (let i = 0; i < sorted.length; i++) {
+    const hue = (i * goldenAngle) % 1.0;
+    const sat = 0.60 + (i % 3) * 0.10; // 0.60, 0.70, 0.80
+    const lit = 0.48 + (i % 2) * 0.08; // 0.48, 0.56
+    map.set(sorted[i], hslToRgb(hue, sat, lit));
+  }
+  return map;
 }
 
 // CSS hex colors for legend display
@@ -226,6 +255,9 @@ export function ScatterPlotPanel({
     const colors = new Float32Array(points.length * 3);
     const scaleFactors = new Float32Array(points.length);
 
+    // Build color map for non-cluster modes (recalculated each time points/colorBy changes)
+    const colorMap = colorBy !== "cluster" ? buildColorMapRGB(points, colorBy) : null;
+
     for (let i = 0; i < points.length; i++) {
       const p = points[i];
       positions[i * 3] = ((p.x - minX) / maxRange) * 2 - 1;
@@ -235,25 +267,20 @@ export function ScatterPlotPanel({
         : 0;
 
       // Determine color based on colorBy
-      let colorIndex = 0;
-      switch (colorBy) {
-        case "cluster":
-          colorIndex = p.cluster ?? 0;
-          break;
-        case "label":
-          colorIndex = p.label ? hashString(p.label) : 0;
-          break;
-        case "experiment":
-          colorIndex = p.experimentId ? hashString(p.experimentId) : 0;
-          break;
-        case "phase":
-          colorIndex = p.phase ? hashString(p.phase) : 0;
-          break;
-        case "paramsHash":
-          colorIndex = p.paramsHash ? hashString(p.paramsHash) : 0;
-          break;
+      let color: [number, number, number];
+      if (colorBy === "cluster") {
+        const colorIndex = p.cluster ?? 0;
+        color = CLUSTER_COLORS[Math.abs(colorIndex) % CLUSTER_COLORS.length];
+      } else {
+        let val = "";
+        switch (colorBy) {
+          case "label":      val = p.label || ""; break;
+          case "experiment":  val = p.experimentId || ""; break;
+          case "phase":       val = p.phase || ""; break;
+          case "paramsHash":  val = p.paramsHash || ""; break;
+        }
+        color = (val && colorMap?.get(val)) || CLUSTER_COLORS[0];
       }
-      const color = CLUSTER_COLORS[Math.abs(colorIndex) % CLUSTER_COLORS.length];
       colors[i * 3] = color[0];
       colors[i * 3 + 1] = color[1];
       colors[i * 3 + 2] = color[2];

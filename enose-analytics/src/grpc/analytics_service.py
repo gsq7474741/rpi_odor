@@ -136,7 +136,7 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
             # 优先使用 sample_ids 进行样本级降维（每个 sample 一个点）
             if sample_ids:
                 logger.info(f"Using sample-based visualization with {len(sample_ids)} samples")
-                n_samples_per_frame = 100  # 每个样本的帧数
+                n_samples_per_frame = 50  # 每个样本的帧数
                 
                 for sid in sample_ids[:max_points]:  # 限制最大样本数
                     frames, _ = self._frame_normalizer.get_normalized_frames_by_sample(
@@ -181,7 +181,7 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
                         frames, _ = self._frame_normalizer.get_normalized_frames_by_sample(
                             sample_id=sid,
                             method="linear",
-                            n_samples=100,
+                            n_samples=50,
                             use_cache=True,
                         )
                         
@@ -408,7 +408,7 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
         logger.info(f"GenerateNormalizedFrames: run_id={request.run_id}")
 
         try:
-            n_samples = request.n_samples if request.n_samples > 0 else 100
+            n_samples = request.n_samples if request.n_samples > 0 else 50
             methods = list(request.methods) if request.methods else ["linear", "pchip"]
             phase_names = list(request.phase_names) if request.phase_names else None
 
@@ -520,7 +520,7 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
         logger.info(f"GenerateSampleFrames: sample_id={request.sample_id}")
 
         try:
-            n_samples = request.n_samples if request.n_samples > 0 else 100
+            n_samples = request.n_samples if request.n_samples > 0 else 50
             methods = list(request.methods) if request.methods else ["linear", "pchip"]
             use_cache = request.use_cache if request.HasField("use_cache") else True
 
@@ -560,7 +560,7 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
     ) -> pb.BatchGenerateSampleFramesResponse:
         """批量生成样本帧（减少网络往返）"""
         sample_ids = list(request.sample_ids)
-        n_samples = request.n_samples if request.n_samples > 0 else 100
+        n_samples = request.n_samples if request.n_samples > 0 else 50
         methods = list(request.methods) if request.methods else ["linear", "pchip"]
         use_cache = request.use_cache if request.HasField("use_cache") else True
 
@@ -623,10 +623,11 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
         context: grpc.ServicerContext,
     ) -> pb.GetSampleFramesResponse:
         """获取指定 sample 的归一化帧数据"""
-        logger.info(f"GetSampleFrames: sample_id={request.sample_id}, method={request.method}")
+        import time as _time
+        t0 = _time.monotonic()
 
         try:
-            n_samples = request.n_samples if request.n_samples > 0 else 100
+            n_samples = request.n_samples if request.n_samples > 0 else 50
             method = request.method if request.method else "linear"
             use_cache = request.use_cache if request.HasField("use_cache") else True
 
@@ -637,7 +638,13 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
                 use_cache=use_cache,
             )
 
+            elapsed_ms = (_time.monotonic() - t0) * 1000
+
             if frames is None:
+                logger.info(
+                    f"GetSampleFrames: sample={request.sample_id}, "
+                    f"{method}/{n_samples} → EMPTY ({elapsed_ms:.0f}ms)"
+                )
                 return pb.GetSampleFramesResponse(
                     success=False,
                     frames=[],
@@ -650,6 +657,11 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
             # 展平为一维数组传输
             flat_frames = frames.flatten().tolist()
             n_sensors = frames.shape[1] if len(frames.shape) > 1 else 8
+
+            logger.info(
+                f"GetSampleFrames: sample={request.sample_id}, "
+                f"{method}/{n_samples} → {'cached' if from_cache else 'generated'} ({elapsed_ms:.0f}ms)"
+            )
 
             return pb.GetSampleFramesResponse(
                 success=True,

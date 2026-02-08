@@ -193,7 +193,7 @@ export async function POST(request: NextRequest) {
 
     switch (action) {
       case "generate-frames": {
-        const { runIds, nSamples = 100, methods = ["linear"] } = body;
+        const { runIds, nSamples = 50, methods = ["linear"] } = body;
         
         if (!runIds || !Array.isArray(runIds) || runIds.length === 0) {
           return NextResponse.json(

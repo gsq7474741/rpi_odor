@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
     if (action === "generateBatch" && sampleIds && Array.isArray(sampleIds)) {
       const response = await generateBatchSampleFrames({
         sampleIds: sampleIds.map((id: number | string) => typeof id === 'string' ? parseInt(id) : id),
-        nSamples: nSamples || 100,
+        nSamples: nSamples || 50,
         methods: body.methods || ["linear", "pchip"],
         useCache: useCache !== false,
       });
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
     if (action === "get") {
       const response = await getSampleFrames({
         sampleId,
-        nSamples: nSamples || 100,
+        nSamples: nSamples || 50,
         method: method || "linear",
         useCache: useCache !== false,
       });
@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
     // 默认: 生成归一化帧
     const response = await generateSampleFrames({
       sampleId,
-      nSamples: nSamples || 100,
+      nSamples: nSamples || 50,
       methods: body.methods || ["linear", "pchip"],
       useCache: useCache !== false,
     });
