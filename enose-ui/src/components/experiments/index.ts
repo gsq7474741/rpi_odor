@@ -12,4 +12,4 @@ export type {
 
 export { FilterPanel, RunTree, SampleTable, SelectionBar } from "./sidebar";
 export { FilterBar } from "./FilterBar";
-export { OverviewTab, TimeSeriesTab, ProjectorTab, CompareTab, TrainingTab } from "./tabs";
+export { OverviewTab, TimeSeriesTab, ProjectorTab, CompareTab, TrainingTab, CoverageTab, ModelTrainingTab } from "./tabs";

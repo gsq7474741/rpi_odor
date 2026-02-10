@@ -54,6 +54,20 @@ import { ModelInfo } from "./enose_analytics";
 import { GetModelRequest } from "./enose_analytics";
 import { ListModelsResponse } from "./enose_analytics";
 import { ListModelsRequest } from "./enose_analytics";
+import { GetTrainingEvaluationResponse } from "./enose_analytics";
+import { GetTrainingEvaluationRequest } from "./enose_analytics";
+import { GetTrainingJobProgressResponse } from "./enose_analytics";
+import { GetTrainingJobProgressRequest } from "./enose_analytics";
+import { TrainingProgressUpdate } from "./enose_analytics";
+import { StreamTrainingProgressRequest } from "./enose_analytics";
+import { DeleteTrainingJobRequest } from "./enose_analytics";
+import { CancelTrainingRequest } from "./enose_analytics";
+import { ListTrainingJobsResponse } from "./enose_analytics";
+import { ListTrainingJobsRequest } from "./enose_analytics";
+import { TrainingJobInfo } from "./enose_analytics";
+import { GetTrainingJobRequest } from "./enose_analytics";
+import { StartTrainingResponse } from "./enose_analytics";
+import { StartTrainingRequest } from "./enose_analytics";
 import { TrainProgress } from "./enose_analytics";
 import { TrainModelRequest } from "./enose_analytics";
 import { GetSampleFramesResponse } from "./enose_analytics";
@@ -294,7 +308,7 @@ export const analyticsServiceDefinition: grpc.ServiceDefinition<IAnalyticsServic
     }
 };
 // ============================================================================
-// Model Service - MLP 模型训练与推理
+// Model Service - 多模型训练与推理
 // ============================================================================
 
 /**
@@ -302,11 +316,59 @@ export const analyticsServiceDefinition: grpc.ServiceDefinition<IAnalyticsServic
  */
 export interface IModelService extends grpc.UntypedServiceImplementation {
     /**
-     * 训练模型
+     * (legacy) 训练模型
      *
      * @generated from protobuf rpc: TrainModel
      */
     trainModel: grpc.handleServerStreamingCall<TrainModelRequest, TrainProgress>;
+    /**
+     * 启动训练任务（异步，立即返回 job_id）
+     *
+     * @generated from protobuf rpc: StartTraining
+     */
+    startTraining: grpc.handleUnaryCall<StartTrainingRequest, StartTrainingResponse>;
+    /**
+     * 获取训练任务状态
+     *
+     * @generated from protobuf rpc: GetTrainingJob
+     */
+    getTrainingJob: grpc.handleUnaryCall<GetTrainingJobRequest, TrainingJobInfo>;
+    /**
+     * 列出训练任务
+     *
+     * @generated from protobuf rpc: ListTrainingJobs
+     */
+    listTrainingJobs: grpc.handleUnaryCall<ListTrainingJobsRequest, ListTrainingJobsResponse>;
+    /**
+     * 取消训练任务
+     *
+     * @generated from protobuf rpc: CancelTraining
+     */
+    cancelTraining: grpc.handleUnaryCall<CancelTrainingRequest, Empty>;
+    /**
+     * 删除训练任务（含关联的进度、评估记录）
+     *
+     * @generated from protobuf rpc: DeleteTrainingJob
+     */
+    deleteTrainingJob: grpc.handleUnaryCall<DeleteTrainingJobRequest, Empty>;
+    /**
+     * 流式获取训练进度
+     *
+     * @generated from protobuf rpc: StreamTrainingProgress
+     */
+    streamTrainingProgress: grpc.handleServerStreamingCall<StreamTrainingProgressRequest, TrainingProgressUpdate>;
+    /**
+     * 获取训练进度历史（用于查看已完成任务的训练曲线）
+     *
+     * @generated from protobuf rpc: GetTrainingJobProgress
+     */
+    getTrainingJobProgress: grpc.handleUnaryCall<GetTrainingJobProgressRequest, GetTrainingJobProgressResponse>;
+    /**
+     * 获取训练评估详情
+     *
+     * @generated from protobuf rpc: GetTrainingEvaluation
+     */
+    getTrainingEvaluation: grpc.handleUnaryCall<GetTrainingEvaluationRequest, GetTrainingEvaluationResponse>;
     /**
      * 列出已训练模型
      *
@@ -365,6 +427,86 @@ export const modelServiceDefinition: grpc.ServiceDefinition<IModelService> = {
         requestDeserialize: bytes => TrainModelRequest.fromBinary(bytes),
         responseSerialize: value => Buffer.from(TrainProgress.toBinary(value)),
         requestSerialize: value => Buffer.from(TrainModelRequest.toBinary(value))
+    },
+    startTraining: {
+        path: "/enose.analytics.v1.ModelService/StartTraining",
+        originalName: "StartTraining",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => StartTrainingResponse.fromBinary(bytes),
+        requestDeserialize: bytes => StartTrainingRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(StartTrainingResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(StartTrainingRequest.toBinary(value))
+    },
+    getTrainingJob: {
+        path: "/enose.analytics.v1.ModelService/GetTrainingJob",
+        originalName: "GetTrainingJob",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => TrainingJobInfo.fromBinary(bytes),
+        requestDeserialize: bytes => GetTrainingJobRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(TrainingJobInfo.toBinary(value)),
+        requestSerialize: value => Buffer.from(GetTrainingJobRequest.toBinary(value))
+    },
+    listTrainingJobs: {
+        path: "/enose.analytics.v1.ModelService/ListTrainingJobs",
+        originalName: "ListTrainingJobs",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => ListTrainingJobsResponse.fromBinary(bytes),
+        requestDeserialize: bytes => ListTrainingJobsRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(ListTrainingJobsResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(ListTrainingJobsRequest.toBinary(value))
+    },
+    cancelTraining: {
+        path: "/enose.analytics.v1.ModelService/CancelTraining",
+        originalName: "CancelTraining",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => Empty.fromBinary(bytes),
+        requestDeserialize: bytes => CancelTrainingRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(Empty.toBinary(value)),
+        requestSerialize: value => Buffer.from(CancelTrainingRequest.toBinary(value))
+    },
+    deleteTrainingJob: {
+        path: "/enose.analytics.v1.ModelService/DeleteTrainingJob",
+        originalName: "DeleteTrainingJob",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => Empty.fromBinary(bytes),
+        requestDeserialize: bytes => DeleteTrainingJobRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(Empty.toBinary(value)),
+        requestSerialize: value => Buffer.from(DeleteTrainingJobRequest.toBinary(value))
+    },
+    streamTrainingProgress: {
+        path: "/enose.analytics.v1.ModelService/StreamTrainingProgress",
+        originalName: "StreamTrainingProgress",
+        requestStream: false,
+        responseStream: true,
+        responseDeserialize: bytes => TrainingProgressUpdate.fromBinary(bytes),
+        requestDeserialize: bytes => StreamTrainingProgressRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(TrainingProgressUpdate.toBinary(value)),
+        requestSerialize: value => Buffer.from(StreamTrainingProgressRequest.toBinary(value))
+    },
+    getTrainingJobProgress: {
+        path: "/enose.analytics.v1.ModelService/GetTrainingJobProgress",
+        originalName: "GetTrainingJobProgress",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => GetTrainingJobProgressResponse.fromBinary(bytes),
+        requestDeserialize: bytes => GetTrainingJobProgressRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(GetTrainingJobProgressResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(GetTrainingJobProgressRequest.toBinary(value))
+    },
+    getTrainingEvaluation: {
+        path: "/enose.analytics.v1.ModelService/GetTrainingEvaluation",
+        originalName: "GetTrainingEvaluation",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => GetTrainingEvaluationResponse.fromBinary(bytes),
+        requestDeserialize: bytes => GetTrainingEvaluationRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(GetTrainingEvaluationResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(GetTrainingEvaluationRequest.toBinary(value))
     },
     listModels: {
         path: "/enose.analytics.v1.ModelService/ListModels",

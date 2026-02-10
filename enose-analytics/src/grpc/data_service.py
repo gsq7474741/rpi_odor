@@ -24,6 +24,23 @@ class DataServiceServicer(pb_grpc.DataServiceServicer):
         context: grpc.ServicerContext,
     ) -> pb.ListExperimentsResponse:
         """列出实验"""
+        # 轻量模式：仅返回 run ID + sample count（用于筛选下拉框）
+        ids_only = request.HasField("label_id") and request.label_id == "__ids_only__"
+
+        if ids_only:
+            logger.info("ListExperiments: ids_only mode (light query)")
+            runs = self.repo.list_run_ids_light()
+            response = pb.ListExperimentsResponse(total=len(runs))
+            for run in runs:
+                response.experiments.append(
+                    pb.ExperimentSummary(
+                        experiment_id=run["experiment_id"],
+                        sample_count=run["sample_count"],
+                        status="completed",
+                    )
+                )
+            return response
+
         logger.info(f"ListExperiments: limit={request.limit}, offset={request.offset}")
 
         start_time = None

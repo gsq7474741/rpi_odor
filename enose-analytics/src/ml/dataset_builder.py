@@ -12,6 +12,7 @@ from typing import Any
 
 import numpy as np
 
+from ..db.frame_normalizer import FrameNormalizer
 from ..db.ml_label_repository import MLLabelRepository
 from ..db.sample_reader import SampleReader
 from ..logger import logger
@@ -25,12 +26,14 @@ class DatasetBuilder:
         self.label_repo = MLLabelRepository()
         self.sample_reader = SampleReader()
         self.feature_extractor = FeatureExtractor()
+        self.frame_normalizer = FrameNormalizer()
 
     def build_classification_dataset(
         self,
         config_name: str,
         run_ids: list[int] | None = None,
         phase_names: list[str] | None = None,
+        sample_ids: list[int] | None = None,
         n_samples: int = 100,
         method: str = "linear",
         train_ratio: float = 0.7,
@@ -53,6 +56,7 @@ class DatasetBuilder:
             config_name=config_name,
             run_ids=run_ids,
             phase_names=phase_names,
+            sample_ids=sample_ids,
         )
         if not labels:
             logger.warning(f"No labels found for config '{config_name}'")
@@ -96,6 +100,7 @@ class DatasetBuilder:
         config_name: str,
         run_ids: list[int] | None = None,
         phase_names: list[str] | None = None,
+        sample_ids: list[int] | None = None,
         n_samples: int = 100,
         method: str = "linear",
         train_ratio: float = 0.7,
@@ -117,6 +122,7 @@ class DatasetBuilder:
             config_name=config_name,
             run_ids=run_ids,
             phase_names=phase_names,
+            sample_ids=sample_ids,
         )
         if not labels:
             return {}
@@ -253,49 +259,58 @@ class DatasetBuilder:
     def _extract_sample_features(
         self, sample_id: int, n_samples: int, method: str
     ) -> np.ndarray | None:
-        """提取单个样本的聚合特征向量"""
-        try:
-            from ..cache.redis_cache import get_cached_frames
-            frames = get_cached_frames(sample_id, method, n_samples)
-            if frames is not None:
-                return self._aggregate_frames(frames, n_samples)
-        except Exception:
-            pass
+        """提取单个样本的聚合特征向量
 
-        # 回退: 从数据库获取传感器数据并手动提取
+        使用 FrameNormalizer 的三级缓存（Redis → DB → 重新生成）
+        """
+        try:
+            frames, _from_cache = self.frame_normalizer.get_normalized_frames_by_sample(
+                sample_id=sample_id,
+                method=method,
+                n_samples=n_samples,
+            )
+            if frames is not None:
+                return self._aggregate_frames(frames)
+        except Exception as e:
+            logger.warning(f"FrameNormalizer failed for sample {sample_id}: {e}")
+
+        # 回退: 从数据库获取传感器原始数据
         try:
             df = self.sample_reader.get_sample_sensor_data(sample_id)
             if df.empty:
                 return None
-            # 简单聚合: 每个传感器的 mean/std/min/max
             features = []
             for sensor_idx in range(8):
                 sensor_data = df[df["sensor_idx"] == sensor_idx]["value"]
                 if len(sensor_data) == 0:
-                    features.extend([0, 0, 0, 0])
+                    features.extend([0, 0, 0, 0, 0, 0])
                 else:
+                    col = sensor_data.values
                     features.extend([
-                        float(sensor_data.mean()),
-                        float(sensor_data.std()),
-                        float(sensor_data.min()),
-                        float(sensor_data.max()),
+                        float(col.mean()), float(col.std()),
+                        float(col.min()), float(col.max()),
+                        float(col[-1] - col[0]),
+                        float(np.trapezoid(col)),
                     ])
             return np.array(features, dtype=np.float32)
         except Exception as e:
             logger.debug(f"Feature extraction failed for sample {sample_id}: {e}")
             return None
 
-    def _aggregate_frames(self, frames: list[float], n_samples: int) -> np.ndarray:
-        """从归一化帧中聚合特征"""
-        n_sensors = 8
-        arr = np.array(frames, dtype=np.float32).reshape(n_samples, n_sensors)
+    def _aggregate_frames(self, frames: np.ndarray) -> np.ndarray:
+        """从归一化帧中聚合特征
+
+        Args:
+            frames: (n_samples, n_channels) — 支持 8ch（旧）和 32ch（新）
+        """
+        n_channels = frames.shape[1]
         features = []
-        for ch in range(n_sensors):
-            col = arr[:, ch]
+        for ch in range(n_channels):
+            col = frames[:, ch].astype(np.float32)
             features.extend([
                 col.mean(), col.std(), col.min(), col.max(),
                 col[-1] - col[0],  # 斜率近似
-                np.trapz(col),     # 曲线下面积
+                np.trapezoid(col),     # 曲线下面积
             ])
         return np.array(features, dtype=np.float32)
 

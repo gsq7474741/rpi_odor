@@ -205,7 +205,7 @@ export function PropertyPanel() {
       case NodeType.PARAM_SWEEP:
         return <ParamSweepFields {...commonProps} nodes={nodes} />;
       case NodeType.ACQUIRE:
-        return <AcquireNodeFields {...commonProps} />;
+        return <AcquireNodeFields {...commonProps} nodeId={selectedNode.id} nodes={nodes} edges={edges} />;
       case NodeType.WAIT_TIME:
         return <WaitTimeFields {...commonProps} />;
       case NodeType.WAIT_CYCLES:
@@ -219,7 +219,7 @@ export function PropertyPanel() {
       case NodeType.HARDWARE_CONFIG:
         return <HardwareConfigFields {...commonProps} />;
       case NodeType.PREHEAT:
-        return <PreheatNodeFields {...commonProps} />;
+        return <PreheatNodeFields {...commonProps} nodeId={selectedNode.id} nodes={nodes} edges={edges} />;
       case NodeType.CONFIGURE_HEATER:
         return <ConfigureHeaterFields {...commonProps} />;
       case NodeType.END:

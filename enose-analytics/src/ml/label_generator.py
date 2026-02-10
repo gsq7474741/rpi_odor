@@ -145,7 +145,7 @@ class LabelGenerator:
             return {"label_str": "unknown"}
         if len(liquids) == 1:
             return {"label_str": liquids[0].get("name", "unknown")}
-        parts = sorted(liquids, key=lambda l: -(l.get("ratio", 0)))
+        parts = sorted(liquids, key=lambda l: (-l.get("ratio", 0), l.get("name", "")))
         label = " + ".join(l.get("name", "?") for l in parts)
         return {"label_str": label}
 

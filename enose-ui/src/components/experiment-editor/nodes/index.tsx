@@ -411,6 +411,7 @@ export const ParamSweepNode = memo(function ParamSweepNode(props: NodeProps) {
         )}
         <div className="text-pink-500 font-medium">
           ⟳ {iterations} 次迭代
+          {Boolean(data.randomize) && <span className="ml-1 text-[10px]">🔀</span>}
         </div>
         {hasLoopBody ? (
           <div className="text-amber-500 text-[10px]">

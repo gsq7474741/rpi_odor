@@ -206,6 +206,8 @@ const getDefaultNodeData = (type: NodeType): Record<string, unknown> => {
         endValue: 30,
         stepValue: 5,
         seqMode: 'linear',
+        randomize: false,     // 随机化执行顺序
+        shuffledOrder: [],    // 随机排列索引
         ratioSweepPoints: [], // 比例扫描点列表
         linkedLiquidIds: [],  // 关联的液体源
       };

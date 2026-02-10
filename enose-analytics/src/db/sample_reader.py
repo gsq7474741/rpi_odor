@@ -34,7 +34,12 @@ class SampleReader:
                 termination_type, termination_value, max_duration_s,
                 heater_configs, pre_wash_count, pre_wash_volume_ml, wash_liquid_id,
                 phase_name, avg_temperature_c, avg_humidity_pct, avg_pressure_hpa,
-                params_json, created_at
+                params_json, created_at,
+                reagent_batch_id, reagent_prep_date,
+                prev_sample_id, samples_since_wash, sensor_hours_at_sample,
+                is_anchor, is_blank, experiment_phase,
+                sequence_block, randomization_seed, wash_residual_response,
+                quality_score, quality_level
             FROM samples
             WHERE 1=1
         """
@@ -73,7 +78,12 @@ class SampleReader:
                 termination_type, termination_value, max_duration_s,
                 heater_configs, pre_wash_count, pre_wash_volume_ml, wash_liquid_id,
                 phase_name, avg_temperature_c, avg_humidity_pct, avg_pressure_hpa,
-                params_json, created_at
+                params_json, created_at,
+                reagent_batch_id, reagent_prep_date,
+                prev_sample_id, samples_since_wash, sensor_hours_at_sample,
+                is_anchor, is_blank, experiment_phase,
+                sequence_block, randomization_seed, wash_residual_response,
+                quality_score, quality_level
             FROM samples
             WHERE id = %s
         """
@@ -434,4 +444,18 @@ class SampleReader:
             "avg_humidity_pct": row.get("avg_humidity_pct"),
             "avg_pressure_hpa": row.get("avg_pressure_hpa"),
             "created_at": row.get("created_at"),
+            # 组合实验元数据 (0016)
+            "reagent_batch_id": row.get("reagent_batch_id"),
+            "reagent_prep_date": str(row["reagent_prep_date"]) if row.get("reagent_prep_date") else None,
+            "prev_sample_id": row.get("prev_sample_id"),
+            "samples_since_wash": row.get("samples_since_wash", 0),
+            "sensor_hours_at_sample": row.get("sensor_hours_at_sample"),
+            "is_anchor": row.get("is_anchor", False),
+            "is_blank": row.get("is_blank", False),
+            "experiment_phase": row.get("experiment_phase"),
+            "sequence_block": row.get("sequence_block"),
+            "randomization_seed": row.get("randomization_seed"),
+            "wash_residual_response": row.get("wash_residual_response") or [],
+            "quality_score": row.get("quality_score"),
+            "quality_level": row.get("quality_level"),
         }

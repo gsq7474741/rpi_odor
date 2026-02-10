@@ -16,6 +16,26 @@ export async function GET(request: NextRequest) {
   try {
     switch (action) {
       case "experiments": {
+        const idsOnly = searchParams.get("idsOnly") === "true";
+
+        if (idsOnly) {
+          // 轻量模式：仅获取 run ID + sample count（用于筛选下拉框）
+          const response = await listExperiments({
+            limit: 0,
+            offset: 0,
+            labelId: "__ids_only__",
+          });
+
+          return NextResponse.json({
+            success: true,
+            experiments: response.experiments.map((exp) => ({
+              experimentId: exp.experimentId,
+              sampleCount: (exp as { sampleCount?: number }).sampleCount || 0,
+            })),
+            total: response.total,
+          });
+        }
+
         const limit = parseInt(searchParams.get("limit") || "50");
         const offset = parseInt(searchParams.get("offset") || "0");
         const labelId = searchParams.get("labelId") || undefined;

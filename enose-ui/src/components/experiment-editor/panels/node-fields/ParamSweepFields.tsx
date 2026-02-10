@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Wand2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Wand2, Shuffle } from 'lucide-react';
 import { Field } from './Field';
 import { NodeFieldsProps, SeqGenType, SEQ_GEN_LABELS, PARAM_TYPE_CONFIG, generateSequence } from './types';
 import { NodeType, ExperimentNode } from '../../types';
@@ -37,6 +39,20 @@ export function ParamSweepFields({ data, handleChange, nodes }: ParamSweepFields
         })()
       : generateSequence(seqMode, start, end, seqGenSteps)
   ) : [];
+  
+  // 计算当前扫描点数
+  const sweepCount = paramType === 'ratio' ? ratioSweepPoints.length : sequence.length;
+  const shuffledOrder = (data.shuffledOrder as number[] | undefined) || [];
+  
+  // Fisher-Yates 洗牌，生成随机排列索引
+  const generateShuffledOrder = (length: number) => {
+    const indices = Array.from({ length }, (_, i) => i);
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+    return indices;
+  };
   
   // 添加比例扫描点
   const addRatioPoint = () => {
@@ -118,6 +134,54 @@ export function ParamSweepFields({ data, handleChange, nodes }: ParamSweepFields
           </SelectContent>
         </Select>
       </Field>
+      
+      <div className="flex items-center justify-between p-2 bg-muted/30 rounded border">
+        <div className="flex items-center gap-2">
+          <Shuffle className="w-3.5 h-3.5 text-pink-500" />
+          <Label htmlFor="randomize-switch" className="text-xs cursor-pointer">
+            随机化执行顺序
+          </Label>
+        </div>
+        <Switch
+          id="randomize-switch"
+          checked={Boolean(data.randomize)}
+          onCheckedChange={(checked) => {
+            handleChange('randomize', checked);
+            if (checked && sweepCount > 0) {
+              handleChange('shuffledOrder', generateShuffledOrder(sweepCount));
+            } else if (!checked) {
+              handleChange('shuffledOrder', undefined);
+            }
+          }}
+        />
+      </div>
+      {Boolean(data.randomize) && (
+        <div className="space-y-1.5 -mt-2">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 px-2 text-[10px]"
+              onClick={() => {
+                if (sweepCount > 0) {
+                  handleChange('shuffledOrder', generateShuffledOrder(sweepCount));
+                }
+              }}
+            >
+              <Shuffle className="w-3 h-3 mr-1" />
+              重新洗牌
+            </Button>
+            {shuffledOrder.length > 0 && (
+              <span className="text-[10px] text-muted-foreground">
+                顺序: {shuffledOrder.map(i => i + 1).join(' → ')}
+              </span>
+            )}
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            展开后的扫描参数组将按此顺序执行，避免传感器记忆效应
+          </p>
+        </div>
+      )}
       
       {paramType === 'ratio' ? (
         // 比例扫描配置

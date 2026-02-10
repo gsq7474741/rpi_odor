@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   ExperimentsProvider,
   useExperiments,
@@ -12,6 +12,8 @@ import {
   ProjectorTab,
   CompareTab,
   TrainingTab,
+  CoverageTab,
+  ModelTrainingTab,
 } from "@/components/experiments";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -27,6 +29,8 @@ import {
   ScatterChart,
   GitCompare,
   Brain,
+  Grid3X3,
+  Dumbbell,
   RefreshCw,
   Wifi,
   WifiOff,
@@ -57,8 +61,10 @@ function DataCenterContent() {
     setRunsLoading,
     setRunsTotal,
     filters,
+    setAvailableRuns,
     setAvailableLiquids,
     setAvailablePhases,
+    setFilterOptionsLoading,
   } = useExperiments();
 
   const [activeTab, setActiveTab] = useState("overview");
@@ -102,35 +108,43 @@ function DataCenterContent() {
     }
   }, [runsPage, setRuns, setRunsLoading, setRunsTotal]);
 
-  // 加载可用的液体和阶段选项
+  // 加载所有筛选选项（runs/liquids/phases 并行）
   const fetchFilterOptions = useCallback(async () => {
+    setFilterOptionsLoading(true);
     try {
-      // 获取液体列表
-      const liquidRes = await fetch("/api/consumables?type=liquids");
-      const liquidData = await liquidRes.json();
-      if (liquidData.liquids) {
+      const [runsRes, liquidRes, phaseRes] = await Promise.allSettled([
+        // 获取所有运行 ID（轻量模式，仅查 runs+samples 表）
+        fetch("/api/analytics/data?action=experiments&idsOnly=true").then(r => r.json()),
+        // 获取液体列表（走 C++ 后端，较快）
+        fetch("/api/consumables?type=liquids").then(r => r.json()),
+        // 获取阶段列表
+        fetch("/api/samples/phases").then(r => r.json()),
+      ]);
+
+      // 运行选项
+      if (runsRes.status === "fulfilled" && runsRes.value.success) {
+        setAvailableRuns(
+          runsRes.value.experiments.map((exp: { experimentId: string; sampleCount: number }) => ({
+            id: parseInt(exp.experimentId) || 0,
+            sampleCount: exp.sampleCount || 0,
+          }))
+        );
+      }
+
+      // 液体选项
+      if (liquidRes.status === "fulfilled" && liquidRes.value.liquids) {
         setAvailableLiquids(
-          liquidData.liquids.map((l: { id: number; name: string }) => ({
+          liquidRes.value.liquids.map((l: { id: number; name: string }) => ({
             id: String(l.id),
             name: l.name,
           }))
         );
       }
 
-      // 动态获取阶段列表（从 sample_phase_transitions 表）
-      try {
-        const phaseRes = await fetch("/api/samples/phases");
-        const phaseData = await phaseRes.json();
-        if (phaseData.phases && phaseData.phases.length > 0) {
-          setAvailablePhases(phaseData.phases);
-        } else {
-          // 回退到常用阶段
-          setAvailablePhases([
-            "BASELINE", "DOSE", "EQUILIBRATION", "SAMPLE",
-            "PURGE", "RECOVERY", "RINSE",
-          ]);
-        }
-      } catch {
+      // 阶段选项
+      if (phaseRes.status === "fulfilled" && phaseRes.value.phases?.length > 0) {
+        setAvailablePhases(phaseRes.value.phases);
+      } else {
         setAvailablePhases([
           "BASELINE", "DOSE", "EQUILIBRATION", "SAMPLE",
           "PURGE", "RECOVERY", "RINSE",
@@ -138,19 +152,24 @@ function DataCenterContent() {
       }
     } catch (error) {
       console.error("Failed to fetch filter options:", error);
+    } finally {
+      setFilterOptionsLoading(false);
     }
-  }, [setAvailableLiquids, setAvailablePhases]);
+  }, [setAvailableRuns, setAvailableLiquids, setAvailablePhases, setFilterOptionsLoading]);
 
-  // 初始化加载
+  // 筛选选项只加载一次
+  const filterOptionsLoadedRef = useRef(false);
+  useEffect(() => {
+    if (!filterOptionsLoadedRef.current) {
+      filterOptionsLoadedRef.current = true;
+      fetchFilterOptions();
+    }
+  }, [fetchFilterOptions]);
+
+  // runs 加载：初始化 + 筛选/分页变化时重新加载
   useEffect(() => {
     fetchRuns();
-    fetchFilterOptions();
-  }, [fetchRuns, fetchFilterOptions]);
-
-  // 筛选变化时重新加载
-  useEffect(() => {
-    fetchRuns();
-  }, [filters, fetchRuns]);
+  }, [fetchRuns]);
 
   return (
     <div className="h-full flex flex-col">
@@ -209,7 +228,9 @@ function DataCenterContent() {
                     { value: "timeseries", label: "时序图", icon: LineChart },
                     { value: "projector", label: "降维分析", icon: ScatterChart },
                     { value: "compare", label: "参数对比", icon: GitCompare },
+                    { value: "coverage", label: "组合覆盖", icon: Grid3X3 },
                     { value: "training", label: "ML 标签", icon: Brain },
+                    { value: "model-training", label: "模型训练", icon: Dumbbell },
                   ].map(({ value, label, icon: Icon }) => (
                     <button
                       key={value}
@@ -244,8 +265,16 @@ function DataCenterContent() {
                   <CompareTab />
                 </TabsContent>
 
+                <TabsContent value="coverage" className="h-full m-0">
+                  <CoverageTab />
+                </TabsContent>
+
                 <TabsContent value="training" className="h-full m-0">
                   <TrainingTab />
+                </TabsContent>
+
+                <TabsContent value="model-training" className="h-full m-0 p-4">
+                  <ModelTrainingTab />
                 </TabsContent>
                 </div>
               </div>

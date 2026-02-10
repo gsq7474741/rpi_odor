@@ -367,6 +367,11 @@ export interface ParamSweepNodeData {
   seqMode?: 'linear' | 'log' | 'exp' | 'quadratic' | 'sqrt';
   generatedSequence?: number[];
   
+  // 随机化执行顺序（避免传感器记忆效应）
+  randomize?: boolean;
+  // 存储的随机排列索引（由 UI 生成，编译器读取）
+  shuffledOrder?: number[];
+  
   // 比例扫描专用：多液体比例扫描点列表
   ratioSweepPoints?: RatioSweepPoint[];
   // 关联的液体源ID列表（从连接的进样节点自动获取）

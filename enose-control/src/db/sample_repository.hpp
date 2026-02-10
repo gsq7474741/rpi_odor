@@ -87,6 +87,19 @@ struct SampleContext {
     double avg_humidity_pct{0.0};
     double avg_pressure_hpa{0.0};
     
+    // G. 组合实验元数据 (0016)
+    std::string reagent_batch_id;
+    std::string reagent_prep_date;          // YYYY-MM-DD
+    int32_t prev_sample_id{0};              // 前一个样品 ID（0=无）
+    int16_t samples_since_wash{0};          // 距上次深度清洗的样品数
+    float sensor_hours_at_sample{0.0f};     // 传感器累计使用小时
+    bool is_anchor{false};                  // 漂移校准锚点
+    bool is_blank{false};                   // 空白对照
+    std::string experiment_phase;           // 实验设计阶段（Phase 1-6）
+    std::string sequence_block;             // 随机化区组标识
+    int32_t randomization_seed{0};
+    std::vector<float> wash_residual_response;  // 清洗后残余响应（8通道）
+    
     // 序列化为完整参数 JSON
     nlohmann::json to_params_json() const;
     
@@ -148,6 +161,21 @@ struct SampleRecord {
     double avg_temperature_c{0.0};
     double avg_humidity_pct{0.0};
     double avg_pressure_hpa{0.0};
+    
+    // 组合实验元数据
+    std::string reagent_batch_id;
+    std::string reagent_prep_date;
+    int32_t prev_sample_id{0};
+    int16_t samples_since_wash{0};
+    float sensor_hours_at_sample{0.0f};
+    bool is_anchor{false};
+    bool is_blank{false};
+    std::string experiment_phase;
+    std::string sequence_block;
+    int32_t randomization_seed{0};
+    std::vector<float> wash_residual_response;
+    float quality_score{0.0f};
+    std::string quality_level;
     
     // 完整参数 JSON
     std::string params_json;
@@ -234,6 +262,10 @@ private:
     std::vector<double> parse_pg_double_array(const std::string& arr);
     std::vector<int16_t> parse_pg_int16_array(const std::string& arr);
     std::vector<bool> parse_pg_bool_array(const std::string& arr);
+    std::vector<float> parse_pg_float_array(const std::string& arr);
+    
+    // 辅助函数：从 SELECT 行解析 SampleRecord（避免重复代码）
+    void parse_sample_row(const pqxx::row& row, SampleRecord& rec);
 };
 
 } // namespace db

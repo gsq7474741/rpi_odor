@@ -24,6 +24,7 @@ import {
   Info,
 } from "lucide-react";
 import { ExportPopover } from "./ExportPopover";
+import { QuerySelector } from "./QuerySelector";
 import {
   Tooltip,
   TooltipContent,
@@ -226,6 +227,9 @@ export function SelectionBar() {
           <span className="text-sm text-muted-foreground">未选择</span>
         )}
       </div>
+
+      {/* 选择集 - 始终可见 */}
+      <QuerySelector />
 
       {/* 分隔线 */}
       {hasSelection && <div className="h-4 w-px bg-border" />}

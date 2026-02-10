@@ -65,6 +65,20 @@ import type {
   PreviewDatasetResponse,
   ExportDataRequest,
   ExportDataChunk,
+  StartTrainingRequest,
+  StartTrainingResponse,
+  GetTrainingJobRequest,
+  TrainingJobInfo,
+  ListTrainingJobsRequest,
+  ListTrainingJobsResponse,
+  CancelTrainingRequest,
+  DeleteTrainingJobRequest,
+  StreamTrainingProgressRequest,
+  TrainingProgressUpdate,
+  GetTrainingEvaluationRequest,
+  GetTrainingEvaluationResponse,
+  GetTrainingJobProgressRequest,
+  GetTrainingJobProgressResponse,
 } from "../generated/enose_analytics";
 
 // Analytics gRPC 服务器地址 (从环境变量读取，默认与控制服务同机)
@@ -302,6 +316,79 @@ export async function deleteModel(request: DeleteModelRequest): Promise<Empty> {
     client.deleteModel.bind(client),
     request
   );
+}
+
+// ── Training Platform API ──
+
+export async function startTraining(request: StartTrainingRequest): Promise<StartTrainingResponse> {
+  const client = getModelClient();
+  return modelPromisify(
+    client,
+    client.startTraining.bind(client),
+    request
+  );
+}
+
+export async function getTrainingJob(request: GetTrainingJobRequest): Promise<TrainingJobInfo> {
+  const client = getModelClient();
+  return modelPromisify(
+    client,
+    client.getTrainingJob.bind(client),
+    request
+  );
+}
+
+export async function listTrainingJobs(request: ListTrainingJobsRequest): Promise<ListTrainingJobsResponse> {
+  const client = getModelClient();
+  return modelPromisify(
+    client,
+    client.listTrainingJobs.bind(client),
+    request
+  );
+}
+
+export async function cancelTraining(request: CancelTrainingRequest): Promise<Empty> {
+  const client = getModelClient();
+  return modelPromisify(
+    client,
+    client.cancelTraining.bind(client),
+    request
+  );
+}
+
+export async function deleteTrainingJob(request: DeleteTrainingJobRequest): Promise<Empty> {
+  const client = getModelClient();
+  return modelPromisify(
+    client,
+    client.deleteTrainingJob.bind(client),
+    request
+  );
+}
+
+export async function getTrainingEvaluation(request: GetTrainingEvaluationRequest): Promise<GetTrainingEvaluationResponse> {
+  const client = getModelClient();
+  return modelPromisify(
+    client,
+    client.getTrainingEvaluation.bind(client),
+    request
+  );
+}
+
+export async function getTrainingJobProgress(request: GetTrainingJobProgressRequest): Promise<GetTrainingJobProgressResponse> {
+  const client = getModelClient();
+  return modelPromisify(
+    client,
+    client.getTrainingJobProgress.bind(client),
+    request
+  );
+}
+
+/**
+ * 流式获取训练进度 - 返回可迭代的 stream
+ */
+export function streamTrainingProgress(request: StreamTrainingProgressRequest) {
+  const client = getModelClient();
+  return client.streamTrainingProgress(request);
 }
 
 // 检查 Analytics 服务连接状态

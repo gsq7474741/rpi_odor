@@ -17,6 +17,14 @@ SensorServiceImpl::SensorServiceImpl(std::shared_ptr<hal::SensorDriver> sensor)
         }
     );
     
+    // 连接断线/重连信号
+    disconnect_connection_ = sensor_->on_disconnected.connect(
+        [this]() { on_sensor_disconnected(); }
+    );
+    reconnect_connection_ = sensor_->on_reconnected.connect(
+        [this]() { on_sensor_reconnected(); }
+    );
+    
     // 启动后台刷新线程
     sensor_repo_->start_background_flush();
     
@@ -26,6 +34,8 @@ SensorServiceImpl::SensorServiceImpl(std::shared_ptr<hal::SensorDriver> sensor)
 
 SensorServiceImpl::~SensorServiceImpl() {
     packet_connection_.disconnect();
+    disconnect_connection_.disconnect();
+    reconnect_connection_.disconnect();
     if (sensor_repo_) {
         sensor_repo_->stop_background_flush();
         sensor_repo_->flush();
@@ -513,6 +523,117 @@ namespace {
     }
     
     return ::grpc::Status::OK;
+}
+
+// ============================================================
+// 断线/重连处理
+// ============================================================
+
+void SensorServiceImpl::on_sensor_disconnected() {
+    connected_ = false;
+    spdlog::warn("SensorService: 传感器串口断开");
+}
+
+void SensorServiceImpl::on_sensor_reconnected() {
+    spdlog::info("SensorService: 传感器串口已重连，开始恢复固件状态...");
+    connected_ = true;
+    
+    // ESP32 断电重启后需要等待它发送 ready 消息
+    // ready 消息会在 on_sensor_packet 中处理，更新 firmware_version_ 和 sensor_count_
+    // 这里等待一小段时间让 ESP32 完成初始化
+    std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+    
+    replay_cached_state();
+}
+
+void SensorServiceImpl::replay_cached_state() {
+    std::lock_guard<std::mutex> lock(state_cache_mutex_);
+    
+    // 1. 发送 sync 命令
+    {
+        nlohmann::json sync_cmd;
+        sync_cmd["cmd"] = "sync";
+        sync_cmd["id"] = ++cmd_id_;
+        sensor_->write(sync_cmd);
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        spdlog::info("SensorService: 重连恢复 - sync 已发送");
+    }
+    
+    // 2. 发送 init 命令
+    {
+        nlohmann::json init_cmd;
+        init_cmd["cmd"] = "init";
+        init_cmd["id"] = ++cmd_id_;
+        sensor_->write(init_cmd);
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        spdlog::info("SensorService: 重连恢复 - init 已发送");
+    }
+    
+    // 3. 重发缓存的加热器配置
+    for (size_t i = 0; i < cached_heater_configs_.size(); i++) {
+        auto config_cmd = cached_heater_configs_[i];
+        config_cmd["id"] = ++cmd_id_;
+        sensor_->write(config_cmd);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        spdlog::info("SensorService: 重连恢复 - config {}/{} 已发送", 
+                    i + 1, cached_heater_configs_.size());
+    }
+    
+    // 4. 如果之前在采集中，重发 start 命令
+    if (cached_sensor_running_) {
+        nlohmann::json start_cmd;
+        start_cmd["cmd"] = "start";
+        start_cmd["id"] = ++cmd_id_;
+        if (!cached_active_sensors_.empty()) {
+            start_cmd["params"]["sensors"] = cached_active_sensors_;
+        } else {
+            start_cmd["params"]["sensors"] = {0, 1, 2, 3, 4, 5, 6, 7};
+        }
+        sensor_->write(start_cmd);
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        running_ = true;
+        spdlog::info("SensorService: 重连恢复 - start 已发送，传感器采集已恢复");
+    }
+    
+    spdlog::info("SensorService: 固件状态恢复完成");
+}
+
+// ============================================================
+// 传感器状态缓存
+// ============================================================
+
+void SensorServiceImpl::cache_heater_config(const nlohmann::json& config_cmd) {
+    std::lock_guard<std::mutex> lock(state_cache_mutex_);
+    cached_heater_configs_.push_back(config_cmd);
+    spdlog::debug("SensorService: 缓存 heater config (共 {} 条)", cached_heater_configs_.size());
+}
+
+void SensorServiceImpl::cache_heater_configs(const std::vector<nlohmann::json>& configs) {
+    std::lock_guard<std::mutex> lock(state_cache_mutex_);
+    cached_heater_configs_ = configs;
+    spdlog::debug("SensorService: 替换缓存 heater configs (共 {} 条)", configs.size());
+}
+
+void SensorServiceImpl::cache_sensor_started(const std::vector<int>& active_sensors) {
+    std::lock_guard<std::mutex> lock(state_cache_mutex_);
+    cached_sensor_running_ = true;
+    cached_active_sensors_ = active_sensors;
+    spdlog::debug("SensorService: 缓存 sensor started (活跃传感器: {} 个)", active_sensors.size());
+}
+
+void SensorServiceImpl::cache_sensor_stopped() {
+    std::lock_guard<std::mutex> lock(state_cache_mutex_);
+    cached_sensor_running_ = false;
+    cached_active_sensors_.clear();
+    spdlog::debug("SensorService: 缓存 sensor stopped");
+}
+
+void SensorServiceImpl::clear_state_cache() {
+    std::lock_guard<std::mutex> lock(state_cache_mutex_);
+    cached_heater_configs_.clear();
+    cached_sensor_running_ = false;
+    cached_active_sensors_.clear();
+    spdlog::debug("SensorService: 清除状态缓存");
 }
 
 } // namespace enose_grpc

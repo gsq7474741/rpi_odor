@@ -851,6 +851,36 @@ export interface ModelInfo {
      * @generated from protobuf field: bool is_loaded = 15
      */
     isLoaded: boolean;
+    /**
+     * 扩展字段
+     *
+     * @generated from protobuf field: string model_type = 20
+     */
+    modelType: string; // mlp/cnn1d/tcn/transformer/svm/xgboost/kmeans
+    /**
+     * @generated from protobuf field: string task_type = 21
+     */
+    taskType: string; // classification/regression/contrastive/clustering
+    /**
+     * @generated from protobuf field: string framework = 22
+     */
+    framework: string; // pytorch/sklearn/xgboost
+    /**
+     * @generated from protobuf field: double test_accuracy = 23
+     */
+    testAccuracy: number;
+    /**
+     * @generated from protobuf field: string confusion_matrix_json = 24
+     */
+    confusionMatrixJson: string;
+    /**
+     * @generated from protobuf field: string extra_metrics_json = 25
+     */
+    extraMetricsJson: string;
+    /**
+     * @generated from protobuf field: string training_job_id = 26
+     */
+    trainingJobId: string;
 }
 // ============================================================================
 // 推理消息
@@ -1653,6 +1683,76 @@ export interface Sample {
      * @generated from protobuf field: int32 reading_count = 24
      */
     readingCount: number;
+    // ========== 组合实验元数据 (0016-combinatorial-metadata) ==========
+
+    /**
+     * 试剂批次追踪
+     *
+     * @generated from protobuf field: string reagent_batch_id = 30
+     */
+    reagentBatchId: string; // 试剂批次号
+    /**
+     * @generated from protobuf field: string reagent_prep_date = 31
+     */
+    reagentPrepDate: string; // 试剂配制日期 (YYYY-MM-DD)
+    /**
+     * 序列上下文
+     *
+     * @generated from protobuf field: int32 prev_sample_id = 32
+     */
+    prevSampleId: number; // 前一个样品 ID（残留评估）
+    /**
+     * @generated from protobuf field: int32 samples_since_wash = 33
+     */
+    samplesSinceWash: number; // 距上次深度清洗的样品数
+    /**
+     * 传感器状态
+     *
+     * @generated from protobuf field: float sensor_hours_at_sample = 34
+     */
+    sensorHoursAtSample: number; // 采样时传感器累计使用小时
+    /**
+     * 漂移校准与空白标记
+     *
+     * @generated from protobuf field: bool is_anchor = 35
+     */
+    isAnchor: boolean; // 漂移校准锚点样品
+    /**
+     * @generated from protobuf field: bool is_blank = 36
+     */
+    isBlank: boolean; // 空白对照
+    /**
+     * 实验设计阶段
+     *
+     * @generated from protobuf field: string experiment_phase = 37
+     */
+    experimentPhase: string; // 实验设计阶段标识（Phase 1-6）
+    /**
+     * 随机化信息
+     *
+     * @generated from protobuf field: string sequence_block = 38
+     */
+    sequenceBlock: string; // 随机化区组标识
+    /**
+     * @generated from protobuf field: int32 randomization_seed = 39
+     */
+    randomizationSeed: number; // 随机化种子
+    /**
+     * 清洗残余响应
+     *
+     * @generated from protobuf field: repeated float wash_residual_response = 40
+     */
+    washResidualResponse: number[]; // 清洗后残余传感器响应（8通道）
+    /**
+     * 质量信息（已有 DB 字段，Proto 新增）
+     *
+     * @generated from protobuf field: float quality_score = 41
+     */
+    qualityScore: number; // 0-100 综合质量评分
+    /**
+     * @generated from protobuf field: string quality_level = 42
+     */
+    qualityLevel: string; // good/warning/poor
 }
 /**
  * @generated from protobuf message enose.analytics.v1.LiquidComponent
@@ -2343,6 +2443,373 @@ export interface ExportDataChunk {
      * @generated from protobuf field: int32 progress_percent = 3
      */
     progressPercent: number; // 0-100
+}
+// ============================================================================
+// 训练平台消息
+// ============================================================================
+
+/**
+ * @generated from protobuf message enose.analytics.v1.StartTrainingRequest
+ */
+export interface StartTrainingRequest {
+    /**
+     * @generated from protobuf field: string name = 1
+     */
+    name: string;
+    /**
+     * @generated from protobuf field: string description = 2
+     */
+    description: string;
+    /**
+     * @generated from protobuf field: string model_type = 3
+     */
+    modelType: string; // "mlp", "cnn1d", "tcn", "transformer", "svm", "xgboost", "kmeans"
+    /**
+     * @generated from protobuf field: string task_type = 4
+     */
+    taskType: string; // "classification", "regression", "contrastive", "clustering"
+    /**
+     * 数据集配置
+     *
+     * @generated from protobuf field: string label_config_name = 5
+     */
+    labelConfigName: string; // ML 标签策略名
+    /**
+     * @generated from protobuf field: repeated int32 sample_ids = 6
+     */
+    sampleIds: number[];
+    /**
+     * @generated from protobuf field: repeated int32 run_ids = 7
+     */
+    runIds: number[];
+    /**
+     * @generated from protobuf field: double train_ratio = 8
+     */
+    trainRatio: number;
+    /**
+     * @generated from protobuf field: double val_ratio = 9
+     */
+    valRatio: number;
+    /**
+     * @generated from protobuf field: int32 frame_n_samples = 10
+     */
+    frameNSamples: number; // 归一化帧采样点数
+    /**
+     * @generated from protobuf field: string frame_method = 11
+     */
+    frameMethod: string; // "linear" / "pchip"
+    /**
+     * @generated from protobuf field: int32 seed = 12
+     */
+    seed: number;
+    /**
+     * 超参数 (JSON 字符串，模型类型不同参数不同)
+     *
+     * @generated from protobuf field: string hyperparams_json = 20
+     */
+    hyperparamsJson: string;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.StartTrainingResponse
+ */
+export interface StartTrainingResponse {
+    /**
+     * @generated from protobuf field: string job_id = 1
+     */
+    jobId: string;
+    /**
+     * @generated from protobuf field: string message = 2
+     */
+    message: string;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GetTrainingJobRequest
+ */
+export interface GetTrainingJobRequest {
+    /**
+     * @generated from protobuf field: string job_id = 1
+     */
+    jobId: string;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.ListTrainingJobsRequest
+ */
+export interface ListTrainingJobsRequest {
+    /**
+     * @generated from protobuf field: int32 limit = 1
+     */
+    limit: number;
+    /**
+     * @generated from protobuf field: int32 offset = 2
+     */
+    offset: number;
+    /**
+     * @generated from protobuf field: string status_filter = 3
+     */
+    statusFilter: string; // 可选: PENDING/RUNNING/COMPLETED/FAILED/CANCELLED
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.ListTrainingJobsResponse
+ */
+export interface ListTrainingJobsResponse {
+    /**
+     * @generated from protobuf field: repeated enose.analytics.v1.TrainingJobInfo jobs = 1
+     */
+    jobs: TrainingJobInfo[];
+    /**
+     * @generated from protobuf field: int32 total = 2
+     */
+    total: number;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.CancelTrainingRequest
+ */
+export interface CancelTrainingRequest {
+    /**
+     * @generated from protobuf field: string job_id = 1
+     */
+    jobId: string;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.DeleteTrainingJobRequest
+ */
+export interface DeleteTrainingJobRequest {
+    /**
+     * @generated from protobuf field: string job_id = 1
+     */
+    jobId: string;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.StreamTrainingProgressRequest
+ */
+export interface StreamTrainingProgressRequest {
+    /**
+     * @generated from protobuf field: string job_id = 1
+     */
+    jobId: string;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.TrainingProgressUpdate
+ */
+export interface TrainingProgressUpdate {
+    /**
+     * @generated from protobuf field: int32 epoch = 1
+     */
+    epoch: number;
+    /**
+     * @generated from protobuf field: int32 total_epochs = 2
+     */
+    totalEpochs: number;
+    /**
+     * @generated from protobuf field: double train_loss = 3
+     */
+    trainLoss: number;
+    /**
+     * @generated from protobuf field: double val_loss = 4
+     */
+    valLoss: number;
+    /**
+     * @generated from protobuf field: double train_accuracy = 5
+     */
+    trainAccuracy: number;
+    /**
+     * @generated from protobuf field: double val_accuracy = 6
+     */
+    valAccuracy: number;
+    /**
+     * @generated from protobuf field: string extra_metrics_json = 7
+     */
+    extraMetricsJson: string;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GetTrainingJobProgressRequest
+ */
+export interface GetTrainingJobProgressRequest {
+    /**
+     * @generated from protobuf field: string job_id = 1
+     */
+    jobId: string;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GetTrainingJobProgressResponse
+ */
+export interface GetTrainingJobProgressResponse {
+    /**
+     * @generated from protobuf field: repeated enose.analytics.v1.TrainingProgressUpdate entries = 1
+     */
+    entries: TrainingProgressUpdate[];
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GetTrainingEvaluationRequest
+ */
+export interface GetTrainingEvaluationRequest {
+    /**
+     * @generated from protobuf field: string job_id = 1
+     */
+    jobId: string;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.GetTrainingEvaluationResponse
+ */
+export interface GetTrainingEvaluationResponse {
+    /**
+     * @generated from protobuf field: repeated enose.analytics.v1.TrainingEvaluation evaluations = 1
+     */
+    evaluations: TrainingEvaluation[];
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.TrainingJobInfo
+ */
+export interface TrainingJobInfo {
+    /**
+     * @generated from protobuf field: string id = 1
+     */
+    id: string;
+    /**
+     * @generated from protobuf field: string model_name = 2
+     */
+    modelName: string;
+    /**
+     * @generated from protobuf field: string model_type = 3
+     */
+    modelType: string;
+    /**
+     * @generated from protobuf field: string task_type = 4
+     */
+    taskType: string;
+    /**
+     * @generated from protobuf field: string status = 5
+     */
+    status: string; // PENDING/RUNNING/COMPLETED/FAILED/CANCELLED
+    /**
+     * @generated from protobuf field: int32 current_epoch = 6
+     */
+    currentEpoch: number;
+    /**
+     * @generated from protobuf field: int32 total_epochs = 7
+     */
+    totalEpochs: number;
+    /**
+     * @generated from protobuf field: double train_loss = 8
+     */
+    trainLoss: number;
+    /**
+     * @generated from protobuf field: double val_loss = 9
+     */
+    valLoss: number;
+    /**
+     * @generated from protobuf field: double train_accuracy = 10
+     */
+    trainAccuracy: number;
+    /**
+     * @generated from protobuf field: double val_accuracy = 11
+     */
+    valAccuracy: number;
+    /**
+     * @generated from protobuf field: double test_accuracy = 12
+     */
+    testAccuracy: number;
+    /**
+     * @generated from protobuf field: string hyperparams_json = 13
+     */
+    hyperparamsJson: string;
+    /**
+     * @generated from protobuf field: string dataset_config_json = 14
+     */
+    datasetConfigJson: string;
+    /**
+     * @generated from protobuf field: string error_message = 15
+     */
+    errorMessage: string;
+    /**
+     * @generated from protobuf field: google.protobuf.Timestamp created_at = 16
+     */
+    createdAt?: Timestamp;
+    /**
+     * @generated from protobuf field: google.protobuf.Timestamp started_at = 17
+     */
+    startedAt?: Timestamp;
+    /**
+     * @generated from protobuf field: google.protobuf.Timestamp completed_at = 18
+     */
+    completedAt?: Timestamp;
+    /**
+     * @generated from protobuf field: string model_id = 19
+     */
+    modelId: string; // 训练完成后关联的 ml_models.id
+    /**
+     * @generated from protobuf field: string extra_metrics_json = 20
+     */
+    extraMetricsJson: string;
+}
+/**
+ * @generated from protobuf message enose.analytics.v1.TrainingEvaluation
+ */
+export interface TrainingEvaluation {
+    /**
+     * @generated from protobuf field: string id = 1
+     */
+    id: string;
+    /**
+     * @generated from protobuf field: string job_id = 2
+     */
+    jobId: string;
+    /**
+     * @generated from protobuf field: string model_id = 3
+     */
+    modelId: string;
+    /**
+     * @generated from protobuf field: string split = 4
+     */
+    split: string; // train/val/test
+    /**
+     * @generated from protobuf field: double accuracy = 5
+     */
+    accuracy: number;
+    /**
+     * @generated from protobuf field: double loss = 6
+     */
+    loss: number;
+    /**
+     * @generated from protobuf field: double f1_macro = 7
+     */
+    f1Macro: number;
+    /**
+     * @generated from protobuf field: double f1_weighted = 8
+     */
+    f1Weighted: number;
+    /**
+     * @generated from protobuf field: double precision_macro = 9
+     */
+    precisionMacro: number;
+    /**
+     * @generated from protobuf field: double recall_macro = 10
+     */
+    recallMacro: number;
+    /**
+     * @generated from protobuf field: double r2_score = 11
+     */
+    r2Score: number;
+    /**
+     * @generated from protobuf field: double mse = 12
+     */
+    mse: number;
+    /**
+     * @generated from protobuf field: double mae = 13
+     */
+    mae: number;
+    /**
+     * @generated from protobuf field: double silhouette_score = 14
+     */
+    silhouetteScore: number;
+    /**
+     * @generated from protobuf field: string confusion_matrix_json = 15
+     */
+    confusionMatrixJson: string;
+    /**
+     * @generated from protobuf field: string classification_report_json = 16
+     */
+    classificationReportJson: string;
 }
 /**
  * @generated from protobuf enum enose.analytics.v1.QualityFlag
@@ -4932,7 +5399,14 @@ class ModelInfo$Type extends MessageType<ModelInfo> {
             { no: 12, name: "val_loss", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
             { no: 13, name: "minio_path", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 14, name: "file_size", kind: "scalar", T: 3 /*ScalarType.INT64*/ },
-            { no: 15, name: "is_loaded", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
+            { no: 15, name: "is_loaded", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 20, name: "model_type", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 21, name: "task_type", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 22, name: "framework", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 23, name: "test_accuracy", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 24, name: "confusion_matrix_json", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 25, name: "extra_metrics_json", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 26, name: "training_job_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
         ]);
     }
     create(value?: PartialMessage<ModelInfo>): ModelInfo {
@@ -4950,6 +5424,13 @@ class ModelInfo$Type extends MessageType<ModelInfo> {
         message.minioPath = "";
         message.fileSize = "0";
         message.isLoaded = false;
+        message.modelType = "";
+        message.taskType = "";
+        message.framework = "";
+        message.testAccuracy = 0;
+        message.confusionMatrixJson = "";
+        message.extraMetricsJson = "";
+        message.trainingJobId = "";
         if (value !== undefined)
             reflectionMergePartial<ModelInfo>(this, message, value);
         return message;
@@ -5003,6 +5484,27 @@ class ModelInfo$Type extends MessageType<ModelInfo> {
                     break;
                 case /* bool is_loaded */ 15:
                     message.isLoaded = reader.bool();
+                    break;
+                case /* string model_type */ 20:
+                    message.modelType = reader.string();
+                    break;
+                case /* string task_type */ 21:
+                    message.taskType = reader.string();
+                    break;
+                case /* string framework */ 22:
+                    message.framework = reader.string();
+                    break;
+                case /* double test_accuracy */ 23:
+                    message.testAccuracy = reader.double();
+                    break;
+                case /* string confusion_matrix_json */ 24:
+                    message.confusionMatrixJson = reader.string();
+                    break;
+                case /* string extra_metrics_json */ 25:
+                    message.extraMetricsJson = reader.string();
+                    break;
+                case /* string training_job_id */ 26:
+                    message.trainingJobId = reader.string();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -5061,6 +5563,27 @@ class ModelInfo$Type extends MessageType<ModelInfo> {
         /* bool is_loaded = 15; */
         if (message.isLoaded !== false)
             writer.tag(15, WireType.Varint).bool(message.isLoaded);
+        /* string model_type = 20; */
+        if (message.modelType !== "")
+            writer.tag(20, WireType.LengthDelimited).string(message.modelType);
+        /* string task_type = 21; */
+        if (message.taskType !== "")
+            writer.tag(21, WireType.LengthDelimited).string(message.taskType);
+        /* string framework = 22; */
+        if (message.framework !== "")
+            writer.tag(22, WireType.LengthDelimited).string(message.framework);
+        /* double test_accuracy = 23; */
+        if (message.testAccuracy !== 0)
+            writer.tag(23, WireType.Bit64).double(message.testAccuracy);
+        /* string confusion_matrix_json = 24; */
+        if (message.confusionMatrixJson !== "")
+            writer.tag(24, WireType.LengthDelimited).string(message.confusionMatrixJson);
+        /* string extra_metrics_json = 25; */
+        if (message.extraMetricsJson !== "")
+            writer.tag(25, WireType.LengthDelimited).string(message.extraMetricsJson);
+        /* string training_job_id = 26; */
+        if (message.trainingJobId !== "")
+            writer.tag(26, WireType.LengthDelimited).string(message.trainingJobId);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -7096,7 +7619,20 @@ class Sample$Type extends MessageType<Sample> {
             { no: 21, name: "avg_pressure_hpa", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
             { no: 22, name: "created_at", kind: "message", T: () => Timestamp },
             { no: 23, name: "phase_transitions", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => PhaseTransition },
-            { no: 24, name: "reading_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+            { no: 24, name: "reading_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 30, name: "reagent_batch_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 31, name: "reagent_prep_date", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 32, name: "prev_sample_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 33, name: "samples_since_wash", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 34, name: "sensor_hours_at_sample", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 35, name: "is_anchor", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 36, name: "is_blank", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 37, name: "experiment_phase", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 38, name: "sequence_block", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 39, name: "randomization_seed", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 40, name: "wash_residual_response", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 2 /*ScalarType.FLOAT*/ },
+            { no: 41, name: "quality_score", kind: "scalar", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 42, name: "quality_level", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
         ]);
     }
     create(value?: PartialMessage<Sample>): Sample {
@@ -7124,6 +7660,19 @@ class Sample$Type extends MessageType<Sample> {
         message.avgPressureHpa = 0;
         message.phaseTransitions = [];
         message.readingCount = 0;
+        message.reagentBatchId = "";
+        message.reagentPrepDate = "";
+        message.prevSampleId = 0;
+        message.samplesSinceWash = 0;
+        message.sensorHoursAtSample = 0;
+        message.isAnchor = false;
+        message.isBlank = false;
+        message.experimentPhase = "";
+        message.sequenceBlock = "";
+        message.randomizationSeed = 0;
+        message.washResidualResponse = [];
+        message.qualityScore = 0;
+        message.qualityLevel = "";
         if (value !== undefined)
             reflectionMergePartial<Sample>(this, message, value);
         return message;
@@ -7204,6 +7753,49 @@ class Sample$Type extends MessageType<Sample> {
                     break;
                 case /* int32 reading_count */ 24:
                     message.readingCount = reader.int32();
+                    break;
+                case /* string reagent_batch_id */ 30:
+                    message.reagentBatchId = reader.string();
+                    break;
+                case /* string reagent_prep_date */ 31:
+                    message.reagentPrepDate = reader.string();
+                    break;
+                case /* int32 prev_sample_id */ 32:
+                    message.prevSampleId = reader.int32();
+                    break;
+                case /* int32 samples_since_wash */ 33:
+                    message.samplesSinceWash = reader.int32();
+                    break;
+                case /* float sensor_hours_at_sample */ 34:
+                    message.sensorHoursAtSample = reader.float();
+                    break;
+                case /* bool is_anchor */ 35:
+                    message.isAnchor = reader.bool();
+                    break;
+                case /* bool is_blank */ 36:
+                    message.isBlank = reader.bool();
+                    break;
+                case /* string experiment_phase */ 37:
+                    message.experimentPhase = reader.string();
+                    break;
+                case /* string sequence_block */ 38:
+                    message.sequenceBlock = reader.string();
+                    break;
+                case /* int32 randomization_seed */ 39:
+                    message.randomizationSeed = reader.int32();
+                    break;
+                case /* repeated float wash_residual_response */ 40:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.washResidualResponse.push(reader.float());
+                    else
+                        message.washResidualResponse.push(reader.float());
+                    break;
+                case /* float quality_score */ 41:
+                    message.qualityScore = reader.float();
+                    break;
+                case /* string quality_level */ 42:
+                    message.qualityLevel = reader.string();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -7289,6 +7881,49 @@ class Sample$Type extends MessageType<Sample> {
         /* int32 reading_count = 24; */
         if (message.readingCount !== 0)
             writer.tag(24, WireType.Varint).int32(message.readingCount);
+        /* string reagent_batch_id = 30; */
+        if (message.reagentBatchId !== "")
+            writer.tag(30, WireType.LengthDelimited).string(message.reagentBatchId);
+        /* string reagent_prep_date = 31; */
+        if (message.reagentPrepDate !== "")
+            writer.tag(31, WireType.LengthDelimited).string(message.reagentPrepDate);
+        /* int32 prev_sample_id = 32; */
+        if (message.prevSampleId !== 0)
+            writer.tag(32, WireType.Varint).int32(message.prevSampleId);
+        /* int32 samples_since_wash = 33; */
+        if (message.samplesSinceWash !== 0)
+            writer.tag(33, WireType.Varint).int32(message.samplesSinceWash);
+        /* float sensor_hours_at_sample = 34; */
+        if (message.sensorHoursAtSample !== 0)
+            writer.tag(34, WireType.Bit32).float(message.sensorHoursAtSample);
+        /* bool is_anchor = 35; */
+        if (message.isAnchor !== false)
+            writer.tag(35, WireType.Varint).bool(message.isAnchor);
+        /* bool is_blank = 36; */
+        if (message.isBlank !== false)
+            writer.tag(36, WireType.Varint).bool(message.isBlank);
+        /* string experiment_phase = 37; */
+        if (message.experimentPhase !== "")
+            writer.tag(37, WireType.LengthDelimited).string(message.experimentPhase);
+        /* string sequence_block = 38; */
+        if (message.sequenceBlock !== "")
+            writer.tag(38, WireType.LengthDelimited).string(message.sequenceBlock);
+        /* int32 randomization_seed = 39; */
+        if (message.randomizationSeed !== 0)
+            writer.tag(39, WireType.Varint).int32(message.randomizationSeed);
+        /* repeated float wash_residual_response = 40; */
+        if (message.washResidualResponse.length) {
+            writer.tag(40, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.washResidualResponse.length; i++)
+                writer.float(message.washResidualResponse[i]);
+            writer.join();
+        }
+        /* float quality_score = 41; */
+        if (message.qualityScore !== 0)
+            writer.tag(41, WireType.Bit32).float(message.qualityScore);
+        /* string quality_level = 42; */
+        if (message.qualityLevel !== "")
+            writer.tag(42, WireType.LengthDelimited).string(message.qualityLevel);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -9726,6 +10361,1172 @@ class ExportDataChunk$Type extends MessageType<ExportDataChunk> {
  * @generated MessageType for protobuf message enose.analytics.v1.ExportDataChunk
  */
 export const ExportDataChunk = new ExportDataChunk$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class StartTrainingRequest$Type extends MessageType<StartTrainingRequest> {
+    constructor() {
+        super("enose.analytics.v1.StartTrainingRequest", [
+            { no: 1, name: "name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "description", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "model_type", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "task_type", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 5, name: "label_config_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 6, name: "sample_ids", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ },
+            { no: 7, name: "run_ids", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ },
+            { no: 8, name: "train_ratio", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 9, name: "val_ratio", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 10, name: "frame_n_samples", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 11, name: "frame_method", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 12, name: "seed", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 20, name: "hyperparams_json", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<StartTrainingRequest>): StartTrainingRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.name = "";
+        message.description = "";
+        message.modelType = "";
+        message.taskType = "";
+        message.labelConfigName = "";
+        message.sampleIds = [];
+        message.runIds = [];
+        message.trainRatio = 0;
+        message.valRatio = 0;
+        message.frameNSamples = 0;
+        message.frameMethod = "";
+        message.seed = 0;
+        message.hyperparamsJson = "";
+        if (value !== undefined)
+            reflectionMergePartial<StartTrainingRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: StartTrainingRequest): StartTrainingRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string name */ 1:
+                    message.name = reader.string();
+                    break;
+                case /* string description */ 2:
+                    message.description = reader.string();
+                    break;
+                case /* string model_type */ 3:
+                    message.modelType = reader.string();
+                    break;
+                case /* string task_type */ 4:
+                    message.taskType = reader.string();
+                    break;
+                case /* string label_config_name */ 5:
+                    message.labelConfigName = reader.string();
+                    break;
+                case /* repeated int32 sample_ids */ 6:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.sampleIds.push(reader.int32());
+                    else
+                        message.sampleIds.push(reader.int32());
+                    break;
+                case /* repeated int32 run_ids */ 7:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.runIds.push(reader.int32());
+                    else
+                        message.runIds.push(reader.int32());
+                    break;
+                case /* double train_ratio */ 8:
+                    message.trainRatio = reader.double();
+                    break;
+                case /* double val_ratio */ 9:
+                    message.valRatio = reader.double();
+                    break;
+                case /* int32 frame_n_samples */ 10:
+                    message.frameNSamples = reader.int32();
+                    break;
+                case /* string frame_method */ 11:
+                    message.frameMethod = reader.string();
+                    break;
+                case /* int32 seed */ 12:
+                    message.seed = reader.int32();
+                    break;
+                case /* string hyperparams_json */ 20:
+                    message.hyperparamsJson = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: StartTrainingRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string name = 1; */
+        if (message.name !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.name);
+        /* string description = 2; */
+        if (message.description !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.description);
+        /* string model_type = 3; */
+        if (message.modelType !== "")
+            writer.tag(3, WireType.LengthDelimited).string(message.modelType);
+        /* string task_type = 4; */
+        if (message.taskType !== "")
+            writer.tag(4, WireType.LengthDelimited).string(message.taskType);
+        /* string label_config_name = 5; */
+        if (message.labelConfigName !== "")
+            writer.tag(5, WireType.LengthDelimited).string(message.labelConfigName);
+        /* repeated int32 sample_ids = 6; */
+        if (message.sampleIds.length) {
+            writer.tag(6, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.sampleIds.length; i++)
+                writer.int32(message.sampleIds[i]);
+            writer.join();
+        }
+        /* repeated int32 run_ids = 7; */
+        if (message.runIds.length) {
+            writer.tag(7, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.runIds.length; i++)
+                writer.int32(message.runIds[i]);
+            writer.join();
+        }
+        /* double train_ratio = 8; */
+        if (message.trainRatio !== 0)
+            writer.tag(8, WireType.Bit64).double(message.trainRatio);
+        /* double val_ratio = 9; */
+        if (message.valRatio !== 0)
+            writer.tag(9, WireType.Bit64).double(message.valRatio);
+        /* int32 frame_n_samples = 10; */
+        if (message.frameNSamples !== 0)
+            writer.tag(10, WireType.Varint).int32(message.frameNSamples);
+        /* string frame_method = 11; */
+        if (message.frameMethod !== "")
+            writer.tag(11, WireType.LengthDelimited).string(message.frameMethod);
+        /* int32 seed = 12; */
+        if (message.seed !== 0)
+            writer.tag(12, WireType.Varint).int32(message.seed);
+        /* string hyperparams_json = 20; */
+        if (message.hyperparamsJson !== "")
+            writer.tag(20, WireType.LengthDelimited).string(message.hyperparamsJson);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.StartTrainingRequest
+ */
+export const StartTrainingRequest = new StartTrainingRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class StartTrainingResponse$Type extends MessageType<StartTrainingResponse> {
+    constructor() {
+        super("enose.analytics.v1.StartTrainingResponse", [
+            { no: 1, name: "job_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "message", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<StartTrainingResponse>): StartTrainingResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.jobId = "";
+        message.message = "";
+        if (value !== undefined)
+            reflectionMergePartial<StartTrainingResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: StartTrainingResponse): StartTrainingResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string job_id */ 1:
+                    message.jobId = reader.string();
+                    break;
+                case /* string message */ 2:
+                    message.message = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: StartTrainingResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string job_id = 1; */
+        if (message.jobId !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.jobId);
+        /* string message = 2; */
+        if (message.message !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.message);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.StartTrainingResponse
+ */
+export const StartTrainingResponse = new StartTrainingResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetTrainingJobRequest$Type extends MessageType<GetTrainingJobRequest> {
+    constructor() {
+        super("enose.analytics.v1.GetTrainingJobRequest", [
+            { no: 1, name: "job_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GetTrainingJobRequest>): GetTrainingJobRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.jobId = "";
+        if (value !== undefined)
+            reflectionMergePartial<GetTrainingJobRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetTrainingJobRequest): GetTrainingJobRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string job_id */ 1:
+                    message.jobId = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetTrainingJobRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string job_id = 1; */
+        if (message.jobId !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.jobId);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GetTrainingJobRequest
+ */
+export const GetTrainingJobRequest = new GetTrainingJobRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class ListTrainingJobsRequest$Type extends MessageType<ListTrainingJobsRequest> {
+    constructor() {
+        super("enose.analytics.v1.ListTrainingJobsRequest", [
+            { no: 1, name: "limit", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "offset", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "status_filter", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<ListTrainingJobsRequest>): ListTrainingJobsRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.limit = 0;
+        message.offset = 0;
+        message.statusFilter = "";
+        if (value !== undefined)
+            reflectionMergePartial<ListTrainingJobsRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ListTrainingJobsRequest): ListTrainingJobsRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 limit */ 1:
+                    message.limit = reader.int32();
+                    break;
+                case /* int32 offset */ 2:
+                    message.offset = reader.int32();
+                    break;
+                case /* string status_filter */ 3:
+                    message.statusFilter = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: ListTrainingJobsRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 limit = 1; */
+        if (message.limit !== 0)
+            writer.tag(1, WireType.Varint).int32(message.limit);
+        /* int32 offset = 2; */
+        if (message.offset !== 0)
+            writer.tag(2, WireType.Varint).int32(message.offset);
+        /* string status_filter = 3; */
+        if (message.statusFilter !== "")
+            writer.tag(3, WireType.LengthDelimited).string(message.statusFilter);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.ListTrainingJobsRequest
+ */
+export const ListTrainingJobsRequest = new ListTrainingJobsRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class ListTrainingJobsResponse$Type extends MessageType<ListTrainingJobsResponse> {
+    constructor() {
+        super("enose.analytics.v1.ListTrainingJobsResponse", [
+            { no: 1, name: "jobs", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => TrainingJobInfo },
+            { no: 2, name: "total", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<ListTrainingJobsResponse>): ListTrainingJobsResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.jobs = [];
+        message.total = 0;
+        if (value !== undefined)
+            reflectionMergePartial<ListTrainingJobsResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ListTrainingJobsResponse): ListTrainingJobsResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated enose.analytics.v1.TrainingJobInfo jobs */ 1:
+                    message.jobs.push(TrainingJobInfo.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* int32 total */ 2:
+                    message.total = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: ListTrainingJobsResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated enose.analytics.v1.TrainingJobInfo jobs = 1; */
+        for (let i = 0; i < message.jobs.length; i++)
+            TrainingJobInfo.internalBinaryWrite(message.jobs[i], writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        /* int32 total = 2; */
+        if (message.total !== 0)
+            writer.tag(2, WireType.Varint).int32(message.total);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.ListTrainingJobsResponse
+ */
+export const ListTrainingJobsResponse = new ListTrainingJobsResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class CancelTrainingRequest$Type extends MessageType<CancelTrainingRequest> {
+    constructor() {
+        super("enose.analytics.v1.CancelTrainingRequest", [
+            { no: 1, name: "job_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<CancelTrainingRequest>): CancelTrainingRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.jobId = "";
+        if (value !== undefined)
+            reflectionMergePartial<CancelTrainingRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: CancelTrainingRequest): CancelTrainingRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string job_id */ 1:
+                    message.jobId = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: CancelTrainingRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string job_id = 1; */
+        if (message.jobId !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.jobId);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.CancelTrainingRequest
+ */
+export const CancelTrainingRequest = new CancelTrainingRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class DeleteTrainingJobRequest$Type extends MessageType<DeleteTrainingJobRequest> {
+    constructor() {
+        super("enose.analytics.v1.DeleteTrainingJobRequest", [
+            { no: 1, name: "job_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<DeleteTrainingJobRequest>): DeleteTrainingJobRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.jobId = "";
+        if (value !== undefined)
+            reflectionMergePartial<DeleteTrainingJobRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: DeleteTrainingJobRequest): DeleteTrainingJobRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string job_id */ 1:
+                    message.jobId = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: DeleteTrainingJobRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string job_id = 1; */
+        if (message.jobId !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.jobId);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.DeleteTrainingJobRequest
+ */
+export const DeleteTrainingJobRequest = new DeleteTrainingJobRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class StreamTrainingProgressRequest$Type extends MessageType<StreamTrainingProgressRequest> {
+    constructor() {
+        super("enose.analytics.v1.StreamTrainingProgressRequest", [
+            { no: 1, name: "job_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<StreamTrainingProgressRequest>): StreamTrainingProgressRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.jobId = "";
+        if (value !== undefined)
+            reflectionMergePartial<StreamTrainingProgressRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: StreamTrainingProgressRequest): StreamTrainingProgressRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string job_id */ 1:
+                    message.jobId = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: StreamTrainingProgressRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string job_id = 1; */
+        if (message.jobId !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.jobId);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.StreamTrainingProgressRequest
+ */
+export const StreamTrainingProgressRequest = new StreamTrainingProgressRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class TrainingProgressUpdate$Type extends MessageType<TrainingProgressUpdate> {
+    constructor() {
+        super("enose.analytics.v1.TrainingProgressUpdate", [
+            { no: 1, name: "epoch", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "total_epochs", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 3, name: "train_loss", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 4, name: "val_loss", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 5, name: "train_accuracy", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 6, name: "val_accuracy", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 7, name: "extra_metrics_json", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<TrainingProgressUpdate>): TrainingProgressUpdate {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.epoch = 0;
+        message.totalEpochs = 0;
+        message.trainLoss = 0;
+        message.valLoss = 0;
+        message.trainAccuracy = 0;
+        message.valAccuracy = 0;
+        message.extraMetricsJson = "";
+        if (value !== undefined)
+            reflectionMergePartial<TrainingProgressUpdate>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: TrainingProgressUpdate): TrainingProgressUpdate {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 epoch */ 1:
+                    message.epoch = reader.int32();
+                    break;
+                case /* int32 total_epochs */ 2:
+                    message.totalEpochs = reader.int32();
+                    break;
+                case /* double train_loss */ 3:
+                    message.trainLoss = reader.double();
+                    break;
+                case /* double val_loss */ 4:
+                    message.valLoss = reader.double();
+                    break;
+                case /* double train_accuracy */ 5:
+                    message.trainAccuracy = reader.double();
+                    break;
+                case /* double val_accuracy */ 6:
+                    message.valAccuracy = reader.double();
+                    break;
+                case /* string extra_metrics_json */ 7:
+                    message.extraMetricsJson = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: TrainingProgressUpdate, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 epoch = 1; */
+        if (message.epoch !== 0)
+            writer.tag(1, WireType.Varint).int32(message.epoch);
+        /* int32 total_epochs = 2; */
+        if (message.totalEpochs !== 0)
+            writer.tag(2, WireType.Varint).int32(message.totalEpochs);
+        /* double train_loss = 3; */
+        if (message.trainLoss !== 0)
+            writer.tag(3, WireType.Bit64).double(message.trainLoss);
+        /* double val_loss = 4; */
+        if (message.valLoss !== 0)
+            writer.tag(4, WireType.Bit64).double(message.valLoss);
+        /* double train_accuracy = 5; */
+        if (message.trainAccuracy !== 0)
+            writer.tag(5, WireType.Bit64).double(message.trainAccuracy);
+        /* double val_accuracy = 6; */
+        if (message.valAccuracy !== 0)
+            writer.tag(6, WireType.Bit64).double(message.valAccuracy);
+        /* string extra_metrics_json = 7; */
+        if (message.extraMetricsJson !== "")
+            writer.tag(7, WireType.LengthDelimited).string(message.extraMetricsJson);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.TrainingProgressUpdate
+ */
+export const TrainingProgressUpdate = new TrainingProgressUpdate$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetTrainingJobProgressRequest$Type extends MessageType<GetTrainingJobProgressRequest> {
+    constructor() {
+        super("enose.analytics.v1.GetTrainingJobProgressRequest", [
+            { no: 1, name: "job_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GetTrainingJobProgressRequest>): GetTrainingJobProgressRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.jobId = "";
+        if (value !== undefined)
+            reflectionMergePartial<GetTrainingJobProgressRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetTrainingJobProgressRequest): GetTrainingJobProgressRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string job_id */ 1:
+                    message.jobId = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetTrainingJobProgressRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string job_id = 1; */
+        if (message.jobId !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.jobId);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GetTrainingJobProgressRequest
+ */
+export const GetTrainingJobProgressRequest = new GetTrainingJobProgressRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetTrainingJobProgressResponse$Type extends MessageType<GetTrainingJobProgressResponse> {
+    constructor() {
+        super("enose.analytics.v1.GetTrainingJobProgressResponse", [
+            { no: 1, name: "entries", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => TrainingProgressUpdate }
+        ]);
+    }
+    create(value?: PartialMessage<GetTrainingJobProgressResponse>): GetTrainingJobProgressResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.entries = [];
+        if (value !== undefined)
+            reflectionMergePartial<GetTrainingJobProgressResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetTrainingJobProgressResponse): GetTrainingJobProgressResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated enose.analytics.v1.TrainingProgressUpdate entries */ 1:
+                    message.entries.push(TrainingProgressUpdate.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetTrainingJobProgressResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated enose.analytics.v1.TrainingProgressUpdate entries = 1; */
+        for (let i = 0; i < message.entries.length; i++)
+            TrainingProgressUpdate.internalBinaryWrite(message.entries[i], writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GetTrainingJobProgressResponse
+ */
+export const GetTrainingJobProgressResponse = new GetTrainingJobProgressResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetTrainingEvaluationRequest$Type extends MessageType<GetTrainingEvaluationRequest> {
+    constructor() {
+        super("enose.analytics.v1.GetTrainingEvaluationRequest", [
+            { no: 1, name: "job_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GetTrainingEvaluationRequest>): GetTrainingEvaluationRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.jobId = "";
+        if (value !== undefined)
+            reflectionMergePartial<GetTrainingEvaluationRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetTrainingEvaluationRequest): GetTrainingEvaluationRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string job_id */ 1:
+                    message.jobId = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetTrainingEvaluationRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string job_id = 1; */
+        if (message.jobId !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.jobId);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GetTrainingEvaluationRequest
+ */
+export const GetTrainingEvaluationRequest = new GetTrainingEvaluationRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetTrainingEvaluationResponse$Type extends MessageType<GetTrainingEvaluationResponse> {
+    constructor() {
+        super("enose.analytics.v1.GetTrainingEvaluationResponse", [
+            { no: 1, name: "evaluations", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => TrainingEvaluation }
+        ]);
+    }
+    create(value?: PartialMessage<GetTrainingEvaluationResponse>): GetTrainingEvaluationResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.evaluations = [];
+        if (value !== undefined)
+            reflectionMergePartial<GetTrainingEvaluationResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetTrainingEvaluationResponse): GetTrainingEvaluationResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* repeated enose.analytics.v1.TrainingEvaluation evaluations */ 1:
+                    message.evaluations.push(TrainingEvaluation.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: GetTrainingEvaluationResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* repeated enose.analytics.v1.TrainingEvaluation evaluations = 1; */
+        for (let i = 0; i < message.evaluations.length; i++)
+            TrainingEvaluation.internalBinaryWrite(message.evaluations[i], writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.GetTrainingEvaluationResponse
+ */
+export const GetTrainingEvaluationResponse = new GetTrainingEvaluationResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class TrainingJobInfo$Type extends MessageType<TrainingJobInfo> {
+    constructor() {
+        super("enose.analytics.v1.TrainingJobInfo", [
+            { no: 1, name: "id", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "model_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "model_type", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "task_type", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 5, name: "status", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 6, name: "current_epoch", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 7, name: "total_epochs", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 8, name: "train_loss", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 9, name: "val_loss", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 10, name: "train_accuracy", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 11, name: "val_accuracy", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 12, name: "test_accuracy", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 13, name: "hyperparams_json", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 14, name: "dataset_config_json", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 15, name: "error_message", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 16, name: "created_at", kind: "message", T: () => Timestamp },
+            { no: 17, name: "started_at", kind: "message", T: () => Timestamp },
+            { no: 18, name: "completed_at", kind: "message", T: () => Timestamp },
+            { no: 19, name: "model_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 20, name: "extra_metrics_json", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<TrainingJobInfo>): TrainingJobInfo {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.id = "";
+        message.modelName = "";
+        message.modelType = "";
+        message.taskType = "";
+        message.status = "";
+        message.currentEpoch = 0;
+        message.totalEpochs = 0;
+        message.trainLoss = 0;
+        message.valLoss = 0;
+        message.trainAccuracy = 0;
+        message.valAccuracy = 0;
+        message.testAccuracy = 0;
+        message.hyperparamsJson = "";
+        message.datasetConfigJson = "";
+        message.errorMessage = "";
+        message.modelId = "";
+        message.extraMetricsJson = "";
+        if (value !== undefined)
+            reflectionMergePartial<TrainingJobInfo>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: TrainingJobInfo): TrainingJobInfo {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string id */ 1:
+                    message.id = reader.string();
+                    break;
+                case /* string model_name */ 2:
+                    message.modelName = reader.string();
+                    break;
+                case /* string model_type */ 3:
+                    message.modelType = reader.string();
+                    break;
+                case /* string task_type */ 4:
+                    message.taskType = reader.string();
+                    break;
+                case /* string status */ 5:
+                    message.status = reader.string();
+                    break;
+                case /* int32 current_epoch */ 6:
+                    message.currentEpoch = reader.int32();
+                    break;
+                case /* int32 total_epochs */ 7:
+                    message.totalEpochs = reader.int32();
+                    break;
+                case /* double train_loss */ 8:
+                    message.trainLoss = reader.double();
+                    break;
+                case /* double val_loss */ 9:
+                    message.valLoss = reader.double();
+                    break;
+                case /* double train_accuracy */ 10:
+                    message.trainAccuracy = reader.double();
+                    break;
+                case /* double val_accuracy */ 11:
+                    message.valAccuracy = reader.double();
+                    break;
+                case /* double test_accuracy */ 12:
+                    message.testAccuracy = reader.double();
+                    break;
+                case /* string hyperparams_json */ 13:
+                    message.hyperparamsJson = reader.string();
+                    break;
+                case /* string dataset_config_json */ 14:
+                    message.datasetConfigJson = reader.string();
+                    break;
+                case /* string error_message */ 15:
+                    message.errorMessage = reader.string();
+                    break;
+                case /* google.protobuf.Timestamp created_at */ 16:
+                    message.createdAt = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.createdAt);
+                    break;
+                case /* google.protobuf.Timestamp started_at */ 17:
+                    message.startedAt = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.startedAt);
+                    break;
+                case /* google.protobuf.Timestamp completed_at */ 18:
+                    message.completedAt = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.completedAt);
+                    break;
+                case /* string model_id */ 19:
+                    message.modelId = reader.string();
+                    break;
+                case /* string extra_metrics_json */ 20:
+                    message.extraMetricsJson = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: TrainingJobInfo, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string id = 1; */
+        if (message.id !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.id);
+        /* string model_name = 2; */
+        if (message.modelName !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.modelName);
+        /* string model_type = 3; */
+        if (message.modelType !== "")
+            writer.tag(3, WireType.LengthDelimited).string(message.modelType);
+        /* string task_type = 4; */
+        if (message.taskType !== "")
+            writer.tag(4, WireType.LengthDelimited).string(message.taskType);
+        /* string status = 5; */
+        if (message.status !== "")
+            writer.tag(5, WireType.LengthDelimited).string(message.status);
+        /* int32 current_epoch = 6; */
+        if (message.currentEpoch !== 0)
+            writer.tag(6, WireType.Varint).int32(message.currentEpoch);
+        /* int32 total_epochs = 7; */
+        if (message.totalEpochs !== 0)
+            writer.tag(7, WireType.Varint).int32(message.totalEpochs);
+        /* double train_loss = 8; */
+        if (message.trainLoss !== 0)
+            writer.tag(8, WireType.Bit64).double(message.trainLoss);
+        /* double val_loss = 9; */
+        if (message.valLoss !== 0)
+            writer.tag(9, WireType.Bit64).double(message.valLoss);
+        /* double train_accuracy = 10; */
+        if (message.trainAccuracy !== 0)
+            writer.tag(10, WireType.Bit64).double(message.trainAccuracy);
+        /* double val_accuracy = 11; */
+        if (message.valAccuracy !== 0)
+            writer.tag(11, WireType.Bit64).double(message.valAccuracy);
+        /* double test_accuracy = 12; */
+        if (message.testAccuracy !== 0)
+            writer.tag(12, WireType.Bit64).double(message.testAccuracy);
+        /* string hyperparams_json = 13; */
+        if (message.hyperparamsJson !== "")
+            writer.tag(13, WireType.LengthDelimited).string(message.hyperparamsJson);
+        /* string dataset_config_json = 14; */
+        if (message.datasetConfigJson !== "")
+            writer.tag(14, WireType.LengthDelimited).string(message.datasetConfigJson);
+        /* string error_message = 15; */
+        if (message.errorMessage !== "")
+            writer.tag(15, WireType.LengthDelimited).string(message.errorMessage);
+        /* google.protobuf.Timestamp created_at = 16; */
+        if (message.createdAt)
+            Timestamp.internalBinaryWrite(message.createdAt, writer.tag(16, WireType.LengthDelimited).fork(), options).join();
+        /* google.protobuf.Timestamp started_at = 17; */
+        if (message.startedAt)
+            Timestamp.internalBinaryWrite(message.startedAt, writer.tag(17, WireType.LengthDelimited).fork(), options).join();
+        /* google.protobuf.Timestamp completed_at = 18; */
+        if (message.completedAt)
+            Timestamp.internalBinaryWrite(message.completedAt, writer.tag(18, WireType.LengthDelimited).fork(), options).join();
+        /* string model_id = 19; */
+        if (message.modelId !== "")
+            writer.tag(19, WireType.LengthDelimited).string(message.modelId);
+        /* string extra_metrics_json = 20; */
+        if (message.extraMetricsJson !== "")
+            writer.tag(20, WireType.LengthDelimited).string(message.extraMetricsJson);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.TrainingJobInfo
+ */
+export const TrainingJobInfo = new TrainingJobInfo$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class TrainingEvaluation$Type extends MessageType<TrainingEvaluation> {
+    constructor() {
+        super("enose.analytics.v1.TrainingEvaluation", [
+            { no: 1, name: "id", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "job_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "model_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "split", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 5, name: "accuracy", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 6, name: "loss", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 7, name: "f1_macro", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 8, name: "f1_weighted", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 9, name: "precision_macro", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 10, name: "recall_macro", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 11, name: "r2_score", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 12, name: "mse", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 13, name: "mae", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 14, name: "silhouette_score", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 15, name: "confusion_matrix_json", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 16, name: "classification_report_json", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<TrainingEvaluation>): TrainingEvaluation {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.id = "";
+        message.jobId = "";
+        message.modelId = "";
+        message.split = "";
+        message.accuracy = 0;
+        message.loss = 0;
+        message.f1Macro = 0;
+        message.f1Weighted = 0;
+        message.precisionMacro = 0;
+        message.recallMacro = 0;
+        message.r2Score = 0;
+        message.mse = 0;
+        message.mae = 0;
+        message.silhouetteScore = 0;
+        message.confusionMatrixJson = "";
+        message.classificationReportJson = "";
+        if (value !== undefined)
+            reflectionMergePartial<TrainingEvaluation>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: TrainingEvaluation): TrainingEvaluation {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string id */ 1:
+                    message.id = reader.string();
+                    break;
+                case /* string job_id */ 2:
+                    message.jobId = reader.string();
+                    break;
+                case /* string model_id */ 3:
+                    message.modelId = reader.string();
+                    break;
+                case /* string split */ 4:
+                    message.split = reader.string();
+                    break;
+                case /* double accuracy */ 5:
+                    message.accuracy = reader.double();
+                    break;
+                case /* double loss */ 6:
+                    message.loss = reader.double();
+                    break;
+                case /* double f1_macro */ 7:
+                    message.f1Macro = reader.double();
+                    break;
+                case /* double f1_weighted */ 8:
+                    message.f1Weighted = reader.double();
+                    break;
+                case /* double precision_macro */ 9:
+                    message.precisionMacro = reader.double();
+                    break;
+                case /* double recall_macro */ 10:
+                    message.recallMacro = reader.double();
+                    break;
+                case /* double r2_score */ 11:
+                    message.r2Score = reader.double();
+                    break;
+                case /* double mse */ 12:
+                    message.mse = reader.double();
+                    break;
+                case /* double mae */ 13:
+                    message.mae = reader.double();
+                    break;
+                case /* double silhouette_score */ 14:
+                    message.silhouetteScore = reader.double();
+                    break;
+                case /* string confusion_matrix_json */ 15:
+                    message.confusionMatrixJson = reader.string();
+                    break;
+                case /* string classification_report_json */ 16:
+                    message.classificationReportJson = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: TrainingEvaluation, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string id = 1; */
+        if (message.id !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.id);
+        /* string job_id = 2; */
+        if (message.jobId !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.jobId);
+        /* string model_id = 3; */
+        if (message.modelId !== "")
+            writer.tag(3, WireType.LengthDelimited).string(message.modelId);
+        /* string split = 4; */
+        if (message.split !== "")
+            writer.tag(4, WireType.LengthDelimited).string(message.split);
+        /* double accuracy = 5; */
+        if (message.accuracy !== 0)
+            writer.tag(5, WireType.Bit64).double(message.accuracy);
+        /* double loss = 6; */
+        if (message.loss !== 0)
+            writer.tag(6, WireType.Bit64).double(message.loss);
+        /* double f1_macro = 7; */
+        if (message.f1Macro !== 0)
+            writer.tag(7, WireType.Bit64).double(message.f1Macro);
+        /* double f1_weighted = 8; */
+        if (message.f1Weighted !== 0)
+            writer.tag(8, WireType.Bit64).double(message.f1Weighted);
+        /* double precision_macro = 9; */
+        if (message.precisionMacro !== 0)
+            writer.tag(9, WireType.Bit64).double(message.precisionMacro);
+        /* double recall_macro = 10; */
+        if (message.recallMacro !== 0)
+            writer.tag(10, WireType.Bit64).double(message.recallMacro);
+        /* double r2_score = 11; */
+        if (message.r2Score !== 0)
+            writer.tag(11, WireType.Bit64).double(message.r2Score);
+        /* double mse = 12; */
+        if (message.mse !== 0)
+            writer.tag(12, WireType.Bit64).double(message.mse);
+        /* double mae = 13; */
+        if (message.mae !== 0)
+            writer.tag(13, WireType.Bit64).double(message.mae);
+        /* double silhouette_score = 14; */
+        if (message.silhouetteScore !== 0)
+            writer.tag(14, WireType.Bit64).double(message.silhouetteScore);
+        /* string confusion_matrix_json = 15; */
+        if (message.confusionMatrixJson !== "")
+            writer.tag(15, WireType.LengthDelimited).string(message.confusionMatrixJson);
+        /* string classification_report_json = 16; */
+        if (message.classificationReportJson !== "")
+            writer.tag(16, WireType.LengthDelimited).string(message.classificationReportJson);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.analytics.v1.TrainingEvaluation
+ */
+export const TrainingEvaluation = new TrainingEvaluation$Type();
 /**
  * @generated ServiceType for protobuf service enose.analytics.v1.AnalyticsService
  */
@@ -9748,6 +11549,14 @@ export const AnalyticsService = new ServiceType("enose.analytics.v1.AnalyticsSer
  */
 export const ModelService = new ServiceType("enose.analytics.v1.ModelService", [
     { name: "TrainModel", serverStreaming: true, options: {}, I: TrainModelRequest, O: TrainProgress },
+    { name: "StartTraining", options: {}, I: StartTrainingRequest, O: StartTrainingResponse },
+    { name: "GetTrainingJob", options: {}, I: GetTrainingJobRequest, O: TrainingJobInfo },
+    { name: "ListTrainingJobs", options: {}, I: ListTrainingJobsRequest, O: ListTrainingJobsResponse },
+    { name: "CancelTraining", options: {}, I: CancelTrainingRequest, O: Empty },
+    { name: "DeleteTrainingJob", options: {}, I: DeleteTrainingJobRequest, O: Empty },
+    { name: "StreamTrainingProgress", serverStreaming: true, options: {}, I: StreamTrainingProgressRequest, O: TrainingProgressUpdate },
+    { name: "GetTrainingJobProgress", options: {}, I: GetTrainingJobProgressRequest, O: GetTrainingJobProgressResponse },
+    { name: "GetTrainingEvaluation", options: {}, I: GetTrainingEvaluationRequest, O: GetTrainingEvaluationResponse },
     { name: "ListModels", options: {}, I: ListModelsRequest, O: ListModelsResponse },
     { name: "GetModel", options: {}, I: GetModelRequest, O: ModelInfo },
     { name: "LoadModel", options: {}, I: LoadModelRequest, O: Empty },

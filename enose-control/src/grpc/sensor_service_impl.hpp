@@ -7,6 +7,7 @@
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <vector>
 #include <condition_variable>
 #include <atomic>
 
@@ -90,6 +91,19 @@ private:
     
     // 信号连接
     boost::signals2::connection packet_connection_;
+    boost::signals2::connection disconnect_connection_;
+    boost::signals2::connection reconnect_connection_;
+    
+    // 重连后固件恢复
+    void on_sensor_disconnected();
+    void on_sensor_reconnected();
+    void replay_cached_state();
+    
+    // 缓存的固件状态（用于重连后恢复）
+    std::mutex state_cache_mutex_;
+    std::vector<nlohmann::json> cached_heater_configs_;  // 最后发送的 config 命令
+    bool cached_sensor_running_{false};                   // 传感器是否在采集中
+    std::vector<int> cached_active_sensors_;              // 活跃的传感器列表
     
     // 传感器数据持久化
     std::unique_ptr<db::SensorRepository> sensor_repo_;
@@ -105,6 +119,13 @@ public:
     // 数据质量监控
     void set_quality_monitor(workflows::DataQualityMonitor* monitor) { quality_monitor_ = monitor; }
     void clear_quality_monitor() { quality_monitor_ = nullptr; }
+    
+    // 传感器状态缓存（供 ExperimentService 调用，重连后自动恢复）
+    void cache_heater_config(const nlohmann::json& config_cmd);
+    void cache_heater_configs(const std::vector<nlohmann::json>& configs);
+    void cache_sensor_started(const std::vector<int>& active_sensors = {});
+    void cache_sensor_stopped();
+    void clear_state_cache();
     
 private:
     workflows::DataQualityMonitor* quality_monitor_{nullptr};

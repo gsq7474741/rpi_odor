@@ -230,6 +230,20 @@ class SampleServiceImpl(pb_grpc.SampleServiceServicer):
             avg_temperature_c=sample.get("avg_temperature_c", 0),
             avg_humidity_pct=sample.get("avg_humidity_pct", 0),
             avg_pressure_hpa=sample.get("avg_pressure_hpa", 0),
+            # 组合实验元数据 (0016)
+            reagent_batch_id=sample.get("reagent_batch_id") or "",
+            reagent_prep_date=sample.get("reagent_prep_date") or "",
+            prev_sample_id=sample.get("prev_sample_id") or 0,
+            samples_since_wash=sample.get("samples_since_wash") or 0,
+            sensor_hours_at_sample=sample.get("sensor_hours_at_sample") or 0.0,
+            is_anchor=sample.get("is_anchor", False),
+            is_blank=sample.get("is_blank", False),
+            experiment_phase=sample.get("experiment_phase") or "",
+            sequence_block=sample.get("sequence_block") or "",
+            randomization_seed=sample.get("randomization_seed") or 0,
+            wash_residual_response=sample.get("wash_residual_response") or [],
+            quality_score=sample.get("quality_score") or 0.0,
+            quality_level=sample.get("quality_level") or "",
         )
 
         if sample.get("end_time_ms"):

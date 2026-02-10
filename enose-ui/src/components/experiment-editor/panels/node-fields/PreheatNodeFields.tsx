@@ -1,13 +1,41 @@
 'use client';
 
+import { useState, useEffect, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Field } from './Field';
 import { NodeFieldsProps } from './types';
+import { ExperimentNode, ExperimentEdge } from '../../types';
+import { HeaterProfile, fetchHeaterProfiles } from '../../data-fetcher';
+import { findPrecedingConfigureHeater, computeMaxCycleDurationS } from './heater-cycle-utils';
 
-export function PreheatNodeFields({ data, handleChange }: NodeFieldsProps) {
+interface PreheatNodeFieldsProps extends NodeFieldsProps {
+  nodeId?: string;
+  nodes?: ExperimentNode[];
+  edges?: ExperimentEdge[];
+}
+
+export function PreheatNodeFields({ data, handleChange, nodeId, nodes, edges }: PreheatNodeFieldsProps) {
+  const [profiles, setProfiles] = useState<HeaterProfile[]>([]);
+
+  useEffect(() => {
+    fetchHeaterProfiles().then(setProfiles);
+  }, []);
+
+  // 计算上游最长加热周期时长
+  const maxCycleDurS = useMemo(() => {
+    if (!nodeId || !nodes?.length || !edges?.length || !profiles.length) return 0;
+    const configNode = findPrecedingConfigureHeater(nodeId, nodes, edges);
+    if (!configNode) return 0;
+    return computeMaxCycleDurationS(configNode, profiles);
+  }, [nodeId, nodes, edges, profiles]);
+
+  // 如果无法从上游推断，使用默认 11s
+  const cycleDurS = maxCycleDurS > 0 ? maxCycleDurS : 11;
+  const windowCycles = Math.max(5, Math.floor((Number(data.stabilityWindowS) || 30) / 10));
+
   return (
     <>
       <Field label="步骤名称">
@@ -38,7 +66,10 @@ export function PreheatNodeFields({ data, handleChange }: NodeFieldsProps) {
         </Select>
       </Field>
       {data.mode === 'cycles' ? (
-        <Field label="预热周期数">
+        <Field
+          label="预热周期数"
+          hint={`等待加热器完成指定数量的完整温度扫描周期（每周期 ≈ ${cycleDurS.toFixed(1)}s）`}
+        >
           <Input
             type="number"
             min={1}
@@ -48,15 +79,29 @@ export function PreheatNodeFields({ data, handleChange }: NodeFieldsProps) {
         </Field>
       ) : data.mode === 'stability' ? (
         <>
-          <Field label="稳定窗口 (秒)">
+          <div className="rounded-md bg-muted/50 border px-3 py-2 text-[11px] text-muted-foreground leading-relaxed">
+            按 <span className="font-medium text-foreground">(传感器 × 加热步骤)</span> 分组，
+            每组仅比较<span className="font-medium text-foreground">同一温度点在不同周期间</span>的读数漂移，变温配置不会误判。
+            至少需要 3 个周期的数据才开始判断。
+          </div>
+          <Field
+            label="比较窗口 (周期数)"
+            hint={`保留最近 ${windowCycles} 个周期的读数（≈ ${Math.round(windowCycles * cycleDurS)}s，基于上一步最长配置 ${cycleDurS.toFixed(1)}s/周期）`}
+          >
             <Input
               type="number"
-              min={5}
-              value={Number(data.stabilityWindowS || 30)}
-              onChange={(e) => handleChange('stabilityWindowS', parseInt(e.target.value) || 30)}
+              min={3}
+              value={windowCycles}
+              onChange={(e) => {
+                const cycles = Math.max(3, parseInt(e.target.value) || 5);
+                handleChange('stabilityWindowS', cycles * 10);
+              }}
             />
           </Field>
-          <Field label="变化率阈值 (%)">
+          <Field
+            label="跨周期变化率阈值 (%)"
+            hint="同一 (传感器, 加热步骤) 在窗口内各周期读数的 (max−min)/mean，所有组都低于此值时判定稳定"
+          >
             <Input
               type="number"
               min={0.1}

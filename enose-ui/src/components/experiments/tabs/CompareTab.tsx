@@ -27,12 +27,26 @@ import {
   Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SensorBoardLayout } from "../SensorBoardLayout";
 
 interface ParamRow {
   key: string;
   label: string;
   values: (string | number | null)[];
   isDifferent: boolean;
+}
+
+// 检查两个 heaterConfigs 是否相同（用于差异检测）
+function heaterConfigsEqual(
+  a: { sensorIndices: number[]; profileName: string }[],
+  b: { sensorIndices: number[]; profileName: string }[]
+): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].profileName !== b[i].profileName) return false;
+    if (a[i].sensorIndices.join(",") !== b[i].sensorIndices.join(",")) return false;
+  }
+  return true;
 }
 
 // 单元格内容：超长时截断并显示 tooltip
@@ -319,6 +333,31 @@ export function CompareTab() {
                 </TableRow>
               </TableHeader>
               <TableBody>
+                {/* 传感器板布局行 */}
+                {(() => {
+                  const hasConfigs = selectedSamples.some(s => s.heaterConfigs?.length > 0);
+                  if (!hasConfigs) return null;
+                  const allSame = selectedSamples.every(s =>
+                    heaterConfigsEqual(s.heaterConfigs || [], selectedSamples[0].heaterConfigs || [])
+                  );
+                  return (
+                    <TableRow className={cn(!allSame && "bg-orange-50 dark:bg-orange-950/20")}>
+                      <TableCell className="font-medium whitespace-nowrap sticky left-0 bg-background z-10 align-top">
+                        传感器布局
+                        {!allSame && <span className="ml-1 text-orange-500">●</span>}
+                      </TableCell>
+                      {selectedSamples.map((sample) => (
+                        <TableCell key={sample.id} className="min-w-40 align-top">
+                          {sample.heaterConfigs?.length > 0 ? (
+                            <SensorBoardLayout heaterConfigs={sample.heaterConfigs} compact />
+                          ) : (
+                            <span className="text-muted-foreground text-xs">-</span>
+                          )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  );
+                })()}
                 {paramRows.map((row) => (
                   <TableRow
                     key={row.key}

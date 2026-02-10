@@ -104,6 +104,27 @@ class DataRepository:
 
         return experiments, total
 
+    def list_run_ids_light(self) -> list[dict]:
+        """轻量级查询：仅从 runs + samples 表获取 run ID 和样本数，不查 sensor_readings_v2"""
+        query = """
+            SELECT r.id as run_id, COUNT(s.id) as sample_count
+            FROM runs r
+            LEFT JOIN samples s ON r.id = s.run_id
+            GROUP BY r.id
+            ORDER BY r.id DESC
+        """
+        with get_cursor() as cur:
+            cur.execute(query)
+            rows = cur.fetchall()
+
+        return [
+            {
+                "experiment_id": str(row["run_id"]),
+                "sample_count": row["sample_count"],
+            }
+            for row in rows
+        ]
+
     def query_sensor_data(
         self,
         experiment_id: str | None = None,

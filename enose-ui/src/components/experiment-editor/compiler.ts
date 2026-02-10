@@ -219,19 +219,23 @@ export function compile(
     // 编译节点
     if (node.type !== NodeType.START && node.type !== NodeType.END) {
       // 遇到 CONFIGURE_HEATER 节点时，从 heaterProfiles 提取 durs 精确计算周期时长
+      // 取所有选中 profile 中最长的那个周期时长
       if (node.type === NodeType.CONFIGURE_HEATER && cfg.heaterProfiles) {
         const heaterData = node.data as Record<string, unknown>;
         const sensorProfiles = (heaterData.sensorProfiles as Record<number, string>) || {};
-        // 取第一个非空 profile（通常所有传感器使用相同配置）
-        const firstProfileName = Object.values(sensorProfiles).find(name => name);
-        if (firstProfileName) {
-          const baseProfileName = firstProfileName.replace(/__\d+$/, '');
-          const profile = cfg.heaterProfiles.find(p => p.name === baseProfileName);
-          if (profile && profile.durs && profile.durs.length > 0) {
-            // 精确计算: sum(durs) × 140ms / 1000
-            const sumDurs = profile.durs.reduce((s, d) => s + d, 0);
-            cfg.heaterCycleDurationS = sumDurs * 0.14;
+        const uniqueProfileNames = new Set(
+          Object.values(sensorProfiles).filter(Boolean).map(n => n.replace(/__\d+$/, ''))
+        );
+        let maxCycleDuration = 0;
+        for (const baseName of uniqueProfileNames) {
+          const profile = cfg.heaterProfiles.find(p => p.name === baseName);
+          if (profile?.durs?.length) {
+            const cycleDur = profile.durs.reduce((s, d) => s + d, 0) * 0.14;
+            if (cycleDur > maxCycleDuration) maxCycleDuration = cycleDur;
           }
+        }
+        if (maxCycleDuration > 0) {
+          cfg.heaterCycleDurationS = maxCycleDuration;
         }
       }
       
@@ -243,21 +247,21 @@ export function compile(
           const loopData = node.data as Record<string, unknown>;
           const loopCount = (loopData.count as number) || 1;
           const loopName = String(loopData.name || '循环');
-          const loopBodySteps = compileLoopBody(
-            node.id,
-            nodes,
-            loopBodyAdjacency,
-            flowAdjacency,
-            liquidConnections,
-            cfg,
-            diagnostics,
-            0,
-            []  // 初始空 loopPath
-          );
-          
           if (cfg.expandLoops && loopCount <= cfg.maxLoopExpansion) {
-            // 展开循环，设置层级信息
+            // 展开循环，每次迭代重新编译循环体（使内层随机化扫描每次获得不同顺序）
             for (let i = 0; i < loopCount; i++) {
+              const iterDiagnostics: CompilerDiagnostic[] = [];
+              const loopBodySteps = compileLoopBody(
+                node.id,
+                nodes,
+                loopBodyAdjacency,
+                flowAdjacency,
+                liquidConnections,
+                cfg,
+                i === 0 ? diagnostics : iterDiagnostics,
+                0,
+                []
+              );
               const currentLoopEntry: LoopPathEntry = {
                 loopId: node.id,
                 loopName: loopName,
@@ -269,17 +273,15 @@ export function compile(
                 const expandedStep: CompiledStep = {
                   ...bodyStep,
                   id: `${bodyStep.id}_iter${i}`,
-                  name: bodyStep.name,  // 保持原始名称，不添加前缀
+                  name: bodyStep.name,
                   params: { ...bodyStep.params },
                   loopPath: [currentLoopEntry, ...bodyStep.loopPath],
                   depth: bodyStep.depth + 1,
                 };
                 steps.push(expandedStep);
                 
-                // 只累加原子步骤时间
                 if (expandedStep.isAtomic) {
                   totalDurationS += expandedStep.estimatedDurationS;
-                  // 更新液位
                   currentLiquidMl += expandedStep.liquidChangeMl;
                   peakLiquidLevelMl = Math.max(peakLiquidLevelMl, currentLiquidMl);
                   if (expandedStep.type === NodeType.INJECT && expandedStep.liquidChangeMl > 0) {
@@ -294,7 +296,17 @@ export function compile(
               loopExpansionCount++;
             }
           } else {
-            // 不展开，只计算一次迭代的估算
+            const loopBodySteps = compileLoopBody(
+              node.id,
+              nodes,
+              loopBodyAdjacency,
+              flowAdjacency,
+              liquidConnections,
+              cfg,
+              diagnostics,
+              0,
+              []
+            );
             const atomicDuration = loopBodySteps
               .filter(s => s.isAtomic)
               .reduce((sum, s) => sum + s.estimatedDurationS, 0);
@@ -307,7 +319,6 @@ export function compile(
             steps.push(compiledStep);
             totalDurationS += compiledStep.estimatedDurationS;
             
-            // 估算液位变化（假设每次迭代相同）
             const bodyLiquidChange = loopBodySteps.reduce((sum, s) => sum + s.liquidChangeMl, 0);
             for (let i = 0; i < loopCount; i++) {
               currentLiquidMl += bodyLiquidChange;
@@ -349,14 +360,25 @@ export function compile(
             // 展开参数扫描
             const paramType = sweepData.paramType as string || 'volume';
             const ratioSweepPoints = (sweepData.ratioSweepPoints as Array<{ ratios: Record<string, number> }>) || [];
+            const shouldRandomize = Boolean(sweepData.randomize);
+            const storedOrder = sweepData.shuffledOrder as number[] | undefined;
             
-            for (let i = 0; i < sweepValues.length; i++) {
+            // 使用存储的随机排列（由 UI 生成），或顺序索引
+            let orderIndices: number[];
+            if (shouldRandomize && storedOrder && storedOrder.length === sweepValues.length) {
+              orderIndices = storedOrder;
+            } else {
+              orderIndices = Array.from({ length: sweepValues.length }, (_, i) => i);
+            }
+            
+            for (let iter = 0; iter < orderIndices.length; iter++) {
+              const i = orderIndices[iter];
               const value = sweepValues[i];
               const ratioConfig = paramType === 'ratio' && ratioSweepPoints[i] ? ratioSweepPoints[i].ratios : undefined;
               const currentLoopEntry: LoopPathEntry = {
                 loopId: node.id,
                 loopName: sweepName,
-                iteration: i + 1,
+                iteration: iter + 1,
                 total: sweepValues.length,
               };
               
@@ -506,8 +528,8 @@ export function compile(
       
       if (components) {
         // 计算比例总和和每个泵的流量
-        const totalRatio = components.reduce((sum, c) => sum + (c.ratio || 1), 0);
-        const pumpVolumes = components.map(c => volumeMl * ((c.ratio || 1) / totalRatio));
+        const totalRatio = components.reduce((sum, c) => sum + (c.ratio ?? 1), 0);
+        const pumpVolumes = components.map(c => volumeMl * ((c.ratio ?? 1) / totalRatio));
         const maxPumpVolume = Math.max(...pumpVolumes, volumeMl);
         
         // 多泵并行：所有泵运行时间相同，由最大流量泵决定
@@ -1182,21 +1204,21 @@ function compileLoopBody(
       const loopData = node.data as Record<string, unknown>;
       const nestedLoopCount = (loopData.count as number) || 1;
       const nestedLoopName = String(loopData.name || '循环');
-      const nestedBodySteps = compileLoopBody(
-        node.id,
-        allNodes,
-        loopBodyAdjacency,
-        flowAdjacency,
-        liquidConnections,
-        config,
-        diagnostics,
-        depth + 1,
-        parentLoopPath
-      );
-      
       if (config.expandLoops && nestedLoopCount <= config.maxLoopExpansion) {
-        // 展开嵌套循环，设置层级信息
+        // 展开嵌套循环，每次迭代重新编译（使内层随机化扫描获得不同顺序）
         for (let i = 0; i < nestedLoopCount; i++) {
+          const iterDiagnostics: CompilerDiagnostic[] = [];
+          const nestedBodySteps = compileLoopBody(
+            node.id,
+            allNodes,
+            loopBodyAdjacency,
+            flowAdjacency,
+            liquidConnections,
+            config,
+            i === 0 ? diagnostics : iterDiagnostics,
+            depth + 1,
+            parentLoopPath
+          );
           const currentLoopEntry: LoopPathEntry = {
             loopId: node.id,
             loopName: nestedLoopName,
@@ -1216,7 +1238,17 @@ function compileLoopBody(
           }
         }
       } else {
-        // 不展开，创建一个汇总步骤
+        const nestedBodySteps = compileLoopBody(
+          node.id,
+          allNodes,
+          loopBodyAdjacency,
+          flowAdjacency,
+          liquidConnections,
+          config,
+          diagnostics,
+          depth + 1,
+          parentLoopPath
+        );
         const nestedStep = compileNode(node, allNodes, liquidConnections, config, diagnostics);
         if (nestedStep) {
           const atomicDuration = nestedBodySteps
@@ -1254,14 +1286,21 @@ function compileLoopBody(
         // 展开嵌套参数扫描
         const paramType = sweepData.paramType as string || 'volume';
         const ratioSweepPoints = (sweepData.ratioSweepPoints as Array<{ ratios: Record<string, number> }>) || [];
+        const shouldRandomize = Boolean(sweepData.randomize);
         
-        for (let i = 0; i < sweepValues.length; i++) {
+        // 随机化或顺序索引
+        const orderIndices = shouldRandomize
+          ? shuffleIndices(sweepValues.length)
+          : Array.from({ length: sweepValues.length }, (_, i) => i);
+        
+        for (let iter = 0; iter < orderIndices.length; iter++) {
+          const i = orderIndices[iter];
           const value = sweepValues[i];
           const ratioConfig = paramType === 'ratio' && ratioSweepPoints[i] ? ratioSweepPoints[i].ratios : undefined;
           const currentLoopEntry: LoopPathEntry = {
             loopId: node.id,
             loopName: sweepName,
-            iteration: i + 1,
+            iteration: iter + 1,
             total: sweepValues.length,
           };
           
@@ -1414,6 +1453,18 @@ function generateSweepValues(data: Record<string, unknown>): number[] {
 }
 
 /**
+ * Fisher-Yates 洗牌算法，返回打乱后的索引数组
+ */
+function shuffleIndices(length: number): number[] {
+  const indices = Array.from({ length }, (_, i) => i);
+  for (let i = indices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+  return indices;
+}
+
+/**
  * 获取参数类型对应的绑定字段名
  */
 function getBindingFieldForParamType(paramType: string): string | null {
@@ -1460,9 +1511,9 @@ function applySweptParameter(
         
         let maxPumpVolume = value;
         if (components && components.length > 0) {
-          const totalRatio = components.reduce((sum, c) => sum + (c.ratio || 1), 0);
+          const totalRatio = components.reduce((sum, c) => sum + (c.ratio ?? 1), 0);
           maxPumpVolume = components.reduce((max, c) => {
-            const pumpVolume = value * ((c.ratio || 1) / totalRatio);
+            const pumpVolume = value * ((c.ratio ?? 1) / totalRatio);
             return Math.max(max, pumpVolume);
           }, 0);
         }

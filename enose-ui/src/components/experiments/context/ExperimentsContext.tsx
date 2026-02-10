@@ -38,6 +38,12 @@ export interface Sample {
   terminationValue: number;
   maxDurationS: number;
   heaterProfiles: string[];
+  heaterConfigs: {
+    sensorIndices: number[];
+    profileName: string;
+    temps: number[];
+    durs: number[];
+  }[];
   preWashCount: number;
   phaseName: string;
   avgTemperatureC: number | null;
@@ -46,6 +52,20 @@ export interface Sample {
   durationS: number | null;
   phaseTransitions: PhaseTransition[];
   readingCount: number;
+  // 组合实验元数据 (0016)
+  reagentBatchId: string | null;
+  reagentPrepDate: string | null;
+  prevSampleId: number | null;
+  samplesSinceWash: number;
+  sensorHoursAtSample: number | null;
+  isAnchor: boolean;
+  isBlank: boolean;
+  experimentPhase: string | null;
+  sequenceBlock: string | null;
+  randomizationSeed: number | null;
+  washResidualResponse: number[];
+  qualityScore: number | null;
+  qualityLevel: string | null;
 }
 
 // 数据帧状态
@@ -94,6 +114,13 @@ export interface FilterState {
   runIds: number[];           // 按 Run 筛选（不是选择！）
   phaseNames: string[];       // 按阶段筛选
   liquidIds: string[];        // 按液体筛选
+  // 组合实验筛选 (0016)
+  experimentPhases: string[]; // 按实验设计阶段筛选（Phase 1-6）
+  componentCount: number | null; // 混合物复杂度筛选（1=纯物质, 2=二元, 3=三元, null=全部）
+  qualityLevels: string[];    // 按质量等级筛选（good/warning/poor）
+  showAnchorsOnly: boolean;   // 仅显示锚点样品
+  showBlanksOnly: boolean;    // 仅显示空白对照
+  hideAnchorsAndBlanks: boolean; // 隐藏锚点和空白（默认 false）
   timeRange: [Date, Date] | null;
   pwmRange: [number, number] | null;
   paramsHash: string | null;
@@ -145,8 +172,10 @@ export interface ExperimentsState {
   setMlSplitRatios: (ratios: { train: number; val: number }) => void;
   
   // 可用的筛选选项
+  availableRuns: { id: number; sampleCount: number }[];
   availableLiquids: { id: string; name: string }[];
   availablePhases: string[];
+  filterOptionsLoading: boolean;
   
   // 操作
   setRuns: (runs: Run[]) => void;
@@ -182,8 +211,10 @@ export interface ExperimentsState {
   updateFilters: (filters: Partial<FilterState>) => void;
   clearFilters: () => void;
   
+  setAvailableRuns: (runs: { id: number; sampleCount: number }[]) => void;
   setAvailableLiquids: (liquids: { id: string; name: string }[]) => void;
   setAvailablePhases: (phases: string[]) => void;
+  setFilterOptionsLoading: (loading: boolean) => void;
   
   // 刷新选中样本的帧状态
   refreshFrameStatuses: () => Promise<void>;
@@ -193,6 +224,12 @@ const defaultFilters: FilterState = {
   runIds: [],
   phaseNames: [],
   liquidIds: [],
+  experimentPhases: [],
+  componentCount: null,
+  qualityLevels: [],
+  showAnchorsOnly: false,
+  showBlanksOnly: false,
+  hideAnchorsAndBlanks: false,
   timeRange: null,
   pwmRange: null,
   paramsHash: null,
@@ -276,8 +313,10 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
   }, []);
   
   // 可用选项
+  const [availableRuns, setAvailableRuns] = useState<{ id: number; sampleCount: number }[]>([]);
   const [availableLiquids, setAvailableLiquids] = useState<{ id: string; name: string }[]>([]);
   const [availablePhases, setAvailablePhases] = useState<string[]>([]);
+  const [filterOptionsLoading, setFilterOptionsLoading] = useState(true);
   
   // ML 标签共享状态
   const [mlLabelConfig, setMlLabelConfig] = useState<string>("");
@@ -481,8 +520,10 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
     setMlLabelConfig,
     mlSplitRatios,
     setMlSplitRatios,
+    availableRuns,
     availableLiquids,
     availablePhases,
+    filterOptionsLoading,
     setRuns,
     setRunsLoading,
     setRunsTotal,
@@ -508,8 +549,10 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
     clearComparison,
     updateFilters,
     clearFilters,
+    setAvailableRuns,
     setAvailableLiquids,
     setAvailablePhases,
+    setFilterOptionsLoading,
     refreshFrameStatuses,
   };
   

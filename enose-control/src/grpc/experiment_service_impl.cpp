@@ -479,9 +479,10 @@ void ExperimentServiceImpl::execution_thread_func() {
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
     
-    // 清除质量监控器引用
+    // 清除质量监控器引用和重连状态缓存
     if (sensor_service_) {
         sensor_service_->clear_quality_monitor();
+        sensor_service_->clear_state_cache();
     }
     quality_monitor_.reset();
     
@@ -608,7 +609,15 @@ void ExperimentServiceImpl::execute_inject(const experiment::InjectAction& actio
     // 根据液体配方设置各泵进样量
     // 注意: 泵绑定从数据库 pump_assignments 表查询，不再使用 YAML 中的 pump_index
     for (const auto& comp : action.components()) {
-        double volume_ml = total_volume * comp.ratio() / total_ratio;
+        // 规约：跳过占比 < 1% 的成分（处理 one-hot 参数扫描中的"零成分"）
+        double ratio_pct = comp.ratio() / total_ratio;
+        if (ratio_pct < 0.01) {
+            spdlog::debug("跳过低比例成分: liquid_id={} ratio={} ({:.2f}%)",
+                         comp.liquid_id(), comp.ratio(), ratio_pct * 100);
+            continue;
+        }
+        
+        double volume_ml = total_volume * ratio_pct;
         
         // 从数据库查询液体绑定的泵
         int liquid_id = 0;
@@ -1777,6 +1786,11 @@ void ExperimentServiceImpl::execute_configure_heater(
                         info.sensor_indices.size(), info.temps.size(), info.durs.size());
             sensor_driver_->write(config_cmd);
             
+            // 缓存到 SensorService 用于重连恢复
+            if (sensor_service_) {
+                sensor_service_->cache_heater_config(config_cmd);
+            }
+            
             // 等待固件处理配置
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
@@ -1813,6 +1827,11 @@ void ExperimentServiceImpl::execute_preheat(const experiment::PreheatAction& act
         start_cmd["id"] = 3;
         start_cmd["params"]["sensors"] = {0, 1, 2, 3, 4, 5, 6, 7};
         sensor_driver_->write(start_cmd);
+        
+        // 缓存到 SensorService 用于重连恢复
+        if (sensor_service_) {
+            sensor_service_->cache_sensor_started({0, 1, 2, 3, 4, 5, 6, 7});
+        }
         
         // 等待传感器开始采集
         std::this_thread::sleep_for(std::chrono::milliseconds(500));

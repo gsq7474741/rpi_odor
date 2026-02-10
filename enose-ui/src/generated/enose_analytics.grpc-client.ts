@@ -60,6 +60,20 @@ import type { ModelInfo } from "./enose_analytics";
 import type { GetModelRequest } from "./enose_analytics";
 import type { ListModelsResponse } from "./enose_analytics";
 import type { ListModelsRequest } from "./enose_analytics";
+import type { GetTrainingEvaluationResponse } from "./enose_analytics";
+import type { GetTrainingEvaluationRequest } from "./enose_analytics";
+import type { GetTrainingJobProgressResponse } from "./enose_analytics";
+import type { GetTrainingJobProgressRequest } from "./enose_analytics";
+import type { TrainingProgressUpdate } from "./enose_analytics";
+import type { StreamTrainingProgressRequest } from "./enose_analytics";
+import type { DeleteTrainingJobRequest } from "./enose_analytics";
+import type { CancelTrainingRequest } from "./enose_analytics";
+import type { ListTrainingJobsResponse } from "./enose_analytics";
+import type { ListTrainingJobsRequest } from "./enose_analytics";
+import type { TrainingJobInfo } from "./enose_analytics";
+import type { GetTrainingJobRequest } from "./enose_analytics";
+import type { StartTrainingResponse } from "./enose_analytics";
+import type { StartTrainingRequest } from "./enose_analytics";
 import type { TrainProgress } from "./enose_analytics";
 import type { TrainModelRequest } from "./enose_analytics";
 import { AnalyticsService } from "./enose_analytics";
@@ -326,7 +340,7 @@ export class AnalyticsServiceClient extends grpc.Client implements IAnalyticsSer
     }
 }
 // ============================================================================
-// Model Service - MLP 模型训练与推理
+// Model Service - 多模型训练与推理
 // ============================================================================
 
 /**
@@ -334,12 +348,82 @@ export class AnalyticsServiceClient extends grpc.Client implements IAnalyticsSer
  */
 export interface IModelServiceClient {
     /**
-     * 训练模型
+     * (legacy) 训练模型
      *
      * @generated from protobuf rpc: TrainModel
      */
     trainModel(input: TrainModelRequest, metadata?: grpc.Metadata, options?: grpc.CallOptions): grpc.ClientReadableStream<TrainProgress>;
     trainModel(input: TrainModelRequest, options?: grpc.CallOptions): grpc.ClientReadableStream<TrainProgress>;
+    /**
+     * 启动训练任务（异步，立即返回 job_id）
+     *
+     * @generated from protobuf rpc: StartTraining
+     */
+    startTraining(input: StartTrainingRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: StartTrainingResponse) => void): grpc.ClientUnaryCall;
+    startTraining(input: StartTrainingRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: StartTrainingResponse) => void): grpc.ClientUnaryCall;
+    startTraining(input: StartTrainingRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: StartTrainingResponse) => void): grpc.ClientUnaryCall;
+    startTraining(input: StartTrainingRequest, callback: (err: grpc.ServiceError | null, value?: StartTrainingResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 获取训练任务状态
+     *
+     * @generated from protobuf rpc: GetTrainingJob
+     */
+    getTrainingJob(input: GetTrainingJobRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: TrainingJobInfo) => void): grpc.ClientUnaryCall;
+    getTrainingJob(input: GetTrainingJobRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: TrainingJobInfo) => void): grpc.ClientUnaryCall;
+    getTrainingJob(input: GetTrainingJobRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: TrainingJobInfo) => void): grpc.ClientUnaryCall;
+    getTrainingJob(input: GetTrainingJobRequest, callback: (err: grpc.ServiceError | null, value?: TrainingJobInfo) => void): grpc.ClientUnaryCall;
+    /**
+     * 列出训练任务
+     *
+     * @generated from protobuf rpc: ListTrainingJobs
+     */
+    listTrainingJobs(input: ListTrainingJobsRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: ListTrainingJobsResponse) => void): grpc.ClientUnaryCall;
+    listTrainingJobs(input: ListTrainingJobsRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: ListTrainingJobsResponse) => void): grpc.ClientUnaryCall;
+    listTrainingJobs(input: ListTrainingJobsRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: ListTrainingJobsResponse) => void): grpc.ClientUnaryCall;
+    listTrainingJobs(input: ListTrainingJobsRequest, callback: (err: grpc.ServiceError | null, value?: ListTrainingJobsResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 取消训练任务
+     *
+     * @generated from protobuf rpc: CancelTraining
+     */
+    cancelTraining(input: CancelTrainingRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    cancelTraining(input: CancelTrainingRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    cancelTraining(input: CancelTrainingRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    cancelTraining(input: CancelTrainingRequest, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    /**
+     * 删除训练任务（含关联的进度、评估记录）
+     *
+     * @generated from protobuf rpc: DeleteTrainingJob
+     */
+    deleteTrainingJob(input: DeleteTrainingJobRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    deleteTrainingJob(input: DeleteTrainingJobRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    deleteTrainingJob(input: DeleteTrainingJobRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    deleteTrainingJob(input: DeleteTrainingJobRequest, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
+    /**
+     * 流式获取训练进度
+     *
+     * @generated from protobuf rpc: StreamTrainingProgress
+     */
+    streamTrainingProgress(input: StreamTrainingProgressRequest, metadata?: grpc.Metadata, options?: grpc.CallOptions): grpc.ClientReadableStream<TrainingProgressUpdate>;
+    streamTrainingProgress(input: StreamTrainingProgressRequest, options?: grpc.CallOptions): grpc.ClientReadableStream<TrainingProgressUpdate>;
+    /**
+     * 获取训练进度历史（用于查看已完成任务的训练曲线）
+     *
+     * @generated from protobuf rpc: GetTrainingJobProgress
+     */
+    getTrainingJobProgress(input: GetTrainingJobProgressRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: GetTrainingJobProgressResponse) => void): grpc.ClientUnaryCall;
+    getTrainingJobProgress(input: GetTrainingJobProgressRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: GetTrainingJobProgressResponse) => void): grpc.ClientUnaryCall;
+    getTrainingJobProgress(input: GetTrainingJobProgressRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: GetTrainingJobProgressResponse) => void): grpc.ClientUnaryCall;
+    getTrainingJobProgress(input: GetTrainingJobProgressRequest, callback: (err: grpc.ServiceError | null, value?: GetTrainingJobProgressResponse) => void): grpc.ClientUnaryCall;
+    /**
+     * 获取训练评估详情
+     *
+     * @generated from protobuf rpc: GetTrainingEvaluation
+     */
+    getTrainingEvaluation(input: GetTrainingEvaluationRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: GetTrainingEvaluationResponse) => void): grpc.ClientUnaryCall;
+    getTrainingEvaluation(input: GetTrainingEvaluationRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: GetTrainingEvaluationResponse) => void): grpc.ClientUnaryCall;
+    getTrainingEvaluation(input: GetTrainingEvaluationRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: GetTrainingEvaluationResponse) => void): grpc.ClientUnaryCall;
+    getTrainingEvaluation(input: GetTrainingEvaluationRequest, callback: (err: grpc.ServiceError | null, value?: GetTrainingEvaluationResponse) => void): grpc.ClientUnaryCall;
     /**
      * 列出已训练模型
      *
@@ -396,7 +480,7 @@ export interface IModelServiceClient {
     deleteModel(input: DeleteModelRequest, callback: (err: grpc.ServiceError | null, value?: Empty) => void): grpc.ClientUnaryCall;
 }
 // ============================================================================
-// Model Service - MLP 模型训练与推理
+// Model Service - 多模型训练与推理
 // ============================================================================
 
 /**
@@ -409,7 +493,7 @@ export class ModelServiceClient extends grpc.Client implements IModelServiceClie
         this._binaryOptions = binaryOptions;
     }
     /**
-     * 训练模型
+     * (legacy) 训练模型
      *
      * @generated from protobuf rpc: TrainModel
      */
@@ -418,12 +502,84 @@ export class ModelServiceClient extends grpc.Client implements IModelServiceClie
         return this.makeServerStreamRequest<TrainModelRequest, TrainProgress>(`/${ModelService.typeName}/${method.name}`, (value: TrainModelRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): TrainProgress => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), options);
     }
     /**
+     * 启动训练任务（异步，立即返回 job_id）
+     *
+     * @generated from protobuf rpc: StartTraining
+     */
+    startTraining(input: StartTrainingRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: StartTrainingResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: StartTrainingResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: StartTrainingResponse) => void)): grpc.ClientUnaryCall {
+        const method = ModelService.methods[1];
+        return this.makeUnaryRequest<StartTrainingRequest, StartTrainingResponse>(`/${ModelService.typeName}/${method.name}`, (value: StartTrainingRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): StartTrainingResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 获取训练任务状态
+     *
+     * @generated from protobuf rpc: GetTrainingJob
+     */
+    getTrainingJob(input: GetTrainingJobRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: TrainingJobInfo) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: TrainingJobInfo) => void), callback?: ((err: grpc.ServiceError | null, value?: TrainingJobInfo) => void)): grpc.ClientUnaryCall {
+        const method = ModelService.methods[2];
+        return this.makeUnaryRequest<GetTrainingJobRequest, TrainingJobInfo>(`/${ModelService.typeName}/${method.name}`, (value: GetTrainingJobRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): TrainingJobInfo => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 列出训练任务
+     *
+     * @generated from protobuf rpc: ListTrainingJobs
+     */
+    listTrainingJobs(input: ListTrainingJobsRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: ListTrainingJobsResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: ListTrainingJobsResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: ListTrainingJobsResponse) => void)): grpc.ClientUnaryCall {
+        const method = ModelService.methods[3];
+        return this.makeUnaryRequest<ListTrainingJobsRequest, ListTrainingJobsResponse>(`/${ModelService.typeName}/${method.name}`, (value: ListTrainingJobsRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): ListTrainingJobsResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 取消训练任务
+     *
+     * @generated from protobuf rpc: CancelTraining
+     */
+    cancelTraining(input: CancelTrainingRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), callback?: ((err: grpc.ServiceError | null, value?: Empty) => void)): grpc.ClientUnaryCall {
+        const method = ModelService.methods[4];
+        return this.makeUnaryRequest<CancelTrainingRequest, Empty>(`/${ModelService.typeName}/${method.name}`, (value: CancelTrainingRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): Empty => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 删除训练任务（含关联的进度、评估记录）
+     *
+     * @generated from protobuf rpc: DeleteTrainingJob
+     */
+    deleteTrainingJob(input: DeleteTrainingJobRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), callback?: ((err: grpc.ServiceError | null, value?: Empty) => void)): grpc.ClientUnaryCall {
+        const method = ModelService.methods[5];
+        return this.makeUnaryRequest<DeleteTrainingJobRequest, Empty>(`/${ModelService.typeName}/${method.name}`, (value: DeleteTrainingJobRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): Empty => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 流式获取训练进度
+     *
+     * @generated from protobuf rpc: StreamTrainingProgress
+     */
+    streamTrainingProgress(input: StreamTrainingProgressRequest, metadata?: grpc.Metadata | grpc.CallOptions, options?: grpc.CallOptions): grpc.ClientReadableStream<TrainingProgressUpdate> {
+        const method = ModelService.methods[6];
+        return this.makeServerStreamRequest<StreamTrainingProgressRequest, TrainingProgressUpdate>(`/${ModelService.typeName}/${method.name}`, (value: StreamTrainingProgressRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): TrainingProgressUpdate => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), options);
+    }
+    /**
+     * 获取训练进度历史（用于查看已完成任务的训练曲线）
+     *
+     * @generated from protobuf rpc: GetTrainingJobProgress
+     */
+    getTrainingJobProgress(input: GetTrainingJobProgressRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GetTrainingJobProgressResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GetTrainingJobProgressResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: GetTrainingJobProgressResponse) => void)): grpc.ClientUnaryCall {
+        const method = ModelService.methods[7];
+        return this.makeUnaryRequest<GetTrainingJobProgressRequest, GetTrainingJobProgressResponse>(`/${ModelService.typeName}/${method.name}`, (value: GetTrainingJobProgressRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): GetTrainingJobProgressResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
+     * 获取训练评估详情
+     *
+     * @generated from protobuf rpc: GetTrainingEvaluation
+     */
+    getTrainingEvaluation(input: GetTrainingEvaluationRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GetTrainingEvaluationResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GetTrainingEvaluationResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: GetTrainingEvaluationResponse) => void)): grpc.ClientUnaryCall {
+        const method = ModelService.methods[8];
+        return this.makeUnaryRequest<GetTrainingEvaluationRequest, GetTrainingEvaluationResponse>(`/${ModelService.typeName}/${method.name}`, (value: GetTrainingEvaluationRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): GetTrainingEvaluationResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
      * 列出已训练模型
      *
      * @generated from protobuf rpc: ListModels
      */
     listModels(input: ListModelsRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: ListModelsResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: ListModelsResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: ListModelsResponse) => void)): grpc.ClientUnaryCall {
-        const method = ModelService.methods[1];
+        const method = ModelService.methods[9];
         return this.makeUnaryRequest<ListModelsRequest, ListModelsResponse>(`/${ModelService.typeName}/${method.name}`, (value: ListModelsRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): ListModelsResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
@@ -432,7 +588,7 @@ export class ModelServiceClient extends grpc.Client implements IModelServiceClie
      * @generated from protobuf rpc: GetModel
      */
     getModel(input: GetModelRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: ModelInfo) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: ModelInfo) => void), callback?: ((err: grpc.ServiceError | null, value?: ModelInfo) => void)): grpc.ClientUnaryCall {
-        const method = ModelService.methods[2];
+        const method = ModelService.methods[10];
         return this.makeUnaryRequest<GetModelRequest, ModelInfo>(`/${ModelService.typeName}/${method.name}`, (value: GetModelRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): ModelInfo => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
@@ -441,7 +597,7 @@ export class ModelServiceClient extends grpc.Client implements IModelServiceClie
      * @generated from protobuf rpc: LoadModel
      */
     loadModel(input: LoadModelRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), callback?: ((err: grpc.ServiceError | null, value?: Empty) => void)): grpc.ClientUnaryCall {
-        const method = ModelService.methods[3];
+        const method = ModelService.methods[11];
         return this.makeUnaryRequest<LoadModelRequest, Empty>(`/${ModelService.typeName}/${method.name}`, (value: LoadModelRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): Empty => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
@@ -450,7 +606,7 @@ export class ModelServiceClient extends grpc.Client implements IModelServiceClie
      * @generated from protobuf rpc: UnloadModel
      */
     unloadModel(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), callback?: ((err: grpc.ServiceError | null, value?: Empty) => void)): grpc.ClientUnaryCall {
-        const method = ModelService.methods[4];
+        const method = ModelService.methods[12];
         return this.makeUnaryRequest<Empty, Empty>(`/${ModelService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): Empty => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
@@ -459,7 +615,7 @@ export class ModelServiceClient extends grpc.Client implements IModelServiceClie
      * @generated from protobuf rpc: Predict
      */
     predict(input: PredictRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: PredictResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: PredictResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: PredictResponse) => void)): grpc.ClientUnaryCall {
-        const method = ModelService.methods[5];
+        const method = ModelService.methods[13];
         return this.makeUnaryRequest<PredictRequest, PredictResponse>(`/${ModelService.typeName}/${method.name}`, (value: PredictRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): PredictResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
@@ -468,7 +624,7 @@ export class ModelServiceClient extends grpc.Client implements IModelServiceClie
      * @generated from protobuf rpc: DeleteModel
      */
     deleteModel(input: DeleteModelRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: Empty) => void), callback?: ((err: grpc.ServiceError | null, value?: Empty) => void)): grpc.ClientUnaryCall {
-        const method = ModelService.methods[6];
+        const method = ModelService.methods[14];
         return this.makeUnaryRequest<DeleteModelRequest, Empty>(`/${ModelService.typeName}/${method.name}`, (value: DeleteModelRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): Empty => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
 }

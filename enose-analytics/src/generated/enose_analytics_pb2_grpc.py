@@ -459,7 +459,7 @@ class AnalyticsService(object):
 
 class ModelServiceStub(object):
     """============================================================================
-    Model Service - MLP 模型训练与推理
+    Model Service - 多模型训练与推理
     ============================================================================
 
     """
@@ -474,6 +474,46 @@ class ModelServiceStub(object):
                 '/enose.analytics.v1.ModelService/TrainModel',
                 request_serializer=enose__analytics__pb2.TrainModelRequest.SerializeToString,
                 response_deserializer=enose__analytics__pb2.TrainProgress.FromString,
+                )
+        self.StartTraining = channel.unary_unary(
+                '/enose.analytics.v1.ModelService/StartTraining',
+                request_serializer=enose__analytics__pb2.StartTrainingRequest.SerializeToString,
+                response_deserializer=enose__analytics__pb2.StartTrainingResponse.FromString,
+                )
+        self.GetTrainingJob = channel.unary_unary(
+                '/enose.analytics.v1.ModelService/GetTrainingJob',
+                request_serializer=enose__analytics__pb2.GetTrainingJobRequest.SerializeToString,
+                response_deserializer=enose__analytics__pb2.TrainingJobInfo.FromString,
+                )
+        self.ListTrainingJobs = channel.unary_unary(
+                '/enose.analytics.v1.ModelService/ListTrainingJobs',
+                request_serializer=enose__analytics__pb2.ListTrainingJobsRequest.SerializeToString,
+                response_deserializer=enose__analytics__pb2.ListTrainingJobsResponse.FromString,
+                )
+        self.CancelTraining = channel.unary_unary(
+                '/enose.analytics.v1.ModelService/CancelTraining',
+                request_serializer=enose__analytics__pb2.CancelTrainingRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                )
+        self.DeleteTrainingJob = channel.unary_unary(
+                '/enose.analytics.v1.ModelService/DeleteTrainingJob',
+                request_serializer=enose__analytics__pb2.DeleteTrainingJobRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                )
+        self.StreamTrainingProgress = channel.unary_stream(
+                '/enose.analytics.v1.ModelService/StreamTrainingProgress',
+                request_serializer=enose__analytics__pb2.StreamTrainingProgressRequest.SerializeToString,
+                response_deserializer=enose__analytics__pb2.TrainingProgressUpdate.FromString,
+                )
+        self.GetTrainingJobProgress = channel.unary_unary(
+                '/enose.analytics.v1.ModelService/GetTrainingJobProgress',
+                request_serializer=enose__analytics__pb2.GetTrainingJobProgressRequest.SerializeToString,
+                response_deserializer=enose__analytics__pb2.GetTrainingJobProgressResponse.FromString,
+                )
+        self.GetTrainingEvaluation = channel.unary_unary(
+                '/enose.analytics.v1.ModelService/GetTrainingEvaluation',
+                request_serializer=enose__analytics__pb2.GetTrainingEvaluationRequest.SerializeToString,
+                response_deserializer=enose__analytics__pb2.GetTrainingEvaluationResponse.FromString,
                 )
         self.ListModels = channel.unary_unary(
                 '/enose.analytics.v1.ModelService/ListModels',
@@ -509,13 +549,69 @@ class ModelServiceStub(object):
 
 class ModelServiceServicer(object):
     """============================================================================
-    Model Service - MLP 模型训练与推理
+    Model Service - 多模型训练与推理
     ============================================================================
 
     """
 
     def TrainModel(self, request, context):
-        """训练模型
+        """(legacy) 训练模型
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StartTraining(self, request, context):
+        """启动训练任务（异步，立即返回 job_id）
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetTrainingJob(self, request, context):
+        """获取训练任务状态
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListTrainingJobs(self, request, context):
+        """列出训练任务
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CancelTraining(self, request, context):
+        """取消训练任务
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteTrainingJob(self, request, context):
+        """删除训练任务（含关联的进度、评估记录）
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StreamTrainingProgress(self, request, context):
+        """流式获取训练进度
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetTrainingJobProgress(self, request, context):
+        """获取训练进度历史（用于查看已完成任务的训练曲线）
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetTrainingEvaluation(self, request, context):
+        """获取训练评估详情
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -571,6 +667,46 @@ def add_ModelServiceServicer_to_server(servicer, server):
                     request_deserializer=enose__analytics__pb2.TrainModelRequest.FromString,
                     response_serializer=enose__analytics__pb2.TrainProgress.SerializeToString,
             ),
+            'StartTraining': grpc.unary_unary_rpc_method_handler(
+                    servicer.StartTraining,
+                    request_deserializer=enose__analytics__pb2.StartTrainingRequest.FromString,
+                    response_serializer=enose__analytics__pb2.StartTrainingResponse.SerializeToString,
+            ),
+            'GetTrainingJob': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetTrainingJob,
+                    request_deserializer=enose__analytics__pb2.GetTrainingJobRequest.FromString,
+                    response_serializer=enose__analytics__pb2.TrainingJobInfo.SerializeToString,
+            ),
+            'ListTrainingJobs': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListTrainingJobs,
+                    request_deserializer=enose__analytics__pb2.ListTrainingJobsRequest.FromString,
+                    response_serializer=enose__analytics__pb2.ListTrainingJobsResponse.SerializeToString,
+            ),
+            'CancelTraining': grpc.unary_unary_rpc_method_handler(
+                    servicer.CancelTraining,
+                    request_deserializer=enose__analytics__pb2.CancelTrainingRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'DeleteTrainingJob': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteTrainingJob,
+                    request_deserializer=enose__analytics__pb2.DeleteTrainingJobRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'StreamTrainingProgress': grpc.unary_stream_rpc_method_handler(
+                    servicer.StreamTrainingProgress,
+                    request_deserializer=enose__analytics__pb2.StreamTrainingProgressRequest.FromString,
+                    response_serializer=enose__analytics__pb2.TrainingProgressUpdate.SerializeToString,
+            ),
+            'GetTrainingJobProgress': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetTrainingJobProgress,
+                    request_deserializer=enose__analytics__pb2.GetTrainingJobProgressRequest.FromString,
+                    response_serializer=enose__analytics__pb2.GetTrainingJobProgressResponse.SerializeToString,
+            ),
+            'GetTrainingEvaluation': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetTrainingEvaluation,
+                    request_deserializer=enose__analytics__pb2.GetTrainingEvaluationRequest.FromString,
+                    response_serializer=enose__analytics__pb2.GetTrainingEvaluationResponse.SerializeToString,
+            ),
             'ListModels': grpc.unary_unary_rpc_method_handler(
                     servicer.ListModels,
                     request_deserializer=enose__analytics__pb2.ListModelsRequest.FromString,
@@ -610,7 +746,7 @@ def add_ModelServiceServicer_to_server(servicer, server):
  # This class is part of an EXPERIMENTAL API.
 class ModelService(object):
     """============================================================================
-    Model Service - MLP 模型训练与推理
+    Model Service - 多模型训练与推理
     ============================================================================
 
     """
@@ -629,6 +765,142 @@ class ModelService(object):
         return grpc.experimental.unary_stream(request, target, '/enose.analytics.v1.ModelService/TrainModel',
             enose__analytics__pb2.TrainModelRequest.SerializeToString,
             enose__analytics__pb2.TrainProgress.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def StartTraining(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/enose.analytics.v1.ModelService/StartTraining',
+            enose__analytics__pb2.StartTrainingRequest.SerializeToString,
+            enose__analytics__pb2.StartTrainingResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetTrainingJob(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/enose.analytics.v1.ModelService/GetTrainingJob',
+            enose__analytics__pb2.GetTrainingJobRequest.SerializeToString,
+            enose__analytics__pb2.TrainingJobInfo.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ListTrainingJobs(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/enose.analytics.v1.ModelService/ListTrainingJobs',
+            enose__analytics__pb2.ListTrainingJobsRequest.SerializeToString,
+            enose__analytics__pb2.ListTrainingJobsResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def CancelTraining(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/enose.analytics.v1.ModelService/CancelTraining',
+            enose__analytics__pb2.CancelTrainingRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def DeleteTrainingJob(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/enose.analytics.v1.ModelService/DeleteTrainingJob',
+            enose__analytics__pb2.DeleteTrainingJobRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def StreamTrainingProgress(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(request, target, '/enose.analytics.v1.ModelService/StreamTrainingProgress',
+            enose__analytics__pb2.StreamTrainingProgressRequest.SerializeToString,
+            enose__analytics__pb2.TrainingProgressUpdate.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetTrainingJobProgress(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/enose.analytics.v1.ModelService/GetTrainingJobProgress',
+            enose__analytics__pb2.GetTrainingJobProgressRequest.SerializeToString,
+            enose__analytics__pb2.GetTrainingJobProgressResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetTrainingEvaluation(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/enose.analytics.v1.ModelService/GetTrainingEvaluation',
+            enose__analytics__pb2.GetTrainingEvaluationRequest.SerializeToString,
+            enose__analytics__pb2.GetTrainingEvaluationResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

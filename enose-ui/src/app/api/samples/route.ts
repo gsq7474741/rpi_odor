@@ -94,6 +94,12 @@ export async function GET(request: NextRequest) {
       terminationValue: s.terminationValue,
       maxDurationS: s.maxDurationS,
       heaterProfiles: s.heaterConfigs.map((h) => h.profileName || `[${h.temps.join(",")}]`),
+      heaterConfigs: s.heaterConfigs.map((h) => ({
+        sensorIndices: h.sensorIndices,
+        profileName: h.profileName,
+        temps: h.temps,
+        durs: h.durs,
+      })),
       preWashCount: s.preWashCount,
       phaseName: s.phaseName,
       avgTemperatureC: s.avgTemperatureC || null,
@@ -110,6 +116,20 @@ export async function GET(request: NextRequest) {
         phaseOrder: t.phaseOrder,
       })),
       readingCount: s.readingCount,
+      // 组合实验元数据 (0016)
+      reagentBatchId: s.reagentBatchId || null,
+      reagentPrepDate: s.reagentPrepDate || null,
+      prevSampleId: s.prevSampleId || null,
+      samplesSinceWash: s.samplesSinceWash || 0,
+      sensorHoursAtSample: s.sensorHoursAtSample || null,
+      isAnchor: s.isAnchor || false,
+      isBlank: s.isBlank || false,
+      experimentPhase: s.experimentPhase || null,
+      sequenceBlock: s.sequenceBlock || null,
+      randomizationSeed: s.randomizationSeed || null,
+      washResidualResponse: s.washResidualResponse || [],
+      qualityScore: s.qualityScore || null,
+      qualityLevel: s.qualityLevel || null,
     });
 
     // 多 runId: 并行请求后合并

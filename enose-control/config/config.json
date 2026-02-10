@@ -52,7 +52,7 @@
     "port": 50051
   },
   "sensor": {
-    "serial_port": "/dev/ttyUSB0",
+    "serial_port": "/dev/enose-sensor",
     "baud_rate": 115200,
     "channels": 16,
     "sample_rate_hz": 10

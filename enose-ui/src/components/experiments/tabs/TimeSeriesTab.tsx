@@ -121,7 +121,7 @@ export function TimeSeriesTab() {
   const [timeSeriesData, setTimeSeriesData] = useState<SampleTimeSeriesData[]>([]);
   const [selectedSensors, setSelectedSensors] = useState<number[]>([0, 1, 2, 3, 4, 5, 6, 7]);
   const [alignMode, setAlignMode] = useState<AlignMode>("relative");
-  const [dataSource, setDataSource] = useState<DataSource>("raw");
+  const [dataSource, setDataSource] = useState<DataSource>("frames");
   const [colorMode, setColorMode] = useState<ColorMode>("bySensor");
   const [showEnv, setShowEnv] = useState(false);
 
@@ -706,8 +706,8 @@ export function TimeSeriesTab() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="raw">原始数据</SelectItem>
                     <SelectItem value="frames">归一化帧</SelectItem>
+                    <SelectItem value="raw">原始数据</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

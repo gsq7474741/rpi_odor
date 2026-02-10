@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useExperiments, SampleWithFrameStatus } from "../context/ExperimentsContext";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +63,10 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
   const [sortField, setSortField] = useState<SortField>("time");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [recalculating, setRecalculating] = useState<Set<number>>(new Set());
+
+  // 用 ref 持有 runs，避免 loadSamples 依赖 runs 导致级联刷新
+  const runsRef = useRef(runs);
+  runsRef.current = runs;
 
   // 单样本重新计算数据帧
   const handleRecalcSingle = useCallback(async (sampleId: number, e: React.MouseEvent) => {
@@ -150,14 +154,14 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
       const data = await response.json();
 
       if (data.samples) {
-        // 获取 run 创建时间映射
+        // 获取 run 创建时间映射（使用 ref 避免依赖 runs）
         const runCreatedAtMap: Record<number, string | null> = {};
-        runs.forEach((run) => {
+        runsRef.current.forEach((run) => {
           runCreatedAtMap[run.id] = run.createdAt;
         });
 
         // 转换为 SampleWithFrameStatus
-        const samplesWithStatus: SampleWithFrameStatus[] = data.samples.map(
+        let samplesWithStatus: SampleWithFrameStatus[] = data.samples.map(
           (s: SampleWithFrameStatus) => ({
             ...s,
             frameStatus: null, // 稍后批量获取
@@ -165,8 +169,36 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
           })
         );
 
+        // 客户端后过滤：组合实验元数据筛选
+        if (filters.componentCount !== null) {
+          samplesWithStatus = samplesWithStatus.filter(
+            (s) => filters.componentCount! >= 4
+              ? s.liquidNames.length >= 4
+              : s.liquidNames.length === filters.componentCount
+          );
+        }
+        if (filters.qualityLevels.length > 0) {
+          samplesWithStatus = samplesWithStatus.filter(
+            (s) => s.qualityLevel && filters.qualityLevels.includes(s.qualityLevel)
+          );
+        }
+        if (filters.hideAnchorsAndBlanks) {
+          samplesWithStatus = samplesWithStatus.filter(
+            (s) => !s.isAnchor && !s.isBlank
+          );
+        } else if (filters.showAnchorsOnly) {
+          samplesWithStatus = samplesWithStatus.filter((s) => s.isAnchor);
+        } else if (filters.showBlanksOnly) {
+          samplesWithStatus = samplesWithStatus.filter((s) => s.isBlank);
+        }
+        if (filters.experimentPhases.length > 0) {
+          samplesWithStatus = samplesWithStatus.filter(
+            (s) => s.experimentPhase && filters.experimentPhases.includes(s.experimentPhase)
+          );
+        }
+
         setSamples(samplesWithStatus);
-        setSamplesTotal(data.total || 0);
+        setSamplesTotal(samplesWithStatus.length);
 
         // 批量获取数据帧状态
         loadFrameStatuses(samplesWithStatus);
@@ -176,7 +208,7 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
     } finally {
       setSamplesLoading(false);
     }
-  }, [samplesPage, filters, runs, sortField, sortOrder, setSamples, setSamplesLoading, setSamplesTotal]);
+  }, [samplesPage, filters, sortField, sortOrder, setSamples, setSamplesLoading, setSamplesTotal]);
 
   // 批量获取数据帧状态
   const loadFrameStatuses = async (sampleList: SampleWithFrameStatus[]) => {

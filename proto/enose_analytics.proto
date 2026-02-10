@@ -53,12 +53,36 @@ service AnalyticsService {
 }
 
 // ============================================================================
-// Model Service - MLP 模型训练与推理
+// Model Service - 多模型训练与推理
 // ============================================================================
 
 service ModelService {
-  // 训练模型
+  // (legacy) 训练模型
   rpc TrainModel(TrainModelRequest) returns (stream TrainProgress);
+  
+  // 启动训练任务（异步，立即返回 job_id）
+  rpc StartTraining(StartTrainingRequest) returns (StartTrainingResponse);
+  
+  // 获取训练任务状态
+  rpc GetTrainingJob(GetTrainingJobRequest) returns (TrainingJobInfo);
+  
+  // 列出训练任务
+  rpc ListTrainingJobs(ListTrainingJobsRequest) returns (ListTrainingJobsResponse);
+  
+  // 取消训练任务
+  rpc CancelTraining(CancelTrainingRequest) returns (google.protobuf.Empty);
+  
+  // 删除训练任务（含关联的进度、评估记录）
+  rpc DeleteTrainingJob(DeleteTrainingJobRequest) returns (google.protobuf.Empty);
+  
+  // 流式获取训练进度
+  rpc StreamTrainingProgress(StreamTrainingProgressRequest) returns (stream TrainingProgressUpdate);
+  
+  // 获取训练进度历史（用于查看已完成任务的训练曲线）
+  rpc GetTrainingJobProgress(GetTrainingJobProgressRequest) returns (GetTrainingJobProgressResponse);
+  
+  // 获取训练评估详情
+  rpc GetTrainingEvaluation(GetTrainingEvaluationRequest) returns (GetTrainingEvaluationResponse);
   
   // 列出已训练模型
   rpc ListModels(ListModelsRequest) returns (ListModelsResponse);
@@ -453,6 +477,15 @@ message ModelInfo {
   
   // 状态
   bool is_loaded = 15;
+  
+  // 扩展字段
+  string model_type = 20;              // mlp/cnn1d/tcn/transformer/svm/xgboost/kmeans
+  string task_type = 21;               // classification/regression/contrastive/clustering
+  string framework = 22;               // pytorch/sklearn/xgboost
+  double test_accuracy = 23;
+  string confusion_matrix_json = 24;
+  string extra_metrics_json = 25;
+  string training_job_id = 26;
 }
 
 // ============================================================================
@@ -819,6 +852,37 @@ message Sample {
   
   // 传感器读数计数（0 表示无数据）
   int32 reading_count = 24;
+  
+  // ========== 组合实验元数据 (0016-combinatorial-metadata) ==========
+  
+  // 试剂批次追踪
+  string reagent_batch_id = 30;               // 试剂批次号
+  string reagent_prep_date = 31;              // 试剂配制日期 (YYYY-MM-DD)
+  
+  // 序列上下文
+  int32 prev_sample_id = 32;                  // 前一个样品 ID（残留评估）
+  int32 samples_since_wash = 33;              // 距上次深度清洗的样品数
+  
+  // 传感器状态
+  float sensor_hours_at_sample = 34;          // 采样时传感器累计使用小时
+  
+  // 漂移校准与空白标记
+  bool is_anchor = 35;                        // 漂移校准锚点样品
+  bool is_blank = 36;                         // 空白对照
+  
+  // 实验设计阶段
+  string experiment_phase = 37;               // 实验设计阶段标识（Phase 1-6）
+  
+  // 随机化信息
+  string sequence_block = 38;                 // 随机化区组标识
+  int32 randomization_seed = 39;              // 随机化种子
+  
+  // 清洗残余响应
+  repeated float wash_residual_response = 40; // 清洗后残余传感器响应（8通道）
+  
+  // 质量信息（已有 DB 字段，Proto 新增）
+  float quality_score = 41;                   // 0-100 综合质量评分
+  string quality_level = 42;                  // good/warning/poor
 }
 
 message LiquidComponent {
@@ -1105,4 +1169,128 @@ message ExportDataChunk {
   bytes data = 1;
   string filename = 2;                 // 当前处理的文件名（用于前端进度显示）
   int32 progress_percent = 3;          // 0-100
+}
+
+// ============================================================================
+// 训练平台消息
+// ============================================================================
+
+message StartTrainingRequest {
+  string name = 1;
+  string description = 2;
+  string model_type = 3;               // "mlp", "cnn1d", "tcn", "transformer", "svm", "xgboost", "kmeans"
+  string task_type = 4;                // "classification", "regression", "contrastive", "clustering"
+
+  // 数据集配置
+  string label_config_name = 5;        // ML 标签策略名
+  repeated int32 sample_ids = 6;
+  repeated int32 run_ids = 7;
+  double train_ratio = 8;
+  double val_ratio = 9;
+  int32 frame_n_samples = 10;          // 归一化帧采样点数
+  string frame_method = 11;            // "linear" / "pchip"
+  int32 seed = 12;
+
+  // 超参数 (JSON 字符串，模型类型不同参数不同)
+  string hyperparams_json = 20;
+}
+
+message StartTrainingResponse {
+  string job_id = 1;
+  string message = 2;
+}
+
+message GetTrainingJobRequest {
+  string job_id = 1;
+}
+
+message ListTrainingJobsRequest {
+  int32 limit = 1;
+  int32 offset = 2;
+  string status_filter = 3;            // 可选: PENDING/RUNNING/COMPLETED/FAILED/CANCELLED
+}
+
+message ListTrainingJobsResponse {
+  repeated TrainingJobInfo jobs = 1;
+  int32 total = 2;
+}
+
+message CancelTrainingRequest {
+  string job_id = 1;
+}
+
+message DeleteTrainingJobRequest {
+  string job_id = 1;
+}
+
+message StreamTrainingProgressRequest {
+  string job_id = 1;
+}
+
+message TrainingProgressUpdate {
+  int32 epoch = 1;
+  int32 total_epochs = 2;
+  double train_loss = 3;
+  double val_loss = 4;
+  double train_accuracy = 5;
+  double val_accuracy = 6;
+  string extra_metrics_json = 7;
+}
+
+message GetTrainingJobProgressRequest {
+  string job_id = 1;
+}
+
+message GetTrainingJobProgressResponse {
+  repeated TrainingProgressUpdate entries = 1;
+}
+
+message GetTrainingEvaluationRequest {
+  string job_id = 1;
+}
+
+message GetTrainingEvaluationResponse {
+  repeated TrainingEvaluation evaluations = 1;
+}
+
+message TrainingJobInfo {
+  string id = 1;
+  string model_name = 2;
+  string model_type = 3;
+  string task_type = 4;
+  string status = 5;                   // PENDING/RUNNING/COMPLETED/FAILED/CANCELLED
+  int32 current_epoch = 6;
+  int32 total_epochs = 7;
+  double train_loss = 8;
+  double val_loss = 9;
+  double train_accuracy = 10;
+  double val_accuracy = 11;
+  double test_accuracy = 12;
+  string hyperparams_json = 13;
+  string dataset_config_json = 14;
+  string error_message = 15;
+  google.protobuf.Timestamp created_at = 16;
+  google.protobuf.Timestamp started_at = 17;
+  google.protobuf.Timestamp completed_at = 18;
+  string model_id = 19;               // 训练完成后关联的 ml_models.id
+  string extra_metrics_json = 20;
+}
+
+message TrainingEvaluation {
+  string id = 1;
+  string job_id = 2;
+  string model_id = 3;
+  string split = 4;                    // train/val/test
+  double accuracy = 5;
+  double loss = 6;
+  double f1_macro = 7;
+  double f1_weighted = 8;
+  double precision_macro = 9;
+  double recall_macro = 10;
+  double r2_score = 11;
+  double mse = 12;
+  double mae = 13;
+  double silhouette_score = 14;
+  string confusion_matrix_json = 15;
+  string classification_report_json = 16;
 }

@@ -63,7 +63,7 @@ int main(int argc, char* argv[]) {
         spdlog::info("Config loaded: gRPC={}, sensor={}, actuator={}:{}", 
                      grpc_address, sensor_port, moonraker_host, moonraker_port);
 
-        // 初始化数据库连接池
+        // 初始化数据库连接池 (带重试)
         std::shared_ptr<db::TestRunRepository> repository;
         std::shared_ptr<db::ConsumableRepository> consumable_repo;
         if (config.local.timescaledb.enabled) {
@@ -71,12 +71,29 @@ int main(int argc, char* argv[]) {
             spdlog::info("Initializing database connection pool: host={}, db={}",
                          config.local.timescaledb.host, config.local.timescaledb.database);
             
-            if (db::ConnectionPool::instance().initialize(conn_str, config.local.timescaledb.pool_size)) {
-                repository = std::make_shared<db::TestRunRepository>();
-                consumable_repo = std::make_shared<db::ConsumableRepository>();
-                spdlog::info("Database connection pool initialized successfully");
-            } else {
-                spdlog::warn("Failed to initialize database connection pool, test persistence disabled");
+            constexpr int max_retries = 10;
+            constexpr int retry_interval_sec = 3;
+            bool db_connected = false;
+            
+            for (int attempt = 1; attempt <= max_retries; ++attempt) {
+                if (db::ConnectionPool::instance().initialize(conn_str, config.local.timescaledb.pool_size)) {
+                    repository = std::make_shared<db::TestRunRepository>();
+                    consumable_repo = std::make_shared<db::ConsumableRepository>();
+                    spdlog::info("Database connection pool initialized successfully");
+                    db_connected = true;
+                    break;
+                }
+                
+                if (attempt < max_retries) {
+                    spdlog::warn("Database connection attempt {}/{} failed, retrying in {}s...",
+                                 attempt, max_retries, retry_interval_sec);
+                    std::this_thread::sleep_for(std::chrono::seconds(retry_interval_sec));
+                }
+            }
+            
+            if (!db_connected) {
+                spdlog::error("Failed to initialize database connection pool after {} attempts, "
+                              "database persistence disabled", max_retries);
             }
         } else {
             spdlog::info("Database not enabled in config, test persistence disabled");

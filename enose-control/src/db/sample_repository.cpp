@@ -44,6 +44,19 @@ nlohmann::json SampleContext::to_params_json() const {
     // E. 阶段
     j["phase_name"] = phase_name;
     
+    // G. 组合实验元数据
+    if (!reagent_batch_id.empty()) j["reagent_batch_id"] = reagent_batch_id;
+    if (!reagent_prep_date.empty()) j["reagent_prep_date"] = reagent_prep_date;
+    if (prev_sample_id > 0) j["prev_sample_id"] = prev_sample_id;
+    if (samples_since_wash > 0) j["samples_since_wash"] = samples_since_wash;
+    if (sensor_hours_at_sample > 0) j["sensor_hours_at_sample"] = sensor_hours_at_sample;
+    if (is_anchor) j["is_anchor"] = true;
+    if (is_blank) j["is_blank"] = true;
+    if (!experiment_phase.empty()) j["experiment_phase"] = experiment_phase;
+    if (!sequence_block.empty()) j["sequence_block"] = sequence_block;
+    if (randomization_seed != 0) j["randomization_seed"] = randomization_seed;
+    if (!wash_residual_response.empty()) j["wash_residual_response"] = wash_residual_response;
+    
     return j;
 }
 
@@ -204,6 +217,71 @@ std::vector<bool> SampleRepository::parse_pg_bool_array(const std::string& arr) 
     return result;
 }
 
+std::vector<float> SampleRepository::parse_pg_float_array(const std::string& arr) {
+    std::vector<float> result;
+    if (arr.empty() || arr == "{}") return result;
+    
+    std::string content = arr.substr(1, arr.size() - 2);
+    if (content.empty()) return result;
+    
+    std::stringstream ss(content);
+    std::string item;
+    while (std::getline(ss, item, ',')) {
+        try {
+            result.push_back(std::stof(item));
+        } catch (...) {
+            result.push_back(0.0f);
+        }
+    }
+    return result;
+}
+
+void SampleRepository::parse_sample_row(const pqxx::row& row, SampleRecord& rec) {
+    rec.id = row[0].as<int32_t>();
+    rec.run_id = row[1].as<int32_t>();
+    rec.sample_idx = row[2].as<int32_t>();
+    rec.start_time_ms = row[3].as<int64_t>();
+    rec.end_time_ms = row[4].is_null() ? 0 : row[4].as<int64_t>();
+    rec.params_hash = row[5].as<std::string>();
+    
+    rec.liquid_ids = parse_pg_text_array(row[6].is_null() ? "" : row[6].as<std::string>());
+    rec.liquid_names = parse_pg_text_array(row[7].is_null() ? "" : row[7].as<std::string>());
+    rec.liquid_ratios = parse_pg_double_array(row[8].is_null() ? "" : row[8].as<std::string>());
+    rec.pump_indices = parse_pg_int16_array(row[9].is_null() ? "" : row[9].as<std::string>());
+    rec.liquid_is_solvent = parse_pg_bool_array(row[10].is_null() ? "" : row[10].as<std::string>());
+    
+    rec.total_volume_ml = row[11].is_null() ? 0 : row[11].as<double>();
+    rec.flow_rate_ml_s = row[12].is_null() ? 0 : row[12].as<double>();
+    rec.gas_pump_pwm = row[13].as<int16_t>();
+    rec.termination_type = row[14].is_null() ? "" : row[14].as<std::string>();
+    rec.termination_value = row[15].is_null() ? 0 : row[15].as<double>();
+    rec.max_duration_s = row[16].is_null() ? 0 : row[16].as<double>();
+    rec.heater_configs_json = row[17].is_null() ? "[]" : row[17].as<std::string>();
+    rec.pre_wash_count = row[18].is_null() ? 0 : row[18].as<int16_t>();
+    rec.pre_wash_volume_ml = row[19].is_null() ? 0 : row[19].as<double>();
+    rec.wash_liquid_id = row[20].is_null() ? "" : row[20].as<std::string>();
+    rec.phase_name = row[21].is_null() ? "" : row[21].as<std::string>();
+    rec.avg_temperature_c = row[22].is_null() ? 0 : row[22].as<double>();
+    rec.avg_humidity_pct = row[23].is_null() ? 0 : row[23].as<double>();
+    rec.avg_pressure_hpa = row[24].is_null() ? 0 : row[24].as<double>();
+    rec.params_json = row[25].as<std::string>();
+    
+    // 组合实验元数据 (columns 26-37)
+    rec.reagent_batch_id = row[26].is_null() ? "" : row[26].as<std::string>();
+    rec.reagent_prep_date = row[27].is_null() ? "" : row[27].as<std::string>();
+    rec.prev_sample_id = row[28].is_null() ? 0 : row[28].as<int32_t>();
+    rec.samples_since_wash = row[29].is_null() ? 0 : row[29].as<int16_t>();
+    rec.sensor_hours_at_sample = row[30].is_null() ? 0.0f : row[30].as<float>();
+    rec.is_anchor = row[31].is_null() ? false : row[31].as<bool>();
+    rec.is_blank = row[32].is_null() ? false : row[32].as<bool>();
+    rec.experiment_phase = row[33].is_null() ? "" : row[33].as<std::string>();
+    rec.sequence_block = row[34].is_null() ? "" : row[34].as<std::string>();
+    rec.randomization_seed = row[35].is_null() ? 0 : row[35].as<int32_t>();
+    rec.wash_residual_response = parse_pg_float_array(row[36].is_null() ? "" : row[36].as<std::string>());
+    rec.quality_score = row[37].is_null() ? 0.0f : row[37].as<float>();
+    rec.quality_level = row[38].is_null() ? "" : row[38].as<std::string>();
+}
+
 std::optional<int32_t> SampleRepository::create_sample(
     int32_t run_id,
     int32_t sample_idx,
@@ -236,6 +314,19 @@ std::optional<int32_t> SampleRepository::create_sample(
         // 完整参数 JSON
         nlohmann::json params_json = ctx.to_params_json();
         
+        // 组合实验元数据: wash_residual_response 转 PG 数组
+        std::string wash_res_arr = "{}";
+        if (!ctx.wash_residual_response.empty()) {
+            std::stringstream wss;
+            wss << "{";
+            for (size_t i = 0; i < ctx.wash_residual_response.size(); ++i) {
+                if (i > 0) wss << ",";
+                wss << ctx.wash_residual_response[i];
+            }
+            wss << "}";
+            wash_res_arr = wss.str();
+        }
+        
         auto result = txn.exec_params(R"(
             INSERT INTO samples (
                 run_id, sample_idx, start_time_ms, params_hash,
@@ -245,7 +336,12 @@ std::optional<int32_t> SampleRepository::create_sample(
                 gas_pump_pwm, termination_type, termination_value, max_duration_s,
                 heater_configs,
                 pre_wash_count, pre_wash_volume_ml, wash_liquid_id,
-                phase_name, params_json
+                phase_name, params_json,
+                reagent_batch_id, reagent_prep_date,
+                prev_sample_id, samples_since_wash,
+                sensor_hours_at_sample, is_anchor, is_blank,
+                experiment_phase, sequence_block, randomization_seed,
+                wash_residual_response
             ) VALUES (
                 $1, $2, $3, $4,
                 $5, $6, $7, $8,
@@ -254,7 +350,12 @@ std::optional<int32_t> SampleRepository::create_sample(
                 $12, $13, $14, $15,
                 $16,
                 $17, $18, $19,
-                $20, $21
+                $20, $21,
+                NULLIF($22, ''), NULLIF($23, '')::date,
+                NULLIF($24, 0), $25,
+                NULLIF($26, 0), $27, $28,
+                NULLIF($29, ''), NULLIF($30, ''), NULLIF($31, 0),
+                $32::real[]
             ) RETURNING id
         )",
             run_id, sample_idx, ctx.start_time_ms, ctx.params_hash,
@@ -267,7 +368,12 @@ std::optional<int32_t> SampleRepository::create_sample(
             heater_json.dump(),
             static_cast<int16_t>(ctx.pre_wash_count), ctx.pre_wash_volume_ml,
             ctx.wash_liquid_id,
-            ctx.phase_name, params_json.dump()
+            ctx.phase_name, params_json.dump(),
+            ctx.reagent_batch_id, ctx.reagent_prep_date,
+            ctx.prev_sample_id, static_cast<int16_t>(ctx.samples_since_wash),
+            ctx.sensor_hours_at_sample, ctx.is_anchor, ctx.is_blank,
+            ctx.experiment_phase, ctx.sequence_block, ctx.randomization_seed,
+            wash_res_arr
         );
         
         txn.commit();
@@ -333,7 +439,12 @@ std::optional<SampleRecord> SampleRepository::get_sample(int32_t sample_id) {
                    gas_pump_pwm, termination_type, termination_value, max_duration_s,
                    heater_configs, pre_wash_count, pre_wash_volume_ml, wash_liquid_id,
                    phase_name, avg_temperature_c, avg_humidity_pct, avg_pressure_hpa,
-                   params_json
+                   params_json,
+                   reagent_batch_id, reagent_prep_date,
+                   prev_sample_id, samples_since_wash, sensor_hours_at_sample,
+                   is_anchor, is_blank, experiment_phase,
+                   sequence_block, randomization_seed, wash_residual_response,
+                   quality_score, quality_level
             FROM samples WHERE id = $1
         )", sample_id);
         
@@ -342,35 +453,7 @@ std::optional<SampleRecord> SampleRepository::get_sample(int32_t sample_id) {
         if (!result.empty()) {
             const auto& row = result[0];
             SampleRecord rec;
-            rec.id = row[0].as<int32_t>();
-            rec.run_id = row[1].as<int32_t>();
-            rec.sample_idx = row[2].as<int32_t>();
-            rec.start_time_ms = row[3].as<int64_t>();
-            rec.end_time_ms = row[4].is_null() ? 0 : row[4].as<int64_t>();
-            rec.params_hash = row[5].as<std::string>();
-            
-            rec.liquid_ids = parse_pg_text_array(row[6].is_null() ? "" : row[6].as<std::string>());
-            rec.liquid_names = parse_pg_text_array(row[7].is_null() ? "" : row[7].as<std::string>());
-            rec.liquid_ratios = parse_pg_double_array(row[8].is_null() ? "" : row[8].as<std::string>());
-            rec.pump_indices = parse_pg_int16_array(row[9].is_null() ? "" : row[9].as<std::string>());
-            rec.liquid_is_solvent = parse_pg_bool_array(row[10].is_null() ? "" : row[10].as<std::string>());
-            
-            rec.total_volume_ml = row[11].is_null() ? 0 : row[11].as<double>();
-            rec.flow_rate_ml_s = row[12].is_null() ? 0 : row[12].as<double>();
-            rec.gas_pump_pwm = row[13].as<int16_t>();
-            rec.termination_type = row[14].is_null() ? "" : row[14].as<std::string>();
-            rec.termination_value = row[15].is_null() ? 0 : row[15].as<double>();
-            rec.max_duration_s = row[16].is_null() ? 0 : row[16].as<double>();
-            rec.heater_configs_json = row[17].is_null() ? "[]" : row[17].as<std::string>();
-            rec.pre_wash_count = row[18].is_null() ? 0 : row[18].as<int16_t>();
-            rec.pre_wash_volume_ml = row[19].is_null() ? 0 : row[19].as<double>();
-            rec.wash_liquid_id = row[20].is_null() ? "" : row[20].as<std::string>();
-            rec.phase_name = row[21].is_null() ? "" : row[21].as<std::string>();
-            rec.avg_temperature_c = row[22].is_null() ? 0 : row[22].as<double>();
-            rec.avg_humidity_pct = row[23].is_null() ? 0 : row[23].as<double>();
-            rec.avg_pressure_hpa = row[24].is_null() ? 0 : row[24].as<double>();
-            rec.params_json = row[25].as<std::string>();
-            
+            parse_sample_row(row, rec);
             return rec;
         }
         
@@ -396,7 +479,12 @@ std::vector<SampleRecord> SampleRepository::get_samples_by_run(int32_t run_id) {
                    gas_pump_pwm, termination_type, termination_value, max_duration_s,
                    heater_configs, pre_wash_count, pre_wash_volume_ml, wash_liquid_id,
                    phase_name, avg_temperature_c, avg_humidity_pct, avg_pressure_hpa,
-                   params_json
+                   params_json,
+                   reagent_batch_id, reagent_prep_date,
+                   prev_sample_id, samples_since_wash, sensor_hours_at_sample,
+                   is_anchor, is_blank, experiment_phase,
+                   sequence_block, randomization_seed, wash_residual_response,
+                   quality_score, quality_level
             FROM samples WHERE run_id = $1 ORDER BY sample_idx
         )", run_id);
         
@@ -404,32 +492,7 @@ std::vector<SampleRecord> SampleRepository::get_samples_by_run(int32_t run_id) {
         
         for (const auto& row : result) {
             SampleRecord rec;
-            rec.id = row[0].as<int32_t>();
-            rec.run_id = row[1].as<int32_t>();
-            rec.sample_idx = row[2].as<int32_t>();
-            rec.start_time_ms = row[3].as<int64_t>();
-            rec.end_time_ms = row[4].is_null() ? 0 : row[4].as<int64_t>();
-            rec.params_hash = row[5].as<std::string>();
-            rec.liquid_ids = parse_pg_text_array(row[6].is_null() ? "" : row[6].as<std::string>());
-            rec.liquid_names = parse_pg_text_array(row[7].is_null() ? "" : row[7].as<std::string>());
-            rec.liquid_ratios = parse_pg_double_array(row[8].is_null() ? "" : row[8].as<std::string>());
-            rec.pump_indices = parse_pg_int16_array(row[9].is_null() ? "" : row[9].as<std::string>());
-            rec.liquid_is_solvent = parse_pg_bool_array(row[10].is_null() ? "" : row[10].as<std::string>());
-            rec.total_volume_ml = row[11].is_null() ? 0 : row[11].as<double>();
-            rec.flow_rate_ml_s = row[12].is_null() ? 0 : row[12].as<double>();
-            rec.gas_pump_pwm = row[13].as<int16_t>();
-            rec.termination_type = row[14].is_null() ? "" : row[14].as<std::string>();
-            rec.termination_value = row[15].is_null() ? 0 : row[15].as<double>();
-            rec.max_duration_s = row[16].is_null() ? 0 : row[16].as<double>();
-            rec.heater_configs_json = row[17].is_null() ? "[]" : row[17].as<std::string>();
-            rec.pre_wash_count = row[18].is_null() ? 0 : row[18].as<int16_t>();
-            rec.pre_wash_volume_ml = row[19].is_null() ? 0 : row[19].as<double>();
-            rec.wash_liquid_id = row[20].is_null() ? "" : row[20].as<std::string>();
-            rec.phase_name = row[21].is_null() ? "" : row[21].as<std::string>();
-            rec.avg_temperature_c = row[22].is_null() ? 0 : row[22].as<double>();
-            rec.avg_humidity_pct = row[23].is_null() ? 0 : row[23].as<double>();
-            rec.avg_pressure_hpa = row[24].is_null() ? 0 : row[24].as<double>();
-            rec.params_json = row[25].as<std::string>();
+            parse_sample_row(row, rec);
             samples.push_back(rec);
         }
         
@@ -455,7 +518,12 @@ std::vector<SampleRecord> SampleRepository::get_samples_by_hash(const std::strin
                    gas_pump_pwm, termination_type, termination_value, max_duration_s,
                    heater_configs, pre_wash_count, pre_wash_volume_ml, wash_liquid_id,
                    phase_name, avg_temperature_c, avg_humidity_pct, avg_pressure_hpa,
-                   params_json
+                   params_json,
+                   reagent_batch_id, reagent_prep_date,
+                   prev_sample_id, samples_since_wash, sensor_hours_at_sample,
+                   is_anchor, is_blank, experiment_phase,
+                   sequence_block, randomization_seed, wash_residual_response,
+                   quality_score, quality_level
             FROM samples WHERE params_hash = $1 ORDER BY run_id, sample_idx
         )", params_hash);
         
@@ -463,32 +531,7 @@ std::vector<SampleRecord> SampleRepository::get_samples_by_hash(const std::strin
         
         for (const auto& row : result) {
             SampleRecord rec;
-            rec.id = row[0].as<int32_t>();
-            rec.run_id = row[1].as<int32_t>();
-            rec.sample_idx = row[2].as<int32_t>();
-            rec.start_time_ms = row[3].as<int64_t>();
-            rec.end_time_ms = row[4].is_null() ? 0 : row[4].as<int64_t>();
-            rec.params_hash = row[5].as<std::string>();
-            rec.liquid_ids = parse_pg_text_array(row[6].is_null() ? "" : row[6].as<std::string>());
-            rec.liquid_names = parse_pg_text_array(row[7].is_null() ? "" : row[7].as<std::string>());
-            rec.liquid_ratios = parse_pg_double_array(row[8].is_null() ? "" : row[8].as<std::string>());
-            rec.pump_indices = parse_pg_int16_array(row[9].is_null() ? "" : row[9].as<std::string>());
-            rec.liquid_is_solvent = parse_pg_bool_array(row[10].is_null() ? "" : row[10].as<std::string>());
-            rec.total_volume_ml = row[11].is_null() ? 0 : row[11].as<double>();
-            rec.flow_rate_ml_s = row[12].is_null() ? 0 : row[12].as<double>();
-            rec.gas_pump_pwm = row[13].as<int16_t>();
-            rec.termination_type = row[14].is_null() ? "" : row[14].as<std::string>();
-            rec.termination_value = row[15].is_null() ? 0 : row[15].as<double>();
-            rec.max_duration_s = row[16].is_null() ? 0 : row[16].as<double>();
-            rec.heater_configs_json = row[17].is_null() ? "[]" : row[17].as<std::string>();
-            rec.pre_wash_count = row[18].is_null() ? 0 : row[18].as<int16_t>();
-            rec.pre_wash_volume_ml = row[19].is_null() ? 0 : row[19].as<double>();
-            rec.wash_liquid_id = row[20].is_null() ? "" : row[20].as<std::string>();
-            rec.phase_name = row[21].is_null() ? "" : row[21].as<std::string>();
-            rec.avg_temperature_c = row[22].is_null() ? 0 : row[22].as<double>();
-            rec.avg_humidity_pct = row[23].is_null() ? 0 : row[23].as<double>();
-            rec.avg_pressure_hpa = row[24].is_null() ? 0 : row[24].as<double>();
-            rec.params_json = row[25].as<std::string>();
+            parse_sample_row(row, rec);
             samples.push_back(rec);
         }
         

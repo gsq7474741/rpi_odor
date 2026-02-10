@@ -821,11 +821,11 @@ export default function ConsumablesPage() {
         </Button>
       </div>
 
-      <Tabs defaultValue="consumables" className="space-y-4">
+      <Tabs defaultValue="pumps" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="consumables">耗材状态</TabsTrigger>
           <TabsTrigger value="pumps">泵配置</TabsTrigger>
           <TabsTrigger value="liquids">液体库</TabsTrigger>
+          <TabsTrigger value="consumables">耗材状态</TabsTrigger>
         </TabsList>
 
         {/* 耗材状态 */}

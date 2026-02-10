@@ -35,6 +35,8 @@ bool ConnectionPool::initialize(const std::string& connection_string, size_t poo
                 spdlog::debug("Created connection {}/{}", i + 1, pool_size);
             } else {
                 spdlog::error("Failed to open connection {}", i + 1);
+                // 清理已创建的连接，以便重试
+                while (!pool_.empty()) pool_.pop();
                 return false;
             }
         }
@@ -44,6 +46,8 @@ bool ConnectionPool::initialize(const std::string& connection_string, size_t poo
         return true;
     } catch (const std::exception& e) {
         spdlog::error("Failed to initialize connection pool: {}", e.what());
+        // 清理已创建的连接，以便重试
+        while (!pool_.empty()) pool_.pop();
         return false;
     }
 }
