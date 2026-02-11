@@ -121,6 +121,8 @@ interface ProgressPoint {
   valLoss: number;
   trainAccuracy: number;
   valAccuracy: number;
+  fold?: number;
+  nFolds?: number;
 }
 
 // ── 模型配置 ──
@@ -160,11 +162,11 @@ const SPLIT_METHOD_OPTIONS = [
 // ── 默认超参数 ──
 
 const DEFAULT_HYPERPARAMS: Record<string, Record<string, unknown>> = {
-  mlp: { hidden_layers: [128, 64], activation: "relu", dropout: 0.3, epochs: 100, learning_rate: 0.001, batch_size: 32, early_stopping_patience: 10 },
+  mlp: { hidden_layers: [128, 64], activation: "relu", dropout: 0.1, epochs: 100, learning_rate: 0.003, batch_size: 32, early_stopping_patience: 10, label_smoothing: 0.1, weight_decay: 0.0001 },
   svm: { C: 1.0, kernel: "rbf", gamma: "scale", degree: 3 },
   xgboost: { n_estimators: 100, max_depth: 6, learning_rate: 0.1, subsample: 0.8, colsample_bytree: 0.8 },
   cnn1d: { n_filters: [32, 64], kernel_sizes: [5, 3], pool_size: 2, fc_dims: [64], dropout: 0.3, epochs: 100, learning_rate: 0.001, batch_size: 32, early_stopping_patience: 10 },
-  tcn: { n_channels: [32, 64, 64], kernel_size: 3, dropout: 0.2, epochs: 100, learning_rate: 0.001, batch_size: 32, early_stopping_patience: 10 },
+  tcn: { n_channels: [32, 64, 64], kernel_size: 3, dropout: 0.1, epochs: 100, learning_rate: 0.003, batch_size: 32, early_stopping_patience: 10, label_smoothing: 0.1, weight_decay: 0.0001 },
   transformer: { d_model: 64, nhead: 4, n_layers: 2, dim_ff: 128, dropout: 0.1, epochs: 100, learning_rate: 0.001, batch_size: 32, early_stopping_patience: 10 },
 };
 
@@ -376,8 +378,10 @@ export function ModelTrainingTab() {
 
         // 更新进度（包括 epoch=0 的中间状态如 SVM fitting）
         if (data.epoch > 0) {
+          const fold = data.extraMetrics?.fold as number | undefined;
+          const nFolds = data.extraMetrics?.n_folds as number | undefined;
           setProgressHistory((prev) => {
-            if (prev.length > 0 && prev[prev.length - 1].epoch === data.epoch) return prev;
+            if (prev.length > 0 && prev[prev.length - 1].epoch === data.epoch && prev[prev.length - 1].fold === fold) return prev;
             return [
               ...prev,
               {
@@ -386,6 +390,8 @@ export function ModelTrainingTab() {
                 valLoss: data.valLoss,
                 trainAccuracy: data.trainAccuracy,
                 valAccuracy: data.valAccuracy,
+                fold,
+                nFolds,
               },
             ];
           });
@@ -438,15 +444,18 @@ export function ModelTrainingTab() {
           ]);
           if (evalRes.evaluations) setEvaluations(evalRes.evaluations);
           if (progressRes.entries) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             setProgressHistory(
               progressRes.entries
-                .filter((e: ProgressPoint) => e.epoch > 0)
-                .map((e: ProgressPoint) => ({
+                .filter((e: any) => e.epoch > 0)
+                .map((e: any) => ({
                   epoch: e.epoch,
                   trainLoss: e.trainLoss,
                   valLoss: e.valLoss,
                   trainAccuracy: e.trainAccuracy,
                   valAccuracy: e.valAccuracy,
+                  fold: e.extraMetrics?.fold as number | undefined,
+                  nFolds: e.extraMetrics?.n_folds as number | undefined,
                 }))
             );
           }
@@ -609,6 +618,10 @@ export function ModelTrainingTab() {
   const isCompleted = activeJob?.status === "COMPLETED";
   const progressPercent = activeJob ? Math.round((activeJob.currentEpoch / Math.max(activeJob.totalEpochs, 1)) * 100) : 0;
   const selectedCount = selectedSampleIds.size;
+  const kFoldDetails = Array.isArray(activeJob?.extraMetrics?.k_fold_details)
+    ? (activeJob!.extraMetrics!.k_fold_details as Record<string, unknown>[])
+    : null;
+  const kFoldCount = kFoldDetails?.length ?? 0;
 
   return (
     <div className="flex gap-4 h-full">
@@ -1002,46 +1015,12 @@ export function ModelTrainingTab() {
 
                   {/* Loss 曲线 */}
                   {progressHistory.length > 1 && (
-                    <div className="space-y-2">
-                      <Label className="text-xs">Loss</Label>
-                      <ReactEChartsCore
-                        echarts={echarts}
-                        style={{ height: 180 }}
-                        option={{
-                          grid: { left: 40, right: 16, top: 30, bottom: 24 },
-                          tooltip: { trigger: "axis" },
-                          legend: { top: 0, textStyle: { fontSize: 11 } },
-                          xAxis: { type: "category", data: progressHistory.map((p) => p.epoch), axisLabel: { fontSize: 10 } },
-                          yAxis: { type: "value", axisLabel: { fontSize: 10 } },
-                          series: [
-                            { name: "Train Loss", type: "line", data: progressHistory.map((p) => p.trainLoss), smooth: true, showSymbol: false, lineStyle: { color: "#ef4444" }, itemStyle: { color: "#ef4444" } },
-                            { name: "Val Loss", type: "line", data: progressHistory.map((p) => p.valLoss), smooth: true, showSymbol: false, lineStyle: { color: "#3b82f6" }, itemStyle: { color: "#3b82f6" } },
-                          ],
-                        }}
-                      />
-                    </div>
+                    <KFoldChart progressHistory={progressHistory} metric="loss" taskType={taskType} />
                   )}
 
                   {/* Accuracy 曲线（分类任务） */}
                   {progressHistory.length > 1 && taskType === "classification" && (
-                    <div className="space-y-2">
-                      <Label className="text-xs">Accuracy</Label>
-                      <ReactEChartsCore
-                        echarts={echarts}
-                        style={{ height: 180 }}
-                        option={{
-                          grid: { left: 40, right: 16, top: 30, bottom: 24 },
-                          tooltip: { trigger: "axis" },
-                          legend: { top: 0, textStyle: { fontSize: 11 } },
-                          xAxis: { type: "category", data: progressHistory.map((p) => p.epoch), axisLabel: { fontSize: 10 } },
-                          yAxis: { type: "value", min: 0, max: 1, axisLabel: { fontSize: 10 } },
-                          series: [
-                            { name: "Train Acc", type: "line", data: progressHistory.map((p) => p.trainAccuracy), smooth: true, showSymbol: false, lineStyle: { color: "#22c55e" }, itemStyle: { color: "#22c55e" } },
-                            { name: "Val Acc", type: "line", data: progressHistory.map((p) => p.valAccuracy), smooth: true, showSymbol: false, lineStyle: { color: "#a855f7" }, itemStyle: { color: "#a855f7" } },
-                          ],
-                        }}
-                      />
-                    </div>
+                    <KFoldChart progressHistory={progressHistory} metric="accuracy" taskType={taskType} />
                   )}
 
                   {activeJob.errorMessage && (
@@ -1060,9 +1039,15 @@ export function ModelTrainingTab() {
                   <CardTitle className="text-base flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-green-500" />
                     评估结果
+                    {kFoldCount > 0 && (
+                      <Badge variant="secondary" className="text-[10px]">
+                        K-Fold ({kFoldCount} 折)
+                      </Badge>
+                    )}
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
+                  {/* 聚合指标表 */}
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -1085,28 +1070,58 @@ export function ModelTrainingTab() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {evaluations.map((ev) => (
-                        <TableRow key={ev.id}>
-                          <TableCell className="text-xs font-medium capitalize">{ev.split}</TableCell>
-                          {taskType === "classification" ? (
-                            <>
-                              <TableCell className="text-xs text-right">{ev.accuracy != null ? (ev.accuracy * 100).toFixed(1) + "%" : "N/A"}</TableCell>
-                              <TableCell className="text-xs text-right">{ev.f1Macro?.toFixed(3) ?? "N/A"}</TableCell>
-                              <TableCell className="text-xs text-right">{ev.precisionMacro?.toFixed(3) ?? "N/A"}</TableCell>
-                              <TableCell className="text-xs text-right">{ev.recallMacro?.toFixed(3) ?? "N/A"}</TableCell>
-                              <TableCell className="text-xs text-right">{ev.loss?.toFixed(4) ?? "N/A"}</TableCell>
-                            </>
-                          ) : (
-                            <>
-                              <TableCell className="text-xs text-right">{ev.mse?.toFixed(4) ?? "N/A"}</TableCell>
-                              <TableCell className="text-xs text-right">{ev.mae?.toFixed(4) ?? "N/A"}</TableCell>
-                              <TableCell className="text-xs text-right">{ev.r2Score?.toFixed(4) ?? "N/A"}</TableCell>
-                            </>
-                          )}
-                        </TableRow>
-                      ))}
+                      {evaluations.map((ev) => {
+                        const isKFold = ev.split === "test" && !!activeJob?.extraMetrics?.k_fold_details;
+                        const extra = activeJob?.extraMetrics ?? {};
+                        return (
+                          <TableRow key={ev.id}>
+                            <TableCell className="text-xs font-medium capitalize">
+                              {ev.split}
+                              {isKFold && <span className="text-muted-foreground ml-1">(mean)</span>}
+                            </TableCell>
+                            {taskType === "classification" ? (
+                              <>
+                                <TableCell className="text-xs text-right">
+                                  {ev.accuracy != null ? (ev.accuracy * 100).toFixed(1) + "%" : "N/A"}
+                                  {isKFold && extra.accuracy_std !== undefined && extra.accuracy_std !== null && (
+                                    <span className="text-muted-foreground ml-1">{"±" + (Number(extra.accuracy_std) * 100).toFixed(1)}</span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-xs text-right">
+                                  {ev.f1Macro?.toFixed(3) ?? "N/A"}
+                                  {isKFold && extra.f1_macro_std !== undefined && extra.f1_macro_std !== null && (
+                                    <span className="text-muted-foreground ml-1">{"±" + Number(extra.f1_macro_std).toFixed(3)}</span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-xs text-right">{ev.precisionMacro?.toFixed(3) ?? "N/A"}</TableCell>
+                                <TableCell className="text-xs text-right">{ev.recallMacro?.toFixed(3) ?? "N/A"}</TableCell>
+                                <TableCell className="text-xs text-right">{ev.loss?.toFixed(4) ?? "N/A"}</TableCell>
+                              </>
+                            ) : (
+                              <>
+                                <TableCell className="text-xs text-right">
+                                  {ev.mse?.toFixed(4) ?? "N/A"}
+                                  {isKFold && extra.mse_std !== undefined && extra.mse_std !== null && (
+                                    <span className="text-muted-foreground ml-1">{"±" + Number(extra.mse_std).toFixed(4)}</span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-xs text-right">{ev.mae?.toFixed(4) ?? "N/A"}</TableCell>
+                                <TableCell className="text-xs text-right">{ev.r2Score?.toFixed(4) ?? "N/A"}</TableCell>
+                              </>
+                            )}
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
+
+                  {/* K-Fold 逐折详情 */}
+                  {kFoldDetails && (
+                    <KFoldDetailsTable
+                      details={kFoldDetails}
+                      taskType={taskType}
+                    />
+                  )}
 
                   {/* 混淆矩阵 */}
                   {evaluations.find((e) => e.split === "test")?.confusionMatrix && (
@@ -1435,6 +1450,195 @@ function HyperparamsForm({
   return (
     <div className="space-y-2">
       {Object.entries(hyperparams).map(([key, value]) => renderField(key, value))}
+    </div>
+  );
+}
+
+// ── K-Fold 进度图表（支持多折分组显示） ──
+
+const FOLD_COLORS = [
+  "#ef4444", "#3b82f6", "#22c55e", "#a855f7", "#f59e0b",
+  "#06b6d4", "#ec4899", "#84cc16", "#6366f1", "#14b8a6",
+];
+
+function KFoldChart({
+  progressHistory,
+  metric,
+  taskType,
+}: {
+  progressHistory: ProgressPoint[];
+  metric: "loss" | "accuracy";
+  taskType: string;
+}) {
+  const hasMultipleFolds = progressHistory.some((p) => p.fold != null && p.fold > 0);
+
+  if (!hasMultipleFolds) {
+    // 普通单次训练 → 原始简单图表
+    const isLoss = metric === "loss";
+    return (
+      <div className="space-y-2">
+        <Label className="text-xs">{isLoss ? "Loss" : "Accuracy"}</Label>
+        <ReactEChartsCore
+          echarts={echarts}
+          style={{ height: 180 }}
+          option={{
+            grid: { left: 40, right: 16, top: 30, bottom: 24 },
+            tooltip: { trigger: "axis" },
+            legend: { top: 0, textStyle: { fontSize: 11 } },
+            xAxis: { type: "category", data: progressHistory.map((p) => p.epoch), axisLabel: { fontSize: 10 } },
+            yAxis: { type: "value", ...(isLoss ? {} : { min: 0, max: 1 }), axisLabel: { fontSize: 10 } },
+            series: isLoss
+              ? [
+                  { name: "Train Loss", type: "line", data: progressHistory.map((p) => p.trainLoss), smooth: true, showSymbol: false, lineStyle: { color: "#ef4444" }, itemStyle: { color: "#ef4444" } },
+                  { name: "Val Loss", type: "line", data: progressHistory.map((p) => p.valLoss), smooth: true, showSymbol: false, lineStyle: { color: "#3b82f6" }, itemStyle: { color: "#3b82f6" } },
+                ]
+              : [
+                  { name: "Train Acc", type: "line", data: progressHistory.map((p) => p.trainAccuracy), smooth: true, showSymbol: false, lineStyle: { color: "#22c55e" }, itemStyle: { color: "#22c55e" } },
+                  { name: "Val Acc", type: "line", data: progressHistory.map((p) => p.valAccuracy), smooth: true, showSymbol: false, lineStyle: { color: "#a855f7" }, itemStyle: { color: "#a855f7" } },
+                ],
+          }}
+        />
+      </div>
+    );
+  }
+
+  // K-Fold: 按折分组
+  const foldGroups = new Map<number, ProgressPoint[]>();
+  for (const p of progressHistory) {
+    const f = p.fold ?? 1;
+    if (!foldGroups.has(f)) foldGroups.set(f, []);
+    foldGroups.get(f)!.push(p);
+  }
+  const foldNums = Array.from(foldGroups.keys()).sort((a, b) => a - b);
+  const maxEpoch = Math.max(...progressHistory.map((p) => p.epoch));
+  const xData = Array.from({ length: maxEpoch }, (_, i) => i + 1);
+
+  const isLoss = metric === "loss";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const series: any[] = [];
+  for (const fold of foldNums) {
+    const group = foldGroups.get(fold)!;
+    const epochMap = new Map(group.map((p) => [p.epoch, p]));
+    const trainData = xData.map((e) => {
+      const p = epochMap.get(e);
+      return p ? (isLoss ? p.trainLoss : p.trainAccuracy) : null;
+    });
+    const valData = xData.map((e) => {
+      const p = epochMap.get(e);
+      return p ? (isLoss ? p.valLoss : p.valAccuracy) : null;
+    });
+    const color = FOLD_COLORS[(fold - 1) % FOLD_COLORS.length];
+    series.push({
+      name: `F${fold} Train`,
+      type: "line",
+      data: trainData,
+      smooth: true,
+      showSymbol: false,
+      lineStyle: { color, width: 1.5 },
+      itemStyle: { color },
+      connectNulls: false,
+    });
+    series.push({
+      name: `F${fold} Val`,
+      type: "line",
+      data: valData,
+      smooth: true,
+      showSymbol: false,
+      lineStyle: { color, width: 1.5, type: "dashed" },
+      itemStyle: { color },
+      connectNulls: false,
+    });
+  }
+
+  return (
+    <div className="space-y-2">
+      <Label className="text-xs">{isLoss ? "Loss" : "Accuracy"} (K-Fold)</Label>
+      <ReactEChartsCore
+        echarts={echarts}
+        style={{ height: 220 }}
+        option={{
+          grid: { left: 40, right: 16, top: 40, bottom: 24 },
+          tooltip: { trigger: "axis" },
+          legend: { top: 0, textStyle: { fontSize: 10 }, type: "scroll" },
+          xAxis: { type: "category", data: xData, axisLabel: { fontSize: 10 }, name: "Epoch" },
+          yAxis: { type: "value", ...(isLoss ? {} : { min: 0, max: 1 }), axisLabel: { fontSize: 10 } },
+          series,
+        }}
+      />
+    </div>
+  );
+}
+
+// ── K-Fold 逐折详情表 ──
+
+function KFoldDetailsTable({
+  details,
+  taskType,
+}: {
+  details: Record<string, unknown>[];
+  taskType: string;
+}) {
+  if (!details || details.length === 0) return null;
+
+  return (
+    <div className="space-y-2">
+      <Label className="text-xs font-medium">K-Fold 逐折详情</Label>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="text-xs w-16">Fold</TableHead>
+            {taskType === "classification" ? (
+              <>
+                <TableHead className="text-xs text-right">Accuracy</TableHead>
+                <TableHead className="text-xs text-right">F1 (macro)</TableHead>
+                <TableHead className="text-xs text-right">Precision</TableHead>
+                <TableHead className="text-xs text-right">Recall</TableHead>
+              </>
+            ) : (
+              <>
+                <TableHead className="text-xs text-right">MSE</TableHead>
+                <TableHead className="text-xs text-right">MAE</TableHead>
+                <TableHead className="text-xs text-right">R²</TableHead>
+              </>
+            )}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {details.map((d, i) => (
+            <TableRow key={i}>
+              <TableCell className="text-xs font-medium">Fold {i + 1}</TableCell>
+              {taskType === "classification" ? (
+                <>
+                  <TableCell className="text-xs text-right">
+                    {d.accuracy != null ? (Number(d.accuracy) * 100).toFixed(1) + "%" : "N/A"}
+                  </TableCell>
+                  <TableCell className="text-xs text-right">
+                    {d.f1_macro != null ? Number(d.f1_macro).toFixed(3) : "N/A"}
+                  </TableCell>
+                  <TableCell className="text-xs text-right">
+                    {d.precision_macro != null ? Number(d.precision_macro).toFixed(3) : "N/A"}
+                  </TableCell>
+                  <TableCell className="text-xs text-right">
+                    {d.recall_macro != null ? Number(d.recall_macro).toFixed(3) : "N/A"}
+                  </TableCell>
+                </>
+              ) : (
+                <>
+                  <TableCell className="text-xs text-right">
+                    {d.mse != null ? Number(d.mse).toFixed(4) : "N/A"}
+                  </TableCell>
+                  <TableCell className="text-xs text-right">
+                    {d.mae != null ? Number(d.mae).toFixed(4) : "N/A"}
+                  </TableCell>
+                  <TableCell className="text-xs text-right">
+                    {d.r2_score != null ? Number(d.r2_score).toFixed(4) : "N/A"}
+                  </TableCell>
+                </>
+              )}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }

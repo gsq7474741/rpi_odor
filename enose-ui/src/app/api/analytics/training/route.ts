@@ -81,6 +81,7 @@ export async function GET(request: NextRequest) {
           valLoss: e.valLoss,
           trainAccuracy: e.trainAccuracy,
           valAccuracy: e.valAccuracy,
+          extraMetrics: e.extraMetricsJson ? JSON.parse(e.extraMetricsJson) : {},
         })),
       });
     }

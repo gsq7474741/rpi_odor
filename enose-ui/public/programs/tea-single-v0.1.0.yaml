@@ -141,25 +141,17 @@ steps:
       stability:
         window_s: 30
         threshold_percent: 8
-  - name: '[循环 #1/10] [参数扫描 #1/5] 进样 (0%:0%:100%:0%:0%)'
+  - name: '[循环 #1/3] [参数扫描 #1/5] 进样 (100%:0%:0%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
         - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
           ratio: 100
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
       target_volume_ml: 30
-  - name: '[循环 #1/10] [参数扫描 #1/5] 数据采集'
+  - name: '[循环 #1/3] [参数扫描 #1/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
       gas_pump_pwm: 50
@@ -167,7 +159,7 @@ steps:
         window_s: 30
         threshold_percent: 8
       max_duration_s: 300
-  - name: '[循环 #1/10] [参数扫描 #1/5] 清洗'
+  - name: '[循环 #1/3] [参数扫描 #1/5] 清洗'
     phase_name: WASH
     wash:
       wash_liquid_id: '37'
@@ -179,25 +171,17 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #1/10] [参数扫描 #2/5] 进样 (0%:0%:0%:0%:100%)'
+  - name: '[循环 #1/3] [参数扫描 #2/5] 进样 (0%:0%:0%:100%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
         - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
           ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
       target_volume_ml: 30
-  - name: '[循环 #1/10] [参数扫描 #2/5] 数据采集'
+  - name: '[循环 #1/3] [参数扫描 #2/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
       gas_pump_pwm: 50
@@ -205,7 +189,7 @@ steps:
         window_s: 30
         threshold_percent: 8
       max_duration_s: 300
-  - name: '[循环 #1/10] [参数扫描 #2/5] 清洗'
+  - name: '[循环 #1/3] [参数扫描 #2/5] 清洗'
     phase_name: WASH
     wash:
       wash_liquid_id: '37'
@@ -217,25 +201,17 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #1/10] [参数扫描 #3/5] 进样 (100%:0%:0%:0%:0%)'
+  - name: '[循环 #1/3] [参数扫描 #3/5] 进样 (0%:100%:0%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 100
         - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
       target_volume_ml: 30
-  - name: '[循环 #1/10] [参数扫描 #3/5] 数据采集'
+  - name: '[循环 #1/3] [参数扫描 #3/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
       gas_pump_pwm: 50
@@ -243,7 +219,7 @@ steps:
         window_s: 30
         threshold_percent: 8
       max_duration_s: 300
-  - name: '[循环 #1/10] [参数扫描 #3/5] 清洗'
+  - name: '[循环 #1/3] [参数扫描 #3/5] 清洗'
     phase_name: WASH
     wash:
       wash_liquid_id: '37'
@@ -255,25 +231,17 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #1/10] [参数扫描 #4/5] 进样 (0%:100%:0%:0%:0%)'
+  - name: '[循环 #1/3] [参数扫描 #4/5] 进样 (0%:0%:100%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 100
         - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
       target_volume_ml: 30
-  - name: '[循环 #1/10] [参数扫描 #4/5] 数据采集'
+  - name: '[循环 #1/3] [参数扫描 #4/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
       gas_pump_pwm: 50
@@ -281,7 +249,7 @@ steps:
         window_s: 30
         threshold_percent: 8
       max_duration_s: 300
-  - name: '[循环 #1/10] [参数扫描 #4/5] 清洗'
+  - name: '[循环 #1/3] [参数扫描 #4/5] 清洗'
     phase_name: WASH
     wash:
       wash_liquid_id: '37'
@@ -293,25 +261,17 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #1/10] [参数扫描 #5/5] 进样 (0%:0%:0%:100%:0%)'
+  - name: '[循环 #1/3] [参数扫描 #5/5] 进样 (0%:0%:0%:0%:100%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 100
         - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
       target_volume_ml: 30
-  - name: '[循环 #1/10] [参数扫描 #5/5] 数据采集'
+  - name: '[循环 #1/3] [参数扫描 #5/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
       gas_pump_pwm: 50
@@ -319,7 +279,7 @@ steps:
         window_s: 30
         threshold_percent: 8
       max_duration_s: 300
-  - name: '[循环 #1/10] [参数扫描 #5/5] 清洗'
+  - name: '[循环 #1/3] [参数扫描 #5/5] 清洗'
     phase_name: WASH
     wash:
       wash_liquid_id: '37'
@@ -331,25 +291,17 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #2/10] [参数扫描 #1/5] 进样 (0%:0%:0%:100%:0%)'
+  - name: '[循环 #2/3] [参数扫描 #1/5] 进样 (0%:100%:0%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
         - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
           ratio: 100
-        - liquid_id: '67'
-          ratio: 0
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
       target_volume_ml: 30
-  - name: '[循环 #2/10] [参数扫描 #1/5] 数据采集'
+  - name: '[循环 #2/3] [参数扫描 #1/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
       gas_pump_pwm: 50
@@ -357,7 +309,7 @@ steps:
         window_s: 30
         threshold_percent: 8
       max_duration_s: 300
-  - name: '[循环 #2/10] [参数扫描 #1/5] 清洗'
+  - name: '[循环 #2/3] [参数扫描 #1/5] 清洗'
     phase_name: WASH
     wash:
       wash_liquid_id: '37'
@@ -369,25 +321,17 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #2/10] [参数扫描 #2/5] 进样 (0%:0%:0%:0%:100%)'
+  - name: '[循环 #2/3] [参数扫描 #2/5] 进样 (0%:0%:100%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
         - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
           ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
       target_volume_ml: 30
-  - name: '[循环 #2/10] [参数扫描 #2/5] 数据采集'
+  - name: '[循环 #2/3] [参数扫描 #2/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
       gas_pump_pwm: 50
@@ -395,7 +339,7 @@ steps:
         window_s: 30
         threshold_percent: 8
       max_duration_s: 300
-  - name: '[循环 #2/10] [参数扫描 #2/5] 清洗'
+  - name: '[循环 #2/3] [参数扫描 #2/5] 清洗'
     phase_name: WASH
     wash:
       wash_liquid_id: '37'
@@ -407,25 +351,17 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #2/10] [参数扫描 #3/5] 进样 (100%:0%:0%:0%:0%)'
+  - name: '[循环 #2/3] [参数扫描 #3/5] 进样 (0%:0%:0%:100%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 100
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
         - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
       target_volume_ml: 30
-  - name: '[循环 #2/10] [参数扫描 #3/5] 数据采集'
+  - name: '[循环 #2/3] [参数扫描 #3/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
       gas_pump_pwm: 50
@@ -433,7 +369,7 @@ steps:
         window_s: 30
         threshold_percent: 8
       max_duration_s: 300
-  - name: '[循环 #2/10] [参数扫描 #3/5] 清洗'
+  - name: '[循环 #2/3] [参数扫描 #3/5] 清洗'
     phase_name: WASH
     wash:
       wash_liquid_id: '37'
@@ -445,25 +381,17 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #2/10] [参数扫描 #4/5] 进样 (0%:100%:0%:0%:0%)'
+  - name: '[循环 #2/3] [参数扫描 #4/5] 进样 (100%:0%:0%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
         - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
           ratio: 100
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
       target_volume_ml: 30
-  - name: '[循环 #2/10] [参数扫描 #4/5] 数据采集'
+  - name: '[循环 #2/3] [参数扫描 #4/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
       gas_pump_pwm: 50
@@ -471,7 +399,7 @@ steps:
         window_s: 30
         threshold_percent: 8
       max_duration_s: 300
-  - name: '[循环 #2/10] [参数扫描 #4/5] 清洗'
+  - name: '[循环 #2/3] [参数扫描 #4/5] 清洗'
     phase_name: WASH
     wash:
       wash_liquid_id: '37'
@@ -483,25 +411,17 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #2/10] [参数扫描 #5/5] 进样 (0%:0%:100%:0%:0%)'
+  - name: '[循环 #2/3] [参数扫描 #5/5] 进样 (0%:0%:0%:0%:100%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 100
-        - liquid_id: '66'
-          ratio: 0
         - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
       target_volume_ml: 30
-  - name: '[循环 #2/10] [参数扫描 #5/5] 数据采集'
+  - name: '[循环 #2/3] [参数扫描 #5/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
       gas_pump_pwm: 50
@@ -509,7 +429,7 @@ steps:
         window_s: 30
         threshold_percent: 8
       max_duration_s: 300
-  - name: '[循环 #2/10] [参数扫描 #5/5] 清洗'
+  - name: '[循环 #2/3] [参数扫描 #5/5] 清洗'
     phase_name: WASH
     wash:
       wash_liquid_id: '37'
@@ -521,25 +441,17 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #3/10] [参数扫描 #1/5] 进样 (0%:0%:100%:0%:0%)'
+  - name: '[循环 #3/3] [参数扫描 #1/5] 进样 (0%:0%:0%:0%:100%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 100
-        - liquid_id: '66'
-          ratio: 0
         - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
       target_volume_ml: 30
-  - name: '[循环 #3/10] [参数扫描 #1/5] 数据采集'
+  - name: '[循环 #3/3] [参数扫描 #1/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
       gas_pump_pwm: 50
@@ -547,7 +459,7 @@ steps:
         window_s: 30
         threshold_percent: 8
       max_duration_s: 300
-  - name: '[循环 #3/10] [参数扫描 #1/5] 清洗'
+  - name: '[循环 #3/3] [参数扫描 #1/5] 清洗'
     phase_name: WASH
     wash:
       wash_liquid_id: '37'
@@ -559,25 +471,17 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #3/10] [参数扫描 #2/5] 进样 (100%:0%:0%:0%:0%)'
+  - name: '[循环 #3/3] [参数扫描 #2/5] 进样 (0%:100%:0%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 100
         - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
       target_volume_ml: 30
-  - name: '[循环 #3/10] [参数扫描 #2/5] 数据采集'
+  - name: '[循环 #3/3] [参数扫描 #2/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
       gas_pump_pwm: 50
@@ -585,7 +489,7 @@ steps:
         window_s: 30
         threshold_percent: 8
       max_duration_s: 300
-  - name: '[循环 #3/10] [参数扫描 #2/5] 清洗'
+  - name: '[循环 #3/3] [参数扫描 #2/5] 清洗'
     phase_name: WASH
     wash:
       wash_liquid_id: '37'
@@ -597,25 +501,17 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #3/10] [参数扫描 #3/5] 进样 (0%:0%:0%:100%:0%)'
+  - name: '[循环 #3/3] [参数扫描 #3/5] 进样 (100%:0%:0%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
         - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
           ratio: 100
-        - liquid_id: '67'
-          ratio: 0
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
       target_volume_ml: 30
-  - name: '[循环 #3/10] [参数扫描 #3/5] 数据采集'
+  - name: '[循环 #3/3] [参数扫描 #3/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
       gas_pump_pwm: 50
@@ -623,7 +519,7 @@ steps:
         window_s: 30
         threshold_percent: 8
       max_duration_s: 300
-  - name: '[循环 #3/10] [参数扫描 #3/5] 清洗'
+  - name: '[循环 #3/3] [参数扫描 #3/5] 清洗'
     phase_name: WASH
     wash:
       wash_liquid_id: '37'
@@ -635,25 +531,17 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #3/10] [参数扫描 #4/5] 进样 (0%:0%:0%:0%:100%)'
+  - name: '[循环 #3/3] [参数扫描 #4/5] 进样 (0%:0%:100%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
         - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
           ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
       target_volume_ml: 30
-  - name: '[循环 #3/10] [参数扫描 #4/5] 数据采集'
+  - name: '[循环 #3/3] [参数扫描 #4/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
       gas_pump_pwm: 50
@@ -661,7 +549,7 @@ steps:
         window_s: 30
         threshold_percent: 8
       max_duration_s: 300
-  - name: '[循环 #3/10] [参数扫描 #4/5] 清洗'
+  - name: '[循环 #3/3] [参数扫描 #4/5] 清洗'
     phase_name: WASH
     wash:
       wash_liquid_id: '37'
@@ -673,25 +561,17 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #3/10] [参数扫描 #5/5] 进样 (0%:100%:0%:0%:0%)'
+  - name: '[循环 #3/3] [参数扫描 #5/5] 进样 (0%:0%:0%:100%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 100
-        - liquid_id: '64'
-          ratio: 0
         - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
       target_volume_ml: 30
-  - name: '[循环 #3/10] [参数扫描 #5/5] 数据采集'
+  - name: '[循环 #3/3] [参数扫描 #5/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
       gas_pump_pwm: 50
@@ -699,1337 +579,7 @@ steps:
         window_s: 30
         threshold_percent: 8
       max_duration_s: 300
-  - name: '[循环 #3/10] [参数扫描 #5/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #4/10] [参数扫描 #1/5] 进样 (0%:0%:100%:0%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 100
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #4/10] [参数扫描 #1/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #4/10] [参数扫描 #1/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #4/10] [参数扫描 #2/5] 进样 (0%:0%:0%:0%:100%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 100
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #4/10] [参数扫描 #2/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #4/10] [参数扫描 #2/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #4/10] [参数扫描 #3/5] 进样 (0%:100%:0%:0%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 100
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #4/10] [参数扫描 #3/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #4/10] [参数扫描 #3/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #4/10] [参数扫描 #4/5] 进样 (0%:0%:0%:100%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 100
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #4/10] [参数扫描 #4/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #4/10] [参数扫描 #4/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #4/10] [参数扫描 #5/5] 进样 (100%:0%:0%:0%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 100
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #4/10] [参数扫描 #5/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #4/10] [参数扫描 #5/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #5/10] [参数扫描 #1/5] 进样 (0%:100%:0%:0%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 100
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #5/10] [参数扫描 #1/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #5/10] [参数扫描 #1/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #5/10] [参数扫描 #2/5] 进样 (0%:0%:100%:0%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 100
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #5/10] [参数扫描 #2/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #5/10] [参数扫描 #2/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #5/10] [参数扫描 #3/5] 进样 (0%:0%:0%:0%:100%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 100
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #5/10] [参数扫描 #3/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #5/10] [参数扫描 #3/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #5/10] [参数扫描 #4/5] 进样 (0%:0%:0%:100%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 100
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #5/10] [参数扫描 #4/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #5/10] [参数扫描 #4/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #5/10] [参数扫描 #5/5] 进样 (100%:0%:0%:0%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 100
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #5/10] [参数扫描 #5/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #5/10] [参数扫描 #5/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #6/10] [参数扫描 #1/5] 进样 (0%:0%:0%:0%:100%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 100
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #6/10] [参数扫描 #1/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #6/10] [参数扫描 #1/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #6/10] [参数扫描 #2/5] 进样 (0%:100%:0%:0%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 100
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #6/10] [参数扫描 #2/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #6/10] [参数扫描 #2/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #6/10] [参数扫描 #3/5] 进样 (100%:0%:0%:0%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 100
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #6/10] [参数扫描 #3/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #6/10] [参数扫描 #3/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #6/10] [参数扫描 #4/5] 进样 (0%:0%:0%:100%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 100
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #6/10] [参数扫描 #4/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #6/10] [参数扫描 #4/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #6/10] [参数扫描 #5/5] 进样 (0%:0%:100%:0%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 100
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #6/10] [参数扫描 #5/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #6/10] [参数扫描 #5/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #7/10] [参数扫描 #1/5] 进样 (0%:0%:100%:0%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 100
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #7/10] [参数扫描 #1/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #7/10] [参数扫描 #1/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #7/10] [参数扫描 #2/5] 进样 (0%:100%:0%:0%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 100
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #7/10] [参数扫描 #2/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #7/10] [参数扫描 #2/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #7/10] [参数扫描 #3/5] 进样 (100%:0%:0%:0%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 100
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #7/10] [参数扫描 #3/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #7/10] [参数扫描 #3/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #7/10] [参数扫描 #4/5] 进样 (0%:0%:0%:100%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 100
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #7/10] [参数扫描 #4/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #7/10] [参数扫描 #4/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #7/10] [参数扫描 #5/5] 进样 (0%:0%:0%:0%:100%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 100
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #7/10] [参数扫描 #5/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #7/10] [参数扫描 #5/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #8/10] [参数扫描 #1/5] 进样 (0%:100%:0%:0%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 100
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #8/10] [参数扫描 #1/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #8/10] [参数扫描 #1/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #8/10] [参数扫描 #2/5] 进样 (0%:0%:0%:100%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 100
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #8/10] [参数扫描 #2/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #8/10] [参数扫描 #2/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #8/10] [参数扫描 #3/5] 进样 (0%:0%:0%:0%:100%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 100
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #8/10] [参数扫描 #3/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #8/10] [参数扫描 #3/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #8/10] [参数扫描 #4/5] 进样 (0%:0%:100%:0%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 100
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #8/10] [参数扫描 #4/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #8/10] [参数扫描 #4/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #8/10] [参数扫描 #5/5] 进样 (100%:0%:0%:0%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 100
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #8/10] [参数扫描 #5/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #8/10] [参数扫描 #5/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #9/10] [参数扫描 #1/5] 进样 (0%:0%:0%:0%:100%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 100
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #9/10] [参数扫描 #1/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #9/10] [参数扫描 #1/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #9/10] [参数扫描 #2/5] 进样 (0%:0%:0%:100%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 100
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #9/10] [参数扫描 #2/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #9/10] [参数扫描 #2/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #9/10] [参数扫描 #3/5] 进样 (0%:100%:0%:0%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 100
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #9/10] [参数扫描 #3/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #9/10] [参数扫描 #3/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #9/10] [参数扫描 #4/5] 进样 (0%:0%:100%:0%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 100
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #9/10] [参数扫描 #4/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #9/10] [参数扫描 #4/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #9/10] [参数扫描 #5/5] 进样 (100%:0%:0%:0%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 100
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #9/10] [参数扫描 #5/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #9/10] [参数扫描 #5/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #10/10] [参数扫描 #1/5] 进样 (0%:0%:0%:0%:100%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 100
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #10/10] [参数扫描 #1/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #10/10] [参数扫描 #1/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #10/10] [参数扫描 #2/5] 进样 (0%:100%:0%:0%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 100
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #10/10] [参数扫描 #2/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #10/10] [参数扫描 #2/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #10/10] [参数扫描 #3/5] 进样 (0%:0%:100%:0%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 100
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #10/10] [参数扫描 #3/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #10/10] [参数扫描 #3/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #10/10] [参数扫描 #4/5] 进样 (0%:0%:0%:100%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 100
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #10/10] [参数扫描 #4/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #10/10] [参数扫描 #4/5] 清洗'
-    phase_name: WASH
-    wash:
-      wash_liquid_id: '37'
-      wash_volume_ml: 50
-      repeat_count: 1
-      gas_pump_pwm: 100
-      fill_timeout_s: 60
-      drain_timeout_s: 60
-      empty_tolerance_g: 10
-      empty_stability_window_s: 2
-      fill_mode: timed
-  - name: '[循环 #10/10] [参数扫描 #5/5] 进样 (100%:0%:0%:0%:0%)'
-    phase_name: INJECT
-    inject:
-      components:
-        - liquid_id: '54'
-          ratio: 100
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
-      tolerance: 5
-      flow_rate_ml_s: 5
-      stable_timeout_s: 10
-      target_volume_ml: 30
-  - name: '[循环 #10/10] [参数扫描 #5/5] 数据采集'
-    phase_name: ACQUIRE
-    acquire:
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-      max_duration_s: 300
-  - name: '[循环 #10/10] [参数扫描 #5/5] 清洗'
+  - name: '[循环 #3/3] [参数扫描 #5/5] 清洗'
     phase_name: WASH
     wash:
       wash_liquid_id: '37'
@@ -2042,53 +592,53 @@ steps:
       empty_stability_window_s: 2
       fill_mode: timed
 _compile_estimate:
-  total_duration_s: 17210.000000000015
+  total_duration_s: 5267.999999999998
   peak_liquid_level_ml: 30
   peak_liquid_level_ml_with_wash: 0
-  total_inject_ml: 1500
-  total_drain_ml: 4000
-  total_wash_volume_ml: 2500
+  total_inject_ml: 450
+  total_drain_ml: 1200
+  total_wash_volume_ml: 750
   liquid_consumption:
     - liquid_id: '54'
       liquid_name: Wittard伯爵茶茶汤
       pump_index: 3
-      required_ml: 300
+      required_ml: 90
     - liquid_id: '65'
       liquid_name: 熟普洱茶汤
       pump_index: 2
-      required_ml: 300
+      required_ml: 90
     - liquid_id: '64'
       liquid_name: 正山小种茶汤
       pump_index: 1
-      required_ml: 300
+      required_ml: 90
     - liquid_id: '66'
       liquid_name: 立顿红茶茶汤
       pump_index: 0
-      required_ml: 300
+      required_ml: 90
     - liquid_id: '67'
       liquid_name: 茉莉花茶茶汤
       pump_index: 4
-      required_ml: 300
+      required_ml: 90
     - liquid_id: '37'
       liquid_name: 纯净水
       pump_index: -1
-      required_ml: 2500
+      required_ml: 750
   pump_estimates:
     - pump_index: 3
-      volume_ml: 300
-      runtime_s: 300
+      volume_ml: 90
+      runtime_s: 90
     - pump_index: 2
-      volume_ml: 300
-      runtime_s: 300
+      volume_ml: 90
+      runtime_s: 90
     - pump_index: 1
-      volume_ml: 300
-      runtime_s: 300
+      volume_ml: 90
+      runtime_s: 90
     - pump_index: 0
-      volume_ml: 300
-      runtime_s: 300
+      volume_ml: 90
+      runtime_s: 90
     - pump_index: 4
-      volume_ml: 300
-      runtime_s: 300
+      volume_ml: 90
+      runtime_s: 90
 _editor_layout:
   nodes:
     - id: start
@@ -2281,7 +831,7 @@ _editor_layout:
         x: -689.3333333333333
         'y': 588
       data:
-        count: 10
+        count: 3
     - id: node_19
       type: end
       position:

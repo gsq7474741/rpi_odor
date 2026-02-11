@@ -119,11 +119,13 @@ DEFAULT_HYPERPARAMS: dict[str, dict[str, Any]] = {
     "mlp": {
         "hidden_layers": [128, 64],
         "activation": "relu",
-        "dropout": 0.3,
+        "dropout": 0.1,
         "epochs": 100,
-        "learning_rate": 0.001,
+        "learning_rate": 3e-3,
         "batch_size": 32,
         "early_stopping_patience": 10,
+        "label_smoothing": 0.1,
+        "weight_decay": 1e-4,
     },
     "cnn1d": {
         "n_filters": [32, 64],
@@ -139,11 +141,13 @@ DEFAULT_HYPERPARAMS: dict[str, dict[str, Any]] = {
     "tcn": {
         "n_channels": [32, 64, 64],
         "kernel_size": 3,
-        "dropout": 0.2,
+        "dropout": 0.1,
         "epochs": 100,
-        "learning_rate": 0.001,
+        "learning_rate": 3e-3,
         "batch_size": 32,
         "early_stopping_patience": 10,
+        "label_smoothing": 0.1,
+        "weight_decay": 1e-4,
     },
     "transformer": {
         "d_model": 64,
