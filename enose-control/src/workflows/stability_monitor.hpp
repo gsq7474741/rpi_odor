@@ -41,6 +41,8 @@ public:
         double threshold_percent;   // 变化率阈值 (%)
         double timeout_s;           // 超时 (秒)
         std::string log_prefix;     // 日志前缀 (如 "PreheatExecutor", "AcquireExecutor")
+        double min_duration_s = 0;  // 最小等待时间 (即使已稳定也要等，确保慢配置完成足够周期)
+        int min_groups_with_data = 2; // 至少多少组有足够数据才允许判定稳定
     };
     
     /**
@@ -61,13 +63,18 @@ public:
         const auto& prefix = config.log_prefix;
         
         spdlog::info("{}: waiting for sensor stability "
-                     "(window={}s, threshold={}%, timeout={}s)",
-                     prefix, config.window_s, config.threshold_percent, config.timeout_s);
+                     "(window={}s, threshold={}%, timeout={}s, min_duration={}s, min_groups={})",
+                     prefix, config.window_s, config.threshold_percent, config.timeout_s,
+                     config.min_duration_s, config.min_groups_with_data);
         
         if (user_log) {
+            std::string min_dur_info;
+            if (config.min_duration_s > 0) {
+                min_dur_info = ", 最小等待=" + std::to_string(static_cast<int>(config.min_duration_s)) + "s";
+            }
             user_log("等待传感器稳定 (窗口=" + std::to_string(config.window_s) + 
                      "s, 阈值=" + std::to_string(config.threshold_percent) + 
-                     "%, 超时=" + std::to_string(config.timeout_s) + "s)");
+                     "%, 超时=" + std::to_string(config.timeout_s) + "s" + min_dur_info + ")");
         }
         
         // 按 (sensor_idx, heater_step) 分组追踪读数
@@ -138,7 +145,7 @@ public:
                 }
             }
             
-            // 检查是否所有组都稳定 (至少 2 个组有足够数据)
+            // 检查是否所有组都稳定 (需达到 min_groups_with_data 门槛)
             if (groups.size() >= 2) {
                 int groups_with_data = 0;
                 int stable_groups = 0;
@@ -148,7 +155,8 @@ public:
                         if (g.stable) stable_groups++;
                     }
                 }
-                if (groups_with_data >= 2 && stable_groups == groups_with_data) {
+                if (groups_with_data >= config.min_groups_with_data && 
+                    stable_groups == groups_with_data) {
                     all_stable = true;
                 }
             }
@@ -158,7 +166,9 @@ public:
         auto timeout = std::chrono::duration<double>(config.timeout_s);
         constexpr auto log_interval = std::chrono::seconds(5);
         
-        while (!all_stable) {
+        auto min_duration = std::chrono::duration<double>(config.min_duration_s);
+        
+        while (!all_stable || (std::chrono::steady_clock::now() - start) < min_duration) {
             if (stop_check()) {
                 spdlog::info("{}: stability wait interrupted by stop request", prefix);
                 conn.disconnect();
@@ -221,18 +231,30 @@ public:
                     }
                 }
                 
+                double elapsed_sec = std::chrono::duration<double>(elapsed).count();
+                bool waiting_min = elapsed_sec < config.min_duration_s;
+                
                 spdlog::info("{}: stability progress [{:.0f}s/{:.0f}s] "
-                             "packets={} groups={} stable={}/{} "
-                             "worst=sensor[{}]step[{}] {:.2f}% (threshold={}%)",
-                             prefix, std::chrono::duration<double>(elapsed).count(), 
-                             config.timeout_s,
+                             "packets={} groups={} stable={}/{} (need {}) "
+                             "worst=sensor[{}]step[{}] {:.2f}% (threshold={}%){}",
+                             prefix, elapsed_sec, config.timeout_s,
                              data_packets, groups.size(), stable_count, groups_with_data,
-                             worst_si, worst_hs, worst_variation, config.threshold_percent);
+                             config.min_groups_with_data,
+                             worst_si, worst_hs, worst_variation, config.threshold_percent,
+                             waiting_min ? " [等待最小时间]" : "");
                 
                 if (user_log) {
-                    user_log("稳定检测: " + std::to_string(stable_count) + "/" + 
-                             std::to_string(groups_with_data) + " 组已稳定, 最大变化=" + 
-                             std::to_string(static_cast<int>(worst_variation * 100) / 100.0) + "%");
+                    std::string status = "稳定检测: " + std::to_string(stable_count) + "/" + 
+                             std::to_string(groups_with_data) + " 组已稳定";
+                    if (config.min_groups_with_data > 2) {
+                        status += " (需" + std::to_string(config.min_groups_with_data) + "组)";
+                    }
+                    status += ", 最大变化=" + 
+                             std::to_string(static_cast<int>(worst_variation * 100) / 100.0) + "%";
+                    if (waiting_min) {
+                        status += " [等待最小" + std::to_string(static_cast<int>(config.min_duration_s)) + "s]";
+                    }
+                    user_log(status);
                 }
             }
             

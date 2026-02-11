@@ -122,7 +122,7 @@ export function TimeSeriesTab() {
   const [selectedSensors, setSelectedSensors] = useState<number[]>([0, 1, 2, 3, 4, 5, 6, 7]);
   const [alignMode, setAlignMode] = useState<AlignMode>("relative");
   const [dataSource, setDataSource] = useState<DataSource>("frames");
-  const [colorMode, setColorMode] = useState<ColorMode>("bySensor");
+  const [colorMode, setColorMode] = useState<ColorMode>("bySample");
   const [showEnv, setShowEnv] = useState(false);
 
   // 动态收集 nSamples 选项（预设 + 已存在 + 当前使用中），用于下拉列表
@@ -380,6 +380,62 @@ export function TimeSeriesTab() {
     const legendData: string[] = [];
     const hasEnvData = showEnv && timeSeriesData.some((d) => d.envData && d.envData.length > 0);
 
+    // Phase markArea 去重：阶段结构相同的样本只绘制一次标注层
+    // 生成每个样本的 phase 签名，相同签名的只保留第一个
+    const phaseSignatureSet = new Set<string>();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let globalPhaseMarkArea: any[] | null = null;
+    let phaseMarkAreaAttached = false;
+
+    for (const sampleData of timeSeriesData) {
+      if (!sampleData.phaseTransitions || sampleData.phaseTransitions.length === 0) continue;
+
+      const dataMinX = sampleData.data.length > 0
+        ? Math.min(...sampleData.data.map((p) => p.timeMs))
+        : 0;
+      const dataMaxX = sampleData.data.length > 0
+        ? Math.max(...sampleData.data.map((p) => p.timeMs))
+        : 1;
+
+      // 签名 = phase 名称序列（用于判断阶段结构是否相同）
+      const signature = sampleData.phaseTransitions.map((pt) => pt.phaseName).join("|");
+      if (phaseSignatureSet.has(signature)) continue;
+      phaseSignatureSet.add(signature);
+
+      const markAreaItems = sampleData.phaseTransitions.map((pt) => {
+        let xStart: number, xEnd: number;
+
+        if (alignMode === "relative") {
+          const baseMs = dataMinX;
+          xStart = pt.startTimeMs - baseMs;
+          xEnd = (pt.endTimeMs || dataMaxX) - baseMs;
+        } else if (alignMode === "normalized") {
+          const baseMs = dataMinX;
+          const range = dataMaxX - dataMinX || 1;
+          xStart = ((pt.startTimeMs - baseMs) / range) * 100;
+          xEnd = (((pt.endTimeMs || dataMaxX) - baseMs) / range) * 100;
+        } else {
+          xStart = pt.startTimeMs;
+          xEnd = pt.endTimeMs || dataMaxX;
+        }
+        return [
+          {
+            name: pt.phaseName,
+            xAxis: xStart,
+            itemStyle: { color: PHASE_COLORS[pt.phaseName] || DEFAULT_PHASE_COLOR },
+          },
+          { xAxis: xEnd },
+        ];
+      });
+
+      // 合并到全局 markArea（多个不同签名的样本各取一份）
+      if (!globalPhaseMarkArea) {
+        globalPhaseMarkArea = markAreaItems;
+      } else {
+        globalPhaseMarkArea = globalPhaseMarkArea.concat(markAreaItems);
+      }
+    }
+
     timeSeriesData.forEach((sampleData, sampleIndex) => {
       // 按传感器分组数据
       const sensorGroups: Record<number, { time: number; value: number }[]> = {};
@@ -390,50 +446,10 @@ export function TimeSeriesTab() {
         sensorGroups[point.sensorIdx].push({ time: point.timeMs, value: point.value });
       });
 
-      // 构建 phase markArea 数据（仅在第一个传感器系列上标注）
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let phaseMarkArea: any[] | undefined;
-      if (sampleData.phaseTransitions && sampleData.phaseTransitions.length > 0) {
-        // 数据坐标范围（x 轴实际显示的范围）
-        const dataMinX = sampleData.data.length > 0
-          ? Math.min(...sampleData.data.map((p) => p.timeMs))
-          : 0;
-        const dataMaxX = sampleData.data.length > 0
-          ? Math.max(...sampleData.data.map((p) => p.timeMs))
-          : 1;
-
-        phaseMarkArea = sampleData.phaseTransitions.map((pt) => {
-          let xStart: number, xEnd: number;
-
-          if (alignMode === "relative") {
-            const baseMs = dataMinX;
-            xStart = pt.startTimeMs - baseMs;
-            xEnd = (pt.endTimeMs || dataMaxX) - baseMs;
-          } else if (alignMode === "normalized") {
-            const baseMs = dataMinX;
-            const range = dataMaxX - dataMinX || 1;
-            xStart = ((pt.startTimeMs - baseMs) / range) * 100;
-            xEnd = (((pt.endTimeMs || dataMaxX) - baseMs) / range) * 100;
-          } else {
-            xStart = pt.startTimeMs;
-            xEnd = pt.endTimeMs || dataMaxX;
-          }
-          return [
-            {
-              name: pt.phaseName,
-              xAxis: xStart,
-              itemStyle: { color: PHASE_COLORS[pt.phaseName] || DEFAULT_PHASE_COLOR },
-            },
-            { xAxis: xEnd },
-          ];
-        });
-      }
-
       // 为每个传感器创建系列
-      let isFirstSeries = true;
       Object.entries(sensorGroups).forEach(([sensorIdxStr, points]) => {
         const sensorIdx = parseInt(sensorIdxStr);
-        const name = `R${sampleData.runId}-S${sampleData.sampleIdx}-Sen${sensorIdx}`;
+        const name = `R${sampleData.runId}-S${sampleData.sampleId}-Sen${sensorIdx}`;
         legendData.push(name);
 
         const processedPoints = alignPoints(points);
@@ -453,8 +469,8 @@ export function TimeSeriesTab() {
           emphasis: { lineStyle: { width: 2.5 } },
         };
 
-        // 仅在第一个系列上附加 markArea（避免重复渲染）
-        if (isFirstSeries && phaseMarkArea && phaseMarkArea.length > 0) {
+        // 仅在全局第一个系列上附加去重后的 markArea
+        if (!phaseMarkAreaAttached && globalPhaseMarkArea && globalPhaseMarkArea.length > 0) {
           seriesItem.markArea = {
             silent: true,
             label: {
@@ -463,9 +479,9 @@ export function TimeSeriesTab() {
               fontSize: 10,
               color: "#666",
             },
-            data: phaseMarkArea,
+            data: globalPhaseMarkArea,
           };
-          isFirstSeries = false;
+          phaseMarkAreaAttached = true;
         }
 
         series.push(seriesItem);
@@ -474,7 +490,7 @@ export function TimeSeriesTab() {
       // 环境数据系列（温度→Y1, 湿度→Y2, 气压→Y3）
       if (showEnv && sampleData.envData && sampleData.envData.length > 0) {
         const envPoints = sampleData.envData;
-        const prefix = `R${sampleData.runId}-S${sampleData.sampleIdx}`;
+        const prefix = `R${sampleData.runId}-S${sampleData.sampleId}`;
 
         const envChannels: { key: keyof typeof ENV_COLORS; label: string; yAxis: number; accessor: (p: EnvDataPoint) => number }[] = [
           { key: "temperature", label: "温度", yAxis: 1, accessor: (p) => p.temperature },

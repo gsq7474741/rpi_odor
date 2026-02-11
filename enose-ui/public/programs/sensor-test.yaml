@@ -1,0 +1,404 @@
+id: sensor-test
+name: sensor-test
+description: ''
+version: 1.0.0
+hardware:
+  bottle_capacity_ml: 150
+  max_fill_ml: 100
+  liquids:
+    - id: default
+      name: 默认液体
+      type: LIQUID_SAMPLE
+steps:
+  - name: 配置加热器
+    configure_heater:
+      configs:
+        - profile_name: constant_320
+          temps:
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+          durs:
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+          sensor_indices:
+            - 0
+            - 4
+        - profile_name: heater_354__2
+          temps:
+            - 320
+            - 100
+            - 100
+            - 100
+            - 200
+            - 200
+            - 200
+            - 320
+            - 320
+            - 320
+          durs:
+            - 5
+            - 2
+            - 10
+            - 30
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+          sensor_indices:
+            - 1
+            - 5
+        - profile_name: heater_411__4
+          temps:
+            - 100
+            - 320
+            - 170
+            - 320
+            - 240
+            - 240
+            - 240
+            - 320
+            - 320
+            - 320
+          durs:
+            - 43
+            - 2
+            - 43
+            - 2
+            - 2
+            - 20
+            - 21
+            - 2
+            - 20
+            - 21
+          sensor_indices:
+            - 2
+            - 6
+        - profile_name: heater_501__3
+          temps:
+            - 210
+            - 265
+            - 265
+            - 320
+            - 320
+            - 265
+            - 210
+            - 155
+            - 100
+            - 155
+          durs:
+            - 24
+            - 2
+            - 22
+            - 2
+            - 22
+            - 24
+            - 24
+            - 24
+            - 24
+            - 24
+          sensor_indices:
+            - 3
+            - 7
+  - name: 传感器预热
+    phase_name: PREHEAT
+    preheat:
+      max_duration_s: 300
+      record_data: true
+      gas_pump_pwm: 50
+      stability:
+        window_s: 30
+        threshold_percent: 8
+  - name: '[循环 #1/10] 数据采集'
+    phase_name: ACQUIRE
+    acquire:
+      gas_pump_pwm: 50
+      stability:
+        window_s: 30
+        threshold_percent: 8
+      max_duration_s: 300
+  - name: '[循环 #1/10] 排废'
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 100
+      empty_tolerance_g: 10
+      stability_window_s: 5
+      timeout_s: 60
+  - name: '[循环 #2/10] 数据采集'
+    phase_name: ACQUIRE
+    acquire:
+      gas_pump_pwm: 50
+      stability:
+        window_s: 30
+        threshold_percent: 8
+      max_duration_s: 300
+  - name: '[循环 #2/10] 排废'
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 100
+      empty_tolerance_g: 10
+      stability_window_s: 5
+      timeout_s: 60
+  - name: '[循环 #3/10] 数据采集'
+    phase_name: ACQUIRE
+    acquire:
+      gas_pump_pwm: 50
+      stability:
+        window_s: 30
+        threshold_percent: 8
+      max_duration_s: 300
+  - name: '[循环 #3/10] 排废'
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 100
+      empty_tolerance_g: 10
+      stability_window_s: 5
+      timeout_s: 60
+  - name: '[循环 #4/10] 数据采集'
+    phase_name: ACQUIRE
+    acquire:
+      gas_pump_pwm: 50
+      stability:
+        window_s: 30
+        threshold_percent: 8
+      max_duration_s: 300
+  - name: '[循环 #4/10] 排废'
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 100
+      empty_tolerance_g: 10
+      stability_window_s: 5
+      timeout_s: 60
+  - name: '[循环 #5/10] 数据采集'
+    phase_name: ACQUIRE
+    acquire:
+      gas_pump_pwm: 50
+      stability:
+        window_s: 30
+        threshold_percent: 8
+      max_duration_s: 300
+  - name: '[循环 #5/10] 排废'
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 100
+      empty_tolerance_g: 10
+      stability_window_s: 5
+      timeout_s: 60
+  - name: '[循环 #6/10] 数据采集'
+    phase_name: ACQUIRE
+    acquire:
+      gas_pump_pwm: 50
+      stability:
+        window_s: 30
+        threshold_percent: 8
+      max_duration_s: 300
+  - name: '[循环 #6/10] 排废'
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 100
+      empty_tolerance_g: 10
+      stability_window_s: 5
+      timeout_s: 60
+  - name: '[循环 #7/10] 数据采集'
+    phase_name: ACQUIRE
+    acquire:
+      gas_pump_pwm: 50
+      stability:
+        window_s: 30
+        threshold_percent: 8
+      max_duration_s: 300
+  - name: '[循环 #7/10] 排废'
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 100
+      empty_tolerance_g: 10
+      stability_window_s: 5
+      timeout_s: 60
+  - name: '[循环 #8/10] 数据采集'
+    phase_name: ACQUIRE
+    acquire:
+      gas_pump_pwm: 50
+      stability:
+        window_s: 30
+        threshold_percent: 8
+      max_duration_s: 300
+  - name: '[循环 #8/10] 排废'
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 100
+      empty_tolerance_g: 10
+      stability_window_s: 5
+      timeout_s: 60
+  - name: '[循环 #9/10] 数据采集'
+    phase_name: ACQUIRE
+    acquire:
+      gas_pump_pwm: 50
+      stability:
+        window_s: 30
+        threshold_percent: 8
+      max_duration_s: 300
+  - name: '[循环 #9/10] 排废'
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 100
+      empty_tolerance_g: 10
+      stability_window_s: 5
+      timeout_s: 60
+  - name: '[循环 #10/10] 数据采集'
+    phase_name: ACQUIRE
+    acquire:
+      gas_pump_pwm: 50
+      stability:
+        window_s: 30
+        threshold_percent: 8
+      max_duration_s: 300
+  - name: '[循环 #10/10] 排废'
+    phase_name: DRAIN
+    drain:
+      gas_pump_pwm: 100
+      empty_tolerance_g: 10
+      stability_window_s: 5
+      timeout_s: 60
+_compile_estimate:
+  total_duration_s: 2250
+  peak_liquid_level_ml: 0
+  peak_liquid_level_ml_with_wash: 0
+  total_inject_ml: 0
+  total_drain_ml: 0
+  total_wash_volume_ml: 0
+  liquid_consumption: []
+  pump_estimates: []
+_editor_layout:
+  nodes:
+    - id: start
+      type: start
+      position:
+        x: -640
+        'y': 135
+      data:
+        description: 单茶指纹采集
+        version: 0.1.0
+    - id: node_10
+      type: preheat
+      position:
+        x: -640
+        'y': 429
+      data:
+        name: 传感器预热
+        mode: stability
+        durationS: 60
+        maxDurationS: 300
+        sensorIndices: []
+        recordData: true
+        gasPumpPwm: 50
+        stabilityWindowS: 30
+        stabilityThresholdPercent: 8
+    - id: node_11
+      type: configureHeater
+      position:
+        x: -640
+        'y': 270
+      data:
+        sensorProfiles:
+          '0': constant_320
+          '1': heater_354__2
+          '2': heater_411__4
+          '3': heater_501__3
+          '4': constant_320
+          '5': heater_354__2
+          '6': heater_411__4
+          '7': heater_501__3
+          '8': ''
+          '9': ''
+          '10': ''
+          '11': ''
+    - id: node_13
+      type: acquire
+      position:
+        x: -762.6666666666666
+        'y': 727
+      data:
+        name: 数据采集
+        gasPumpPwm: 50
+        terminationType: stability
+        heaterCycles: 10
+        maxDurationS: 300
+        stabilityWindowS: 30
+        stabilityThresholdPercent: 8
+    - id: node_18
+      type: loop
+      position:
+        x: -640
+        'y': 588
+      data:
+        count: 10
+    - id: node_19
+      type: end
+      position:
+        x: -640
+        'y': 889
+      data: {}
+    - id: node_20
+      type: drain
+      position:
+        x: -558.6666666666666
+        'y': 727
+      data:
+        name: 排废
+        gasPumpPwm: 100
+        emptyToleranceG: 10
+        stabilityWindowS: 5
+        timeoutS: 60
+  edges:
+    - id: xy-edge__node_11flow-node_10flow
+      source: node_11
+      target: node_10
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_10flow-node_18flow
+      source: node_10
+      target: node_18
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_18flow-node_19flow
+      source: node_18
+      target: node_19
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__startflow-node_11flow
+      source: start
+      target: node_11
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_18loopBody-node_13flow
+      source: node_18
+      target: node_13
+      sourceHandle: loopBody
+      targetHandle: flow
+    - id: xy-edge__node_13flow-node_20flow
+      source: node_13
+      target: node_20
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_20flow-node_18loopBody
+      source: node_20
+      target: node_18
+      sourceHandle: flow
+      targetHandle: loopBody

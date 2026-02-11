@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getStatus } from "@/lib/grpc-client";
+import { getStatus, resetAllControlClients } from "@/lib/grpc-client";
 
 /**
  * Ping API - 测量浏览器到后端的端到端延迟
@@ -29,6 +29,7 @@ export async function GET() {
       connected: true,
     });
   } catch (error) {
+    resetAllControlClients();
     return NextResponse.json({
       success: false,
       grpcTime: null,

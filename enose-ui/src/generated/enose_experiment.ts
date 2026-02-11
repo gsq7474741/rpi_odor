@@ -956,7 +956,10 @@ export interface LoadProgramRequest {
         yamlContent: string; // YAML 字符串    } | {
         oneofKind: undefined;
     };
-}
+    /**
+     * @generated from protobuf field: string filename = 3
+     */
+    filename: string; // 源文件名 (用于追踪，不含路径)}
 /**
  * 加载响应
  *
@@ -1076,6 +1079,18 @@ export interface ExperimentStatusResponse {
      * @generated from protobuf field: string program_name = 23
      */
     programName: string;
+    /**
+     * 当前步骤已运行时间 (秒)
+     *
+     * @generated from protobuf field: double step_elapsed_s = 24
+     */
+    stepElapsedS: number;
+    /**
+     * 源文件名 (加载时传入的文件名，用于前端恢复匹配)
+     *
+     * @generated from protobuf field: string program_filename = 25
+     */
+    programFilename: string;
     /**
      * 数据质量快照（实时）
      *
@@ -3533,12 +3548,14 @@ class LoadProgramRequest$Type extends MessageType<LoadProgramRequest> {
     constructor() {
         super("enose.experiment.LoadProgramRequest", [
             { no: 1, name: "program", kind: "message", oneof: "source", T: () => ExperimentProgram },
-            { no: 2, name: "yaml_content", kind: "scalar", oneof: "source", T: 9 /*ScalarType.STRING*/ }
+            { no: 2, name: "yaml_content", kind: "scalar", oneof: "source", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "filename", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
         ]);
     }
     create(value?: PartialMessage<LoadProgramRequest>): LoadProgramRequest {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.source = { oneofKind: undefined };
+        message.filename = "";
         if (value !== undefined)
             reflectionMergePartial<LoadProgramRequest>(this, message, value);
         return message;
@@ -3560,6 +3577,9 @@ class LoadProgramRequest$Type extends MessageType<LoadProgramRequest> {
                         yamlContent: reader.string()
                     };
                     break;
+                case /* string filename */ 3:
+                    message.filename = reader.string();
+                    break;
                 default:
                     let u = options.readUnknownField;
                     if (u === "throw")
@@ -3578,6 +3598,9 @@ class LoadProgramRequest$Type extends MessageType<LoadProgramRequest> {
         /* string yaml_content = 2; */
         if (message.source.oneofKind === "yamlContent")
             writer.tag(2, WireType.LengthDelimited).string(message.source.yamlContent);
+        /* string filename = 3; */
+        if (message.filename !== "")
+            writer.tag(3, WireType.LengthDelimited).string(message.filename);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -3670,6 +3693,8 @@ class ExperimentStatusResponse$Type extends MessageType<ExperimentStatusResponse
             { no: 21, name: "run_id", kind: "scalar", T: 3 /*ScalarType.INT64*/ },
             { no: 22, name: "total_steps", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 23, name: "program_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 24, name: "step_elapsed_s", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 25, name: "program_filename", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 30, name: "quality", kind: "message", T: () => DataQualitySnapshot }
         ]);
     }
@@ -3691,6 +3716,8 @@ class ExperimentStatusResponse$Type extends MessageType<ExperimentStatusResponse
         message.runId = "0";
         message.totalSteps = 0;
         message.programName = "";
+        message.stepElapsedS = 0;
+        message.programFilename = "";
         if (value !== undefined)
             reflectionMergePartial<ExperimentStatusResponse>(this, message, value);
         return message;
@@ -3747,6 +3774,12 @@ class ExperimentStatusResponse$Type extends MessageType<ExperimentStatusResponse
                     break;
                 case /* string program_name */ 23:
                     message.programName = reader.string();
+                    break;
+                case /* double step_elapsed_s */ 24:
+                    message.stepElapsedS = reader.double();
+                    break;
+                case /* string program_filename */ 25:
+                    message.programFilename = reader.string();
                     break;
                 case /* enose.experiment.DataQualitySnapshot quality */ 30:
                     message.quality = DataQualitySnapshot.internalBinaryRead(reader, reader.uint32(), options, message.quality);
@@ -3811,6 +3844,12 @@ class ExperimentStatusResponse$Type extends MessageType<ExperimentStatusResponse
         /* string program_name = 23; */
         if (message.programName !== "")
             writer.tag(23, WireType.LengthDelimited).string(message.programName);
+        /* double step_elapsed_s = 24; */
+        if (message.stepElapsedS !== 0)
+            writer.tag(24, WireType.Bit64).double(message.stepElapsedS);
+        /* string program_filename = 25; */
+        if (message.programFilename !== "")
+            writer.tag(25, WireType.LengthDelimited).string(message.programFilename);
         /* enose.experiment.DataQualitySnapshot quality = 30; */
         if (message.quality)
             DataQualitySnapshot.internalBinaryWrite(message.quality, writer.tag(30, WireType.LengthDelimited).fork(), options).join();

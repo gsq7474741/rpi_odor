@@ -1,5 +1,5 @@
-id: tea-single-v0.1.0
-name: tea-single-v0.1.0
+id: sensor-test-2
+name: sensor-test-2
 description: ''
 version: 1.0.0
 hardware:
@@ -132,33 +132,16 @@ steps:
           sensor_indices:
             - 3
             - 7
-  - name: 传感器预热
-    phase_name: PREHEAT
-    preheat:
-      max_duration_s: 300
-      record_data: true
-      gas_pump_pwm: 50
-      stability:
-        window_s: 30
-        threshold_percent: 8
-  - name: '[循环 #1/10] [参数扫描 #1/5] 进样 (0%:0%:100%:0%:0%)'
+  - name: '[循环 #1/10] [参数扫描 #1/5] 进样 (100%:0%:0%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
         - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
           ratio: 100
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #1/10] [参数扫描 #1/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -179,24 +162,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #1/10] [参数扫描 #2/5] 进样 (0%:0%:0%:0%:100%)'
+  - name: '[循环 #1/10] [参数扫描 #2/5] 进样 (0%:0%:100%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
         - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
           ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #1/10] [参数扫描 #2/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -217,24 +192,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #1/10] [参数扫描 #3/5] 进样 (100%:0%:0%:0%:0%)'
+  - name: '[循环 #1/10] [参数扫描 #3/5] 进样 (0%:0%:0%:0%:100%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 100
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
         - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #1/10] [参数扫描 #3/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -259,20 +226,12 @@ steps:
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
         - liquid_id: '65'
           ratio: 100
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #1/10] [参数扫描 #4/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -297,20 +256,12 @@ steps:
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
         - liquid_id: '66'
           ratio: 100
-        - liquid_id: '67'
-          ratio: 0
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #1/10] [参数扫描 #5/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -331,24 +282,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #2/10] [参数扫描 #1/5] 进样 (0%:0%:0%:100%:0%)'
+  - name: '[循环 #2/10] [参数扫描 #1/5] 进样 (0%:0%:100%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
         - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
           ratio: 100
-        - liquid_id: '67'
-          ratio: 0
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #2/10] [参数扫描 #1/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -369,24 +312,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #2/10] [参数扫描 #2/5] 进样 (0%:0%:0%:0%:100%)'
+  - name: '[循环 #2/10] [参数扫描 #2/5] 进样 (0%:100%:0%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
         - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
           ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #2/10] [参数扫描 #2/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -413,18 +348,10 @@ steps:
       components:
         - liquid_id: '54'
           ratio: 100
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #2/10] [参数扫描 #3/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -445,24 +372,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #2/10] [参数扫描 #4/5] 进样 (0%:100%:0%:0%:0%)'
+  - name: '[循环 #2/10] [参数扫描 #4/5] 进样 (0%:0%:0%:0%:100%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 100
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
         - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #2/10] [参数扫描 #4/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -483,24 +402,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #2/10] [参数扫描 #5/5] 进样 (0%:0%:100%:0%:0%)'
+  - name: '[循环 #2/10] [参数扫描 #5/5] 进样 (0%:0%:0%:100%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 100
         - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #2/10] [参数扫描 #5/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -525,20 +436,12 @@ steps:
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
         - liquid_id: '64'
           ratio: 100
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #3/10] [参数扫描 #1/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -559,24 +462,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #3/10] [参数扫描 #2/5] 进样 (100%:0%:0%:0%:0%)'
+  - name: '[循环 #3/10] [参数扫描 #2/5] 进样 (0%:0%:0%:0%:100%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 100
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
         - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #3/10] [参数扫描 #2/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -597,24 +492,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #3/10] [参数扫描 #3/5] 进样 (0%:0%:0%:100%:0%)'
+  - name: '[循环 #3/10] [参数扫描 #3/5] 进样 (0%:100%:0%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
         - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
           ratio: 100
-        - liquid_id: '67'
-          ratio: 0
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #3/10] [参数扫描 #3/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -635,24 +522,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #3/10] [参数扫描 #4/5] 进样 (0%:0%:0%:0%:100%)'
+  - name: '[循环 #3/10] [参数扫描 #4/5] 进样 (100%:0%:0%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
         - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
           ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #3/10] [参数扫描 #4/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -673,24 +552,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #3/10] [参数扫描 #5/5] 进样 (0%:100%:0%:0%:0%)'
+  - name: '[循环 #3/10] [参数扫描 #5/5] 进样 (0%:0%:0%:100%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 100
-        - liquid_id: '64'
-          ratio: 0
         - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #3/10] [参数扫描 #5/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -711,24 +582,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #4/10] [参数扫描 #1/5] 进样 (0%:0%:100%:0%:0%)'
+  - name: '[循环 #4/10] [参数扫描 #1/5] 进样 (0%:0%:0%:100%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 100
         - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #4/10] [参数扫描 #1/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -749,24 +612,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #4/10] [参数扫描 #2/5] 进样 (0%:0%:0%:0%:100%)'
+  - name: '[循环 #4/10] [参数扫描 #2/5] 进样 (0%:0%:100%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
         - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
           ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #4/10] [参数扫描 #2/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -791,20 +646,12 @@ steps:
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
         - liquid_id: '65'
           ratio: 100
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #4/10] [参数扫描 #3/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -825,24 +672,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #4/10] [参数扫描 #4/5] 进样 (0%:0%:0%:100%:0%)'
+  - name: '[循环 #4/10] [参数扫描 #4/5] 进样 (0%:0%:0%:0%:100%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 100
         - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #4/10] [参数扫描 #4/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -869,18 +708,10 @@ steps:
       components:
         - liquid_id: '54'
           ratio: 100
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #4/10] [参数扫描 #5/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -901,24 +732,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #5/10] [参数扫描 #1/5] 进样 (0%:100%:0%:0%:0%)'
+  - name: '[循环 #5/10] [参数扫描 #1/5] 进样 (0%:0%:0%:0%:100%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 100
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
         - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #5/10] [参数扫描 #1/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -943,20 +766,12 @@ steps:
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
         - liquid_id: '64'
           ratio: 100
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #5/10] [参数扫描 #2/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -977,24 +792,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #5/10] [参数扫描 #3/5] 进样 (0%:0%:0%:0%:100%)'
+  - name: '[循环 #5/10] [参数扫描 #3/5] 进样 (0%:0%:0%:100%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
         - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
           ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #5/10] [参数扫描 #3/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1015,24 +822,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #5/10] [参数扫描 #4/5] 进样 (0%:0%:0%:100%:0%)'
+  - name: '[循环 #5/10] [参数扫描 #4/5] 进样 (0%:100%:0%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
         - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
           ratio: 100
-        - liquid_id: '67'
-          ratio: 0
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #5/10] [参数扫描 #4/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1059,18 +858,10 @@ steps:
       components:
         - liquid_id: '54'
           ratio: 100
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #5/10] [参数扫描 #5/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1091,24 +882,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #6/10] [参数扫描 #1/5] 进样 (0%:0%:0%:0%:100%)'
+  - name: '[循环 #6/10] [参数扫描 #1/5] 进样 (100%:0%:0%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
         - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
           ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #6/10] [参数扫描 #1/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1129,24 +912,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #6/10] [参数扫描 #2/5] 进样 (0%:100%:0%:0%:0%)'
+  - name: '[循环 #6/10] [参数扫描 #2/5] 进样 (0%:0%:0%:0%:100%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 100
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
         - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #6/10] [参数扫描 #2/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1167,24 +942,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #6/10] [参数扫描 #3/5] 进样 (100%:0%:0%:0%:0%)'
+  - name: '[循环 #6/10] [参数扫描 #3/5] 进样 (0%:100%:0%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 100
         - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #6/10] [参数扫描 #3/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1209,20 +976,12 @@ steps:
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
         - liquid_id: '66'
           ratio: 100
-        - liquid_id: '67'
-          ratio: 0
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #6/10] [参数扫描 #4/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1247,20 +1006,12 @@ steps:
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
         - liquid_id: '64'
           ratio: 100
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #6/10] [参数扫描 #5/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1285,20 +1036,12 @@ steps:
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
         - liquid_id: '64'
           ratio: 100
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #7/10] [参数扫描 #1/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1319,24 +1062,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #7/10] [参数扫描 #2/5] 进样 (0%:100%:0%:0%:0%)'
+  - name: '[循环 #7/10] [参数扫描 #2/5] 进样 (0%:0%:0%:0%:100%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 100
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
         - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #7/10] [参数扫描 #2/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1357,24 +1092,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #7/10] [参数扫描 #3/5] 进样 (100%:0%:0%:0%:0%)'
+  - name: '[循环 #7/10] [参数扫描 #3/5] 进样 (0%:0%:0%:100%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 100
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
         - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #7/10] [参数扫描 #3/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1395,24 +1122,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #7/10] [参数扫描 #4/5] 进样 (0%:0%:0%:100%:0%)'
+  - name: '[循环 #7/10] [参数扫描 #4/5] 进样 (100%:0%:0%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
         - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
           ratio: 100
-        - liquid_id: '67'
-          ratio: 0
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #7/10] [参数扫描 #4/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1433,24 +1152,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #7/10] [参数扫描 #5/5] 进样 (0%:0%:0%:0%:100%)'
+  - name: '[循环 #7/10] [参数扫描 #5/5] 进样 (0%:100%:0%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
         - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
           ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #7/10] [参数扫描 #5/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1471,24 +1182,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #8/10] [参数扫描 #1/5] 进样 (0%:100%:0%:0%:0%)'
+  - name: '[循环 #8/10] [参数扫描 #1/5] 进样 (0%:0%:100%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 100
         - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #8/10] [参数扫描 #1/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1509,24 +1212,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #8/10] [参数扫描 #2/5] 进样 (0%:0%:0%:100%:0%)'
+  - name: '[循环 #8/10] [参数扫描 #2/5] 进样 (100%:0%:0%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
         - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
           ratio: 100
-        - liquid_id: '67'
-          ratio: 0
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #8/10] [参数扫描 #2/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1547,24 +1242,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #8/10] [参数扫描 #3/5] 进样 (0%:0%:0%:0%:100%)'
+  - name: '[循环 #8/10] [参数扫描 #3/5] 进样 (0%:100%:0%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
         - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
           ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #8/10] [参数扫描 #3/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1585,24 +1272,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #8/10] [参数扫描 #4/5] 进样 (0%:0%:100%:0%:0%)'
+  - name: '[循环 #8/10] [参数扫描 #4/5] 进样 (0%:0%:0%:100%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 100
         - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #8/10] [参数扫描 #4/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1623,24 +1302,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #8/10] [参数扫描 #5/5] 进样 (100%:0%:0%:0%:0%)'
+  - name: '[循环 #8/10] [参数扫描 #5/5] 进样 (0%:0%:0%:0%:100%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 100
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
         - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #8/10] [参数扫描 #5/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1661,24 +1332,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #9/10] [参数扫描 #1/5] 进样 (0%:0%:0%:0%:100%)'
+  - name: '[循环 #9/10] [参数扫描 #1/5] 进样 (0%:100%:0%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
         - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
           ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #9/10] [参数扫描 #1/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1703,20 +1366,12 @@ steps:
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
         - liquid_id: '66'
           ratio: 100
-        - liquid_id: '67'
-          ratio: 0
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #9/10] [参数扫描 #2/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1737,24 +1392,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #9/10] [参数扫描 #3/5] 进样 (0%:100%:0%:0%:0%)'
+  - name: '[循环 #9/10] [参数扫描 #3/5] 进样 (100%:0%:0%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
         - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
           ratio: 100
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #9/10] [参数扫描 #3/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1775,24 +1422,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #9/10] [参数扫描 #4/5] 进样 (0%:0%:100%:0%:0%)'
+  - name: '[循环 #9/10] [参数扫描 #4/5] 进样 (0%:0%:0%:0%:100%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 100
-        - liquid_id: '66'
-          ratio: 0
         - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #9/10] [参数扫描 #4/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1813,24 +1452,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #9/10] [参数扫描 #5/5] 进样 (100%:0%:0%:0%:0%)'
+  - name: '[循环 #9/10] [参数扫描 #5/5] 进样 (0%:0%:100%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 100
-        - liquid_id: '65'
-          ratio: 0
         - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #9/10] [参数扫描 #5/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1851,24 +1482,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #10/10] [参数扫描 #1/5] 进样 (0%:0%:0%:0%:100%)'
+  - name: '[循环 #10/10] [参数扫描 #1/5] 进样 (0%:0%:100%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
         - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
           ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #10/10] [参数扫描 #1/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1889,24 +1512,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #10/10] [参数扫描 #2/5] 进样 (0%:100%:0%:0%:0%)'
+  - name: '[循环 #10/10] [参数扫描 #2/5] 进样 (0%:0%:0%:100%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 100
-        - liquid_id: '64'
-          ratio: 0
         - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #10/10] [参数扫描 #2/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1927,24 +1542,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #10/10] [参数扫描 #3/5] 进样 (0%:0%:100%:0%:0%)'
+  - name: '[循环 #10/10] [参数扫描 #3/5] 进样 (0%:0%:0%:0%:100%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 100
-        - liquid_id: '66'
-          ratio: 0
         - liquid_id: '67'
-          ratio: 0
+          ratio: 100
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #10/10] [参数扫描 #3/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -1965,24 +1572,16 @@ steps:
       empty_tolerance_g: 10
       empty_stability_window_s: 2
       fill_mode: timed
-  - name: '[循环 #10/10] [参数扫描 #4/5] 进样 (0%:0%:0%:100%:0%)'
+  - name: '[循环 #10/10] [参数扫描 #4/5] 进样 (0%:100%:0%:0%:0%)'
     phase_name: INJECT
     inject:
       components:
-        - liquid_id: '54'
-          ratio: 0
         - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
           ratio: 100
-        - liquid_id: '67'
-          ratio: 0
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #10/10] [参数扫描 #4/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -2009,18 +1608,10 @@ steps:
       components:
         - liquid_id: '54'
           ratio: 100
-        - liquid_id: '65'
-          ratio: 0
-        - liquid_id: '64'
-          ratio: 0
-        - liquid_id: '66'
-          ratio: 0
-        - liquid_id: '67'
-          ratio: 0
       tolerance: 5
       flow_rate_ml_s: 5
       stable_timeout_s: 10
-      target_volume_ml: 30
+      target_volume_ml: 2
   - name: '[循环 #10/10] [参数扫描 #5/5] 数据采集'
     phase_name: ACQUIRE
     acquire:
@@ -2042,53 +1633,53 @@ steps:
       empty_stability_window_s: 2
       fill_mode: timed
 _compile_estimate:
-  total_duration_s: 17210.000000000015
-  peak_liquid_level_ml: 30
+  total_duration_s: 17004
+  peak_liquid_level_ml: 2
   peak_liquid_level_ml_with_wash: 0
-  total_inject_ml: 1500
-  total_drain_ml: 4000
+  total_inject_ml: 100
+  total_drain_ml: 2600
   total_wash_volume_ml: 2500
   liquid_consumption:
     - liquid_id: '54'
       liquid_name: Wittard伯爵茶茶汤
       pump_index: 3
-      required_ml: 300
+      required_ml: 20
     - liquid_id: '65'
       liquid_name: 熟普洱茶汤
       pump_index: 2
-      required_ml: 300
+      required_ml: 20
     - liquid_id: '64'
       liquid_name: 正山小种茶汤
       pump_index: 1
-      required_ml: 300
+      required_ml: 20
     - liquid_id: '66'
       liquid_name: 立顿红茶茶汤
       pump_index: 0
-      required_ml: 300
+      required_ml: 20
     - liquid_id: '67'
       liquid_name: 茉莉花茶茶汤
       pump_index: 4
-      required_ml: 300
+      required_ml: 20
     - liquid_id: '37'
       liquid_name: 纯净水
       pump_index: -1
       required_ml: 2500
   pump_estimates:
     - pump_index: 3
-      volume_ml: 300
-      runtime_s: 300
+      volume_ml: 20
+      runtime_s: 19.999999999999993
     - pump_index: 2
-      volume_ml: 300
-      runtime_s: 300
+      volume_ml: 20
+      runtime_s: 19.999999999999993
     - pump_index: 1
-      volume_ml: 300
-      runtime_s: 300
+      volume_ml: 20
+      runtime_s: 19.999999999999993
     - pump_index: 0
-      volume_ml: 300
-      runtime_s: 300
+      volume_ml: 20
+      runtime_s: 19.999999999999993
     - pump_index: 4
-      volume_ml: 300
-      runtime_s: 300
+      volume_ml: 20
+      runtime_s: 19.999999999999993
 _editor_layout:
   nodes:
     - id: start
@@ -2117,7 +1708,7 @@ _editor_layout:
       data:
         name: 进样
         targetType: volume
-        targetVolumeMl: 30
+        targetVolumeMl: 2
         tolerance: 5
         flowRateMlS: 5
         stableTimeoutS: 10
@@ -2214,21 +1805,6 @@ _editor_layout:
           - 4
           - 0
           - 2
-    - id: node_10
-      type: preheat
-      position:
-        x: -689.3333333333333
-        'y': 429
-      data:
-        name: 传感器预热
-        mode: stability
-        durationS: 60
-        maxDurationS: 300
-        sensorIndices: []
-        recordData: true
-        gasPumpPwm: 50
-        stabilityWindowS: 30
-        stabilityThresholdPercent: 8
     - id: node_11
       type: configureHeater
       position:
@@ -2314,11 +1890,6 @@ _editor_layout:
       target: node_3
       sourceHandle: liquid
       targetHandle: liquid
-    - id: xy-edge__node_11flow-node_10flow
-      source: node_11
-      target: node_10
-      sourceHandle: flow
-      targetHandle: flow
     - id: xy-edge__node_3flow-node_13flow
       source: node_3
       target: node_13
@@ -2332,11 +1903,6 @@ _editor_layout:
     - id: xy-edge__node_13flow-node_16flow
       source: node_13
       target: node_16
-      sourceHandle: flow
-      targetHandle: flow
-    - id: xy-edge__node_10flow-node_18flow
-      source: node_10
-      target: node_18
       sourceHandle: flow
       targetHandle: flow
     - id: xy-edge__node_18flow-node_19flow
@@ -2362,5 +1928,10 @@ _editor_layout:
     - id: xy-edge__startflow-node_11flow
       source: start
       target: node_11
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_11flow-node_18flow
+      source: node_11
+      target: node_18
       sourceHandle: flow
       targetHandle: flow

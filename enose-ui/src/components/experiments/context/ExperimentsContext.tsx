@@ -218,6 +218,10 @@ export interface ExperimentsState {
   
   // 刷新选中样本的帧状态
   refreshFrameStatuses: () => Promise<void>;
+  
+  // 悬停联动（SampleTable ↔ 散点图）
+  hoveredSampleId: number | null;
+  setHoveredSampleId: (id: number | null) => void;
 }
 
 const defaultFilters: FilterState = {
@@ -306,8 +310,11 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
   // 筛选
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
   
+  // 悬停联动
+  const [hoveredSampleId, setHoveredSampleId] = useState<number | null>(null);
+  
   // 数据帧使用配置
-  const [frameConfig, setFrameConfigState] = useState<FrameConfig>({ method: "linear", nSamples: 50 });
+  const [frameConfig, setFrameConfigState] = useState<FrameConfig>({ method: "pchip", nSamples: 50 });
   const setFrameConfig = useCallback((partial: Partial<FrameConfig>) => {
     setFrameConfigState(prev => ({ ...prev, ...partial }));
   }, []);
@@ -554,6 +561,8 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
     setAvailablePhases,
     setFilterOptionsLoading,
     refreshFrameStatuses,
+    hoveredSampleId,
+    setHoveredSampleId,
   };
   
   return (

@@ -101,6 +101,7 @@ private:
     std::unique_ptr<::enose::experiment::ExperimentProgram> loaded_program_;
     std::string loaded_program_yaml_;      // 原始 YAML 内容
     std::string loaded_program_yaml_hash_; // YAML 内容的 SHA256 hash
+    std::string loaded_program_filename_;  // 源文件名 (加载时前端传入)
     enose::workflows::ValidationResultInfo validation_result_;
     
     // 执行线程
@@ -116,6 +117,7 @@ private:
     int loop_iteration_ = 0;
     int loop_total_ = 0;
     std::chrono::steady_clock::time_point start_time_;
+    std::chrono::steady_clock::time_point step_start_time_;
     std::vector<std::string> logs_;
     std::string error_message_;
     
@@ -184,7 +186,8 @@ private:
     
     // 等待辅助方法
     bool wait_for_heater_cycles(int count, double timeout_s);
-    bool wait_for_sensor_stability(double window_s, double threshold_percent, double timeout_s);
+    bool wait_for_sensor_stability(double window_s, double threshold_percent, double timeout_s,
+                                    double min_duration_s = 0, int min_groups_with_data = 2);
     
     // 辅助方法
     void add_log(const std::string& message);

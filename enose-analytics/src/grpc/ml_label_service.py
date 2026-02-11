@@ -8,6 +8,7 @@ from google.protobuf import empty_pb2
 
 from ..db.ml_label_repository import MLLabelRepository
 from ..ml.label_generator import LabelGenerator
+from ..ml.dataset_builder import DatasetBuilder
 from ..logger import logger
 from ..generated import enose_analytics_pb2 as pb
 from ..generated import enose_analytics_pb2_grpc as pb_grpc
@@ -19,6 +20,7 @@ class MLLabelServiceImpl(pb_grpc.MLLabelServiceServicer):
     def __init__(self):
         self._repo = MLLabelRepository()
         self._generator = LabelGenerator()
+        self._dataset_builder = DatasetBuilder()
 
     def ListMLLabelConfigs(self, request, context):
         logger.info(f"ListMLLabelConfigs: active_only={request.active_only}")
@@ -250,6 +252,41 @@ class MLLabelServiceImpl(pb_grpc.MLLabelServiceServicer):
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(str(e))
             return pb.PreviewDatasetResponse()
+
+    def get_dataset_summary(
+        self,
+        config_name: str,
+        sample_ids: list[int] | None = None,
+        run_ids: list[int] | None = None,
+        phase_names: list[str] | None = None,
+        train_ratio: float = 0.7,
+        val_ratio: float = 0.15,
+        split_method: str = "stratified_holdout",
+        k_folds: int = 5,
+    ) -> dict:
+        """获取数据集摘要（供 REST API 直接调用，不走 gRPC proto）"""
+        config = self._repo.get_config_by_name(config_name)
+        if not config:
+            return {"error": f"Config '{config_name}' not found"}
+
+        labels = self._repo.get_labels_by_config(
+            config_name=config_name,
+            run_ids=run_ids,
+            phase_names=phase_names,
+            sample_ids=sample_ids,
+        )
+
+        summary = DatasetBuilder.compute_dataset_summary(
+            labels=labels,
+            train_ratio=train_ratio,
+            val_ratio=val_ratio,
+            split_method=split_method,
+            k_folds=k_folds,
+            label_type=config["label_type"],
+        )
+        summary["config_name"] = config_name
+        summary["label_type"] = config["label_type"]
+        return summary
 
     def _config_to_proto(self, config: dict) -> pb.MLLabelConfig:
         label_count = self._repo.count_labels(config["id"])

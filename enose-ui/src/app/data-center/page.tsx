@@ -11,7 +11,6 @@ import {
   TimeSeriesTab,
   ProjectorTab,
   CompareTab,
-  TrainingTab,
   CoverageTab,
   ModelTrainingTab,
 } from "@/components/experiments";
@@ -28,29 +27,10 @@ import {
   LineChart,
   ScatterChart,
   GitCompare,
-  Brain,
   Grid3X3,
   Dumbbell,
   RefreshCw,
-  Wifi,
-  WifiOff,
 } from "lucide-react";
-import { useAnalyticsLatency } from "@/hooks/use-analytics-latency";
-
-// Isolated latency indicator - state changes here don't re-render the rest of the page
-function LatencyIndicator() {
-  const { rtt, connected } = useAnalyticsLatency();
-  return (
-    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-      {connected ? (
-        <Wifi className="h-4 w-4 text-green-500" />
-      ) : (
-        <WifiOff className="h-4 w-4 text-red-500" />
-      )}
-      <span>{rtt && rtt > 0 ? `${rtt}ms` : "-"}</span>
-    </div>
-  );
-}
 
 function DataCenterContent() {
   const {
@@ -177,7 +157,6 @@ function DataCenterContent() {
       <div className="flex items-center justify-between px-4 py-2 border-b bg-background">
         <div className="flex items-center gap-4">
           <h1 className="text-lg font-semibold">数据中心</h1>
-          <LatencyIndicator />
         </div>
 
         <div className="flex items-center gap-2">
@@ -229,8 +208,7 @@ function DataCenterContent() {
                     { value: "projector", label: "降维分析", icon: ScatterChart },
                     { value: "compare", label: "参数对比", icon: GitCompare },
                     { value: "coverage", label: "组合覆盖", icon: Grid3X3 },
-                    { value: "training", label: "ML 标签", icon: Brain },
-                    { value: "model-training", label: "模型训练", icon: Dumbbell },
+                    { value: "model-training", label: "训练", icon: Dumbbell },
                   ].map(({ value, label, icon: Icon }) => (
                     <button
                       key={value}
@@ -267,10 +245,6 @@ function DataCenterContent() {
 
                 <TabsContent value="coverage" className="h-full m-0">
                   <CoverageTab />
-                </TabsContent>
-
-                <TabsContent value="training" className="h-full m-0">
-                  <TrainingTab />
                 </TabsContent>
 
                 <TabsContent value="model-training" className="h-full m-0 p-4">

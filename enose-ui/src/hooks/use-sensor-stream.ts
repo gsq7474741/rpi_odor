@@ -164,6 +164,28 @@ export function useSensorReadingsStream(enabled: boolean = true): SensorReadings
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // 批量缓冲：高频 SSE 消息先暂存到 buffer，通过 RAF 批量 flush 到 state
+  const bufferRef = useRef<SensorReading[]>([]);
+  const rafIdRef = useRef<number | null>(null);
+
+  const flushBuffer = useCallback(() => {
+    rafIdRef.current = null;
+    const batch = bufferRef.current;
+    if (batch.length === 0) return;
+    bufferRef.current = [];
+    setState(prev => ({
+      readings: [...prev.readings.slice(-(1500 - batch.length)), ...batch],
+      connected: true,
+      lastUpdate: batch[batch.length - 1].timestamp || Date.now(),
+      error: null,
+    }));
+  }, []);
+
+  const scheduleFlush = useCallback(() => {
+    if (rafIdRef.current === null) {
+      rafIdRef.current = requestAnimationFrame(flushBuffer);
+    }
+  }, [flushBuffer]);
 
   const connect = useCallback(() => {
     if (!enabled) return;
@@ -206,12 +228,8 @@ export function useSensorReadingsStream(enabled: boolean = true): SensorReadings
         
         if (data.type === 'reading') {
           const { type, ...readingData } = data;
-          setState(prev => ({
-            readings: [...prev.readings.slice(-5000), readingData as SensorReading],
-            connected: true,
-            lastUpdate: readingData.timestamp || Date.now(),
-            error: null,
-          }));
+          bufferRef.current.push(readingData as SensorReading);
+          scheduleFlush();
         } else if (data.type === 'error') {
           setState(prev => ({
             ...prev,
@@ -240,7 +258,7 @@ export function useSensorReadingsStream(enabled: boolean = true): SensorReadings
         reconnectTimeoutRef.current = setTimeout(connect, RECONNECT_DELAY_MS);
       }
     };
-  }, [enabled]);
+  }, [enabled, scheduleFlush]);
 
   const disconnect = useCallback(() => {
     if (eventSourceRef.current) {
@@ -255,6 +273,11 @@ export function useSensorReadingsStream(enabled: boolean = true): SensorReadings
       clearTimeout(connectionTimeoutRef.current);
       connectionTimeoutRef.current = null;
     }
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
+    bufferRef.current = [];
     setState(prev => ({ ...prev, connected: false }));
   }, []);
 
@@ -271,6 +294,11 @@ export function useSensorReadingsStream(enabled: boolean = true): SensorReadings
   }, [enabled, connect, disconnect]);
 
   const clearReadings = useCallback(() => {
+    bufferRef.current = [];
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
     setState(prev => ({ ...prev, readings: [] }));
   }, []);
 

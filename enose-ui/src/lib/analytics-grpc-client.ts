@@ -85,18 +85,48 @@ import type {
 const ANALYTICS_GRPC_HOST = process.env.ANALYTICS_GRPC_HOST || process.env.GRPC_HOST || "rpi5.local";
 const ANALYTICS_GRPC_PORT = process.env.ANALYTICS_GRPC_PORT || "50052";
 
+// gRPC channel 选项：快速重连 + keepalive
+const CHANNEL_OPTIONS: grpc.ChannelOptions = {
+  "grpc.keepalive_time_ms": 10000,
+  "grpc.keepalive_timeout_ms": 5000,
+  "grpc.keepalive_permit_without_calls": 1,
+  "grpc.initial_reconnect_backoff_ms": 500,
+  "grpc.max_reconnect_backoff_ms": 5000,
+  "grpc.min_reconnect_backoff_ms": 250,
+};
+
 // 创建客户端实例
 let analyticsClient: AnalyticsServiceClient | null = null;
 let labelClient: LabelServiceClient | null = null;
 let modelClient: ModelServiceClient | null = null;
 let dataClient: DataServiceClient | null = null;
 let sampleClient: SampleServiceClient | null = null;
+let mlLabelClientCached: MLLabelServiceClient | null = null;
+let exportClientCached: ExportServiceClient | null = null;
+
+function resetAllAnalyticsClients() {
+  analyticsClient?.close();
+  labelClient?.close();
+  modelClient?.close();
+  dataClient?.close();
+  sampleClient?.close();
+  mlLabelClientCached?.close();
+  exportClientCached?.close();
+  analyticsClient = null;
+  labelClient = null;
+  modelClient = null;
+  dataClient = null;
+  sampleClient = null;
+  mlLabelClientCached = null;
+  exportClientCached = null;
+}
 
 function getAnalyticsClient(): AnalyticsServiceClient {
   if (!analyticsClient) {
     analyticsClient = new AnalyticsServiceClient(
       `${ANALYTICS_GRPC_HOST}:${ANALYTICS_GRPC_PORT}`,
-      grpc.credentials.createInsecure()
+      grpc.credentials.createInsecure(),
+      CHANNEL_OPTIONS
     );
   }
   return analyticsClient;
@@ -106,7 +136,8 @@ function getLabelClient(): LabelServiceClient {
   if (!labelClient) {
     labelClient = new LabelServiceClient(
       `${ANALYTICS_GRPC_HOST}:${ANALYTICS_GRPC_PORT}`,
-      grpc.credentials.createInsecure()
+      grpc.credentials.createInsecure(),
+      CHANNEL_OPTIONS
     );
   }
   return labelClient;
@@ -116,7 +147,8 @@ function getModelClient(): ModelServiceClient {
   if (!modelClient) {
     modelClient = new ModelServiceClient(
       `${ANALYTICS_GRPC_HOST}:${ANALYTICS_GRPC_PORT}`,
-      grpc.credentials.createInsecure()
+      grpc.credentials.createInsecure(),
+      CHANNEL_OPTIONS
     );
   }
   return modelClient;
@@ -397,6 +429,7 @@ export async function checkAnalyticsConnection(): Promise<boolean> {
     await getQualityConfig();
     return true;
   } catch {
+    resetAllAnalyticsClients();
     return false;
   }
 }
@@ -409,7 +442,8 @@ function getDataClient(): DataServiceClient {
   if (!dataClient) {
     dataClient = new DataServiceClient(
       `${ANALYTICS_GRPC_HOST}:${ANALYTICS_GRPC_PORT}`,
-      grpc.credentials.createInsecure()
+      grpc.credentials.createInsecure(),
+      CHANNEL_OPTIONS
     );
   }
   return dataClient;
@@ -475,7 +509,8 @@ function getSampleClient(): SampleServiceClient {
   if (!sampleClient) {
     sampleClient = new SampleServiceClient(
       `${ANALYTICS_GRPC_HOST}:${ANALYTICS_GRPC_PORT}`,
-      grpc.credentials.createInsecure()
+      grpc.credentials.createInsecure(),
+      CHANNEL_OPTIONS
     );
   }
   return sampleClient;
@@ -599,16 +634,15 @@ export async function getPhaseTransitions(request: GetPhaseTransitionsRequest): 
 // ML Label Service API
 // ============================================================
 
-let mlLabelClient: MLLabelServiceClient | null = null;
-
 function getMLLabelClient(): MLLabelServiceClient {
-  if (!mlLabelClient) {
-    mlLabelClient = new MLLabelServiceClient(
+  if (!mlLabelClientCached) {
+    mlLabelClientCached = new MLLabelServiceClient(
       `${ANALYTICS_GRPC_HOST}:${ANALYTICS_GRPC_PORT}`,
-      grpc.credentials.createInsecure()
+      grpc.credentials.createInsecure(),
+      CHANNEL_OPTIONS
     );
   }
-  return mlLabelClient;
+  return mlLabelClientCached;
 }
 
 function mlLabelPromisify<TReq, TRes>(
@@ -661,16 +695,15 @@ export async function previewDataset(request: PreviewDatasetRequest): Promise<Pr
 // Export Service API (server streaming)
 // ============================================================
 
-let exportClient: ExportServiceClient | null = null;
-
 function getExportClient(): ExportServiceClient {
-  if (!exportClient) {
-    exportClient = new ExportServiceClient(
+  if (!exportClientCached) {
+    exportClientCached = new ExportServiceClient(
       `${ANALYTICS_GRPC_HOST}:${ANALYTICS_GRPC_PORT}`,
-      grpc.credentials.createInsecure()
+      grpc.credentials.createInsecure(),
+      CHANNEL_OPTIONS
     );
   }
-  return exportClient;
+  return exportClientCached;
 }
 
 /**

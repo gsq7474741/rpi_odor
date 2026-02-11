@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Activity, Thermometer, Zap, ChevronDown, ChevronRight } from "lucide-react";
-import ReactECharts from "echarts-for-react";
+import * as echarts from "echarts";
 import type { EChartsOption } from "echarts";
 import { useSensorStatusStream, useSensorReadingsStream } from "@/hooks/use-sensor-stream";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -35,9 +35,17 @@ export function SensorMonitor({ active = true, defaultOpen = true, experimentRun
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [sensorData, setSensorData] = useState<MultiDataPoint[][]>(Array.from({ length: 8 }, () => []));
   const [visibleSensors, setVisibleSensors] = useState<boolean[]>(Array(8).fill(true));
-  const [windowSeconds, setWindowSeconds] = useState(60);
+  const [windowSeconds, setWindowSeconds] = useState(120);
   const [dataCount, setDataCount] = useState(0);
   const startTimeRef = useRef<number | null>(null);
+  // 原生 ECharts：div 容器 ref + instance ref
+  const resistanceDivRef = useRef<HTMLDivElement | null>(null);
+  const temperatureDivRef = useRef<HTMLDivElement | null>(null);
+  const humidityDivRef = useRef<HTMLDivElement | null>(null);
+  const pressureDivRef = useRef<HTMLDivElement | null>(null);
+  const chartsRef = useRef<Record<string, echarts.ECharts | null>>({
+    resistance: null, temperature: null, humidity: null, pressure: null,
+  });
 
   // 图表交互防抖动
   const ZOOM_COOLDOWN_MS = 5000;
@@ -64,6 +72,7 @@ export function SensorMonitor({ active = true, defaultOpen = true, experimentRun
   const prevExperimentRunningRef = useRef<boolean>(false);
 
   const historyLoadedRef = useRef<boolean>(false);
+  const historyJustLoadedRef = useRef<boolean>(false);
 
   // 实验开始时清空数据
   useEffect(() => {
@@ -88,15 +97,15 @@ export function SensorMonitor({ active = true, defaultOpen = true, experimentRun
     const loadHistory = async () => {
       try {
         const res = await fetch(
-          `/api/analytics/data?action=sensor-data&experimentId=${runId}&limit=5000&downsample=1`
+          `/api/analytics/data?action=sensor-data&experimentId=${runId}&limit=500&downsample=1`
         );
         if (!res.ok) return;
         const data = await res.json();
         if (!data.success || !data.rows || data.rows.length === 0) return;
 
-        // 用第一行的时间戳作为起始时间
+        // 用第一行的时间戳作为起始时间（始终强制设置，确保与 SSE Date.now() 同域）
         const firstTs = new Date(data.rows[0].ts).getTime();
-        if (startTimeRef.current === null) startTimeRef.current = firstTs;
+        startTimeRef.current = firstTs;
         const baseTime = startTimeRef.current;
 
         const newData: MultiDataPoint[][] = Array.from({ length: 8 }, () => []);
@@ -115,8 +124,17 @@ export function SensorMonitor({ active = true, defaultOpen = true, experimentRun
           }
         }
 
-        setSensorData(newData);
-        setDataCount(data.rows.length * 8);
+        // 裁剪历史数据：只保留最近 180s
+        const lastTs = new Date(data.rows[data.rows.length - 1].ts).getTime();
+        const historyCutoff = ((lastTs - firstTs) / 1000) - 180;
+        const trimmedData = newData.map(arr => 
+          historyCutoff > 0 ? arr.filter(p => p.time >= historyCutoff) : arr
+        );
+        setSensorData(trimmedData);
+        const totalPts = trimmedData.reduce((sum, arr) => sum + arr.length, 0);
+        setDataCount(totalPts);
+        // 标记历史刚加载完成，让处理 effect 跳过加载期间积累的 SSE 读数
+        historyJustLoadedRef.current = true;
       } catch {
         // silent fail - real-time stream will still work
       }
@@ -129,14 +147,21 @@ export function SensorMonitor({ active = true, defaultOpen = true, experimentRun
   useEffect(() => {
     if (streamReadings.length === 0) return;
 
+    // 历史刚加载完成时，跳过加载期间积累的 SSE 读数（避免时间基准冲突）
+    if (historyJustLoadedRef.current) {
+      historyJustLoadedRef.current = false;
+      lastProcessedIndexRef.current = streamReadings.length;
+      return;
+    }
+
     const startIdx = lastProcessedIndexRef.current;
     const newReadings = streamReadings.slice(startIdx);
     if (newReadings.length === 0) return;
 
     lastProcessedIndexRef.current = streamReadings.length;
 
-    // 保留 1.5 倍窗口时间的数据
-    const maxKeepSeconds = windowSeconds * 1.5;
+    // 硬限制保留 180s 数据，防止内存无限增长
+    const maxKeepSeconds = 180;
 
     setSensorData(prev => {
       const n = [...prev];
@@ -146,7 +171,7 @@ export function SensorMonitor({ active = true, defaultOpen = true, experimentRun
         const time = (r.timestamp - startTimeRef.current!) / 1000;
         const cutoff = time - maxKeepSeconds;
         const existing = n[r.sensorIndex] || [];
-        // 丢弃超出 1.5x 窗口的旧数据
+        // 丢弃超出 180s 的旧数据
         const trimmed = existing.filter(p => p.time >= cutoff);
         n[r.sensorIndex] = [...trimmed, {
           time,
@@ -180,10 +205,63 @@ export function SensorMonitor({ active = true, defaultOpen = true, experimentRun
     };
   }, [sensorData, visibleSensors, windowSeconds]);
 
-  const resistanceOption = useMemo(() => makeChartOption('resistance', '气体电阻 (Ω)', (v: number) => v.toExponential(1)), [makeChartOption]);
-  const temperatureOption = useMemo(() => makeChartOption('temperature', '°C', undefined, true), [makeChartOption]);
-  const humidityOption = useMemo(() => makeChartOption('humidity', '%RH', undefined, true), [makeChartOption]);
-  const pressureOption = useMemo(() => makeChartOption('pressure', 'hPa', undefined, true), [makeChartOption]);
+  // 初始化 / 销毁 ECharts 实例
+  useEffect(() => {
+    if (!active) return;
+    const divMap: Record<string, HTMLDivElement | null> = {
+      resistance: resistanceDivRef.current,
+      temperature: temperatureDivRef.current,
+      humidity: humidityDivRef.current,
+      pressure: pressureDivRef.current,
+    };
+    for (const [key, div] of Object.entries(divMap)) {
+      if (!div) continue;
+      // 避免重复 init
+      if (chartsRef.current[key]) {
+        chartsRef.current[key]!.resize();
+        continue;
+      }
+      const instance = echarts.init(div);
+      chartsRef.current[key] = instance;
+      // dataZoom 事件 → 锁定图表
+      instance.on('datazoom', () => handleChartZoom(key));
+    }
+    return () => {
+      // 组件卸载时 dispose
+      for (const key of Object.keys(chartsRef.current)) {
+        chartsRef.current[key]?.dispose();
+        chartsRef.current[key] = null;
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
+
+  // 窗口 resize → 自动 resize 图表
+  useEffect(() => {
+    const onResize = () => {
+      for (const inst of Object.values(chartsRef.current)) {
+        inst?.resize();
+      }
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // 数据变化 → 直接 setOption（无 wrapper 干扰）
+  useEffect(() => {
+    const configs: { key: string; field: 'resistance' | 'temperature' | 'humidity' | 'pressure'; yName: string; formatter?: (v: number) => string; compact: boolean }[] = [
+      { key: 'resistance', field: 'resistance', yName: '气体电阻 (Ω)', formatter: (v: number) => v.toExponential(1), compact: false },
+      { key: 'temperature', field: 'temperature', yName: '°C', compact: true },
+      { key: 'humidity', field: 'humidity', yName: '%RH', compact: true },
+      { key: 'pressure', field: 'pressure', yName: 'hPa', compact: true },
+    ];
+    for (const { key, field, yName, formatter, compact } of configs) {
+      const instance = chartsRef.current[key];
+      if (!instance || isChartLocked(key)) continue;
+      const option = makeChartOption(field, yName, formatter, compact);
+      instance.setOption(option, { notMerge: true, lazyUpdate: false });
+    }
+  }, [sensorData, visibleSensors, windowSeconds, makeChartOption, isChartLocked]);
 
   const sensorContent = (
           <div className={inline ? "space-y-3" : "pt-0 space-y-3"}>
@@ -218,13 +296,7 @@ export function SensorMonitor({ active = true, defaultOpen = true, experimentRun
                 <span className="text-xs font-medium">气体电阻</span>
                 {isChartLocked('resistance') && <span className="text-[10px]">🔒</span>}
               </div>
-              {active && <ReactECharts
-                option={resistanceOption}
-                style={{ height: 200 }}
-                notMerge={!isChartLocked('resistance')}
-                lazyUpdate={true}
-                onEvents={{ datazoom: () => handleChartZoom('resistance') }}
-              />}
+              {active && <div ref={resistanceDivRef} style={{ height: 200, width: '100%' }} />}
             </div>
 
             {/* 环境三图 */}
@@ -235,13 +307,7 @@ export function SensorMonitor({ active = true, defaultOpen = true, experimentRun
                   <span className="text-[10px] font-medium">温度</span>
                   {isChartLocked('temperature') && <span className="text-[10px]">🔒</span>}
                 </div>
-                {active && <ReactECharts
-                  option={temperatureOption}
-                  style={{ height: 100 }}
-                  notMerge={!isChartLocked('temperature')}
-                  lazyUpdate={true}
-                  onEvents={{ datazoom: () => handleChartZoom('temperature') }}
-                />}
+                {active && <div ref={temperatureDivRef} style={{ height: 100, width: '100%' }} />}
               </div>
               <div>
                 <div className="flex items-center gap-1 mb-0.5">
@@ -249,13 +315,7 @@ export function SensorMonitor({ active = true, defaultOpen = true, experimentRun
                   <span className="text-[10px] font-medium">湿度</span>
                   {isChartLocked('humidity') && <span className="text-[10px]">🔒</span>}
                 </div>
-                {active && <ReactECharts
-                  option={humidityOption}
-                  style={{ height: 100 }}
-                  notMerge={!isChartLocked('humidity')}
-                  lazyUpdate={true}
-                  onEvents={{ datazoom: () => handleChartZoom('humidity') }}
-                />}
+                {active && <div ref={humidityDivRef} style={{ height: 100, width: '100%' }} />}
               </div>
               <div>
                 <div className="flex items-center gap-1 mb-0.5">
@@ -263,13 +323,7 @@ export function SensorMonitor({ active = true, defaultOpen = true, experimentRun
                   <span className="text-[10px] font-medium">气压</span>
                   {isChartLocked('pressure') && <span className="text-[10px]">🔒</span>}
                 </div>
-                {active && <ReactECharts
-                  option={pressureOption}
-                  style={{ height: 100 }}
-                  notMerge={!isChartLocked('pressure')}
-                  lazyUpdate={true}
-                  onEvents={{ datazoom: () => handleChartZoom('pressure') }}
-                />}
+                {active && <div ref={pressureDivRef} style={{ height: 100, width: '100%' }} />}
               </div>
             </div>
 

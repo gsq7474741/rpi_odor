@@ -48,6 +48,10 @@ class ModelServiceImpl(pb_grpc.ModelServiceServicer):
             if request.hyperparams_json:
                 hyperparams = json.loads(request.hyperparams_json)
 
+            # split_method/k_folds 暂时从 hyperparams 中提取（proto 更新后改用专属字段）
+            split_method = hyperparams.pop("split_method", "stratified_holdout")
+            k_folds = int(hyperparams.pop("k_folds", 5))
+
             job_id = self._manager.start_training(
                 name=request.name,
                 description=request.description,
@@ -62,6 +66,8 @@ class ModelServiceImpl(pb_grpc.ModelServiceServicer):
                 frame_method=request.frame_method or "linear",
                 seed=request.seed or 42,
                 hyperparams=hyperparams,
+                split_method=split_method,
+                k_folds=k_folds,
             )
 
             return pb.StartTrainingResponse(

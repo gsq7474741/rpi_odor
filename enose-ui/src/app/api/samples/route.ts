@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listSamples, getSampleFrames } from "@/lib/analytics-grpc-client";
 import { ListSamplesRequest, Sample } from "@/generated/enose_analytics";
+import pool from "@/lib/db";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -55,6 +56,36 @@ export async function GET(request: NextRequest) {
         { success: false, error: "Internal server error" },
         { status: 500 }
       );
+    }
+  }
+
+  // 获取样本的 ML 标签（按策略名）
+  if (action === "labels") {
+    const configName = searchParams.get("configName");
+    const sampleIdsStr = searchParams.get("sampleIds");
+    if (!configName || !sampleIdsStr) {
+      return NextResponse.json({ error: "configName and sampleIds required" }, { status: 400 });
+    }
+    const sampleIds = sampleIdsStr.split(",").map(Number).filter(n => !isNaN(n));
+    if (sampleIds.length === 0) {
+      return NextResponse.json({ labels: {} });
+    }
+    try {
+      const result = await pool.query(
+        `SELECT sml.sample_id, sml.label_str
+         FROM sample_ml_labels sml
+         JOIN ml_label_configs mlc ON sml.config_id = mlc.id
+         WHERE mlc.name = $1 AND sml.sample_id = ANY($2)`,
+        [configName, sampleIds]
+      );
+      const labels: Record<number, string> = {};
+      for (const row of result.rows) {
+        labels[row.sample_id] = row.label_str;
+      }
+      return NextResponse.json({ labels });
+    } catch (error) {
+      console.error("Error fetching sample labels:", error);
+      return NextResponse.json({ error: "Failed to fetch labels" }, { status: 500 });
     }
   }
 
@@ -217,6 +248,53 @@ export async function GET(request: NextRequest) {
     console.error("Error fetching samples:", error);
     return NextResponse.json(
       { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const sampleIds: number[] = body.sampleIds;
+
+    if (!Array.isArray(sampleIds) || sampleIds.length === 0) {
+      return NextResponse.json({ error: "sampleIds is required" }, { status: 400 });
+    }
+
+    if (sampleIds.length > 100) {
+      return NextResponse.json({ error: "最多一次删除 100 个样本" }, { status: 400 });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      // 删除关联数据（按外键依赖顺序）
+      await client.query("DELETE FROM sample_ml_labels WHERE sample_id = ANY($1)", [sampleIds]);
+      await client.query("DELETE FROM sample_phase_transitions WHERE sample_id = ANY($1)", [sampleIds]);
+      await client.query("DELETE FROM normalized_frames WHERE sample_id = ANY($1)", [sampleIds]);
+      await client.query("DELETE FROM sensor_readings_v2 WHERE sample_id = ANY($1)", [sampleIds]);
+
+      // 删除样本本体
+      const result = await client.query("DELETE FROM samples WHERE id = ANY($1)", [sampleIds]);
+
+      await client.query("COMMIT");
+
+      return NextResponse.json({
+        deleted: result.rowCount,
+        sampleIds,
+      });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error("Error deleting samples:", error);
+    return NextResponse.json(
+      { error: "删除失败: " + String(error) },
       { status: 500 }
     );
   }

@@ -1,9 +1,15 @@
 {
 	"folders": [
 		{
+			"name": "rpi_odor",
 			"path": "."
 		},
 		{
+			"name": "机器嗅觉研究",
+			"path": "G:/Downloads/机器嗅觉研究"
+		},
+		{
+			"name": "260209组会",
 			"path": "G:/Downloads/260209组会"
 		}
 	],

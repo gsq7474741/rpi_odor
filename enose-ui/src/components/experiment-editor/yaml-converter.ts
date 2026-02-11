@@ -230,14 +230,16 @@ export function compiledStepToYamlStep(step: CompiledStep): YamlStep | null {
         isSolvent?: boolean;
       }>) || [];
       
-      const yamlComponents = components.map(c => {
-        const yc: { liquid_id: string; ratio: number; is_solvent?: boolean } = {
-          liquid_id: String(c.liquidId),
-          ratio: Number(c.ratio ?? 1),
-        };
-        if (c.isSolvent) yc.is_solvent = true;
-        return yc;
-      });
+      const yamlComponents = components
+        .filter(c => (c.ratio ?? 0) > 0)
+        .map(c => {
+          const yc: { liquid_id: string; ratio: number; is_solvent?: boolean } = {
+            liquid_id: String(c.liquidId),
+            ratio: Number(c.ratio ?? 1),
+          };
+          if (c.isSolvent) yc.is_solvent = true;
+          return yc;
+        });
 
       // 如果没有组件，使用默认配置
       if (yamlComponents.length === 0) {

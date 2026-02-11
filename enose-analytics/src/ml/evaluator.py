@@ -42,12 +42,22 @@ class Evaluator:
         f1_w = f1_score(y_true, y_pred, average="weighted", zero_division=0)
         prec = precision_score(y_true, y_pred, average="macro", zero_division=0)
         rec = recall_score(y_true, y_pred, average="macro", zero_division=0)
-        cm = confusion_matrix(y_true, y_pred)
 
-        target_names = class_names or [str(i) for i in sorted(np.unique(np.concatenate([y_true, y_pred])))]
+        # 确定完整的 label 集合，确保 CM 包含所有类
+        if class_names:
+            all_labels = list(range(len(class_names)))
+        else:
+            all_labels = sorted(np.unique(np.concatenate([y_true, y_pred])).astype(int).tolist())
+        cm = confusion_matrix(y_true, y_pred, labels=all_labels)
+
+        target_names = class_names or [str(i) for i in all_labels]
+        # 确保 target_names 数量匹配 labels
+        if len(target_names) < len(all_labels):
+            target_names = target_names + [str(i) for i in range(len(target_names), len(all_labels))]
         report = classification_report(
             y_true, y_pred,
-            target_names=target_names[:len(np.unique(np.concatenate([y_true, y_pred])))],
+            labels=all_labels,
+            target_names=target_names[:len(all_labels)],
             output_dict=True,
             zero_division=0,
         )
@@ -87,6 +97,7 @@ class Evaluator:
             "confusion_matrix": cm.tolist(),
             "classification_report": report,
             "predictions": y_pred.tolist(),
+            "class_names": target_names,
         }
 
     @staticmethod

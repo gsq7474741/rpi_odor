@@ -9,6 +9,7 @@ import { Play, Square, Pause, RotateCcw, Upload, CheckCircle, AlertCircle, Clock
 import Link from "next/link";
 import { ExperimentFlow, ExperimentProgram, parseYamlString, PumpStatusInfo } from "@/components/experiment-flow";
 import { SensorMonitor } from "@/components/sensor-monitor";
+import { useSensorStatusStream } from "@/hooks/use-sensor-stream";
 import { QualityMonitorInline, QualityBadge, DataQualitySnapshot } from "@/components/quality-monitor";
 import { LivePcaPanel } from "@/components/live-pca-panel";
 import { ColumnDef } from "@tanstack/react-table";
@@ -155,17 +156,31 @@ export default function RunPage() {
   const [runId, setRunId] = useState<number | null>(null);
   const [pumpStatus, setPumpStatus] = useState<PumpStatusInfo[]>([]);
   const fileInputRef = { current: null as HTMLInputElement | null };
+  const logContainerRef = useRef<HTMLDivElement>(null);
+  const logScrollCooldownRef = useRef<number>(0);  // 手动上翻冷却截止时间戳
+
+  // 传感器状态监听（用于日志面板报错）
+  const { status: sensorStatus, connected: sensorSseConnected } = useSensorStatusStream();
+  const prevSensorConnectedRef = useRef<boolean | null>(null);
+  const prevSensorRunningRef = useRef<boolean | null>(null);
   
   // 动态计时器状态
   const [displayTime, setDisplayTime] = useState(0);
+  const [stepDisplayTime, setStepDisplayTime] = useState(0);
   const lastSyncTimeRef = useRef<number>(0);  // 上次同步的后端时间
   const lastSyncLocalRef = useRef<number>(Date.now());  // 上次同步的本地时间戳
+  const lastStepSyncTimeRef = useRef<number>(0);  // 上次同步的后端步骤时间
+  
+  // 已完成步骤的实际耗时记录 (0-indexed stepIndex -> 秒数)
+  const [stepActualDurations, setStepActualDurations] = useState<Record<number, number>>({});
+  const prevStepIndexRef = useRef<number>(-1);  // 上一次轮询到的后端 stepIndex (0-indexed)
 
-  // 动态计时器 - 每 100ms 更新一次
+  // 动态计时器 - 每 100ms 更新一次（同时维护实验总时间和步骤时间）
   useEffect(() => {
     if (experiment.status !== "running" && experiment.status !== "pausing") {
       // 非运行状态直接显示后端返回的时间
       setDisplayTime(experiment.elapsedTime);
+      setStepDisplayTime(0);
       return;
     }
     
@@ -173,6 +188,7 @@ export default function RunPage() {
     const interval = setInterval(() => {
       const localElapsed = (Date.now() - lastSyncLocalRef.current) / 1000;
       setDisplayTime(lastSyncTimeRef.current + localElapsed);
+      setStepDisplayTime(lastStepSyncTimeRef.current + localElapsed);
     }, 100);
     
     return () => clearInterval(interval);
@@ -230,6 +246,13 @@ export default function RunPage() {
       fetchPumpStatus();
     }
   }, [loadedProgram, previewProgram, fetchPumpStatus]);
+
+  // 实验运行期间每 5s 刷新泵余量（让已消耗量实时更新）
+  useEffect(() => {
+    if (experiment.status !== "running" && experiment.status !== "pausing") return;
+    const interval = setInterval(fetchPumpStatus, 5000);
+    return () => clearInterval(interval);
+  }, [experiment.status, fetchPumpStatus]);
 
   const addLog = useCallback((message: string) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -294,8 +317,37 @@ export default function RunPage() {
         };
       });
       
-      // 同步计时器基准时间
+      // 追踪步骤切换，记录已完成步骤的实际耗时
+      const curIdx = status.currentStepIndex ?? 0;  // 0-indexed
+      if (backendState === "running" || backendState === "paused") {
+        if (prevStepIndexRef.current >= 0 && curIdx > prevStepIndexRef.current) {
+          // 步骤前进了，记录上一步的实际耗时
+          // lastStepSyncTimeRef 保存的是上一轮同步时的 stepElapsedS（即上一步最后时刻的耗时）
+          const prevDuration = lastStepSyncTimeRef.current;
+          const prevIdx = prevStepIndexRef.current;
+          if (prevDuration > 0) {
+            setStepActualDurations(prev => ({ ...prev, [prevIdx]: Math.round(prevDuration) }));
+          }
+        }
+        prevStepIndexRef.current = curIdx;
+      } else if (backendState === "completed") {
+        // 实验完成，记录最后一步的耗时
+        if (prevStepIndexRef.current >= 0 && lastStepSyncTimeRef.current > 0) {
+          const lastIdx = prevStepIndexRef.current;
+          const lastDuration = lastStepSyncTimeRef.current;
+          setStepActualDurations(prev => ({ ...prev, [lastIdx]: Math.round(lastDuration) }));
+        }
+      } else if (backendState === "idle") {
+        // 实验重置，清空记录
+        if (prevStepIndexRef.current >= 0) {
+          setStepActualDurations({});
+          prevStepIndexRef.current = -1;
+        }
+      }
+      
+      // 同步计时器基准时间（实验总时间 + 步骤时间）
       lastSyncTimeRef.current = status.elapsedS || 0;
+      lastStepSyncTimeRef.current = status.stepElapsedS || 0;
       lastSyncLocalRef.current = Date.now();
       
       // 更新 runId
@@ -331,18 +383,28 @@ export default function RunPage() {
       }
       
       // 从后端恢复加载的程序（页面刷新时）
-      // 优先使用 programId（文件名），其次使用 programName
+      // 优先使用 programFilename（后端返回的源文件名）精确匹配
+      const programFilename = status.programFilename;
       const programIdentifier = status.programId || status.programName;
-      if (!loadedProgram && programIdentifier && backendState !== "idle") {
-        // 先尝试用 programId 匹配文件名（去掉 .yaml 扩展名）
-        let matchedProgram = programs.find(p => {
-          const filenameWithoutExt = p.filename.replace(/\.ya?ml$/i, '');
-          return p.filename === programIdentifier || 
-                 filenameWithoutExt === programIdentifier ||
-                 p.id === programIdentifier;
-        });
-        // 如果没找到，再尝试用 name 匹配
-        if (!matchedProgram) {
+      if (!loadedProgram && (programFilename || programIdentifier) && backendState !== "idle") {
+        let matchedProgram: typeof programs[0] | undefined;
+        
+        // 1. 优先用后端返回的 programFilename 精确匹配文件名
+        if (programFilename) {
+          matchedProgram = programs.find(p => p.filename === programFilename);
+        }
+        
+        // 2. 其次用 programId 匹配文件名（去掉 .yaml 扩展名）
+        if (!matchedProgram && programIdentifier) {
+          matchedProgram = programs.find(p => {
+            const filenameWithoutExt = p.filename.replace(/\.ya?ml$/i, '');
+            return p.filename === programIdentifier || 
+                   filenameWithoutExt === programIdentifier;
+          });
+        }
+        
+        // 3. 最后兑底用 name 匹配
+        if (!matchedProgram && programIdentifier) {
           matchedProgram = programs.find(p => p.name === programIdentifier);
         }
         if (matchedProgram) {
@@ -353,6 +415,11 @@ export default function RunPage() {
             }
           }).catch(() => {});
         }
+      }
+      
+      // 后端返回的实验错误输出到日志
+      if (status.error && backendState === "error" && lastStatusRef.current !== "error") {
+        addLog(`❌ 实验错误: ${status.error}`);
       }
       
       // 只在状态从非完成变为完成时添加日志（避免重复）
@@ -371,6 +438,30 @@ export default function RunPage() {
     const interval = setInterval(pollStatus, 1000);
     return () => clearInterval(interval);
   }, [pollStatus]);
+
+  // 传感器掉线/恢复 → 日志面板报错
+  useEffect(() => {
+    if (!sensorStatus) return;
+    const wasConnected = prevSensorConnectedRef.current;
+    const wasRunning = prevSensorRunningRef.current;
+    prevSensorConnectedRef.current = sensorStatus.connected;
+    prevSensorRunningRef.current = sensorStatus.running;
+
+    // 跳过初始化（首次收到状态时不报）
+    if (wasConnected === null) return;
+
+    if (wasConnected && !sensorStatus.connected) {
+      addLog("❌ 传感器已断开连接");
+    } else if (!wasConnected && sensorStatus.connected) {
+      addLog("✅ 传感器已重新连接");
+    }
+
+    if (wasRunning && !sensorStatus.running && sensorStatus.connected) {
+      addLog("⚠️ 传感器采集已停止");
+    } else if (!wasRunning && sensorStatus.running && wasRunning !== null) {
+      addLog("✅ 传感器采集已启动");
+    }
+  }, [sensorStatus, addLog]);
 
   // 处理文件上传
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -402,12 +493,13 @@ export default function RunPage() {
       return;
     }
     
-    await doLoadProgram(yamlContent, programName);
+    await doLoadProgram(yamlContent, programName, filename);
   };
 
   const handleLoadProgram = async () => {
     let yamlContent: string;
     let programName: string;
+    let filename: string | undefined;
     
     if (uploadedYaml) {
       yamlContent = uploadedYaml;
@@ -417,6 +509,7 @@ export default function RunPage() {
       const program = programs.find(p => p.filename === selectedProgram);
       if (!program) return;
       programName = program.name;
+      filename = selectedProgram;
       try {
         yamlContent = await fetchProgramYaml(selectedProgram);
       } catch (e: any) {
@@ -427,10 +520,10 @@ export default function RunPage() {
       return;
     }
     
-    await doLoadProgram(yamlContent, programName);
+    await doLoadProgram(yamlContent, programName, filename);
   };
 
-  const doLoadProgram = async (yamlContent: string, programName: string) => {
+  const doLoadProgram = async (yamlContent: string, programName: string, filename?: string) => {
 
     addLog(`加载程序: ${programName}`);
     
@@ -440,7 +533,7 @@ export default function RunPage() {
     setPreviewProgram(null);
 
     try {
-      const result = await experimentApi("load", { yaml_content: yamlContent });
+      const result = await experimentApi("load", { yaml_content: yamlContent, filename: filename || "" });
       
       // 检查后端是否真正加载成功
       const loadSuccess = result.success === true && !result.error && !result.errorMessage;
@@ -704,33 +797,51 @@ export default function RunPage() {
   const isActive = isRunning || experiment.status === "loaded" || experiment.status === "completed";
 
   // 日志组件（共用）
+  // 日志自动滚动：logs 变化时滚到底部，手动上翻时 5 秒冷却
+  useEffect(() => {
+    const el = logContainerRef.current;
+    if (!el) return;
+    if (Date.now() < logScrollCooldownRef.current) return; // 冷却期内不自动滚动
+    el.scrollTop = el.scrollHeight;
+  }, [logs]);
+
+  const handleLogScroll = useCallback(() => {
+    const el = logContainerRef.current;
+    if (!el) return;
+    // 距离底部超过 30px 认为是手动上翻
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (distanceFromBottom > 30) {
+      logScrollCooldownRef.current = Date.now() + 5000;
+    }
+  }, []);
+
   const logPanel = (
-    <Card className="flex-shrink-0">
-      <CardHeader className="py-2 px-4">
-        <CardTitle className="text-xs font-medium text-muted-foreground">实验日志</CardTitle>
-      </CardHeader>
-      <CardContent className="px-4 pb-3 pt-0">
-        <div className="h-24 bg-muted/30 rounded-md p-2 font-mono text-[11px] leading-relaxed overflow-auto flex flex-col-reverse">
-          <div className="space-y-px">
-            {logs.length === 0 ? (
-              <div className="text-muted-foreground/60">等待操作...</div>
-            ) : (
-              logs.map((log, i) => (
-                <div key={i} className={
-                  log.includes("失败") || log.includes("错误") || log.includes("❌") ? "text-red-600" :
-                  log.includes("成功") || log.includes("启动") || log.includes("✅") ? "text-green-600" :
-                  log.includes("加载") || log.includes("阶段") ? "text-blue-600" :
-                  log.includes("⚠️") ? "text-yellow-600" :
-                  "text-muted-foreground"
-                }>
-                  {log}
-                </div>
-              ))
-            )}
-          </div>
+    <div className="flex flex-col min-h-0 rounded-xl border bg-card text-card-foreground shadow-sm px-3 py-1.5" style={{ flex: 1 }}>
+      <p className="text-xs font-medium text-muted-foreground mb-1 flex-shrink-0">实验日志</p>
+      <div
+        ref={logContainerRef}
+        onScroll={handleLogScroll}
+        className="flex-1 min-h-0 bg-muted/30 rounded-md p-2 font-mono text-[11px] leading-relaxed overflow-auto"
+      >
+        <div className="space-y-px">
+          {logs.length === 0 ? (
+            <div className="text-muted-foreground/60">等待操作...</div>
+          ) : (
+            logs.map((log, i) => (
+              <div key={i} className={
+                log.includes("失败") || log.includes("错误") || log.includes("❌") ? "text-red-600" :
+                log.includes("成功") || log.includes("启动") || log.includes("✅") ? "text-green-600" :
+                log.includes("加载") || log.includes("阶段") ? "text-blue-600" :
+                log.includes("⚠️") ? "text-yellow-600" :
+                "text-muted-foreground"
+              }>
+                {log}
+              </div>
+            ))
+          )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 
   return (
@@ -787,7 +898,7 @@ export default function RunPage() {
           
           {/* 左列: 程序流程 + 日志 */}
           <div className="flex flex-col min-h-0 gap-3">
-            <Card className="flex flex-col flex-1 min-h-0">
+            <Card className="flex flex-col min-h-0" style={{ flex: 2 }}>
               <CardHeader className="flex-shrink-0 py-2.5 px-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-xs font-medium flex items-center gap-1.5">
@@ -814,8 +925,16 @@ export default function RunPage() {
                 {loadedProgram ? (
                   <ExperimentFlow
                     program={loadedProgram}
-                    currentStep={experiment.status === "running" ? experiment.currentStep : undefined}
+                    currentStep={
+                      experiment.status === "completed"
+                        ? (loadedProgram.steps.length + 1)
+                        : ["running", "pausing", "paused"].includes(experiment.status)
+                          ? experiment.currentStep
+                          : undefined
+                    }
+                    stepElapsedSeconds={experiment.status === "running" ? stepDisplayTime : undefined}
                     pumpStatus={pumpStatus}
+                    completedStepDurations={stepActualDurations}
                   />
                 ) : (
                   <div className="h-full flex items-center justify-center text-muted-foreground">

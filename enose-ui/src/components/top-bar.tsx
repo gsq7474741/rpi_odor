@@ -22,17 +22,254 @@ import {
   Monitor,
   Wifi,
   WifiOff,
+  Cpu,
+  Radio,
+  Cog,
+  Database,
+  HardDrive,
+  Container,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useStatusStream } from "@/hooks/use-status-stream";
 import { useLatency } from "@/hooks/use-latency";
+import { useAnalyticsLatency } from "@/hooks/use-analytics-latency";
+import { useInfraHealth } from "@/hooks/use-infra-health";
 import { useSettings } from "@/hooks/use-settings";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+// ============================================================
+// 全组件状态指示器
+// ============================================================
+interface ServiceHealth {
+  ok: boolean;
+  latencyMs: number | null;
+}
+
+interface ComponentStatusProps {
+  latencyConnected: boolean;
+  rtt: number | null;
+  avg: number | null;
+  jitter: number | null;
+  sseConnected: boolean;
+  sensorConnected: boolean;
+  moonrakerConnected: boolean;
+  firmwareReady: boolean;
+  analyticsConnected: boolean;
+  analyticsRtt: number | null;
+  infra: {
+    timescaledb: ServiceHealth;
+    redis: ServiceHealth;
+    minio: ServiceHealth;
+  };
+}
+
+function StatusDot({ ok, warn }: { ok: boolean; warn?: boolean }) {
+  if (warn) return <span className="block h-2 w-2 rounded-full bg-yellow-500" />;
+  return <span className={`block h-2 w-2 rounded-full ${ok ? "bg-green-500" : "bg-red-500"}`} />;
+}
+
+function StatusRow({
+  icon: Icon,
+  label,
+  ok,
+  warn,
+  detail,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  ok: boolean;
+  warn?: boolean;
+  detail: string;
+}) {
+  return (
+    <div className="flex items-center gap-2 py-1">
+      <Icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+      <span className="text-xs flex-1">{label}</span>
+      <span className="text-xs text-muted-foreground font-mono">{detail}</span>
+      <StatusDot ok={ok} warn={warn} />
+    </div>
+  );
+}
+
+function ComponentStatusIndicator({
+  latencyConnected,
+  rtt,
+  avg,
+  jitter,
+  sseConnected,
+  sensorConnected,
+  moonrakerConnected,
+  firmwareReady,
+  analyticsConnected,
+  analyticsRtt,
+  infra,
+}: ComponentStatusProps) {
+  const getLatencyColor = (ms: number | null) => {
+    if (ms === null) return "text-zinc-400";
+    if (ms < 50) return "text-green-500";
+    if (ms < 100) return "text-yellow-500";
+    if (ms < 200) return "text-orange-500";
+    return "text-red-500";
+  };
+
+  // 整体健康度
+  const infraAllOk = infra.timescaledb.ok && infra.redis.ok && infra.minio.ok;
+  const allOk = latencyConnected && sseConnected && sensorConnected && moonrakerConnected && firmwareReady && analyticsConnected && infraAllOk;
+  const hasError = !latencyConnected || !sseConnected || !sensorConnected || !moonrakerConnected || !analyticsConnected || !infraAllOk;
+  const hasWarn = !firmwareReady;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+          {/* 紧凑状态点 */}
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1">
+                  {/* 后端 */}
+                  <StatusDot ok={latencyConnected} />
+                  {/* 传感器 */}
+                  <StatusDot ok={sensorConnected} />
+                  {/* Moonraker */}
+                  <StatusDot ok={moonrakerConnected} />
+                  {/* 固件 */}
+                  <StatusDot ok={firmwareReady} warn={!firmwareReady && moonrakerConnected} />
+                  {/* Analytics */}
+                  <StatusDot ok={analyticsConnected} />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p className="text-xs">
+                  {allOk ? "所有组件正常" : hasError ? "部分组件离线" : "有警告"}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          {/* RTT 数字 */}
+          {latencyConnected ? (
+            <Wifi className={`w-3.5 h-3.5 ${getLatencyColor(rtt)}`} />
+          ) : (
+            <WifiOff className="w-3.5 h-3.5 text-red-500" />
+          )}
+          <span className={`text-xs font-mono ${getLatencyColor(rtt)}`}>
+            {rtt !== null ? `${rtt}ms` : "--"}
+          </span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-3" align="start">
+        <div className="space-y-0.5">
+          <p className="text-xs font-medium text-muted-foreground mb-2">系统组件状态</p>
+          <StatusRow
+            icon={Cpu}
+            label="后端 (gRPC)"
+            ok={latencyConnected}
+            detail={latencyConnected ? `${rtt ?? "-"}ms` : "离线"}
+          />
+          <StatusRow
+            icon={Radio}
+            label="传感器板 (ESP32)"
+            ok={sensorConnected}
+            detail={sensorConnected ? "在线" : "离线"}
+          />
+          <StatusRow
+            icon={Cog}
+            label="Moonraker"
+            ok={moonrakerConnected}
+            detail={moonrakerConnected ? "已连接" : "断开"}
+          />
+          <StatusRow
+            icon={Cog}
+            label="Klipper 固件"
+            ok={firmwareReady}
+            warn={!firmwareReady && moonrakerConnected}
+            detail={firmwareReady ? "就绪" : "已停止"}
+          />
+          <StatusRow
+            icon={Database}
+            label="Analytics 服务"
+            ok={analyticsConnected}
+            detail={analyticsConnected ? `${analyticsRtt ?? "-"}ms` : "离线"}
+          />
+
+          {/* 基础设施 */}
+          <div className="pt-2 mt-1 border-t">
+            <p className="text-xs font-medium text-muted-foreground mb-1">基础设施 (Docker)</p>
+            <StatusRow
+              icon={Database}
+              label="TimescaleDB"
+              ok={infra.timescaledb.ok}
+              detail={infra.timescaledb.ok ? `${infra.timescaledb.latencyMs ?? "-"}ms` : "离线"}
+            />
+            <StatusRow
+              icon={HardDrive}
+              label="Redis"
+              ok={infra.redis.ok}
+              detail={infra.redis.ok ? `${infra.redis.latencyMs ?? "-"}ms` : "离线"}
+            />
+            <StatusRow
+              icon={Container}
+              label="MinIO"
+              ok={infra.minio.ok}
+              detail={infra.minio.ok ? `${infra.minio.latencyMs ?? "-"}ms` : "离线"}
+            />
+          </div>
+
+          {/* 详细延迟信息 */}
+          {latencyConnected && (
+            <div className="pt-2 mt-2 border-t">
+              <p className="text-xs text-muted-foreground mb-1">延迟详情</p>
+              <div className="grid grid-cols-3 gap-2 text-xs font-mono">
+                <div>
+                  <span className="text-muted-foreground">RTT</span>
+                  <div className={getLatencyColor(rtt)}>{rtt ?? "-"}ms</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Avg</span>
+                  <div>{avg ?? "-"}ms</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Jitter</span>
+                  <div>{jitter ?? "-"}ms</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SSE 状态 */}
+          <div className="pt-2 mt-1 border-t">
+            <div className="flex items-center gap-2 text-xs">
+              <Wifi className="h-3 w-3 text-muted-foreground" />
+              <span className="text-muted-foreground">SSE 实时推送</span>
+              <StatusDot ok={sseConnected} />
+            </div>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export function TopBar() {
   // 使用 SSE 获取状态（与 ControlPanel 共享同一连接）
-  const { status } = useStatusStream();
+  const { status, connected: sseConnected } = useStatusStream();
   // 端到端延迟测量
   const { rtt, avg, jitter, connected: latencyConnected } = useLatency();
+  // Analytics 服务延迟
+  const { rtt: analyticsRtt, connected: analyticsConnected } = useAnalyticsLatency();
+  // 基础设施健康状态
+  const infra = useInfraHealth();
   const [firmwareReady, setFirmwareReady] = useState(true);
   const [estopLoading, setEstopLoading] = useState(false);
   const [restartLoading, setRestartLoading] = useState(false);
@@ -109,17 +346,24 @@ export function TopBar() {
       <div className="flex items-center gap-3">
         <span className="text-zinc-700 dark:text-zinc-200 text-sm font-medium">Proj RPi Enose 电子鼻实验系统</span>
         
-        {/* 端到端延迟指示器 (类似CS) */}
-        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800" title={`RTT: ${rtt ?? '-'}ms | Avg: ${avg ?? '-'}ms | Jitter: ${jitter ?? '-'}ms`}>
-          {latencyConnected ? (
-            <Wifi className={`w-3.5 h-3.5 ${getLatencyColor(rtt)}`} />
-          ) : (
-            <WifiOff className="w-3.5 h-3.5 text-red-500" />
-          )}
-          <span className={`text-xs font-mono ${getLatencyColor(rtt)}`}>
-            {rtt !== null ? `${rtt}ms` : '--'}
-          </span>
-        </div>
+        {/* 全组件状态指示器 */}
+        <ComponentStatusIndicator
+          latencyConnected={latencyConnected}
+          rtt={rtt}
+          avg={avg}
+          jitter={jitter}
+          sseConnected={sseConnected}
+          sensorConnected={status?.sensorConnected ?? false}
+          moonrakerConnected={status?.moonrakerConnected ?? false}
+          firmwareReady={firmwareReady}
+          analyticsConnected={analyticsConnected}
+          analyticsRtt={analyticsRtt}
+          infra={{
+            timescaledb: infra.timescaledb,
+            redis: infra.redis,
+            minio: infra.minio,
+          }}
+        />
       </div>
 
       {/* 右侧：急停 + 系统控制 */}

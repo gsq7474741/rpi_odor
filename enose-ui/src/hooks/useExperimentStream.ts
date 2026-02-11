@@ -11,6 +11,8 @@ export interface ExperimentStatus {
   loopTotal: number;
   progressPercent: number;
   elapsedS: number;
+  stepElapsedS: number;
+  programFilename: string;
   remainingS: number;
   message: string;
   logs: string[];

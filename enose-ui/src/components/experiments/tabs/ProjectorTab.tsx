@@ -75,7 +75,7 @@ type ComputeMode = "frontend" | "backend";
 const MAX_FRONTEND_SAMPLES = 5000;
 
 export function ProjectorTab() {
-  const { filters, selectedSampleIds, samples, frameConfig } = useExperiments();
+  const { filters, selectedSampleIds, samples, frameConfig, hoveredSampleId } = useExperiments();
 
   const [loading, setLoading] = useState(false);
   const [visType, setVisType] = useState<VisType>("PCA");
@@ -89,6 +89,11 @@ export function ProjectorTab() {
   const [progressMessage, setProgressMessage] = useState<string>("");
   const [sphereize, setSphereize] = useState(false);
   const [selectedPhases, setSelectedPhases] = useState<Set<string>>(new Set());
+  
+  // ML 标签策略 (colorBy === "label" 时使用)
+  const [labelConfigs, setLabelConfigs] = useState<{ name: string; labelType: string; description: string }[]>([]);
+  const [selectedLabelStrategy, setSelectedLabelStrategy] = useState<string>("");
+  const sampleLabelsRef = useRef<Record<number, string>>({});
   
   // Seed control for reproducible projections
   const [seed, setSeed] = useState<number>(() => Date.now());
@@ -142,6 +147,45 @@ export function ProjectorTab() {
       setComputeMode("backend");
     }
   }, [selectedSampleIds.size]);
+
+  // 获取 ML 标签策略列表
+  useEffect(() => {
+    fetch("/api/ml-labels?action=configs")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.configs) {
+          setLabelConfigs(data.configs);
+          if (data.configs.length > 0 && !selectedLabelStrategy) {
+            setSelectedLabelStrategy(data.configs[0].name);
+          }
+        }
+      })
+      .catch(console.error);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 当 colorBy=label 且策略变更时，获取每个样本的标签
+  useEffect(() => {
+    if (colorBy !== "label" || !selectedLabelStrategy || selectedSampleIds.size === 0) return;
+    const sampleIds = Array.from(selectedSampleIds);
+    fetch(`/api/samples?action=labels&configName=${encodeURIComponent(selectedLabelStrategy)}&sampleIds=${sampleIds.join(",")}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.labels) {
+          sampleLabelsRef.current = data.labels;
+          // 触发重绘：如果已有结果，重建 visResult 以应用新标签
+          if (visResult) {
+            const newResult = buildVisResult(
+              visResult.points.map(p => p.coords),
+              visResult.points.map(p => parseInt(p.id)),
+              visResult.type,
+              visResult.explainedVarianceRatio
+            );
+            setVisResult(newResult);
+          }
+        }
+      })
+      .catch(console.error);
+  }, [colorBy, selectedLabelStrategy, selectedSampleIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 获取样本帧数据
   const fetchFramesData = useCallback(async () => {
@@ -204,7 +248,7 @@ export function ProjectorTab() {
         id: sampleId.toString(),
         coords,
         cluster: clusters.labels[idx],
-        label: (sample as { labelName?: string })?.labelName || undefined,
+        label: sampleLabelsRef.current[sampleId] || undefined,
         experimentId: sample?.runId?.toString(),
         phase: sample?.phaseName || undefined,
         paramsHash: sample?.paramsHash || undefined,
@@ -756,6 +800,28 @@ export function ProjectorTab() {
                 <TooltipContent><p>K-Means 聚类数</p></TooltipContent>
               </Tooltip>
             )}
+
+            {colorBy === "label" && labelConfigs.length > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <Select value={selectedLabelStrategy} onValueChange={setSelectedLabelStrategy}>
+                      <SelectTrigger size="sm" className="w-[120px] px-2 text-xs border-0 bg-background shadow-sm">
+                        <SelectValue placeholder="选择策略" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {labelConfigs.map((c) => (
+                          <SelectItem key={c.name} value={c.name}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent><p>ML 标签策略</p></TooltipContent>
+              </Tooltip>
+            )}
           </div>
 
           {/* Phase 子集选择 */}
@@ -991,6 +1057,7 @@ export function ProjectorTab() {
             title={`${visType} ${is3D ? "3D" : "2D"} 可视化`}
             is3D={is3D}
             colorBy={colorBy}
+            highlightedSampleId={hoveredSampleId}
           />
         )}
       </div>

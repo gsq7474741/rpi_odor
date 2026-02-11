@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Dumbbell,
   Play,
@@ -30,6 +31,11 @@ import {
   RotateCcw,
   Eye,
   Tag,
+  SplitSquareVertical,
+  BarChart3,
+  TriangleAlert,
+  Info,
+  Lightbulb,
 } from "lucide-react";
 import ReactEChartsCore from "echarts-for-react/lib/core";
 import * as echarts from "echarts/core";
@@ -78,6 +84,20 @@ interface TrainingEvaluation {
   mae: number;
   confusionMatrix: number[][] | null;
   classificationReport: Record<string, unknown> | null;
+  classNames?: string[];
+}
+
+interface DatasetSummary {
+  totalSamples: number;
+  nClasses: number;
+  classDistribution: { label: string; count: number }[];
+  imbalanceRatio: number;
+  randomBaseline: number;
+  majorityClass: string;
+  majorityRatio: number;
+  recommendedSplit: string;
+  splitPreview: Record<string, Record<string, number>>;
+  warnings: string[];
 }
 
 interface ModelInfo {
@@ -129,6 +149,14 @@ const MODEL_TASK_SUPPORT: Record<string, string[]> = {
   kmeans: ["clustering"],
 };
 
+const SPLIT_METHOD_OPTIONS = [
+  { value: "stratified_holdout", label: "分层按比例", desc: "分层抽样，确保每个split类别比例一致" },
+  { value: "holdout", label: "随机按比例", desc: "纯随机分割，不考虑类别分布" },
+  { value: "stratified_kfold", label: "分层K折", desc: "分层K折交叉验证，小样本推荐" },
+  { value: "kfold", label: "K折", desc: "K折交叉验证" },
+  { value: "leave_one_out", label: "留一法", desc: "每次留一个样本做测试，极小样本推荐" },
+];
+
 // ── 默认超参数 ──
 
 const DEFAULT_HYPERPARAMS: Record<string, Record<string, unknown>> = {
@@ -141,7 +169,7 @@ const DEFAULT_HYPERPARAMS: Record<string, Record<string, unknown>> = {
 };
 
 export function ModelTrainingTab() {
-  const { selectedSampleIds, mlLabelConfig, setMlLabelConfig, mlSplitRatios, frameConfig } = useExperiments();
+  const { selectedSampleIds, mlLabelConfig, setMlLabelConfig, mlSplitRatios, setMlSplitRatios, frameConfig } = useExperiments();
 
   // mlLabelConfig 是标签策略名 (string)
   // mlSplitRatios 是 { train: number, val: number } (百分比如 70/15)
@@ -163,6 +191,10 @@ export function ModelTrainingTab() {
   const [modelType, setModelType] = useState("mlp");
   const [taskType, setTaskType] = useState("classification");
   const [hyperparams, setHyperparams] = useState<Record<string, unknown>>(DEFAULT_HYPERPARAMS.mlp);
+  const [splitMethod, setSplitMethod] = useState("stratified_holdout");
+  const [kFolds, setKFolds] = useState(5);
+  const [datasetSummary, setDatasetSummary] = useState<DatasetSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   // ── 训练任务状态 ──
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
@@ -217,6 +249,98 @@ export function ModelTrainingTab() {
       })
       .catch(console.error);
   }, []);
+
+  // ── 自动获取数据集摘要 ──
+  const fetchDatasetSummary = useCallback(async () => {
+    if (!mlLabelConfig || selectedSampleIds.size === 0) {
+      setDatasetSummary(null);
+      return;
+    }
+    setSummaryLoading(true);
+    try {
+      const params = new URLSearchParams({
+        action: "preview",
+        configName: mlLabelConfig,
+        sampleIds: Array.from(selectedSampleIds).join(","),
+        trainRatio: String(mlSplitRatios.train / 100),
+        valRatio: String(mlSplitRatios.val / 100),
+        testRatio: String((100 - mlSplitRatios.train - mlSplitRatios.val) / 100),
+      });
+      const res = await fetch(`/api/ml-labels?${params}`);
+      const data = await res.json();
+
+      if (data.labelDistribution) {
+        const dist: { label: string; count: number }[] = data.labelDistribution;
+        const total = dist.reduce((s, d) => s + d.count, 0);
+        const nClasses = dist.length;
+        const maxCount = Math.max(...dist.map((d) => d.count));
+        const minCount = Math.min(...dist.map((d) => d.count));
+        const imbalanceRatio = minCount > 0 ? Math.round((maxCount / minCount) * 100) / 100 : 999;
+        const majorityClass = dist[0]?.label || "";
+        const majorityRatio = total > 0 ? Math.round((maxCount / total) * 10000) / 10000 : 0;
+        const randomBaseline = nClasses > 0 ? Math.round((1 / nClasses) * 10000) / 10000 : 0;
+
+        // 推荐分割方式
+        const labelType = data.labelType || "classification";
+        let recommendedSplit = "stratified_holdout";
+        if (total <= 10) recommendedSplit = "leave_one_out";
+        else if (total <= 50) recommendedSplit = labelType === "classification" ? "stratified_kfold" : "kfold";
+
+        // 模拟分割预览
+        const trainR = mlSplitRatios.train / 100;
+        const valR = mlSplitRatios.val / 100;
+        const splitPreview: Record<string, Record<string, number>> = {};
+        const warnings: string[] = [];
+
+        if (labelType === "classification" && (splitMethod === "holdout" || splitMethod === "stratified_holdout")) {
+          const train: Record<string, number> = {};
+          const val: Record<string, number> = {};
+          const test: Record<string, number> = {};
+          for (const d of dist) {
+            const tTrain = Math.max(1, Math.round(d.count * trainR));
+            const tVal = d.count > 1 ? Math.max(0, Math.round(d.count * valR)) : 0;
+            let tTest = d.count - tTrain - tVal;
+            if (tTest < 0) tTest = 0;
+            train[d.label] = tTrain;
+            val[d.label] = tVal;
+            test[d.label] = tTest;
+            if (tTest <= 0) warnings.push(`类别 '${d.label}' 在 test 集中可能无样本`);
+            if (tVal <= 0 && valR > 0) warnings.push(`类别 '${d.label}' 在 val 集中可能无样本`);
+          }
+          splitPreview.train = train;
+          splitPreview.val = val;
+          splitPreview.test = test;
+        }
+
+        if (nClasses === 1 && labelType === "classification") warnings.push("只有 1 个类别，无法进行分类任务");
+        if (total < 5) warnings.push(`样本量极少 (${total})，建议使用留一法 (LOO)`);
+        if (imbalanceRatio > 10 && labelType === "classification") warnings.push(`类别严重不平衡 (${imbalanceRatio}:1)`);
+        if (minCount < 2 && labelType === "classification") warnings.push("最小类别仅 1 个样本，分层抽样可能回退为随机分割");
+
+        setDatasetSummary({
+          totalSamples: total,
+          nClasses,
+          classDistribution: dist,
+          imbalanceRatio,
+          randomBaseline,
+          majorityClass,
+          majorityRatio,
+          recommendedSplit,
+          splitPreview,
+          warnings,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to fetch dataset summary:", err);
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, [mlLabelConfig, selectedSampleIds, mlSplitRatios, splitMethod]);
+
+  useEffect(() => {
+    const timer = setTimeout(fetchDatasetSummary, 300);
+    return () => clearTimeout(timer);
+  }, [fetchDatasetSummary]);
 
   useEffect(() => {
     refreshData();
@@ -356,7 +480,7 @@ export function ModelTrainingTab() {
           frameNSamples: frameConfig.nSamples,
           frameMethod: frameConfig.method,
           seed: 42,
-          hyperparams,
+          hyperparams: { ...hyperparams, split_method: splitMethod, k_folds: kFolds },
         }),
       });
       const data = await res.json();
@@ -589,18 +713,222 @@ export function ModelTrainingTab() {
                   />
                 </div>
 
-                <Separator />
+              </CardContent>
+            </Card>
 
-                {/* 数据配置摘要 */}
+            {/* 数据集分割卡片 */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <SplitSquareVertical className="h-4 w-4" />
+                  数据分割
+                </CardTitle>
+                <CardDescription>设置数据集分割方式和比例</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* 分割方式 */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">数据配置</Label>
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    <p>选中样本: <span className="font-medium text-foreground">{selectedCount}</span> 个</p>
-                    <p>数据分割: <span className="font-medium text-foreground">{mlSplitRatios.train}/{mlSplitRatios.val}/{100 - mlSplitRatios.train - mlSplitRatios.val}</span></p>
-                    <p>帧采样: <span className="font-medium text-foreground">{frameConfig.nSamples}</span> 点, {frameConfig.method}</p>
-                  </div>
+                  <Label className="text-xs">分割方式</Label>
+                  <Select value={splitMethod} onValueChange={setSplitMethod}>
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SPLIT_METHOD_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          <span className="flex items-center gap-1.5">
+                            {o.label}
+                            <span className="text-[10px] text-muted-foreground">({o.desc})</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {datasetSummary?.recommendedSplit && datasetSummary.recommendedSplit !== splitMethod && (
+                    <p className="text-xs text-amber-600 flex items-center gap-1">
+                      <Lightbulb className="h-3 w-3" />
+                      建议使用: {SPLIT_METHOD_OPTIONS.find((o) => o.value === datasetSummary.recommendedSplit)?.label}
+                    </p>
+                  )}
                 </div>
 
+                {/* Holdout 模式：比例滑块 */}
+                {(splitMethod === "holdout" || splitMethod === "stratified_holdout") && (
+                  <TooltipProvider>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium">训练集</span>
+                        <span className="text-xs tabular-nums font-medium text-blue-600">{mlSplitRatios.train}%</span>
+                      </div>
+                      <Slider
+                        value={[mlSplitRatios.train]}
+                        onValueChange={([v]) => {
+                          const maxTrain = 100 - mlSplitRatios.val - 5;
+                          setMlSplitRatios({ ...mlSplitRatios, train: Math.min(v, maxTrain) });
+                        }}
+                        min={10} max={90} step={5}
+                      />
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium">验证集</span>
+                        <span className="text-xs tabular-nums font-medium text-amber-600">{mlSplitRatios.val}%</span>
+                      </div>
+                      <Slider
+                        value={[mlSplitRatios.val]}
+                        onValueChange={([v]) => {
+                          const maxVal = 100 - mlSplitRatios.train - 5;
+                          setMlSplitRatios({ ...mlSplitRatios, val: Math.min(v, maxVal) });
+                        }}
+                        min={5} max={40} step={5}
+                      />
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium">测试集</span>
+                        <span className="text-xs tabular-nums font-medium text-emerald-600">{100 - mlSplitRatios.train - mlSplitRatios.val}%</span>
+                      </div>
+
+                      {/* 可视化分割条 */}
+                      <div className="flex h-3 rounded-full overflow-hidden">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="bg-blue-500 transition-all" style={{ width: `${mlSplitRatios.train}%` }} />
+                          </TooltipTrigger>
+                          <TooltipContent><p>训练集: {mlSplitRatios.train}%</p></TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="bg-amber-500 transition-all" style={{ width: `${mlSplitRatios.val}%` }} />
+                          </TooltipTrigger>
+                          <TooltipContent><p>验证集: {mlSplitRatios.val}%</p></TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="bg-emerald-500 transition-all" style={{ width: `${100 - mlSplitRatios.train - mlSplitRatios.val}%` }} />
+                          </TooltipTrigger>
+                          <TooltipContent><p>测试集: {100 - mlSplitRatios.train - mlSplitRatios.val}%</p></TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </div>
+                  </TooltipProvider>
+                )}
+
+                {/* K-Fold 模式：K值输入 */}
+                {(splitMethod === "kfold" || splitMethod === "stratified_kfold") && (
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs w-16 flex-shrink-0">K 值</Label>
+                    <Input
+                      type="number"
+                      value={kFolds}
+                      onChange={(e) => setKFolds(Math.max(2, Math.min(50, Number(e.target.value))))}
+                      className="h-7 text-xs w-20"
+                      min={2} max={50}
+                    />
+                    <span className="text-xs text-muted-foreground">折</span>
+                  </div>
+                )}
+
+                {splitMethod === "leave_one_out" && (
+                  <p className="text-xs text-muted-foreground">每次留 1 个样本做测试，共 {datasetSummary?.totalSamples || "N"} 次训练</p>
+                )}
+
+                <div className="text-xs text-muted-foreground">
+                  <p>帧采样: <span className="font-medium text-foreground">{frameConfig.nSamples}</span> 点, {frameConfig.method}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 数据集摘要卡片 */}
+            {mlLabelConfig && selectedCount > 0 && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4" />
+                    数据集摘要
+                    {summaryLoading && <Loader2 className="h-3 w-3 animate-spin" />}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {datasetSummary ? (
+                    <>
+                      {/* 基本统计 */}
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="rounded-lg bg-muted/50 p-2">
+                          <div className="text-lg font-bold tabular-nums">{datasetSummary.totalSamples}</div>
+                          <div className="text-[10px] text-muted-foreground">总样本</div>
+                        </div>
+                        <div className="rounded-lg bg-muted/50 p-2">
+                          <div className="text-lg font-bold tabular-nums">{datasetSummary.nClasses}</div>
+                          <div className="text-[10px] text-muted-foreground">类别数</div>
+                        </div>
+                        <div className="rounded-lg bg-muted/50 p-2">
+                          <div className="text-lg font-bold tabular-nums">{(datasetSummary.randomBaseline * 100).toFixed(1)}%</div>
+                          <div className="text-[10px] text-muted-foreground">随机基线</div>
+                        </div>
+                      </div>
+
+                      {/* 类别分布迷你条形图 */}
+                      {datasetSummary.classDistribution.length > 0 && (
+                        <div className="space-y-1">
+                          <Label className="text-[11px] text-muted-foreground">类别分布</Label>
+                          {datasetSummary.classDistribution.slice(0, 8).map((d) => {
+                            const maxC = datasetSummary.classDistribution[0]?.count || 1;
+                            return (
+                              <div key={d.label} className="flex items-center gap-2 text-[11px]">
+                                <span className="w-20 truncate text-right text-muted-foreground" title={d.label}>{d.label}</span>
+                                <div className="flex-1 h-3 bg-muted rounded-sm overflow-hidden">
+                                  <div
+                                    className="h-full bg-primary/60 rounded-sm transition-all"
+                                    style={{ width: `${(d.count / maxC) * 100}%` }}
+                                  />
+                                </div>
+                                <span className="w-8 text-right tabular-nums">{d.count}</span>
+                              </div>
+                            );
+                          })}
+                          {datasetSummary.classDistribution.length > 8 && (
+                            <p className="text-[10px] text-muted-foreground text-center">
+                              ...还有 {datasetSummary.classDistribution.length - 8} 个类别
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* 不平衡比 */}
+                      {datasetSummary.imbalanceRatio > 1 && (
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">不平衡比</span>
+                          <Badge variant={datasetSummary.imbalanceRatio > 10 ? "destructive" : datasetSummary.imbalanceRatio > 3 ? "secondary" : "outline"} className="text-[10px]">
+                            {datasetSummary.imbalanceRatio}:1
+                          </Badge>
+                        </div>
+                      )}
+
+                      {/* 警告 */}
+                      {datasetSummary.warnings.length > 0 && (
+                        <div className="space-y-1">
+                          {datasetSummary.warnings.map((w, i) => (
+                            <div key={i} className="flex items-start gap-1.5 text-[11px] text-amber-600">
+                              <TriangleAlert className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                              <span>{w}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground justify-center py-2">
+                      {summaryLoading ? (
+                        <><Loader2 className="h-3 w-3 animate-spin" />加载中...</>
+                      ) : (
+                        <><Info className="h-3 w-3" />选择标签策略后显示摘要</>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* 训练按钮 */}
+            <Card>
+              <CardContent className="pt-4 space-y-3">
                 {/* 训练按钮 */}
                 <Button
                   className="w-full"
@@ -657,7 +985,9 @@ export function ModelTrainingTab() {
                     {activeJob.modelName} ({activeJob.modelType})
                     {activeJob.extraMetrics?.stage === "building_dataset"
                       ? ` - ${String(activeJob.extraMetrics?.detail || "构建数据集中...")}`
-                      : ` - Epoch ${activeJob.currentEpoch}/${activeJob.totalEpochs}`}
+                      : activeJob.extraMetrics?.detail
+                        ? ` - ${String(activeJob.extraMetrics.detail)}`
+                        : ` - Epoch ${activeJob.currentEpoch}/${activeJob.totalEpochs}`}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -784,6 +1114,7 @@ export function ModelTrainingTab() {
                       <Label className="text-xs font-medium">混淆矩阵 (Test)</Label>
                       <ConfusionMatrixDisplay
                         matrix={evaluations.find((e) => e.split === "test")!.confusionMatrix!}
+                        classNames={datasetSummary?.classDistribution.map((d) => d.label)}
                       />
                     </div>
                   )}
@@ -1110,33 +1441,36 @@ function HyperparamsForm({
 
 // ── 混淆矩阵组件 ──
 
-function ConfusionMatrixDisplay({ matrix }: { matrix: number[][] }) {
+function ConfusionMatrixDisplay({ matrix, classNames }: { matrix: number[][]; classNames?: string[] }) {
   if (!matrix || matrix.length === 0) return null;
 
   const maxVal = Math.max(...matrix.flat());
+  const labels = classNames && classNames.length === matrix.length
+    ? classNames
+    : matrix.map((_, i) => String(i));
 
   return (
     <div className="mt-2 overflow-x-auto">
       <table className="border-collapse">
         <thead>
           <tr>
-            <th className="p-1 text-[10px] text-muted-foreground">Pred →</th>
-            {matrix[0].map((_, j) => (
-              <th key={j} className="p-1 text-[10px] text-center text-muted-foreground w-10">{j}</th>
+            <th className="p-1 text-[10px] text-muted-foreground">True ↓ / Pred →</th>
+            {labels.map((label, j) => (
+              <th key={j} className="p-1 text-[10px] text-center text-muted-foreground max-w-16 truncate" title={label}>{label}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {matrix.map((row, i) => (
             <tr key={i}>
-              <td className="p-1 text-[10px] text-muted-foreground font-medium">{i}</td>
+              <td className="p-1 text-[10px] text-muted-foreground font-medium max-w-20 truncate" title={labels[i]}>{labels[i]}</td>
               {row.map((val, j) => {
                 const intensity = maxVal > 0 ? val / maxVal : 0;
                 const isDiagonal = i === j;
                 return (
                   <td
                     key={j}
-                    className="p-1 text-[10px] text-center w-10 h-8 border"
+                    className="p-1 text-[10px] text-center min-w-8 h-8 border"
                     style={{
                       backgroundColor: isDiagonal
                         ? `rgba(34, 197, 94, ${intensity * 0.6})`

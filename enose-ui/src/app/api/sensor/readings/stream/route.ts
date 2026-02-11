@@ -40,7 +40,7 @@ export async function GET() {
           if (isClosed) return;
           send({
             type: 'reading',
-            timestamp: Number(reading.tickMs),
+            timestamp: Date.now(),
             sensorIndex: reading.sensorIdx,
             temperature: reading.temperature,
             humidity: reading.humidity,

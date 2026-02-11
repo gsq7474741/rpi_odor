@@ -581,6 +581,7 @@ message LoadProgramRequest {
     ExperimentProgram program = 1;  // 结构化程序
     string yaml_content = 2;         // YAML 字符串
   }
+  string filename = 3;  // 源文件名 (用于追踪，不含路径)
 }
 
 // 加载响应
@@ -651,6 +652,12 @@ message ExperimentStatusResponse {
   
   // 程序名称
   string program_name = 23;
+  
+  // 当前步骤已运行时间 (秒)
+  double step_elapsed_s = 24;
+  
+  // 源文件名 (加载时传入的文件名，用于前端恢复匹配)
+  string program_filename = 25;
   
   // 数据质量快照（实时）
   DataQualitySnapshot quality = 30;

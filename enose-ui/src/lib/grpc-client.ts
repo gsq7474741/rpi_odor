@@ -34,16 +34,36 @@ export interface HeaterProfile {
 const GRPC_HOST = process.env.GRPC_HOST || "rpi5.local";
 const GRPC_PORT = process.env.GRPC_PORT || "50051";
 
+// gRPC channel 选项：快速重连 + keepalive
+const CHANNEL_OPTIONS: grpc.ChannelOptions = {
+  "grpc.keepalive_time_ms": 10000,
+  "grpc.keepalive_timeout_ms": 5000,
+  "grpc.keepalive_permit_without_calls": 1,
+  "grpc.initial_reconnect_backoff_ms": 500,
+  "grpc.max_reconnect_backoff_ms": 5000,
+  "grpc.min_reconnect_backoff_ms": 250,
+};
+
 // 创建客户端实例
 let controlClient: ControlServiceClient | null = null;
 let sensorClient: SensorServiceClient | null = null;
 let loadCellClient: LoadCellServiceClient | null = null;
 
+export function resetAllControlClients() {
+  controlClient?.close();
+  sensorClient?.close();
+  loadCellClient?.close();
+  controlClient = null;
+  sensorClient = null;
+  loadCellClient = null;
+}
+
 function getClient(): ControlServiceClient {
   if (!controlClient) {
     controlClient = new ControlServiceClient(
       `${GRPC_HOST}:${GRPC_PORT}`,
-      grpc.credentials.createInsecure()
+      grpc.credentials.createInsecure(),
+      CHANNEL_OPTIONS
     );
   }
   return controlClient;
@@ -53,7 +73,8 @@ function getSensorClient(): SensorServiceClient {
   if (!sensorClient) {
     sensorClient = new SensorServiceClient(
       `${GRPC_HOST}:${GRPC_PORT}`,
-      grpc.credentials.createInsecure()
+      grpc.credentials.createInsecure(),
+      CHANNEL_OPTIONS
     );
   }
   return sensorClient;
@@ -327,7 +348,8 @@ function getLoadCellClient(): LoadCellServiceClient {
   if (!loadCellClient) {
     loadCellClient = new LoadCellServiceClient(
       `${GRPC_HOST}:${GRPC_PORT}`,
-      grpc.credentials.createInsecure()
+      grpc.credentials.createInsecure(),
+      CHANNEL_OPTIONS
     );
   }
   return loadCellClient;

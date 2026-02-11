@@ -133,7 +133,8 @@ export async function POST(request: Request) {
           result = await promisifyWithTimeout(
             client.loadProgram.bind(client),
             LoadProgramRequest.create({ 
-              source: { oneofKind: "yamlContent", yamlContent } 
+              source: { oneofKind: "yamlContent", yamlContent },
+              filename: body.filename || "",
             }),
             5000
           );
@@ -142,7 +143,8 @@ export async function POST(request: Request) {
           result = await promisifyWithTimeout(
             client.loadProgram.bind(client),
             LoadProgramRequest.create({ 
-              source: { oneofKind: "program", program: body.program } 
+              source: { oneofKind: "program", program: body.program },
+              filename: body.filename || "",
             }),
             5000
           );

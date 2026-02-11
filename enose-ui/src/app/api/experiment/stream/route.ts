@@ -56,6 +56,8 @@ export async function GET() {
             loopTotal: response.loopTotal,
             progressPercent: response.progressPercent,
             elapsedS: response.elapsedS,
+            stepElapsedS: (response as any).stepElapsedS ?? 0,
+            programFilename: (response as any).programFilename ?? "",
             remainingS: response.remainingS,
             message: response.message,
             logs: response.logs,

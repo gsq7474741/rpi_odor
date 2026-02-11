@@ -120,6 +120,9 @@ public:
     void set_quality_monitor(workflows::DataQualityMonitor* monitor) { quality_monitor_ = monitor; }
     void clear_quality_monitor() { quality_monitor_ = nullptr; }
     
+    // 传感器运行状态查询
+    bool is_sensor_running() const { return cached_sensor_running_; }
+    
     // 传感器状态缓存（供 ExperimentService 调用，重连后自动恢复）
     void cache_heater_config(const nlohmann::json& config_cmd);
     void cache_heater_configs(const std::vector<nlohmann::json>& configs);

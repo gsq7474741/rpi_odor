@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { useExperiments, SampleWithFrameStatus } from "../context/ExperimentsContext";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,12 @@ import {
   ArrowUp,
   ArrowDown,
   RefreshCw,
+  Trash2,
+  Copy,
+  ClipboardCopy,
+  CheckSquare,
+  XSquare,
+  Filter,
 } from "lucide-react";
 import {
   Tooltip,
@@ -32,6 +38,22 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -57,12 +79,88 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
     addSamplesToSelection,
     removeSamplesFromSelection,
     filters,
+    updateFilters,
     runs,
+    hoveredSampleId,
+    setHoveredSampleId,
   } = useExperiments();
 
   const [sortField, setSortField] = useState<SortField>("time");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [recalculating, setRecalculating] = useState<Set<number>>(new Set());
+
+  // 右键菜单 & 删除确认
+  const [deleteTarget, setDeleteTarget] = useState<{ ids: number[]; label: string } | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  const deleteExpectedText = useMemo(() => {
+    if (!deleteTarget) return "";
+    return deleteTarget.ids.length === 1
+      ? `确认删除S#${deleteTarget.ids[0]}`
+      : `确认删除${deleteTarget.ids.length}个样本`;
+  }, [deleteTarget]);
+
+  // 右键菜单触发删除（单个样本或选中的多个样本）
+  const handleDeleteRequest = useCallback((sample: SampleWithFrameStatus) => {
+    if (selectedSampleIds.has(sample.id) && selectedSampleIds.size > 1) {
+      const ids = Array.from(selectedSampleIds);
+      setDeleteTarget({ ids, label: `${ids.length} 个选中样本` });
+    } else {
+      setDeleteTarget({ ids: [sample.id], label: `S#${sample.id}` });
+    }
+    setDeleteConfirmText("");
+  }, [selectedSampleIds]);
+
+  // 执行删除
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteTarget || deleteConfirmText !== deleteExpectedText) return;
+    setDeleting(true);
+    const toastId = toast.loading(`正在删除 ${deleteTarget.label}...`);
+    try {
+      const res = await fetch("/api/samples", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sampleIds: deleteTarget.ids }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "删除失败");
+
+      // 从本地状态移除
+      removeSamplesFromSelection(deleteTarget.ids);
+      const deletedSet = new Set(deleteTarget.ids);
+      setSamples(samples.filter(s => !deletedSet.has(s.id)));
+      setSamplesTotal(samplesTotal - (data.deleted || 0));
+
+      toast.success(`已删除 ${data.deleted} 个样本`, { id: toastId });
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error(`删除失败: ${err}`, { id: toastId });
+    } finally {
+      setDeleting(false);
+    }
+  }, [deleteTarget, deleteConfirmText, deleteExpectedText, samples, samplesTotal, removeSamplesFromSelection, setSamples, setSamplesTotal]);
+
+  // 复制样本 ID 到剪贴板
+  const handleCopyIds = useCallback((sample: SampleWithFrameStatus) => {
+    const ids = selectedSampleIds.has(sample.id) && selectedSampleIds.size > 1
+      ? Array.from(selectedSampleIds)
+      : [sample.id];
+    navigator.clipboard.writeText(ids.join(", "));
+    toast.success(`已复制 ${ids.length} 个样本 ID`);
+  }, [selectedSampleIds]);
+
+  // 仅选中此样本
+  const handleSelectOnly = useCallback((sample: SampleWithFrameStatus) => {
+    removeSamplesFromSelection(Array.from(selectedSampleIds));
+    addSamplesToSelection([sample.id]);
+  }, [selectedSampleIds, removeSamplesFromSelection, addSamplesToSelection]);
+
+  // 按 Run 筛选
+  const handleFilterByRun = useCallback((sample: SampleWithFrameStatus) => {
+    updateFilters({ runIds: [sample.runId] });
+    toast.success(`已筛选 Run #${sample.runId}`);
+  }, [updateFilters]);
 
   // 用 ref 持有 runs，避免 loadSamples 依赖 runs 导致级联刷新
   const runsRef = useRef(runs);
@@ -333,40 +431,44 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
               const isCached = sample.frameStatus?.cached;
 
               return (
-                <div
-                  key={sample.id}
-                  className={cn(
-                    "flex items-center gap-2 px-2 py-2 rounded-md cursor-pointer transition-colors",
-                    "hover:bg-accent group",
-                    isSelected && "bg-accent"
-                  )}
-                  onClick={() => handleSampleClick(sample)}
-                >
-                  <Checkbox
-                    checked={isSelected}
-                    onCheckedChange={() => toggleSampleSelection(sample.id)}
-                    onClick={(e) => e.stopPropagation()}
-                  />
+                <ContextMenu key={sample.id}>
+                  <ContextMenuTrigger asChild>
+                    <div
+                      className={cn(
+                        "flex items-center gap-2 px-2 py-2 rounded-md cursor-pointer transition-colors",
+                        "hover:bg-accent group",
+                        isSelected && "bg-accent",
+                        hoveredSampleId === sample.id && "ring-1 ring-primary/50"
+                      )}
+                      onClick={() => handleSampleClick(sample)}
+                      onMouseEnter={() => isSelected && setHoveredSampleId(sample.id)}
+                      onMouseLeave={() => hoveredSampleId === sample.id && setHoveredSampleId(null)}
+                    >
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleSampleSelection(sample.id)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
 
-                  <FlaskConical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <FlaskConical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">
-                        S#{sample.id}
-                      </span>
-                      <Badge variant="outline" className="text-xs">
-                        Run #{sample.runId}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span className="truncate max-w-[120px]">
-                        {sample.liquidNames?.join(" + ") || "-"}
-                      </span>
-                      <span>•</span>
-                      <span>{sample.phaseName}</span>
-                    </div>
-                  </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">
+                            S#{sample.id}
+                          </span>
+                          <Badge variant="outline" className="text-xs">
+                            Run #{sample.runId}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span className="truncate max-w-[120px]">
+                            {sample.liquidNames?.join(" + ") || "-"}
+                          </span>
+                          <span>•</span>
+                          <span>{sample.phaseName}</span>
+                        </div>
+                      </div>
 
                   {/* 数据帧状态 + 重算按钮 */}
                   <div className="flex items-center gap-1 flex-shrink-0">
@@ -427,7 +529,35 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
                       </Tooltip>
                     </TooltipProvider>
                   </div>
-                </div>
+                    </div>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent className="w-48">
+                    <ContextMenuItem onClick={() => handleSelectOnly(sample)}>
+                      <CheckSquare className="mr-2 h-4 w-4" />
+                      仅选中此样本
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => handleCopyIds(sample)}>
+                      <ClipboardCopy className="mr-2 h-4 w-4" />
+                      {selectedSampleIds.has(sample.id) && selectedSampleIds.size > 1
+                        ? `复制ID ${selectedSampleIds.size} 个 ID`
+                        : `复制 S#${sample.id}`}
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => handleFilterByRun(sample)}>
+                      <Filter className="mr-2 h-4 w-4" />
+                      筛选 Run #{sample.runId}
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => handleDeleteRequest(sample)}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      {selectedSampleIds.has(sample.id) && selectedSampleIds.size > 1
+                        ? `删除 ${selectedSampleIds.size} 个选中样本`
+                        : `删除 S#${sample.id}`}
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               );
             })
           )}
@@ -460,6 +590,47 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
           </Button>
         </div>
       )}
+
+      {/* 删除确认对话框 */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除 {deleteTarget?.label}</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                <div>
+                  此操作将永久删除样本及其所有关联数据（传感器读数、归一化帧、ML 标签、Phase 转换记录）。
+                  <strong className="text-destructive">此操作不可撤销。</strong>
+                </div>
+                <div>请输入 <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">{deleteExpectedText}</code> 以确认：</div>
+                <Input
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder={deleteExpectedText}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && deleteConfirmText === deleteExpectedText) {
+                    handleDeleteConfirm();
+                  }
+                }}
+              />
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+              取消
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              disabled={deleteConfirmText !== deleteExpectedText || deleting}
+            >
+              {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+              确认删除
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

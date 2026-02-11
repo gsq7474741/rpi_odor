@@ -37,6 +37,7 @@ interface ScatterPlotPanelProps {
   colorBy?: ColorBy;
   onPointClick?: (point: VisualizationPoint | null) => void;
   onPointHover?: (point: VisualizationPoint | null) => void;
+  highlightedSampleId?: number | null;
 }
 
 const CLUSTER_COLORS: [number, number, number][] = [
@@ -108,6 +109,7 @@ export function ScatterPlotPanel({
   colorBy = "cluster",
   onPointClick,
   onPointHover,
+  highlightedSampleId,
 }: ScatterPlotPanelProps) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
@@ -293,6 +295,34 @@ export function ScatterPlotPanel({
     scatterPlotRef.current.setPointScaleFactors(scaleFactors);
     scatterPlotRef.current.render();
   }, [points, is3D, colorBy, scatterReady]);
+
+  // Handle external hover highlight (from sidebar sample list)
+  useEffect(() => {
+    if (!scatterPlotRef.current || points.length === 0) return;
+
+    if (highlightedSampleId != null) {
+      const idx = points.findIndex(p => p.id === highlightedSampleId.toString());
+      if (idx >= 0) {
+        // Enlarge the highlighted point and set hovered state
+        const scaleFactors = new Float32Array(points.length);
+        for (let i = 0; i < points.length; i++) {
+          scaleFactors[i] = i === idx ? 2.5 : 1.0;
+        }
+        scatterPlotRef.current.setPointScaleFactors(scaleFactors);
+        scatterPlotRef.current.render();
+        setHoveredPoint(points[idx]);
+      }
+    } else {
+      // Reset all scale factors to normal
+      const scaleFactors = new Float32Array(points.length);
+      for (let i = 0; i < points.length; i++) {
+        scaleFactors[i] = 1.0;
+      }
+      scatterPlotRef.current.setPointScaleFactors(scaleFactors);
+      scatterPlotRef.current.render();
+      setHoveredPoint(null);
+    }
+  }, [highlightedSampleId, points]);
 
   // Handle window resize
   useEffect(() => {

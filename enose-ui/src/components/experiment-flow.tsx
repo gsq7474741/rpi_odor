@@ -98,9 +98,10 @@ interface StepNodeProps {
   stepElapsedSeconds?: number;
   depth?: number;
   isLast?: boolean;
+  completedDuration?: number;
 }
 
-function StepNode({ step, index, currentStep, stepElapsedSeconds = 0, depth = 0, isLast = false }: StepNodeProps) {
+function StepNode({ step, index, currentStep, stepElapsedSeconds = 0, depth = 0, isLast = false, completedDuration }: StepNodeProps) {
   const [expanded, setExpanded] = useState(true);
   const config = actionConfig[step.action.type] || actionConfig.wait;
   const Icon = config.icon;
@@ -244,7 +245,13 @@ function StepNode({ step, index, currentStep, stepElapsedSeconds = 0, depth = 0,
           </div>
         )}
         {isCompleted && (
-          <div className="text-xs text-green-600 font-medium">已完成</div>
+          <div className="text-xs text-green-600 font-medium">
+            {completedDuration != null ? (
+              <span className="font-mono">{formatDuration(completedDuration)}</span>
+            ) : (
+              "已完成"
+            )}
+          </div>
         )}
       </div>
       {/* 固定时间步骤的进度条 */}
@@ -416,9 +423,10 @@ interface ExperimentFlowProps {
   stepElapsedSeconds?: number;
   className?: string;
   pumpStatus?: PumpStatusInfo[];
+  completedStepDurations?: Record<number, number>;
 }
 
-export function ExperimentFlow({ program, currentStep, stepElapsedSeconds, className, pumpStatus }: ExperimentFlowProps) {
+export function ExperimentFlow({ program, currentStep, stepElapsedSeconds, className, pumpStatus, completedStepDurations }: ExperimentFlowProps) {
   // 本地计时器：当 currentStep 变化时重置
   const [localElapsed, setLocalElapsed] = useState(0);
   const stepStartTimeRef = useRef<number>(Date.now());
@@ -509,6 +517,7 @@ export function ExperimentFlow({ program, currentStep, stepElapsedSeconds, class
             currentStep={currentStep}
             stepElapsedSeconds={effectiveElapsed}
             isLast={index === program.steps.length - 1}
+            completedDuration={completedStepDurations?.[index]}
           />
         ))}
       </div>
@@ -689,10 +698,12 @@ function LiquidConsumptionPanel({
     return undefined;
   }
 
-  // 判断整体是否有不足
+  // 判断整体是否有不足（余量 < 剩余预计用量）
   const hasInsufficient = pumpStatus ? consumption.some(lc => {
     const pump = findPump(lc);
-    return pump && pump.initialVolumeMl > 0 && pump.remainingVolumeMl < lc.required_ml;
+    if (!pump || pump.initialVolumeMl <= 0) return false;
+    const stillNeeded = Math.max(0, lc.required_ml - pump.consumedVolumeMl);
+    return pump.remainingVolumeMl < stillNeeded;
   }) : false;
 
   // 是否所有泵都有数据
@@ -717,13 +728,19 @@ function LiquidConsumptionPanel({
           )
         )}
       </div>
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         {consumption.map((lc) => {
           const pump = findPump(lc);
           const hasData = pump && pump.initialVolumeMl > 0;
-          const insufficient = hasData && pump!.remainingVolumeMl < lc.required_ml;
-          const ratio = hasData ? Math.min(100, (lc.required_ml / pump!.remainingVolumeMl) * 100) : 0;
           const isWash = lc.pump_index < 0;
+
+          const consumed = hasData ? pump!.consumedVolumeMl : 0;
+          const remaining = hasData ? pump!.remainingVolumeMl : 0;
+          // 剩余预计用量 = 预估总用量 - 已消耗（不低于0）
+          const stillNeeded = Math.max(0, lc.required_ml - consumed);
+          const insufficient = hasData && remaining < stillNeeded;
+          // 进度条: 剩余预计用量 占 余量 的比例
+          const ratio = (hasData && remaining > 0) ? Math.min(100, (stillNeeded / remaining) * 100) : 0;
 
           return (
             <div key={`${lc.liquid_id}-${lc.pump_index}`}>
@@ -736,31 +753,20 @@ function LiquidConsumptionPanel({
                     <span className="text-[10px] ml-0.5">(泵{lc.pump_index})</span>
                   ) : null}
                 </span>
-                <span className="flex items-center gap-1 ml-2 flex-shrink-0">
-                  <span className={cn("font-medium", insufficient && "text-red-600")}>
-                    {lc.required_ml.toFixed(1)}
+                <span className="flex items-center gap-1 ml-2 flex-shrink-0 text-[10px]">
+                  <span className={cn("font-medium text-[11px]", insufficient && "text-red-600")}>
+                    {stillNeeded.toFixed(1)}
                   </span>
-                  {hasData && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className={cn(
-                          "text-[10px]",
-                          insufficient ? "text-red-500" : "text-muted-foreground"
-                        )}>
-                          / {pump!.remainingVolumeMl.toFixed(0)} ml
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="left" className="text-xs">
-                        <div>需要 {lc.required_ml.toFixed(1)} ml</div>
-                        <div>余量 {pump!.remainingVolumeMl.toFixed(1)} / {pump!.initialVolumeMl.toFixed(0)} ml</div>
-                        {insufficient && <div className="text-red-400 font-medium">不足 {(lc.required_ml - pump!.remainingVolumeMl).toFixed(1)} ml</div>}
-                      </TooltipContent>
-                    </Tooltip>
+                  {hasData ? (
+                    <span className={cn(insufficient ? "text-red-500" : "text-muted-foreground")}>
+                      / {remaining.toFixed(0)} ml
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">ml</span>
                   )}
-                  {!hasData && <span className="text-[10px] text-muted-foreground">ml</span>}
                 </span>
               </div>
-              {/* 余量进度条 */}
+              {/* 进度条: 剩余预计用量 占 余量 */}
               {hasData && (
                 <div className="mt-0.5 h-1 rounded-full bg-muted overflow-hidden">
                   <div

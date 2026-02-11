@@ -6,6 +6,7 @@ from typing import Any
 import numpy as np
 import torch
 import torch.nn as nn
+from sklearn.preprocessing import StandardScaler
 from torch.utils.data import DataLoader, TensorDataset
 
 from ..base_model import BaseModel, ProgressCallback, TrainProgress, register_model
@@ -81,6 +82,7 @@ class MLPModel(BaseModel):
         self.device = device
 
         self._network: _MLPNetwork | None = None
+        self._scaler = StandardScaler()
         self._input_dim: int = 0
         self._output_dim: int = 0
         self._class_names: list[str] = []
@@ -98,6 +100,11 @@ class MLPModel(BaseModel):
         n_classes: int | None = None,
     ) -> dict[str, Any]:
         self._input_dim = X_train.shape[1]
+
+        # 标准化特征
+        X_train = self._scaler.fit_transform(X_train)
+        if X_val is not None:
+            X_val = self._scaler.transform(X_val)
 
         if self.task_type == "classification":
             self._output_dim = n_classes if n_classes is not None else int(y_train.max()) + 1
@@ -207,9 +214,10 @@ class MLPModel(BaseModel):
     def predict(self, X: np.ndarray) -> np.ndarray:
         if self._network is None:
             raise RuntimeError("Model not trained")
+        X_scaled = self._scaler.transform(X)
         self._network.eval()
         with torch.no_grad():
-            X_t = torch.tensor(X, dtype=torch.float32).to(self.device)
+            X_t = torch.tensor(X_scaled, dtype=torch.float32).to(self.device)
             output = self._network(X_t)
             if self.task_type == "classification":
                 return output.argmax(dim=1).cpu().numpy()
@@ -219,9 +227,10 @@ class MLPModel(BaseModel):
     def predict_proba(self, X: np.ndarray) -> np.ndarray | None:
         if self._network is None or self.task_type != "classification":
             return None
+        X_scaled = self._scaler.transform(X)
         self._network.eval()
         with torch.no_grad():
-            X_t = torch.tensor(X, dtype=torch.float32).to(self.device)
+            X_t = torch.tensor(X_scaled, dtype=torch.float32).to(self.device)
             output = self._network(X_t)
             proba = torch.softmax(output, dim=1)
             return proba.cpu().numpy()
@@ -232,6 +241,7 @@ class MLPModel(BaseModel):
         buf = io.BytesIO()
         torch.save({
             "state_dict": self._network.state_dict(),
+            "scaler": self._scaler,
             "config": self.get_config(),
         }, buf)
         return buf.getvalue()
@@ -251,6 +261,8 @@ class MLPModel(BaseModel):
         model._input_dim = config.get("input_dim", 0)
         model._output_dim = config.get("output_dim", 0)
         model._class_names = config.get("class_names", [])
+        if "scaler" in checkpoint:
+            model._scaler = checkpoint["scaler"]
 
         if model._input_dim > 0 and model._output_dim > 0:
             model._network = _MLPNetwork(

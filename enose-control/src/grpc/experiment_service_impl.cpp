@@ -127,6 +127,7 @@ ExperimentServiceImpl::~ExperimentServiceImpl() {
         // 保存程序和 YAML 内容
         loaded_program_ = std::make_unique<experiment::ExperimentProgram>(std::move(program));
         loaded_program_yaml_ = std::move(yaml_content);
+        loaded_program_filename_ = request->filename();  // 前端传入的源文件名
         
         // 计算 SHA256 hash
         unsigned char hash[SHA256_DIGEST_LENGTH];
@@ -509,6 +510,7 @@ void ExperimentServiceImpl::execute_steps(
             std::lock_guard<std::mutex> lock(mutex_);
             current_step_index_ = i;
             current_step_name_ = steps[i].name();
+            step_start_time_ = std::chrono::steady_clock::now();
         }
         
         execute_step(steps[i]);
@@ -841,6 +843,19 @@ void ExperimentServiceImpl::execute_drain(const experiment::DrainAction& action)
 void ExperimentServiceImpl::execute_acquire(const experiment::AcquireAction& action) {
     add_log("采集: 气泵PWM=" + std::to_string(action.gas_pump_pwm()) + "%");
     
+    // 自动启动传感器（如果尚未运行）
+    if (sensor_driver_ && sensor_service_ && !sensor_service_->is_sensor_running()) {
+        spdlog::info("execute_acquire: 传感器未运行，自动发送 start 命令");
+        nlohmann::json start_cmd;
+        start_cmd["cmd"] = "start";
+        start_cmd["id"] = 3;
+        start_cmd["params"]["sensors"] = {0, 1, 2, 3, 4, 5, 6, 7};
+        sensor_driver_->write(start_cmd);
+        sensor_service_->cache_sensor_started({0, 1, 2, 3, 4, 5, 6, 7});
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        add_log("传感器采集已自动启动");
+    }
+    
     // 使用事务守卫保证状态一致性 (Phase 1.3)
     workflows::StateTransactionGuard guard(
         system_state_.get(),
@@ -949,11 +964,46 @@ void ExperimentServiceImpl::execute_acquire(const experiment::AcquireAction& act
         
         case experiment::AcquireAction::kStability: {
             // 3. 稳定性条件 - 监测传感器读数变化
-            add_log("采集模式: 稳定性检测");
+            // 从加热器配置计算最小等待时间和期望组数
+            double min_duration_s = 0;
+            int expected_groups = 2;  // 默认最少2组
+            const int min_readings = 3;  // 与 StabilityMonitor 中的 min_readings_per_group 一致
+            
+            if (!current_sample_ctx_.heater_configs.empty()) {
+                double slowest_cycle_s = 0;
+                int total_groups = 0;
+                for (const auto& hc : current_sample_ctx_.heater_configs) {
+                    // 每个 dur 单位 = 140ms，周期时间 = sum(durs) * 0.14s
+                    double cycle_s = 0;
+                    for (auto d : hc.durs) {
+                        cycle_s += d * 0.14;
+                    }
+                    slowest_cycle_s = std::max(slowest_cycle_s, cycle_s);
+                    
+                    int num_sensors = hc.sensor_indices.empty() ? 8 : static_cast<int>(hc.sensor_indices.size());
+                    int num_steps = static_cast<int>(hc.durs.size());
+                    total_groups += num_sensors * num_steps;
+                }
+                
+                if (slowest_cycle_s > 0) {
+                    min_duration_s = slowest_cycle_s * min_readings;
+                    spdlog::info("采集稳定性: 最慢周期={:.1f}s, 最小等待={:.1f}s, 期望组数={}",
+                                 slowest_cycle_s, min_duration_s, total_groups);
+                }
+                if (total_groups > 2) {
+                    expected_groups = total_groups;
+                }
+            }
+            
+            add_log("采集模式: 稳定性检测 (最小等待" + 
+                    std::to_string(static_cast<int>(min_duration_s)) + "s, " +
+                    std::to_string(expected_groups) + "组)");
             wait_for_sensor_stability(
                 action.stability().window_s(),
                 action.stability().threshold_percent(),
-                action.max_duration_s()
+                action.max_duration_s(),
+                min_duration_s,
+                expected_groups
             );
             break;
         }
@@ -1341,6 +1391,12 @@ void ExperimentServiceImpl::execute_wash(const experiment::WashAction& action) {
         
         if (check_stop()) return;
         
+        // 3.5 扣除清洗液消耗量（每个循环注入 target_ml）
+        if (consumable_repo_) {
+            consumable_repo_->add_wash_pump_consumption(0, target_ml);
+            spdlog::debug("清洗液消耗: 泵0 扣除 {} ml", target_ml);
+        }
+        
         // 4. 排废直到空瓶稳定
         add_log("排废清洗液...");
         system_state_->transition_to(workflows::SystemState::State::DRAIN);
@@ -1459,7 +1515,9 @@ bool ExperimentServiceImpl::wait_for_heater_cycles(int count, double timeout_s) 
     return true;
 }
 
-bool ExperimentServiceImpl::wait_for_sensor_stability(double window_s, double threshold_percent, double timeout_s) {
+bool ExperimentServiceImpl::wait_for_sensor_stability(
+    double window_s, double threshold_percent, double timeout_s,
+    double min_duration_s, int min_groups_with_data) {
     if (!sensor_driver_) {
         add_log("警告: 无传感器驱动，使用最大时间");
         auto end = std::chrono::steady_clock::now() + 
@@ -1475,7 +1533,9 @@ bool ExperimentServiceImpl::wait_for_sensor_stability(double window_s, double th
         .window_s = window_s,
         .threshold_percent = threshold_percent,
         .timeout_s = timeout_s,
-        .log_prefix = "ExperimentService"
+        .log_prefix = "ExperimentService",
+        .min_duration_s = min_duration_s,
+        .min_groups_with_data = min_groups_with_data
     };
     
     auto result = workflows::StabilityMonitor::wait_for_stability(
@@ -1545,6 +1605,11 @@ void ExperimentServiceImpl::fill_status_response(experiment::ExperimentStatusRes
         response->set_program_yaml_hash(loaded_program_yaml_hash_);
     }
     
+    // 设置源文件名
+    if (!loaded_program_filename_.empty()) {
+        response->set_program_filename(loaded_program_filename_);
+    }
+    
     // 设置 run_id
     if (current_run_id_.has_value()) {
         response->set_run_id(current_run_id_.value());
@@ -1563,9 +1628,14 @@ void ExperimentServiceImpl::fill_status_response(experiment::ExperimentStatusRes
     
     // 计算已运行时间
     if (state_ == experiment::EXP_RUNNING || state_ == experiment::EXP_PAUSED) {
-        auto elapsed = std::chrono::steady_clock::now() - start_time_;
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed = now - start_time_;
         response->set_elapsed_s(
             std::chrono::duration_cast<std::chrono::seconds>(elapsed).count());
+        // 当前步骤已运行时间
+        auto step_elapsed = now - step_start_time_;
+        response->set_step_elapsed_s(
+            std::chrono::duration<double>(step_elapsed).count());
     }
     
     // 估算剩余时间
@@ -1864,13 +1934,46 @@ void ExperimentServiceImpl::execute_preheat(const experiment::PreheatAction& act
         }
         case experiment::PreheatAction::kStability: {
             // 稳态检测 - 传感器读数稳定后结束预热
+            // 从加热器配置计算最小等待时间和期望组数
+            double min_duration_s = 0;
+            int expected_groups = 2;
+            const int min_readings = 3;
+            
+            if (!current_sample_ctx_.heater_configs.empty()) {
+                double slowest_cycle_s = 0;
+                int total_groups = 0;
+                for (const auto& hc : current_sample_ctx_.heater_configs) {
+                    double cycle_s = 0;
+                    for (auto d : hc.durs) {
+                        cycle_s += d * 0.14;
+                    }
+                    slowest_cycle_s = std::max(slowest_cycle_s, cycle_s);
+                    
+                    int num_sensors = hc.sensor_indices.empty() ? 8 : static_cast<int>(hc.sensor_indices.size());
+                    int num_steps = static_cast<int>(hc.durs.size());
+                    total_groups += num_sensors * num_steps;
+                }
+                
+                if (slowest_cycle_s > 0) {
+                    min_duration_s = slowest_cycle_s * min_readings;
+                    spdlog::info("预热稳定性: 最慢周期={:.1f}s, 最小等待={:.1f}s, 期望组数={}",
+                                 slowest_cycle_s, min_duration_s, total_groups);
+                }
+                if (total_groups > 2) {
+                    expected_groups = total_groups;
+                }
+            }
+            
             add_log("预热模式: 稳态检测 (窗口=" + 
                     std::to_string(action.stability().window_s()) + "s, 阈值=" +
-                    std::to_string(action.stability().threshold_percent()) + "%)");
+                    std::to_string(action.stability().threshold_percent()) + 
+                    "%, 最小等待" + std::to_string(static_cast<int>(min_duration_s)) + "s)");
             wait_for_sensor_stability(
                 action.stability().window_s(),
                 action.stability().threshold_percent(),
-                action.max_duration_s()
+                action.max_duration_s(),
+                min_duration_s,
+                expected_groups
             );
             break;
         }
