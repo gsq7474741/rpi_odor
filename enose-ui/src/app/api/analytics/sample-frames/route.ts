@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { sampleId, sampleIds, nSamples, method, useCache, action } = body;
+    const { sampleId, sampleIds, nSamples, method, useCache, action, phaseNames } = body;
 
     // 批量生成模式
     if (action === "generateBatch" && sampleIds && Array.isArray(sampleIds)) {
@@ -139,6 +139,7 @@ export async function POST(request: NextRequest) {
         nSamples: nSamples || 50,
         method: method || "linear",
         useCache: useCache !== false,
+        phaseNames: Array.isArray(phaseNames) ? phaseNames : [],
       });
 
       return NextResponse.json({

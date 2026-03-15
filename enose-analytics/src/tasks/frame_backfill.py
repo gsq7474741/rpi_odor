@@ -1,9 +1,10 @@
-"""帧自动回填任务
+"""帧自动预热任务
 
 混合方案：
-1. PG LISTEN/NOTIFY：样本完成时实时响应，立即生成帧
-2. 定时轮询兜底：每隔 N 分钟扫描所有缺失帧的已完成样本并生成
+1. PG LISTEN/NOTIFY：样本完成时实时响应，立即生成帧到 Redis 缓存
+2. 定时轮询兜底：每隔 N 分钟扫描最近完成的样本，预热 Redis 缓存
 
+注意：不再写入 normalized_frames / normalized_frames_meta 表，仅预热 Redis 缓存
 默认帧配置：nSamples=100, methods=["linear", "pchip"]
 """
 
@@ -15,6 +16,7 @@ from typing import Literal
 
 import psycopg
 
+from ..cache.frame_cache import FrameCache
 from ..config import get_settings
 from ..db.connection import get_cursor
 from ..db.frame_normalizer import FrameNormalizer, InterpolationMethod
@@ -22,11 +24,11 @@ from ..logger import logger
 
 
 class FrameBackfillTask:
-    """帧自动回填后台任务
+    """帧 Redis 缓存预热后台任务
 
     启动两个守护线程：
     - listener_thread: PG LISTEN 实时监听 sample_completed 通知
-    - poller_thread: 定时轮询扫描缺失帧的已完成样本
+    - poller_thread: 定时轮询预热最近完成样本的 Redis 缓存
     """
 
     def __init__(
@@ -201,40 +203,50 @@ class FrameBackfillTask:
         )
 
     def _find_samples_missing_frames(self) -> list[int]:
-        """查找已完成但缺失默认配置帧的样本
+        """查找已完成但 Redis 缓存中缺失帧的样本
 
         条件：
         1. samples.end_time_ms IS NOT NULL（样本已完成采集）
-        2. 对于每种 method，不存在对应的 normalized_frames_meta 记录
+        2. Redis 中不存在对应的帧缓存
         """
-        # 构建查询：查找缺少任一 method 帧的已完成样本
-        method_conditions = []
-        for method in self.methods:
-            method_conditions.append(f"""
-                NOT EXISTS (
-                    SELECT 1 FROM normalized_frames_meta nfm
-                    WHERE nfm.sample_id = s.id
-                      AND nfm.method = '{method}'::interpolation_method
-                      AND nfm.n_samples = {self.n_samples}
-                )
-            """)
-
-        where_missing = " OR ".join(method_conditions)
-
-        query = f"""
+        # 先从 DB 获取最近完成的样本
+        query = """
             SELECT s.id
             FROM samples s
             WHERE s.end_time_ms IS NOT NULL
-              AND ({where_missing})
             ORDER BY s.id DESC
             LIMIT %s
         """
 
         with get_cursor() as cur:
-            cur.execute(query, [self.batch_size * 2])
+            cur.execute(query, [self.batch_size * 4])
             rows = cur.fetchall()
 
-        return [row["id"] for row in rows]
+        if not rows:
+            return []
+
+        # 检查 Redis 缓存，过滤出缺失的
+        try:
+            cache = FrameCache()
+            if not cache.health_check():
+                logger.debug("轮询: Redis 不可用，跳过")
+                return []
+        except Exception:
+            return []
+
+        missing = []
+        for row in rows:
+            sample_id = row["id"]
+            status = cache.get_status(sample_id)
+            cached_variants = status.get("variants", [])
+            # 检查是否所有 method 都已缓存
+            cached_methods = {v.get("method") for v in cached_variants}
+            for method in self.methods:
+                if method not in cached_methods:
+                    missing.append(sample_id)
+                    break
+
+        return missing
 
     # ============================================================
     # 帧生成
@@ -249,7 +261,7 @@ class FrameBackfillTask:
         start = time.perf_counter()
 
         for method in self.methods:
-            # get_normalized_frames_by_sample 会自动检查缓存/DB，缺失时生成
+            # get_normalized_frames_by_sample 会自动检查 Redis 缓存，缺失时生成
             frames, from_cache = self._normalizer.get_normalized_frames_by_sample(
                 sample_id=sample_id,
                 method=method,

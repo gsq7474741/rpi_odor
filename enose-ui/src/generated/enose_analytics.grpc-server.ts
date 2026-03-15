@@ -130,18 +130,20 @@ export interface IAnalyticsService extends grpc.UntypedServiceImplementation {
      */
     updateQualityConfig: grpc.handleUnaryCall<QualityConfig, QualityConfig>;
     /**
-     * 检查归一化帧状态
+     * [DEPRECATED] 检查归一化帧状态 - 请使用 GetSampleFramesStatus
      *
+     * @deprecated
      * @generated from protobuf rpc: GetNormalizedFramesStatus
      */
     getNormalizedFramesStatus: grpc.handleUnaryCall<NormalizedFramesStatusRequest, NormalizedFramesStatusResponse>;
     /**
-     * 生成归一化帧
+     * [DEPRECATED] 生成归一化帧 - 请使用 GenerateSampleFrames
      *
+     * @deprecated
      * @generated from protobuf rpc: GenerateNormalizedFrames
      */
     generateNormalizedFrames: grpc.handleUnaryCall<GenerateNormalizedFramesRequest, GenerateNormalizedFramesResponse>;
-    // ========== 基于 sample_id 的新接口 ==========
+    // ========== 基于 sample_id 的接口 ==========
 
     /**
      * 检查样本帧状态（含缓存状态）

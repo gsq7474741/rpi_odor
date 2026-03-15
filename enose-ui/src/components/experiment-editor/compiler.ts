@@ -528,8 +528,8 @@ export function compile(
       
       if (components) {
         // 计算比例总和和每个泵的流量
-        const totalRatio = components.reduce((sum, c) => sum + (c.ratio ?? 1), 0);
-        const pumpVolumes = components.map(c => volumeMl * ((c.ratio ?? 1) / totalRatio));
+        const totalRatio = components.reduce((sum, c) => sum + (c.ratio ?? 0), 0);
+        const pumpVolumes = components.map(c => volumeMl * ((c.ratio ?? 0) / (totalRatio || 1)));
         const maxPumpVolume = Math.max(...pumpVolumes, volumeMl);
         
         // 多泵并行：所有泵运行时间相同，由最大流量泵决定
@@ -751,7 +751,7 @@ function validateStructure(
         });
       } else {
         const totalRatio = connectedLiquids.reduce((sum, n) => {
-          return sum + ((n.data as Record<string, unknown>).ratio as number || 0);
+          return sum + ((n.data as Record<string, unknown>).ratio as number ?? 0);
         }, 0);
         
         if (Math.abs(totalRatio - 1.0) > 0.01) {
@@ -989,10 +989,10 @@ function compileNode(
         .map(n => {
           const d = n!.data as Record<string, unknown>;
           return {
-            liquidId: d.liquidId as string,
+            liquidId: String(d.liquidId || n!.id),
             liquidName: d.liquidName as string,
             pumpIndex: (d.pumpIndex as number) ?? -1,  // 获取泵索引
-            ratio: d.ratio as number || 1,
+            ratio: (d.ratio as number) ?? 1,
             isSolvent: Boolean(d.isSolvent),
           };
         });
@@ -1006,7 +1006,7 @@ function compileNode(
       if (liquids.length > 0) {
         const totalRatio = liquids.reduce((sum, l) => sum + l.ratio, 0);
         maxPumpVolume = liquids.reduce((max, l) => {
-          const pumpVolume = targetVolume * (l.ratio / totalRatio);
+          const pumpVolume = totalRatio > 0 ? targetVolume * (l.ratio / totalRatio) : 0;
           return Math.max(max, pumpVolume);
         }, 0);
       }
@@ -1511,9 +1511,9 @@ function applySweptParameter(
         
         let maxPumpVolume = value;
         if (components && components.length > 0) {
-          const totalRatio = components.reduce((sum, c) => sum + (c.ratio ?? 1), 0);
+          const totalRatio = components.reduce((sum, c) => sum + (c.ratio ?? 0), 0);
           maxPumpVolume = components.reduce((max, c) => {
-            const pumpVolume = value * ((c.ratio ?? 1) / totalRatio);
+            const pumpVolume = totalRatio > 0 ? value * ((c.ratio ?? 0) / totalRatio) : 0;
             return Math.max(max, pumpVolume);
           }, 0);
         }
@@ -1552,15 +1552,16 @@ function applySweptParameter(
         
         if (components && components.length > 0) {
           // 更新每个组件的比例
+          // ratioConfig 存储百分比 (0-100)，comp.ratio 使用小数 (0-1)，需要转换
           const updatedComponents = components.map(comp => ({
             ...comp,
-            ratio: ratioConfig[comp.liquidId] ?? comp.ratio,
+            ratio: ratioConfig[comp.liquidId] != null ? ratioConfig[comp.liquidId] / 100 : comp.ratio,
           }));
           step.params.components = updatedComponents;
           
-          // 更新名称显示比例
+          // 更新名称显示比例（转回百分比显示）
           const ratioLabel = updatedComponents
-            .map(c => `${c.ratio.toFixed(0)}%`)
+            .map(c => `${(c.ratio * 100).toFixed(0)}%`)
             .join(':');
           step.name = `${step.name} (${ratioLabel})`;
         }
@@ -1603,7 +1604,7 @@ function validateExpandedSteps(
         }> | undefined;
         
         if (components && components.length > 1) {
-          const totalRatio = components.reduce((sum, c) => sum + (c.ratio || 0), 0);
+          const totalRatio = components.reduce((sum, c) => sum + (c.ratio ?? 0), 0);
           if (Math.abs(totalRatio - 1.0) > 0.01) {
             // 检查是否已有相同 nodeId 的警告（避免重复）
             const existingWarning = diagnostics.find(

@@ -9,7 +9,10 @@ import { Slider } from "@/components/ui/slider";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -31,6 +34,7 @@ import {
   Dices,
   Lock,
   Unlock,
+  Tag,
 } from "lucide-react";
 import {
   Tooltip,
@@ -69,13 +73,13 @@ interface VisualizationResult {
 }
 
 type VisType = "PCA" | "TSNE" | "UMAP";
-type ColorBy = "cluster" | "label" | "experiment" | "phase" | "paramsHash";
+// colorBy 值："cluster" | "experiment" | "phase" | "paramsHash" | "label:<configName>"
 type ComputeMode = "frontend" | "backend";
 
 const MAX_FRONTEND_SAMPLES = 5000;
 
 export function ProjectorTab() {
-  const { filters, selectedSampleIds, samples, frameConfig, hoveredSampleId } = useExperiments();
+  const { filters, selectedSampleIds, samples, allSelectedSamples, frameConfig, hoveredSampleId, mlLabelConfig, setMlLabelConfig } = useExperiments();
 
   const [loading, setLoading] = useState(false);
   const [visType, setVisType] = useState<VisType>("PCA");
@@ -83,17 +87,20 @@ export function ProjectorTab() {
   const [maxPoints, setMaxPoints] = useState(500);
   const [visResult, setVisResult] = useState<VisualizationResult | null>(null);
   const [is3D, setIs3D] = useState(false);
-  const [colorBy, setColorBy] = useState<ColorBy>("cluster");
+  const [colorBy, setColorBy] = useState<string>("cluster");
   const [nClusters, setNClusters] = useState(5);
   const [computeMode, setComputeMode] = useState<ComputeMode>("frontend");
   const [progressMessage, setProgressMessage] = useState<string>("");
   const [sphereize, setSphereize] = useState(false);
   const [selectedPhases, setSelectedPhases] = useState<Set<string>>(new Set());
   
-  // ML 标签策略 (colorBy === "label" 时使用)
+  // ML 标签策略列表（动态填充 colorBy 下拉）
   const [labelConfigs, setLabelConfigs] = useState<{ name: string; labelType: string; description: string }[]>([]);
-  const [selectedLabelStrategy, setSelectedLabelStrategy] = useState<string>("");
   const sampleLabelsRef = useRef<Record<number, string>>({});
+  const [labelVersion, setLabelVersion] = useState(0);
+  
+  // 从 colorBy 中提取活跃的标签策略名（如 "label:liquid_identity" → "liquid_identity"）
+  const activeLabelStrategy = colorBy.startsWith("label:") ? colorBy.slice(6) : null;
   
   // Seed control for reproducible projections
   const [seed, setSeed] = useState<number>(() => Date.now());
@@ -113,30 +120,24 @@ export function ProjectorTab() {
   // Ref for buildVisResult so t-SNE onStep always uses the latest (picks up nClusters changes)
   const buildVisResultRef = useRef<typeof buildVisResult | null>(null);
 
-  // 获取选中的样本对应的运行 ID 列表
+  // 获取选中的样本对应的运行 ID 列表（使用 allSelectedSamples 支持跨页）
   const selectedRunIds = useMemo(() => {
-    const targetIds = Array.from(selectedSampleIds);
-    if (targetIds.length === 0) return [];
+    if (allSelectedSamples.length === 0) return [];
     const runIdSet = new Set<number>();
-    samples
-      .filter((s) => targetIds.includes(s.id))
-      .forEach((s) => runIdSet.add(s.runId));
+    allSelectedSamples.forEach((s) => runIdSet.add(s.runId));
     return Array.from(runIdSet);
-  }, [selectedSampleIds, samples]);
+  }, [allSelectedSamples]);
 
-  // 从选中样本中收集可用的 phase 列表
+  // 从选中样本中收集可用的 phase 列表（使用 allSelectedSamples 支持跨页）
   const availablePhases = useMemo(() => {
-    const targetIds = Array.from(selectedSampleIds);
     const phaseSet = new Set<string>();
-    samples
-      .filter((s) => targetIds.includes(s.id))
-      .forEach((s) => {
-        if (s.phaseTransitions) {
-          s.phaseTransitions.forEach((pt) => phaseSet.add(pt.phaseName));
-        }
-      });
+    allSelectedSamples.forEach((s) => {
+      if (s.phaseTransitions) {
+        s.phaseTransitions.forEach((pt) => phaseSet.add(pt.phaseName));
+      }
+    });
     return Array.from(phaseSet).sort();
-  }, [selectedSampleIds, samples]);
+  }, [allSelectedSamples]);
 
   // 自动选择计算模式
   useEffect(() => {
@@ -148,52 +149,49 @@ export function ProjectorTab() {
     }
   }, [selectedSampleIds.size]);
 
-  // 获取 ML 标签策略列表
+  // 获取 ML 标签策略列表（用于动态填充 colorBy 下拉）
   useEffect(() => {
     fetch("/api/ml-labels?action=configs")
       .then((r) => r.json())
       .then((data) => {
         if (data.configs) {
           setLabelConfigs(data.configs);
-          if (data.configs.length > 0 && !selectedLabelStrategy) {
-            setSelectedLabelStrategy(data.configs[0].name);
-          }
         }
       })
       .catch(console.error);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
-  // 当 colorBy=label 且策略变更时，获取每个样本的标签
+  // 当 colorBy 为 ML 标签策略时，获取每个样本的标签
   useEffect(() => {
-    if (colorBy !== "label" || !selectedLabelStrategy || selectedSampleIds.size === 0) return;
+    if (!activeLabelStrategy || selectedSampleIds.size === 0) return;
+    // 同步更新 context 的 mlLabelConfig
+    if (activeLabelStrategy !== mlLabelConfig) {
+      setMlLabelConfig(activeLabelStrategy);
+    }
     const sampleIds = Array.from(selectedSampleIds);
-    fetch(`/api/samples?action=labels&configName=${encodeURIComponent(selectedLabelStrategy)}&sampleIds=${sampleIds.join(",")}`)
+    sampleLabelsRef.current = {}; // 清空旧标签
+    fetch(`/api/samples?action=labels&configName=${encodeURIComponent(activeLabelStrategy)}&sampleIds=${sampleIds.join(",")}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.labels) {
           sampleLabelsRef.current = data.labels;
-          // 触发重绘：如果已有结果，重建 visResult 以应用新标签
-          if (visResult) {
-            const newResult = buildVisResult(
-              visResult.points.map(p => p.coords),
-              visResult.points.map(p => parseInt(p.id)),
-              visResult.type,
-              visResult.explainedVarianceRatio
-            );
-            setVisResult(newResult);
-          }
+          setLabelVersion((v) => v + 1); // 触发统一元数据刷新
         }
       })
       .catch(console.error);
-  }, [colorBy, selectedLabelStrategy, selectedSampleIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeLabelStrategy, selectedSampleIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 获取样本帧数据
   const fetchFramesData = useCallback(async () => {
     const sampleIdsList = Array.from(selectedSampleIds);
     if (sampleIdsList.length === 0) return null;
 
-    // Check cache（包含 frameConfig 参数）
-    const cacheKey = `${sampleIdsList.join(",")}_${frameConfig.method}_${frameConfig.nSamples}`;
+    // 构建 phase names 数组（空集合 = 不指定 = 使用默认数据）
+    const phaseNamesArr = selectedPhases.size > 0 ? Array.from(selectedPhases).sort() : [];
+    const phaseSuffix = phaseNamesArr.length > 0 ? `_${phaseNamesArr.join(",")}` : "";
+
+    // Check cache（包含 frameConfig 参数 + selectedPhases）
+    const cacheKey = `${sampleIdsList.join(",")}_${frameConfig.method}_${frameConfig.nSamples}${phaseSuffix}`;
     if (framesDataRef.current && 
         framesDataRef.current.cacheKey === cacheKey) {
       return framesDataRef.current;
@@ -210,6 +208,7 @@ export function ProjectorTab() {
           nSamples: frameConfig.nSamples,
           method: frameConfig.method,
           action: "get",
+          ...(phaseNamesArr.length > 0 ? { phaseNames: phaseNamesArr } : {}),
         }),
       });
       const data = await response.json();
@@ -230,7 +229,7 @@ export function ProjectorTab() {
     };
     framesDataRef.current = result;
     return result;
-  }, [selectedSampleIds, frameConfig]);
+  }, [selectedSampleIds, frameConfig, selectedPhases]);
 
   // 构建可视化结果
   const buildVisResult = useCallback((
@@ -243,7 +242,8 @@ export function ProjectorTab() {
 
     const points: VisPoint[] = projectedPoints.map((coords: number[], idx: number) => {
       const sampleId = sampleIds[idx];
-      const sample = samples.find(s => s.id === sampleId);
+      // 使用 allSelectedSamples 查找元数据（支持跨页样本）
+      const sample = allSelectedSamples.find(s => s.id === sampleId);
       return {
         id: sampleId.toString(),
         coords,
@@ -274,12 +274,59 @@ export function ProjectorTab() {
       totalSamples: points.length,
       nClusters,
     };
-  }, [samples, nClusters, seed]);
+  }, [allSelectedSamples, nClusters, seed]);
 
   // Keep buildVisResult ref up to date
   useEffect(() => {
     buildVisResultRef.current = buildVisResult;
   }, [buildVisResult]);
+
+  // 统一元数据+标签刷新 effect
+  // 当 allSelectedSamples 缓存更新 或 labelVersion 递增（标签获取完成）时，
+  // 用最新数据刷新 visResult 中每个点的所有属性字段。
+  const visResultRef = useRef(visResult);
+  useEffect(() => { visResultRef.current = visResult; }, [visResult]);
+
+  useEffect(() => {
+    const currentResult = visResultRef.current;
+    if (!currentResult || currentResult.points.length === 0) return;
+
+    const sampleMap = new Map(allSelectedSamples.map(s => [s.id, s]));
+    let updated = false;
+    const newPoints = currentResult.points.map(p => {
+      const sampleId = parseInt(p.id);
+      if (isNaN(sampleId)) return p;
+
+      const sample = sampleMap.get(sampleId);
+      const newLabel = sampleLabelsRef.current[sampleId] || undefined;
+      const newExpId = sample?.runId?.toString();
+      const newPhase = sample?.phaseName || undefined;
+      const newHash = sample?.paramsHash || undefined;
+
+      // 跳过无变化的点
+      if (p.label === newLabel && p.experimentId === newExpId &&
+          p.phase === newPhase && p.paramsHash === newHash) {
+        return p;
+      }
+
+      updated = true;
+      return {
+        ...p,
+        label: newLabel,
+        experimentId: newExpId,
+        phase: newPhase,
+        paramsHash: newHash,
+        liquidNames: sample?.liquidNames || undefined,
+        liquidRatios: sample?.liquidRatios || undefined,
+        gasPumpPwm: sample?.gasPumpPwm,
+        totalVolumeMl: sample?.totalVolumeMl,
+        flowRateMlS: sample?.flowRateMlS,
+      };
+    });
+    if (updated) {
+      setVisResult(prev => prev ? { ...prev, points: newPoints } : prev);
+    }
+  }, [allSelectedSamples, labelVersion]);
 
   // Track sphereize state for cache invalidation
   const sphereizeRef = useRef(sphereize);
@@ -434,6 +481,33 @@ export function ProjectorTab() {
       fetchVisualization();
     }
   }, [frameConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // selectedPhases 变化时，清除旧数据集并自动重新计算
+  const prevPhasesRef = useRef<Set<string>>(selectedPhases);
+  useEffect(() => {
+    const prev = Array.from(prevPhasesRef.current).sort().join(",");
+    const curr = Array.from(selectedPhases).sort().join(",");
+    if (prev !== curr) {
+      prevPhasesRef.current = selectedPhases;
+      // 清除缓存和数据集
+      framesDataRef.current = null;
+      setDataSet(null);
+      setVisResult(null);
+      // 停止正在运行的 t-SNE
+      if (tsneRunner) {
+        tsneRunner.stop();
+        setTsneRunner(null);
+        setTsneRunning(false);
+        setTsneIteration(0);
+      }
+      // 自动重新计算
+      if (selectedSampleIds.size >= 3) {
+        // 延迟触发避免批量 phase 切换时多次计算
+        const timer = setTimeout(() => fetchVisualization(), 300);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [selectedPhases]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 重新生成种子
   const regenerateSeed = useCallback(() => {
@@ -763,16 +837,39 @@ export function ProjectorTab() {
               <TooltipTrigger asChild>
                 <div className="flex items-center gap-1">
                   <Palette className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                  <Select value={colorBy} onValueChange={(v) => setColorBy(v as ColorBy)}>
-                    <SelectTrigger size="sm" className="w-[80px] px-2 text-xs border-0 bg-background shadow-sm">
+                  <Select value={colorBy} onValueChange={setColorBy}>
+                    <SelectTrigger size="sm" className="w-[120px] px-2 text-xs border-0 bg-background shadow-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="cluster">聚类</SelectItem>
-                      <SelectItem value="paramsHash">参数哈希</SelectItem>
-                      <SelectItem value="label">标签</SelectItem>
-                      <SelectItem value="experiment">实验</SelectItem>
-                      <SelectItem value="phase">阶段</SelectItem>
+                      <SelectGroup>
+                        <SelectLabel>分析</SelectLabel>
+                        <SelectItem value="cluster">聚类</SelectItem>
+                      </SelectGroup>
+                      <SelectSeparator />
+                      <SelectGroup>
+                        <SelectLabel>样本属性</SelectLabel>
+                        <SelectItem value="experiment">实验</SelectItem>
+                        <SelectItem value="phase">阶段</SelectItem>
+                        <SelectItem value="paramsHash">参数哈希</SelectItem>
+                      </SelectGroup>
+                      {labelConfigs.length > 0 && (
+                        <>
+                          <SelectSeparator />
+                          <SelectGroup>
+                            <SelectLabel>ML 标签</SelectLabel>
+                            {labelConfigs.map((c) => (
+                              <SelectItem key={c.name} value={`label:${c.name}`}>
+                                <span className="flex items-center gap-1">
+                                  <Tag className="h-3 w-3 flex-shrink-0" />
+                                  {c.name}
+                                  <span className="text-[10px] text-muted-foreground">({c.labelType})</span>
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -798,28 +895,6 @@ export function ProjectorTab() {
                   </div>
                 </TooltipTrigger>
                 <TooltipContent><p>K-Means 聚类数</p></TooltipContent>
-              </Tooltip>
-            )}
-
-            {colorBy === "label" && labelConfigs.length > 0 && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <Select value={selectedLabelStrategy} onValueChange={setSelectedLabelStrategy}>
-                      <SelectTrigger size="sm" className="w-[120px] px-2 text-xs border-0 bg-background shadow-sm">
-                        <SelectValue placeholder="选择策略" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {labelConfigs.map((c) => (
-                          <SelectItem key={c.name} value={c.name}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent><p>ML 标签策略</p></TooltipContent>
               </Tooltip>
             )}
           </div>
@@ -1056,7 +1131,7 @@ export function ProjectorTab() {
             nClusters={nClusters}
             title={`${visType} ${is3D ? "3D" : "2D"} 可视化`}
             is3D={is3D}
-            colorBy={colorBy}
+            colorBy={activeLabelStrategy ? "label" : colorBy as "cluster" | "label" | "experiment" | "phase" | "paramsHash"}
             highlightedSampleId={hoveredSampleId}
           />
         )}

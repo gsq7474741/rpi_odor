@@ -28,13 +28,17 @@ service AnalyticsService {
   // 更新质检配置
   rpc UpdateQualityConfig(QualityConfig) returns (QualityConfig);
   
-  // 检查归一化帧状态
-  rpc GetNormalizedFramesStatus(NormalizedFramesStatusRequest) returns (NormalizedFramesStatusResponse);
+  // [DEPRECATED] 检查归一化帧状态 - 请使用 GetSampleFramesStatus
+  rpc GetNormalizedFramesStatus(NormalizedFramesStatusRequest) returns (NormalizedFramesStatusResponse) {
+    option deprecated = true;
+  }
   
-  // 生成归一化帧
-  rpc GenerateNormalizedFrames(GenerateNormalizedFramesRequest) returns (GenerateNormalizedFramesResponse);
+  // [DEPRECATED] 生成归一化帧 - 请使用 GenerateSampleFrames
+  rpc GenerateNormalizedFrames(GenerateNormalizedFramesRequest) returns (GenerateNormalizedFramesResponse) {
+    option deprecated = true;
+  }
   
-  // ========== 基于 sample_id 的新接口 ==========
+  // ========== 基于 sample_id 的接口 ==========
   
   // 检查样本帧状态（含缓存状态）
   rpc GetSampleFramesStatus(SampleFramesStatusRequest) returns (SampleFramesStatusResponse);
@@ -371,14 +375,15 @@ message GetSampleFramesRequest {
   string method = 2;              // 插值方法 (默认 "linear")
   int32 n_samples = 3;            // 采样点数 (默认 100)
   optional bool use_cache = 4;    // 是否使用 Redis 缓存 (默认 true)
+  repeated string phase_names = 5; // 可选: 仅使用指定阶段的数据 (空=使用样本默认数据)
 }
 
 message GetSampleFramesResponse {
   bool success = 1;
-  repeated double frames = 2;     // 帧数据 (flatten: n_samples * 8)
+  repeated double frames = 2;     // 帧数据 (flatten: n_samples * n_channels)
   int32 n_samples = 3;            // 采样点数
-  int32 n_sensors = 4;            // 传感器数 (固定为 8)
-  bool from_cache = 5;            // 是否从缓存获取
+  int32 n_sensors = 4;            // 通道数 (32: 8传感器 × 4物理量 [value, temp, humidity, pressure])
+  bool from_cache = 5;            // 是否从 Redis 缓存获取
 }
 
 // ============================================================================

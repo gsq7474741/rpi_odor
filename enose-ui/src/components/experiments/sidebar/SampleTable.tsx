@@ -89,6 +89,10 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [recalculating, setRecalculating] = useState<Set<number>>(new Set());
 
+  // 方案D: 全选全部筛选结果状态
+  const [showSelectAllBanner, setShowSelectAllBanner] = useState(false);
+  const [selectingAll, setSelectingAll] = useState(false);
+
   // 右键菜单 & 删除确认
   const [deleteTarget, setDeleteTarget] = useState<{ ids: number[]; label: string } | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -230,7 +234,7 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
       params.set("limit", pageSize.toString());
       params.set("offset", (samplesPage * pageSize).toString());
       
-      // 应用筛选条件
+      // 应用筛选条件（基础筛选）
       if (filters.runIds.length === 1) {
         params.set("runId", filters.runIds[0].toString());
       } else if (filters.runIds.length > 1) {
@@ -244,6 +248,28 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
       }
       if (filters.liquidIds.length > 0) {
         params.set("liquid", filters.liquidIds.join(","));
+      }
+      // 服务端过滤参数（原客户端过滤迁移至服务端）
+      if (filters.componentCount !== null) {
+        params.set("componentCount", filters.componentCount.toString());
+      }
+      if (filters.qualityLevels.length > 0) {
+        params.set("qualityLevels", filters.qualityLevels.join(","));
+      }
+      if (filters.showAnchorsOnly) {
+        params.set("showAnchorsOnly", "true");
+      }
+      if (filters.showBlanksOnly) {
+        params.set("showBlanksOnly", "true");
+      }
+      if (filters.hideAnchorsAndBlanks) {
+        params.set("hideAnchorsAndBlanks", "true");
+      }
+      if (filters.experimentPhases.length > 0) {
+        params.set("experimentPhases", filters.experimentPhases.join(","));
+      }
+      if (filters.searchQuery) {
+        params.set("searchQuery", filters.searchQuery);
       }
       params.set("sortField", sortField);
       params.set("sortOrder", sortOrder);
@@ -259,7 +285,7 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
         });
 
         // 转换为 SampleWithFrameStatus
-        let samplesWithStatus: SampleWithFrameStatus[] = data.samples.map(
+        const samplesWithStatus: SampleWithFrameStatus[] = data.samples.map(
           (s: SampleWithFrameStatus) => ({
             ...s,
             frameStatus: null, // 稍后批量获取
@@ -267,36 +293,8 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
           })
         );
 
-        // 客户端后过滤：组合实验元数据筛选
-        if (filters.componentCount !== null) {
-          samplesWithStatus = samplesWithStatus.filter(
-            (s) => filters.componentCount! >= 4
-              ? s.liquidNames.length >= 4
-              : s.liquidNames.length === filters.componentCount
-          );
-        }
-        if (filters.qualityLevels.length > 0) {
-          samplesWithStatus = samplesWithStatus.filter(
-            (s) => s.qualityLevel && filters.qualityLevels.includes(s.qualityLevel)
-          );
-        }
-        if (filters.hideAnchorsAndBlanks) {
-          samplesWithStatus = samplesWithStatus.filter(
-            (s) => !s.isAnchor && !s.isBlank
-          );
-        } else if (filters.showAnchorsOnly) {
-          samplesWithStatus = samplesWithStatus.filter((s) => s.isAnchor);
-        } else if (filters.showBlanksOnly) {
-          samplesWithStatus = samplesWithStatus.filter((s) => s.isBlank);
-        }
-        if (filters.experimentPhases.length > 0) {
-          samplesWithStatus = samplesWithStatus.filter(
-            (s) => s.experimentPhase && filters.experimentPhases.includes(s.experimentPhase)
-          );
-        }
-
         setSamples(samplesWithStatus);
-        setSamplesTotal(samplesWithStatus.length);
+        setSamplesTotal(data.total); // 使用服务端返回的真实总数
 
         // 批量获取数据帧状态
         loadFrameStatuses(samplesWithStatus);
@@ -355,14 +353,71 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
   const allSelected = samples.length > 0 && samples.every((s) => selectedSampleIds.has(s.id));
   const someSelected = samples.some((s) => selectedSampleIds.has(s.id));
 
+  // 构建当前筛选条件的 URL 参数（复用于 loadSamples 和 fetchAllFilteredIds）
+  const buildFilterParams = useCallback(() => {
+    const params = new URLSearchParams();
+    if (filters.runIds.length === 1) {
+      params.set("runId", filters.runIds[0].toString());
+    } else if (filters.runIds.length > 1) {
+      params.set("runIds", filters.runIds.join(","));
+    }
+    if (filters.phaseNames.length > 0) {
+      params.set("phase", filters.phaseNames.join(","));
+    }
+    if (filters.paramsHash) {
+      params.set("paramsHash", filters.paramsHash);
+    }
+    if (filters.liquidIds.length > 0) {
+      params.set("liquid", filters.liquidIds.join(","));
+    }
+    if (filters.componentCount !== null) {
+      params.set("componentCount", filters.componentCount.toString());
+    }
+    if (filters.qualityLevels.length > 0) {
+      params.set("qualityLevels", filters.qualityLevels.join(","));
+    }
+    if (filters.showAnchorsOnly) params.set("showAnchorsOnly", "true");
+    if (filters.showBlanksOnly) params.set("showBlanksOnly", "true");
+    if (filters.hideAnchorsAndBlanks) params.set("hideAnchorsAndBlanks", "true");
+    if (filters.experimentPhases.length > 0) {
+      params.set("experimentPhases", filters.experimentPhases.join(","));
+    }
+    if (filters.searchQuery) params.set("searchQuery", filters.searchQuery);
+    return params;
+  }, [filters]);
+
   const handleSelectAll = useCallback(() => {
     const pageIds = samples.map(s => s.id);
     if (allSelected) {
       removeSamplesFromSelection(pageIds);
+      setShowSelectAllBanner(false);
     } else {
       addSamplesToSelection(pageIds);
+      // 如果总数超过当前页，显示“全选全部筛选结果”提示
+      if (samplesTotal > samples.length) {
+        setShowSelectAllBanner(true);
+      }
     }
-  }, [allSelected, samples, addSamplesToSelection, removeSamplesFromSelection]);
+  }, [allSelected, samples, samplesTotal, addSamplesToSelection, removeSamplesFromSelection]);
+
+  // 方案D: 全选全部筛选结果
+  const handleSelectAllFiltered = useCallback(async () => {
+    setSelectingAll(true);
+    try {
+      const params = buildFilterParams();
+      params.set("returnIdsOnly", "true");
+      const response = await fetch(`/api/samples?${params.toString()}`);
+      const data = await response.json();
+      if (data.ids) {
+        addSamplesToSelection(data.ids);
+      }
+      setShowSelectAllBanner(false);
+    } catch (error) {
+      console.error("Failed to fetch all filtered IDs:", error);
+    } finally {
+      setSelectingAll(false);
+    }
+  }, [buildFilterParams, addSamplesToSelection]);
 
   if (samplesLoading && samples.length === 0) {
     return (
@@ -415,6 +470,26 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
           </Badge>
         )}
       </div>
+
+      {/* 方案D: 全选全部筛选结果提示条 */}
+      {showSelectAllBanner && (
+        <div className="flex items-center justify-center gap-2 px-3 py-1.5 border-b bg-blue-50 dark:bg-blue-950/30 text-xs">
+          <span>已选中当前页 {samples.length} 个样本。</span>
+          <Button
+            variant="link"
+            size="sm"
+            className="h-auto p-0 text-xs text-blue-600 dark:text-blue-400"
+            onClick={handleSelectAllFiltered}
+            disabled={selectingAll}
+          >
+            {selectingAll ? (
+              <><Loader2 className="h-3 w-3 animate-spin mr-1" />加载中...</>
+            ) : (
+              <>选择全部 {samplesTotal} 个筛选结果</>
+            )}
+          </Button>
+        </div>
+      )}
 
       {/* 样本列表 */}
       <ScrollArea className="flex-1">

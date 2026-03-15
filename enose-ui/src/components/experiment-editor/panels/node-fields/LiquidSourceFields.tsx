@@ -115,9 +115,9 @@ export function LiquidSourceFields({
         </div>
       )}
       
-      <Field label={`比例 (${((Number(data.ratio) || 1) * 100).toFixed(0)}%)${ratioBindingForLiquid ? ' - 由扫描控制' : ''}`}>
+      <Field label={`比例 (${((Number(data.ratio) ?? 1) * 100).toFixed(0)}%)${ratioBindingForLiquid ? ' - 由扫描控制' : ''}`}>
         <Slider
-          value={[Number(data.ratio || 1) * 100]}
+          value={[Number(data.ratio ?? 1) * 100]}
           min={0}
           max={100}
           step={5}

@@ -24,11 +24,8 @@ import {
   Hash,
   Layers,
   X,
-  Plus,
-  Minus,
   ChevronDown,
   ChevronRight,
-  CheckSquare,
   Beaker,
   Eraser,
   ListFilter,
@@ -59,7 +56,6 @@ export function OverviewTab() {
     samplesTotal,
     selectedSampleIds,
     allSelectedSamples,
-    addSamplesToSelection,
     removeSamplesFromSelection,
     clearSampleSelection,
     comparisonItems,
@@ -68,11 +64,6 @@ export function OverviewTab() {
 
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
-  // 当前页中被选中的样本（用于“+当前页”“-当前页”操作）
-  const selectedOnPage: SampleWithFrameStatus[] = useMemo(
-    () => samples.filter((s) => selectedSampleIds.has(s.id)),
-    [samples, selectedSampleIds]
-  );
 
   // === 统计指标 ===
   const stats = useMemo(() => {
@@ -184,10 +175,6 @@ export function OverviewTab() {
       }));
   }, [allSelectedSamples]);
 
-  // 全选当前筛选页
-  const handleSelectAllFiltered = () => {
-    addSamplesToSelection(samples.map((s) => s.id));
-  };
 
   // 切换展开
   const toggleGroup = (key: string) => {
@@ -209,46 +196,28 @@ export function OverviewTab() {
           在左侧列表中勾选样本，或点击下方按钮快速选择。
         </p>
         <div className="flex gap-2 mt-4">
-          <Button variant="outline" size="sm" onClick={handleSelectAllFiltered}>
-            <CheckSquare className="h-4 w-4 mr-1.5" />
-            选择当前页 ({samples.length})
-          </Button>
+          <p className="text-muted-foreground text-xs">
+            使用左侧列表的全选复选框可快速选择整页或全部筛选结果。
+          </p>
         </div>
       </div>
     );
   }
 
-  // 不在当前页但已选中的样本数
-  const offPageCount = selectedSampleIds.size - selectedOnPage.length;
-
   return (
     <ScrollArea className="h-full">
       <div className="p-4 space-y-3">
-        {/* ===== 选择操作栏（紧凑） ===== */}
+        {/* ===== 选择操作栏（精简） ===== */}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1.5">
             <Layers className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium tabular-nums">{selectedSampleIds.size}</span>
             <span className="text-sm text-muted-foreground">样本</span>
-            {offPageCount > 0 && (
-              <Badge variant="outline" className="text-[10px] h-4 px-1 tabular-nums">
-                {offPageCount} 跨页
-              </Badge>
-            )}
           </div>
           <div className="flex items-center gap-1 ml-auto">
-            <Button variant="outline" size="sm" className="h-6 text-[11px] gap-1 px-2" onClick={handleSelectAllFiltered}>
-              <Plus className="h-3 w-3" />
-              +当前页
-            </Button>
-            {selectedOnPage.length > 0 && (
-              <Button variant="outline" size="sm" className="h-6 text-[11px] gap-1 px-2" onClick={() => removeSamplesFromSelection(selectedOnPage.map((s) => s.id))}>
-                <Minus className="h-3 w-3" />
-                -当前页
-              </Button>
-            )}
             <Button variant="ghost" size="sm" className="h-6 text-[11px] gap-1 px-2 text-destructive hover:text-destructive" onClick={clearSampleSelection}>
               <Eraser className="h-3 w-3" />
+              清空选择
             </Button>
           </div>
         </div>

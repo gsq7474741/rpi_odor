@@ -4,7 +4,6 @@ import {
   querySensorData,
   getAggregatedStats,
   getExperimentDetail,
-  generateNormalizedFrames,
 } from "@/lib/analytics-grpc-client";
 import { Timestamp } from "@/generated/google/protobuf/timestamp";
 import { AggregationDimension } from "@/generated/enose_analytics";
@@ -213,51 +212,13 @@ export async function POST(request: NextRequest) {
 
     switch (action) {
       case "generate-frames": {
-        const { runIds, nSamples = 50, methods = ["linear"] } = body;
-        
-        if (!runIds || !Array.isArray(runIds) || runIds.length === 0) {
-          return NextResponse.json(
-            { success: false, error: "Missing runIds" },
-            { status: 400 }
-          );
-        }
-
-        const results: Record<number, { success: boolean; message: string; framesGenerated?: Record<string, number> }> = {};
-
-        for (const runId of runIds) {
-          try {
-            const response = await generateNormalizedFrames({
-              runId: parseInt(runId),
-              nSamples,
-              methods,
-              phaseNames: [],
-            });
-            // framesGenerated is a Map from protobuf-ts
-            const framesMap: Record<string, number> = {};
-            for (const [key, value] of Object.entries(response.framesGenerated)) {
-              framesMap[key] = value;
-            }
-            results[runId] = {
-              success: response.success,
-              message: response.message,
-              framesGenerated: framesMap,
-            };
-          } catch (err) {
-            results[runId] = {
-              success: false,
-              message: err instanceof Error ? err.message : "Unknown error",
-            };
-          }
-        }
-
-        const totalGenerated = Object.values(results)
-          .filter(r => r.success)
-          .reduce((sum, r) => sum + Object.values(r.framesGenerated || {}).reduce((a, b) => a + b, 0), 0);
-
+        // [DEPRECATED] run_id based frame generation is no longer supported.
+        // Frames are now auto-generated on demand via sample_id based APIs.
         return NextResponse.json({
-          success: true,
-          results,
-          totalGenerated,
+          success: false,
+          message: "Deprecated: use sample-based frame generation (GenerateSampleFrames) instead",
+          results: {},
+          totalGenerated: 0,
         });
       }
 

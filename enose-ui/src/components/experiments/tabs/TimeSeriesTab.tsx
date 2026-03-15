@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useExperiments, PhaseTransition } from "../context/ExperimentsContext";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -55,7 +54,6 @@ interface SampleTimeSeriesData {
 }
 
 type AlignMode = "absolute" | "relative" | "normalized";
-type DataSource = "raw" | "frames";
 type ColorMode = "bySensor" | "bySample" | "byRun";
 
 // 固定传感器色卡（按传感器染色时使用）
@@ -109,9 +107,7 @@ export function TimeSeriesTab() {
   const {
     selectedSampleIds,
     samples,
-    frameConfig,
-    setFrameConfig,
-    refreshFrameStatuses,
+    allSelectedSamples,
   } = useExperiments();
 
   const chartRef = useRef<HTMLDivElement>(null);
@@ -121,49 +117,14 @@ export function TimeSeriesTab() {
   const [timeSeriesData, setTimeSeriesData] = useState<SampleTimeSeriesData[]>([]);
   const [selectedSensors, setSelectedSensors] = useState<number[]>([0, 1, 2, 3, 4, 5, 6, 7]);
   const [alignMode, setAlignMode] = useState<AlignMode>("relative");
-  const [dataSource, setDataSource] = useState<DataSource>("frames");
   const [colorMode, setColorMode] = useState<ColorMode>("bySample");
   const [showEnv, setShowEnv] = useState(false);
 
-  // 动态收集 nSamples 选项（预设 + 已存在 + 当前使用中），用于下拉列表
-  const nSamplesOptions = useMemo(() => {
-    const nSet = new Set([50, 100, 200, 500]);
-    nSet.add(frameConfig.nSamples);
-    const selected = samples.filter((s) => selectedSampleIds.has(s.id));
-    for (const s of selected) {
-      if (s.frameStatus?.variants) {
-        for (const v of s.frameStatus.variants) {
-          nSet.add(v.nSamples);
-        }
-      }
-    }
-    return Array.from(nSet).sort((a, b) => a - b);
-  }, [samples, selectedSampleIds, frameConfig.nSamples]);
-
-  // 检查当前 frameConfig 组合在选中样本中的覆盖情况
-  const frameCoverage = useMemo(() => {
-    const selected = samples.filter((s) => selectedSampleIds.has(s.id));
-    if (selected.length === 0) return { total: 0, covered: 0, missing: 0 };
-    let covered = 0;
-    for (const s of selected) {
-      if (s.frameStatus?.variants?.some(
-        (v) => v.method === frameConfig.method && v.nSamples === frameConfig.nSamples
-      )) {
-        covered++;
-      }
-    }
-    return { total: selected.length, covered, missing: selected.length - covered };
-  }, [samples, selectedSampleIds, frameConfig]);
-
-  // 获取选中的样本 - 使用新的 samples 数组
+  // 获取选中的样本（使用 allSelectedSamples 支持跨页）
   const getSelectedSamples = useCallback(() => {
-    const targetIds = Array.from(selectedSampleIds);
-    if (targetIds.length === 0) return [];
-    
-    return samples
-      .filter((s) => targetIds.includes(s.id))
-      .map((s) => ({ sampleId: s.id, runId: s.runId }));
-  }, [selectedSampleIds, samples]);
+    if (allSelectedSamples.length === 0) return [];
+    return allSelectedSamples.map((s) => ({ sampleId: s.id, runId: s.runId }));
+  }, [allSelectedSamples]);
 
   // 加载时序数据
   const fetchTimeSeriesData = useCallback(async () => {
@@ -178,86 +139,28 @@ export function TimeSeriesTab() {
       const results: SampleTimeSeriesData[] = [];
 
       for (const { sampleId, runId } of selectedList) {
-        const sampleInfo = samples.find((s) => s.id === sampleId);
+        const sampleInfo = allSelectedSamples.find((s) => s.id === sampleId);
         
-        if (dataSource === "frames") {
-          // 使用归一化帧数据（使用全局帧配置）
-          const response = await fetch(
-            `/api/samples?action=frames&sampleId=${sampleId}&method=${frameConfig.method}&nSamples=${frameConfig.nSamples}`
-          );
-          const data = await response.json();
-
-          if (data.success && data.frames) {
-            const nSensors = data.nSensors || 8;
-            const is32ch = nSensors === 32;
-            const sensorData: SensorDataPoint[] = [];
-            const envData: EnvDataPoint[] = [];
-
-            // 将帧索引映射到原始 ms 时间范围
-            const sAbsStart = sampleInfo?.startTimeMs || 0;
-            const sAbsEnd = sampleInfo?.endTimeMs || 0;
-            const totalFrames = data.frames.length;
-            const maxFrameIdx = totalFrames > 1 ? totalFrames - 1 : 1;
-            const sAbsRange = sAbsEnd - sAbsStart || 1;
-
-            for (const frame of data.frames) {
-              const frameIdx = frame.frameIdx || 0;
-              const values = frame.values || [];
-              // 映射到 ms：frameIdx 0 → sAbsStart, maxFrameIdx → sAbsEnd
-              const timeMs = sAbsStart > 0
-                ? sAbsStart + (frameIdx / maxFrameIdx) * sAbsRange
-                : frameIdx;
-
-              // 前 8 个值始终是传感器 value
-              for (let i = 0; i < 8 && i < values.length; i++) {
-                sensorData.push({
-                  timeMs,
-                  value: values[i],
-                  sensorIdx: i,
-                });
-              }
-
-              // 32 通道时，提取环境数据（8-15: temp, 16-23: humidity, 24-31: pressure）
-              if (is32ch && values.length >= 32) {
-                let avgTemp = 0, avgHum = 0, avgPres = 0;
-                for (let i = 0; i < 8; i++) {
-                  avgTemp += values[8 + i] || 0;
-                  avgHum += values[16 + i] || 0;
-                  avgPres += values[24 + i] || 0;
-                }
-                envData.push({
-                  timeMs,
-                  temperature: avgTemp / 8,
-                  humidity: avgHum / 8,
-                  pressure: avgPres / 8,
-                });
-              }
-            }
-
-            results.push({
-              sampleId,
-              runId,
-              sampleIdx: sampleInfo?.sampleIdx || 0,
-              liquidNames: sampleInfo?.liquidNames || [],
-              phaseName: sampleInfo?.phaseName || "",
-              data: sensorData,
-              envData: envData.length > 0 ? envData : undefined,
-              phaseTransitions: sampleInfo?.phaseTransitions || [],
-              sampleStartTimeMs: sampleInfo?.startTimeMs,
-              sampleEndTimeMs: sampleInfo?.endTimeMs ?? undefined,
-            });
+        // 计算有效时间范围：包含样本关联的所有 phase transitions（如 WASH）
+        const sampleEndMs = sampleInfo?.endTimeMs || 0;
+        let effectiveEndMs = sampleEndMs;
+        for (const pt of sampleInfo?.phaseTransitions || []) {
+          if (pt.endTimeMs && pt.endTimeMs > effectiveEndMs) {
+            effectiveEndMs = pt.endTimeMs;
           }
-        } else {
-          // 使用原始数据
+        }
+
+        // 使用原始数据
+        {
           const response = await fetch(
             `/api/analytics/data?action=sensor-data&experimentId=${runId}&limit=5000`
           );
           const data = await response.json();
 
           if (data.success && data.rows) {
-            // 过滤到 sample 的时间范围内
+            // 过滤到 sample + 关联 phase 的时间范围内（包含 WASH 等后续阶段）
             const sStart = sampleInfo?.startTimeMs || 0;
-            const sEnd = sampleInfo?.endTimeMs || Infinity;
+            const sEnd = effectiveEndMs > 0 ? effectiveEndMs : Infinity;
 
             const sensorData: SensorDataPoint[] = [];
             const envData: EnvDataPoint[] = [];
@@ -296,24 +199,19 @@ export function TimeSeriesTab() {
               envData,
               phaseTransitions: sampleInfo?.phaseTransitions || [],
               sampleStartTimeMs: sampleInfo?.startTimeMs,
-              sampleEndTimeMs: sampleInfo?.endTimeMs ?? undefined,
+              sampleEndTimeMs: effectiveEndMs > 0 ? effectiveEndMs : undefined,
             });
           }
         }
       }
 
       setTimeSeriesData(results);
-
-      // 帧模式下获取成功后，刷新帧状态（后端可能自动生成了缺失帧）
-      if (dataSource === "frames" && results.length > 0) {
-        refreshFrameStatuses();
-      }
     } catch (error) {
       console.error("Failed to fetch time series data:", error);
     } finally {
       setLoading(false);
     }
-  }, [getSelectedSamples, samples, dataSource, frameConfig, refreshFrameStatuses]);
+  }, [getSelectedSamples, allSelectedSamples]);
 
   // 初始化图表
   useEffect(() => {
@@ -600,7 +498,7 @@ export function TimeSeriesTab() {
 
     chartInstance.current.setOption(option, true);
     chartInstance.current.resize();
-  }, [timeSeriesData, selectedSensors, alignMode, dataSource, colorMode, showEnv, getSeriesColor, alignPoints]);
+  }, [timeSeriesData, selectedSensors, alignMode, colorMode, showEnv, getSeriesColor, alignPoints]);
 
   // 选中项变化时自动加载数据
   const selectedIdsRef = useRef<string>("");
@@ -611,29 +509,6 @@ export function TimeSeriesTab() {
       fetchTimeSeriesData();
     }
   }, [selectedSampleIds]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // 数据源切换时自动重新获取数据
-  const prevDataSourceRef = useRef<DataSource>(dataSource);
-  useEffect(() => {
-    if (prevDataSourceRef.current !== dataSource && selectedSampleIds.size > 0) {
-      prevDataSourceRef.current = dataSource;
-      fetchTimeSeriesData();
-    }
-  }, [dataSource, fetchTimeSeriesData]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // 帧配置切换时（仅帧模式下）自动重新获取数据
-  const prevFrameConfigRef = useRef(frameConfig);
-  useEffect(() => {
-    if (
-      dataSource === "frames" &&
-      selectedSampleIds.size > 0 &&
-      (prevFrameConfigRef.current.method !== frameConfig.method ||
-        prevFrameConfigRef.current.nSamples !== frameConfig.nSamples)
-    ) {
-      prevFrameConfigRef.current = frameConfig;
-      fetchTimeSeriesData();
-    }
-  }, [frameConfig, dataSource, fetchTimeSeriesData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 窗口大小变化时调整图表
   useEffect(() => {
@@ -710,69 +585,6 @@ export function TimeSeriesTab() {
               {idx}
             </button>
           ))}
-        </div>
-
-        {/* 数据源 + 帧配置组 */}
-        <div className="flex items-center gap-1 bg-muted/40 rounded-lg px-2 py-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div>
-                <Select value={dataSource} onValueChange={(v) => setDataSource(v as DataSource)}>
-                  <SelectTrigger size="sm" className="w-[96px] text-xs border-0 bg-background shadow-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="frames">归一化帧</SelectItem>
-                    <SelectItem value="raw">原始数据</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent><p>数据源</p></TooltipContent>
-          </Tooltip>
-
-          {dataSource === "frames" && (
-            <>
-              <div className="w-px h-5 bg-border" />
-              <Select value={frameConfig.method} onValueChange={(v) => setFrameConfig({ method: v as "linear" | "pchip" })}>
-                <SelectTrigger size="sm" className="w-[76px] text-xs border-0 bg-background shadow-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="linear">Linear</SelectItem>
-                  <SelectItem value="pchip">PCHIP</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={String(frameConfig.nSamples)} onValueChange={(v) => setFrameConfig({ nSamples: parseInt(v) })}>
-                <SelectTrigger size="sm" className="w-[68px] text-xs border-0 bg-background shadow-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {nSamplesOptions.map((n) => (
-                    <SelectItem key={n} value={String(n)}>{n}点</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {frameCoverage.missing > 0 && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="relative flex h-5 items-center">
-                      <Badge variant="destructive" className="text-[10px] h-5 px-1.5 animate-pulse">
-                        {frameCoverage.missing} 缺帧
-                      </Badge>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs">
-                      {frameCoverage.missing}/{frameCoverage.total} 个样本没有
-                      {frameConfig.method} × {frameConfig.nSamples}点 的帧数据，
-                      请在数据帧管理面板中计算
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-            </>
-          )}
         </div>
 
         {/* 显示选项组：对齐 + 染色 */}

@@ -295,7 +295,7 @@ export function ParamSweepFields({ data, handleChange, nodes }: ParamSweepFields
                                     type="number"
                                     min={0}
                                     max={100}
-                                    value={point.ratios[liquidId] || 0}
+                                    value={point.ratios[liquidId] ?? 0}
                                     onChange={(e) => updateRatioPoint(pointIdx, liquidId, parseInt(e.target.value) || 0)}
                                     className="w-12 h-5 text-[10px] px-1"
                                   />

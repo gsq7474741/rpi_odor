@@ -94,6 +94,51 @@ class FrameCache:
             logger.error(f"FrameCache SET 失败: {key}, {e}")
             return False
 
+    def get_by_key(
+        self,
+        key: str,
+        n_samples: int,
+        n_channels: int,
+    ) -> np.ndarray | None:
+        """通过自定义 key 获取缓存（用于 phase_names 模式）"""
+        full_key = f"frames:{key}"
+        data = self.redis.get(full_key)
+        if data:
+            try:
+                flat = np.frombuffer(data, dtype=np.float64)
+                if len(flat) == n_samples * n_channels:
+                    arr = flat.reshape(n_samples, n_channels)
+                    logger.debug(f"FrameCache HIT (by_key): {full_key}, shape={arr.shape}")
+                    return arr
+                else:
+                    logger.info(f"FrameCache STALE (by_key): {full_key}, expected {n_samples*n_channels}, got {len(flat)}")
+                    self.redis.delete(full_key)
+            except Exception as e:
+                logger.warning(f"FrameCache 解析失败 (by_key): {full_key}, {e}")
+                self.redis.delete(full_key)
+        return None
+
+    def set_by_key(
+        self,
+        key: str,
+        frames: np.ndarray,
+        n_samples: int,
+        ttl: int | None = None,
+    ) -> bool:
+        """通过自定义 key 缓存帧数据（用于 phase_names 模式）"""
+        full_key = f"frames:{key}"
+        try:
+            if len(frames.shape) != 2 or frames.shape[0] != n_samples:
+                logger.warning(f"FrameCache 形状不匹配 (by_key): {frames.shape}, 期望 ({n_samples}, ?)")
+                return False
+            data = frames.astype(np.float64).tobytes()
+            self.redis.setex(full_key, ttl or self.default_ttl, data)
+            logger.debug(f"FrameCache SET (by_key): {full_key} shape={frames.shape}")
+            return True
+        except Exception as e:
+            logger.error(f"FrameCache SET 失败 (by_key): {full_key}, {e}")
+            return False
+
     def delete(
         self,
         sample_id: int,

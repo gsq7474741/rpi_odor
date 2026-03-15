@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, ReactNode } from "react";
 
 // 运行记录
 export interface Run {
@@ -302,6 +302,50 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
     }
     return Array.from(map.values());
   }, [selectedSamplesCache, samples, selectedSampleIds]);
+
+  // 方案C: 自动获取缺失样本缓存
+  const fetchingMissingRef = useRef(false);
+  useEffect(() => {
+    if (fetchingMissingRef.current) return;
+    const currentPageIds = new Set(samples.map(s => s.id));
+    const missingIds = Array.from(selectedSampleIds).filter(
+      id => !selectedSamplesCache.has(id) && !currentPageIds.has(id)
+    );
+    if (missingIds.length === 0) return;
+
+    fetchingMissingRef.current = true;
+    // 分批获取，每批最多 200 个
+    const BATCH = 200;
+    const batches: number[][] = [];
+    for (let i = 0; i < missingIds.length; i += BATCH) {
+      batches.push(missingIds.slice(i, i + BATCH));
+    }
+
+    (async () => {
+      try {
+        for (const batch of batches) {
+          const resp = await fetch(`/api/samples?action=byIds&ids=${batch.join(",")}`);
+          const data = await resp.json();
+          if (data.samples && data.samples.length > 0) {
+            setSelectedSamplesCache(prev => {
+              const next = new Map(prev);
+              for (const s of data.samples) {
+                // 只添加仍在选中集中的样本
+                if (selectedSampleIds.has(s.id)) {
+                  next.set(s.id, { ...s, frameStatus: null, runCreatedAt: null } as SampleWithFrameStatus);
+                }
+              }
+              return next;
+            });
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch missing selected samples:", e);
+      } finally {
+        fetchingMissingRef.current = false;
+      }
+    })();
+  }, [selectedSampleIds, selectedSamplesCache, samples]);
 
   // 对比模式
   const [comparisonMode, setComparisonMode] = useState(false);

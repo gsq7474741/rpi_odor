@@ -48,6 +48,7 @@ class DatasetBuilder:
         seed: int = 42,
         split_method: str = "stratified_holdout",
         k_folds: int = 5,
+        frame_phase_names: list[str] | None = None,
     ) -> dict[str, Any]:
         """构建分类数据集
 
@@ -84,7 +85,7 @@ class DatasetBuilder:
             if not lbl.get("label_str"):
                 continue
             sample_id = lbl["sample_id"]
-            frames = self._extract_sample_frames(sample_id, n_samples, method)
+            frames = self._extract_sample_frames(sample_id, n_samples, method, frame_phase_names)
             if frames is not None:
                 X_list.append(frames)
                 y_list.append(label_to_idx[lbl["label_str"]])
@@ -285,11 +286,15 @@ class DatasetBuilder:
         }
 
     def _extract_sample_frames(
-        self, sample_id: int, n_samples: int, method: str
+        self, sample_id: int, n_samples: int, method: str,
+        frame_phase_names: list[str] | None = None,
     ) -> np.ndarray | None:
         """提取单个样本的归一化帧
 
         使用 FrameNormalizer 的三级缓存（Redis → DB → 重新生成）
+
+        Args:
+            frame_phase_names: 可选的阶段名称列表，仅使用这些阶段的数据生成帧
 
         Returns:
             (T, 8, 4) 形状的 numpy 数组，8 传感器 × 4 物理量
@@ -300,6 +305,7 @@ class DatasetBuilder:
                 sample_id=sample_id,
                 method=method,
                 n_samples=n_samples,
+                phase_names=frame_phase_names,
             )
             if frames is not None and frames.size > 0:
                 # FrameNormalizer 返回 (T, 32) → reshape 为 (T, 8, 4)

@@ -150,8 +150,9 @@ export interface IAnalyticsServiceClient {
     updateQualityConfig(input: QualityConfig, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: QualityConfig) => void): grpc.ClientUnaryCall;
     updateQualityConfig(input: QualityConfig, callback: (err: grpc.ServiceError | null, value?: QualityConfig) => void): grpc.ClientUnaryCall;
     /**
-     * 检查归一化帧状态
+     * [DEPRECATED] 检查归一化帧状态 - 请使用 GetSampleFramesStatus
      *
+     * @deprecated
      * @generated from protobuf rpc: GetNormalizedFramesStatus
      */
     getNormalizedFramesStatus(input: NormalizedFramesStatusRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: NormalizedFramesStatusResponse) => void): grpc.ClientUnaryCall;
@@ -159,15 +160,16 @@ export interface IAnalyticsServiceClient {
     getNormalizedFramesStatus(input: NormalizedFramesStatusRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: NormalizedFramesStatusResponse) => void): grpc.ClientUnaryCall;
     getNormalizedFramesStatus(input: NormalizedFramesStatusRequest, callback: (err: grpc.ServiceError | null, value?: NormalizedFramesStatusResponse) => void): grpc.ClientUnaryCall;
     /**
-     * 生成归一化帧
+     * [DEPRECATED] 生成归一化帧 - 请使用 GenerateSampleFrames
      *
+     * @deprecated
      * @generated from protobuf rpc: GenerateNormalizedFrames
      */
     generateNormalizedFrames(input: GenerateNormalizedFramesRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: GenerateNormalizedFramesResponse) => void): grpc.ClientUnaryCall;
     generateNormalizedFrames(input: GenerateNormalizedFramesRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: GenerateNormalizedFramesResponse) => void): grpc.ClientUnaryCall;
     generateNormalizedFrames(input: GenerateNormalizedFramesRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: GenerateNormalizedFramesResponse) => void): grpc.ClientUnaryCall;
     generateNormalizedFrames(input: GenerateNormalizedFramesRequest, callback: (err: grpc.ServiceError | null, value?: GenerateNormalizedFramesResponse) => void): grpc.ClientUnaryCall;
-    // ========== 基于 sample_id 的新接口 ==========
+    // ========== 基于 sample_id 的接口 ==========
 
     /**
      * 检查样本帧状态（含缓存状态）
@@ -274,8 +276,9 @@ export class AnalyticsServiceClient extends grpc.Client implements IAnalyticsSer
         return this.makeUnaryRequest<QualityConfig, QualityConfig>(`/${AnalyticsService.typeName}/${method.name}`, (value: QualityConfig): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): QualityConfig => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
-     * 检查归一化帧状态
+     * [DEPRECATED] 检查归一化帧状态 - 请使用 GetSampleFramesStatus
      *
+     * @deprecated
      * @generated from protobuf rpc: GetNormalizedFramesStatus
      */
     getNormalizedFramesStatus(input: NormalizedFramesStatusRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: NormalizedFramesStatusResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: NormalizedFramesStatusResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: NormalizedFramesStatusResponse) => void)): grpc.ClientUnaryCall {
@@ -283,15 +286,16 @@ export class AnalyticsServiceClient extends grpc.Client implements IAnalyticsSer
         return this.makeUnaryRequest<NormalizedFramesStatusRequest, NormalizedFramesStatusResponse>(`/${AnalyticsService.typeName}/${method.name}`, (value: NormalizedFramesStatusRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): NormalizedFramesStatusResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
-     * 生成归一化帧
+     * [DEPRECATED] 生成归一化帧 - 请使用 GenerateSampleFrames
      *
+     * @deprecated
      * @generated from protobuf rpc: GenerateNormalizedFrames
      */
     generateNormalizedFrames(input: GenerateNormalizedFramesRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GenerateNormalizedFramesResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GenerateNormalizedFramesResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: GenerateNormalizedFramesResponse) => void)): grpc.ClientUnaryCall {
         const method = AnalyticsService.methods[6];
         return this.makeUnaryRequest<GenerateNormalizedFramesRequest, GenerateNormalizedFramesResponse>(`/${AnalyticsService.typeName}/${method.name}`, (value: GenerateNormalizedFramesRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): GenerateNormalizedFramesResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
-    // ========== 基于 sample_id 的新接口 ==========
+    // ========== 基于 sample_id 的接口 ==========
 
     /**
      * 检查样本帧状态（含缓存状态）

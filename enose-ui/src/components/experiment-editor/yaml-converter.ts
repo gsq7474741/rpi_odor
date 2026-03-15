@@ -231,11 +231,11 @@ export function compiledStepToYamlStep(step: CompiledStep): YamlStep | null {
       }>) || [];
       
       const yamlComponents = components
-        .filter(c => (c.ratio ?? 0) > 0)
+        .filter(c => c.ratio != null)
         .map(c => {
           const yc: { liquid_id: string; ratio: number; is_solvent?: boolean } = {
             liquid_id: String(c.liquidId),
-            ratio: Number(c.ratio ?? 1),
+            ratio: Number(c.ratio ?? 0),
           };
           if (c.isSolvent) yc.is_solvent = true;
           return yc;

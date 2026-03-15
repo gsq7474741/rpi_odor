@@ -589,6 +589,10 @@ export interface GetSampleFramesRequest {
      * @generated from protobuf field: optional bool use_cache = 4
      */
     useCache?: boolean; // 是否使用 Redis 缓存 (默认 true)
+    /**
+     * @generated from protobuf field: repeated string phase_names = 5
+     */
+    phaseNames: string[]; // 可选: 仅使用指定阶段的数据 (空=使用样本默认数据)
 }
 /**
  * @generated from protobuf message enose.analytics.v1.GetSampleFramesResponse
@@ -601,7 +605,7 @@ export interface GetSampleFramesResponse {
     /**
      * @generated from protobuf field: repeated double frames = 2
      */
-    frames: number[]; // 帧数据 (flatten: n_samples * 8)
+    frames: number[]; // 帧数据 (flatten: n_samples * n_channels)
     /**
      * @generated from protobuf field: int32 n_samples = 3
      */
@@ -609,11 +613,11 @@ export interface GetSampleFramesResponse {
     /**
      * @generated from protobuf field: int32 n_sensors = 4
      */
-    nSensors: number; // 传感器数 (固定为 8)
+    nSensors: number; // 通道数 (32: 8传感器 × 4物理量 [value, temp, humidity, pressure])
     /**
      * @generated from protobuf field: bool from_cache = 5
      */
-    fromCache: boolean; // 是否从缓存获取
+    fromCache: boolean; // 是否从 Redis 缓存获取
 }
 // ============================================================================
 // 模型训练消息
@@ -4690,7 +4694,8 @@ class GetSampleFramesRequest$Type extends MessageType<GetSampleFramesRequest> {
             { no: 1, name: "sample_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 2, name: "method", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 3, name: "n_samples", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 4, name: "use_cache", kind: "scalar", opt: true, T: 8 /*ScalarType.BOOL*/ }
+            { no: 4, name: "use_cache", kind: "scalar", opt: true, T: 8 /*ScalarType.BOOL*/ },
+            { no: 5, name: "phase_names", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ }
         ]);
     }
     create(value?: PartialMessage<GetSampleFramesRequest>): GetSampleFramesRequest {
@@ -4698,6 +4703,7 @@ class GetSampleFramesRequest$Type extends MessageType<GetSampleFramesRequest> {
         message.sampleId = 0;
         message.method = "";
         message.nSamples = 0;
+        message.phaseNames = [];
         if (value !== undefined)
             reflectionMergePartial<GetSampleFramesRequest>(this, message, value);
         return message;
@@ -4718,6 +4724,9 @@ class GetSampleFramesRequest$Type extends MessageType<GetSampleFramesRequest> {
                     break;
                 case /* optional bool use_cache */ 4:
                     message.useCache = reader.bool();
+                    break;
+                case /* repeated string phase_names */ 5:
+                    message.phaseNames.push(reader.string());
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -4743,6 +4752,9 @@ class GetSampleFramesRequest$Type extends MessageType<GetSampleFramesRequest> {
         /* optional bool use_cache = 4; */
         if (message.useCache !== undefined)
             writer.tag(4, WireType.Varint).bool(message.useCache);
+        /* repeated string phase_names = 5; */
+        for (let i = 0; i < message.phaseNames.length; i++)
+            writer.tag(5, WireType.LengthDelimited).string(message.phaseNames[i]);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);

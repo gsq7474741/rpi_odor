@@ -42,6 +42,7 @@ export function SelectionBar() {
   const {
     samples,
     selectedSampleIds,
+    allSelectedSamples,
     clearSampleSelection,
     frameConfig,
     setFrameConfig,
@@ -54,8 +55,8 @@ export function SelectionBar() {
   const [showSettings, setShowSettings] = useState(false);
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
 
-  // 计算选中样本来自多少个 Run
-  const selectedSamples = samples.filter((s) => selectedSampleIds.has(s.id));
+  // 计算选中样本来自多少个 Run（使用 allSelectedSamples 支持跨页）
+  const selectedSamples = allSelectedSamples;
   const runIds = new Set(selectedSamples.map((s) => s.runId));
   const samplesWithoutFrames = selectedSamples.filter(
     (s) => !s.frameStatus?.hasFrames

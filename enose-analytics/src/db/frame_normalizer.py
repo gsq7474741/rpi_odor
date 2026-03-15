@@ -85,182 +85,173 @@ class FrameNormalizer:
 
         return pd.DataFrame(rows)
 
-    def get_raw_sensor_data(
+    def get_sample_data_info(
         self,
-        run_id: int,
-        phase_name: str,
-    ) -> pd.DataFrame:
-        """获取指定实验和阶段的原始传感器数据（旧接口，保留兼容）"""
-        query = """
-            SELECT 
-                time_ms,
-                sensor_idx,
-                value,
-                temperature,
-                humidity,
-                pressure
-            FROM sensor_readings_v2
-            WHERE run_id = %s AND phase_name = %s
-            ORDER BY sensor_idx, time_ms
-        """
-        with get_cursor() as cur:
-            cur.execute(query, [run_id, phase_name])
-            rows = cur.fetchall()
+        sample_id: int,
+        phase_names: list[str] | None = None,
+    ) -> dict:
+        """获取样本原始数据的统计信息，用于变长处理和质量评估
 
-        if not rows:
-            return pd.DataFrame()
-
-        return pd.DataFrame(rows)
-
-    def create_normalized_frames(
-        self,
-        run_id: int,
-        phase_name: str,
-        n_samples: int = 100,
-        method: InterpolationMethod = "linear",
-    ) -> tuple[pd.DataFrame, dict]:
-        """
-        将异步传感器数据归一化为固定长度帧
-        
         Args:
-            run_id: 实验 ID
-            phase_name: 阶段名称
-            n_samples: 输出帧数
-            method: 插值方法 ('linear' 或 'pchip')
-        
+            sample_id: 样本 ID
+            phase_names: 可选的 phase 名称列表
+
         Returns:
-            (frames_df, meta): 帧数据和元数据
+            {
+                "sample_id": int,
+                "original_point_counts": list[int],  # 每个传感器的原始点数
+                "min_points": int,                    # 所有传感器中的最少点数
+                "max_points": int,                    # 所有传感器中的最多点数
+                "median_points": int,                 # 中位数点数
+                "time_range_ms": int,                 # 原始时间跨度
+                "recommended_n_samples": int,         # 推荐的 n_samples
+                "quality_warnings": list[str],        # 质量警告
+            }
         """
-        raw_df = self.get_raw_sensor_data(run_id, phase_name)
+        if phase_names:
+            raw_df = self.get_raw_sensor_data_by_phases(sample_id, phase_names)
+        else:
+            raw_df = self.get_raw_sensor_data_by_sample(sample_id)
 
         if raw_df.empty:
-            logger.warning(f"No data for run_id={run_id}, phase={phase_name}")
-            return pd.DataFrame(), {}
+            return {
+                "sample_id": sample_id,
+                "original_point_counts": [0] * 8,
+                "min_points": 0,
+                "max_points": 0,
+                "median_points": 0,
+                "time_range_ms": 0,
+                "recommended_n_samples": 0,
+                "quality_warnings": ["无传感器数据"],
+            }
 
-        # 定义统一采样网格
-        grid = np.linspace(0, 1, n_samples)
-
-        # 存储每个传感器的重采样结果
-        resampled_values: dict[int, np.ndarray] = {}
-        original_point_counts: list[int] = []
-
-        # 环境数据 (温度、湿度、气压) - 取所有传感器的平均
-        env_data = raw_df.groupby("time_ms").agg({
-            "temperature": "mean",
-            "humidity": "mean", 
-            "pressure": "mean",
-        }).reset_index()
-
-        # 对每个传感器进行插值
+        counts = []
         for sensor_idx in range(8):
-            sensor_data = raw_df[raw_df["sensor_idx"] == sensor_idx].copy()
-            original_point_counts.append(len(sensor_data))
+            n = len(raw_df[raw_df["sensor_idx"] == sensor_idx])
+            counts.append(n)
 
-            if len(sensor_data) < 2:
-                resampled_values[sensor_idx] = np.full(n_samples, np.nan)
-                continue
+        # 只统计有数据的传感器
+        active_counts = [c for c in counts if c > 0]
+        min_pts = min(active_counts) if active_counts else 0
+        max_pts = max(active_counts) if active_counts else 0
+        median_pts = int(np.median(active_counts)) if active_counts else 0
 
-            # 排序并去重
-            sensor_data = sensor_data.sort_values("time_ms").drop_duplicates("time_ms")
+        # 推荐 n_samples: 中位数点数的 80%，但不超过 500，不少于 10
+        recommended = max(10, min(500, int(median_pts * 0.8)))
 
-            # 计算归一化时间
-            t_min = sensor_data["time_ms"].min()
-            t_max = sensor_data["time_ms"].max()
-            duration = t_max - t_min
-
-            if duration == 0:
-                resampled_values[sensor_idx] = np.full(
-                    n_samples, sensor_data["value"].iloc[0]
-                )
-                continue
-
-            normalized_t = (sensor_data["time_ms"] - t_min) / duration
-            values = sensor_data["value"].values
-
-            # 插值
-            try:
-                if method == "linear":
-                    f = interpolate.interp1d(
-                        normalized_t,
-                        values,
-                        kind="linear",
-                        fill_value="extrapolate",
-                    )
-                elif method == "pchip":
-                    f = interpolate.PchipInterpolator(
-                        normalized_t, values, extrapolate=True
-                    )
-                else:
-                    raise ValueError(f"Unknown interpolation method: {method}")
-
-                resampled_values[sensor_idx] = f(grid)
-            except Exception as e:
-                logger.warning(f"Interpolation failed for sensor {sensor_idx}: {e}")
-                resampled_values[sensor_idx] = np.full(n_samples, np.nan)
-
-        # 对环境数据也进行插值
-        resampled_env: dict[str, np.ndarray] = {}
-        if len(env_data) >= 2:
-            env_t_min = env_data["time_ms"].min()
-            env_t_max = env_data["time_ms"].max()
-            env_duration = env_t_max - env_t_min
-
-            if env_duration > 0:
-                env_normalized_t = (env_data["time_ms"] - env_t_min) / env_duration
-
-                for col in ["temperature", "humidity", "pressure"]:
-                    try:
-                        if method == "linear":
-                            f = interpolate.interp1d(
-                                env_normalized_t,
-                                env_data[col].values,
-                                kind="linear",
-                                fill_value="extrapolate",
-                            )
-                        else:
-                            f = interpolate.PchipInterpolator(
-                                env_normalized_t, env_data[col].values, extrapolate=True
-                            )
-                        resampled_env[col] = f(grid)
-                    except Exception:
-                        resampled_env[col] = np.full(n_samples, np.nan)
-
-        # 组装帧数据
-        frames = []
-        for i, t in enumerate(grid):
-            mox_readings = [
-                float(resampled_values.get(j, np.full(n_samples, np.nan))[i])
-                for j in range(8)
-            ]
-            frames.append({
-                "run_id": run_id,
-                "phase_name": phase_name,
-                "method": method,
-                "n_samples": n_samples,
-                "frame_idx": i,
-                "normalized_t": float(t),
-                "mox_readings": mox_readings,
-                "temp_c": float(resampled_env.get("temperature", [np.nan] * n_samples)[i]),
-                "rh": float(resampled_env.get("humidity", [np.nan] * n_samples)[i]),
-                "pressure": float(resampled_env.get("pressure", [np.nan] * n_samples)[i]),
-            })
-
-        frames_df = pd.DataFrame(frames)
-
-        # 计算时间范围
         all_times = raw_df["time_ms"]
         time_range_ms = int(all_times.max() - all_times.min()) if len(all_times) > 0 else 0
 
-        meta = {
-            "run_id": run_id,
-            "phase_name": phase_name,
-            "method": method,
-            "n_samples": n_samples,
-            "original_point_counts": original_point_counts,
+        warnings: list[str] = []
+        if min_pts < 5:
+            warnings.append(f"传感器数据过少 (最少 {min_pts} 点)，插值可能不可靠")
+        if min_pts < 2:
+            warnings.append("至少有一个传感器数据不足 2 点，无法插值")
+        if max_pts > 0 and min_pts > 0 and max_pts / min_pts > 5:
+            warnings.append(
+                f"传感器间数据量差异大 (最多 {max_pts} vs 最少 {min_pts})，"
+                "部分传感器采样率可能异常"
+            )
+        inactive = sum(1 for c in counts if c == 0)
+        if inactive > 0:
+            warnings.append(f"{inactive} 个传感器无数据")
+
+        return {
+            "sample_id": sample_id,
+            "original_point_counts": counts,
+            "min_points": min_pts,
+            "max_points": max_pts,
+            "median_points": median_pts,
             "time_range_ms": time_range_ms,
+            "recommended_n_samples": recommended,
+            "quality_warnings": warnings,
         }
 
-        return frames_df, meta
+    def get_raw_sensor_data_by_phases(
+        self,
+        sample_id: int,
+        phase_names: list[str],
+    ) -> pd.DataFrame:
+        """按 phase transition 时间范围获取传感器数据
+
+        通过 sample_phase_transitions 查找时间范围，再用 run_id + 时间范围
+        从 sensor_readings_v2 获取数据。这样即使某些阶段的 sample_id 为 NULL
+        （如 WASH、DRAIN 等），也能正确获取数据。
+
+        Args:
+            sample_id: 样本 ID
+            phase_names: 要获取的阶段名称列表
+
+        Returns:
+            包含所有指定阶段传感器数据的 DataFrame
+        """
+        # 1. 获取样本的 run_id 和 phase transitions
+        with get_cursor() as cur:
+            cur.execute("SELECT run_id FROM samples WHERE id = %s", [sample_id])
+            sample_row = cur.fetchone()
+            if not sample_row:
+                logger.warning(f"Sample not found: sample_id={sample_id}")
+                return pd.DataFrame()
+            run_id = sample_row["run_id"]
+
+            cur.execute(
+                """
+                SELECT phase_name, start_time_ms, end_time_ms
+                FROM sample_phase_transitions
+                WHERE sample_id = %s AND phase_name = ANY(%s)
+                ORDER BY phase_order
+                """,
+                [sample_id, phase_names],
+            )
+            transitions = cur.fetchall()
+
+        if not transitions:
+            logger.warning(
+                f"No phase transitions for sample_id={sample_id}, phases={phase_names}"
+            )
+            return pd.DataFrame()
+
+        # 2. 对每个 phase 按时间范围查询传感器数据
+        all_dfs: list[pd.DataFrame] = []
+        for t in transitions:
+            start = t["start_time_ms"]
+            end = t["end_time_ms"]
+            if end:
+                q = """
+                    SELECT time_ms, sensor_idx, value, temperature, humidity, pressure
+                    FROM sensor_readings_v2
+                    WHERE run_id = %s AND time_ms >= %s AND time_ms <= %s
+                    ORDER BY sensor_idx, time_ms
+                """
+                params = [run_id, start, end]
+            else:
+                q = """
+                    SELECT time_ms, sensor_idx, value, temperature, humidity, pressure
+                    FROM sensor_readings_v2
+                    WHERE run_id = %s AND time_ms >= %s
+                    ORDER BY sensor_idx, time_ms
+                """
+                params = [run_id, start]
+
+            with get_cursor() as cur:
+                cur.execute(q, params)
+                rows = cur.fetchall()
+            if rows:
+                all_dfs.append(pd.DataFrame(rows))
+
+        if not all_dfs:
+            logger.warning(
+                f"No sensor data in phase time ranges: sample_id={sample_id}, "
+                f"phases={phase_names}"
+            )
+            return pd.DataFrame()
+
+        combined = pd.concat(all_dfs, ignore_index=True)
+        logger.debug(
+            f"Phase data fetch: sample_id={sample_id} phases={phase_names} "
+            f"run_id={run_id} → {len(combined)} rows"
+        )
+        return combined
 
     def _filter_by_phases(
         self,
@@ -353,11 +344,13 @@ class FrameNormalizer:
         Returns:
             (frames_array, meta): 帧数据 (n_samples, 32) 和元数据
         """
-        raw_df = self.get_raw_sensor_data_by_sample(sample_id)
-        
-        # 按 phase 时间区间过滤数据
-        if phase_names and not raw_df.empty:
-            raw_df = self._filter_by_phases(raw_df, sample_id, phase_names)
+        # 根据是否指定 phase_names 选择数据获取方式
+        if phase_names:
+            # 通过 phase transition 时间范围 + run_id 获取数据
+            # 能获取到 sample_id 为 NULL 的阶段数据（如 WASH、DRAIN）
+            raw_df = self.get_raw_sensor_data_by_phases(sample_id, phase_names)
+        else:
+            raw_df = self.get_raw_sensor_data_by_sample(sample_id)
 
         if raw_df.empty:
             logger.warning(f"No data for sample_id={sample_id}")
@@ -435,385 +428,22 @@ class FrameNormalizer:
 
         return frames_array, meta
 
-    def save_normalized_frames(
-        self,
-        run_id: int,
-        phase_name: str,
-        n_samples: int = 100,
-        methods: list[InterpolationMethod] | None = None,
-    ) -> dict[str, int]:
-        """
-        生成并保存归一化帧到数据库
-        
-        Args:
-            run_id: 实验 ID
-            phase_name: 阶段名称
-            n_samples: 采样点数
-            methods: 插值方法列表，默认 ['linear', 'pchip']
-        
-        Returns:
-            每种方法保存的帧数
-        """
-        if methods is None:
-            methods = ["linear", "pchip"]
-
-        results = {}
-
-        for method in methods:
-            frames_df, meta = self.create_normalized_frames(
-                run_id, phase_name, n_samples, method
-            )
-
-            if frames_df.empty:
-                results[method] = 0
-                continue
-
-            # 删除旧数据
-            delete_query = """
-                DELETE FROM normalized_frames
-                WHERE run_id = %s AND phase_name = %s 
-                  AND method = %s AND n_samples = %s
-            """
-            delete_meta_query = """
-                DELETE FROM normalized_frames_meta
-                WHERE run_id = %s AND phase_name = %s 
-                  AND method = %s AND n_samples = %s
-            """
-
-            # 插入新数据
-            insert_query = """
-                INSERT INTO normalized_frames 
-                    (run_id, phase_name, method, n_samples, frame_idx, 
-                     normalized_t, mox_readings, temp_c, rh, pressure)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """
-
-            insert_meta_query = """
-                INSERT INTO normalized_frames_meta
-                    (run_id, phase_name, method, n_samples, 
-                     original_point_counts, time_range_ms)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            """
-
-            with get_cursor() as cur:
-                # 清理旧数据
-                cur.execute(delete_query, [run_id, phase_name, method, n_samples])
-                cur.execute(delete_meta_query, [run_id, phase_name, method, n_samples])
-
-                # 批量插入帧数据
-                batch_data = [
-                    (
-                        row["run_id"],
-                        row["phase_name"],
-                        row["method"],
-                        row["n_samples"],
-                        row["frame_idx"],
-                        row["normalized_t"],
-                        row["mox_readings"],
-                        row["temp_c"],
-                        row["rh"],
-                        row["pressure"],
-                    )
-                    for _, row in frames_df.iterrows()
-                ]
-                cur.executemany(insert_query, batch_data)
-
-                # 插入元数据
-                cur.execute(
-                    insert_meta_query,
-                    [
-                        meta["run_id"],
-                        meta["phase_name"],
-                        meta["method"],
-                        meta["n_samples"],
-                        meta["original_point_counts"],
-                        meta["time_range_ms"],
-                    ],
-                )
-
-            results[method] = len(frames_df)
-            logger.info(
-                f"Saved {len(frames_df)} normalized frames: "
-                f"run_id={run_id}, phase={phase_name}, method={method}"
-            )
-
-        return results
-
-    def get_normalized_frames(
-        self,
-        run_id: int,
-        phase_name: str | None = None,
-        method: InterpolationMethod = "linear",
-        n_samples: int = 100,
-    ) -> pd.DataFrame:
-        """从数据库获取归一化帧"""
-        query = """
-            SELECT 
-                run_id, phase_name, method, n_samples, frame_idx,
-                normalized_t, mox_readings, temp_c, rh, pressure
-            FROM normalized_frames
-            WHERE run_id = %s AND method = %s AND n_samples = %s
-        """
-        params: list = [run_id, method, n_samples]
-
-        if phase_name:
-            query += " AND phase_name = %s"
-            params.append(phase_name)
-
-        query += " ORDER BY phase_name, frame_idx"
-
-        with get_cursor() as cur:
-            cur.execute(query, params)
-            rows = cur.fetchall()
-
-        if not rows:
-            return pd.DataFrame()
-
-        return pd.DataFrame(rows)
-
-    def get_normalized_frames_status(
-        self,
-        run_id: int,
-        phase_name: str | None = None,
-    ) -> dict:
-        """检查归一化帧的状态"""
-        query = """
-            SELECT 
-                m.phase_name,
-                m.method::text,
-                m.n_samples,
-                m.original_point_counts,
-                m.time_range_ms,
-                COUNT(f.id) as frame_count
-            FROM normalized_frames_meta m
-            LEFT JOIN normalized_frames f 
-                ON m.run_id = f.run_id 
-                AND m.phase_name = f.phase_name 
-                AND m.method = f.method::interpolation_method 
-                AND m.n_samples = f.n_samples
-            WHERE m.run_id = %s
-        """
-        params: list = [run_id]
-
-        if phase_name:
-            query += " AND m.phase_name = %s"
-            params.append(phase_name)
-
-        query += """
-            GROUP BY m.phase_name, m.method, m.n_samples, 
-                     m.original_point_counts, m.time_range_ms
-            ORDER BY m.phase_name, m.method
-        """
-
-        with get_cursor() as cur:
-            cur.execute(query, params)
-            rows = cur.fetchall()
-
-        if not rows:
-            return {"exists": False, "meta": [], "total_frames": 0}
-
-        meta = []
-        total_frames = 0
-        for row in rows:
-            meta.append({
-                "phase_name": row["phase_name"],
-                "method": row["method"],
-                "n_samples": row["n_samples"],
-                "original_point_counts": row["original_point_counts"] or [],
-                "time_range_ms": row["time_range_ms"] or 0,
-            })
-            total_frames += row["frame_count"]
-
-        return {"exists": True, "meta": meta, "total_frames": total_frames}
-
-    def get_available_phases(self, run_id: int) -> list[str]:
-        """获取实验的所有阶段名称"""
-        query = """
-            SELECT DISTINCT phase_name 
-            FROM sensor_readings_v2 
-            WHERE run_id = %s
-            ORDER BY phase_name
-        """
-        with get_cursor() as cur:
-            cur.execute(query, [run_id])
-            rows = cur.fetchall()
-        return [row["phase_name"] for row in rows]
-
-    def generate_all_phases(
-        self,
-        run_id: int,
-        phase_names: list[str] | None = None,
-        n_samples: int = 100,
-        methods: list[InterpolationMethod] | None = None,
-    ) -> dict[str, int]:
-        """为所有阶段生成归一化帧"""
-        if methods is None:
-            methods = ["linear", "pchip"]
-
-        if phase_names is None or len(phase_names) == 0:
-            phase_names = self.get_available_phases(run_id)
-
-        results = {}
-        for phase in phase_names:
-            phase_results = self.save_normalized_frames(
-                run_id, phase, n_samples, methods
-            )
-            for method, count in phase_results.items():
-                key = f"{phase}_{method}"
-                results[key] = count
-
-        return results
-
     # ============================================================
-    # 基于 sample_id 的新接口
+    # 基于 sample_id 的接口 (唯一接口)
     # ============================================================
 
-    def save_normalized_frames_by_sample(
-        self,
-        sample_id: int,
-        n_samples: int = 100,
-        methods: list[InterpolationMethod] | None = None,
-    ) -> dict[str, int]:
-        """
-        生成并保存归一化帧到数据库（基于 sample_id 的新接口）
-        
-        Args:
-            sample_id: 样本 ID
-            n_samples: 采样点数
-            methods: 插值方法列表，默认 ['linear', 'pchip']
-        
-        Returns:
-            每种方法保存的帧数
-        """
-        if methods is None:
-            methods = ["linear", "pchip"]
+    # [已移除] save_normalized_frames_by_sample - DB 持久化已废弃
+    # [已移除] create_normalized_frames (旧 run_id 接口)
+    # [已移除] save_normalized_frames / get_normalized_frames / get_normalized_frames_status
+    # [已移除] get_available_phases / generate_all_phases
+    # 上述方法的功能已被 get_normalized_frames_by_sample (Redis-only) 替代
 
-        results = {}
-
-        for method in methods:
-            frames_array, meta = self.create_normalized_frames_by_sample(
-                sample_id, n_samples, method
-            )
-
-            if frames_array.size == 0:
-                results[method] = 0
-                continue
-
-            # 删除旧数据（使用新的 sample_id 字段）
-            delete_query = """
-                DELETE FROM normalized_frames
-                WHERE sample_id = %s AND method = %s AND n_samples = %s
-            """
-            delete_meta_query = """
-                DELETE FROM normalized_frames_meta
-                WHERE sample_id = %s AND method = %s AND n_samples = %s
-            """
-
-            # 插入新数据（使用新的 sample_id 字段）
-            insert_query = """
-                INSERT INTO normalized_frames 
-                    (sample_id, method, n_samples, frame_idx, 
-                     normalized_t, mox_readings)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            """
-
-            insert_meta_query = """
-                INSERT INTO normalized_frames_meta
-                    (sample_id, method, n_samples, 
-                     original_point_counts, time_range_ms)
-                VALUES (%s, %s, %s, %s, %s)
-            """
-
-            with get_cursor() as cur:
-                # 清理旧数据
-                cur.execute(delete_query, [sample_id, method, n_samples])
-                cur.execute(delete_meta_query, [sample_id, method, n_samples])
-
-                # 批量插入帧数据
-                grid = np.linspace(0, 1, n_samples)
-                batch_data = [
-                    (
-                        sample_id,
-                        method,
-                        n_samples,
-                        i,
-                        float(grid[i]),
-                        frames_array[i].tolist(),
-                    )
-                    for i in range(n_samples)
-                ]
-                cur.executemany(insert_query, batch_data)
-
-                # 插入元数据
-                cur.execute(
-                    insert_meta_query,
-                    [
-                        sample_id,
-                        method,
-                        n_samples,
-                        meta["original_point_counts"],
-                        meta["time_range_ms"],
-                    ],
-                )
-
-            results[method] = n_samples
-            logger.info(
-                f"Saved {n_samples} normalized frames: "
-                f"sample_id={sample_id}, method={method}"
-            )
-
-        return results
-
-    def _try_read_from_cache(
-        self,
-        sample_id: int,
-        method: InterpolationMethod,
-        n_samples: int,
-        n_channels: int,
-        redis_cache: FrameCache | None,
-    ) -> tuple[np.ndarray | None, bool, str]:
-        """尝试从 Redis / DB 读取缓存，返回 (frames, from_cache, source)"""
-        # 1. 尝试从 Redis 读取
-        if redis_cache:
-            cached = redis_cache.get(sample_id, method, n_samples)
-            if cached is not None and cached.shape == (n_samples, n_channels):
-                return cached, True, "redis"
-            elif cached is not None:
-                logger.info(f"缓存 STALE (redis {cached.shape}): sample={sample_id}, 需重新生成")
-                redis_cache.delete(sample_id, method, n_samples)
-
-        # 2. 尝试从数据库读取
-        query = """
-            SELECT frame_idx, mox_readings
-            FROM normalized_frames
-            WHERE sample_id = %s AND method = %s AND n_samples = %s
-            ORDER BY frame_idx
-        """
-        with get_cursor() as cur:
-            cur.execute(query, [sample_id, method, n_samples])
-            rows = cur.fetchall()
-
-        if rows and len(rows) == n_samples:
-            first_readings = rows[0]["mox_readings"]
-            actual_channels = len(first_readings) if isinstance(first_readings, list) else 0
-
-            if actual_channels == n_channels:
-                frames = np.zeros((n_samples, n_channels))
-                for row in rows:
-                    idx = row["frame_idx"]
-                    readings = row["mox_readings"]
-                    if isinstance(readings, list) and len(readings) == n_channels:
-                        frames[idx] = readings
-
-                # 回填 Redis
-                if redis_cache:
-                    redis_cache.set(sample_id, method, n_samples, frames)
-
-                return frames, True, "db"
-            else:
-                logger.info(f"缓存 STALE (db {actual_channels}ch): sample={sample_id}, 需重新生成")
-
-        return None, False, "miss"
+    @staticmethod
+    def _phase_names_suffix(phase_names: list[str] | None) -> str:
+        """生成 phase_names 的缓存 key 后缀"""
+        if not phase_names:
+            return ""
+        return ":" + ",".join(sorted(phase_names))
 
     def get_normalized_frames_by_sample(
         self,
@@ -821,36 +451,44 @@ class FrameNormalizer:
         method: InterpolationMethod = "linear",
         n_samples: int = 100,
         use_cache: bool = True,
+        phase_names: list[str] | None = None,
     ) -> tuple[np.ndarray | None, bool]:
-        """获取或生成归一化帧（基于 sample_id 的新接口）
-        
-        缓存优先级: Redis -> PostgreSQL -> 重新生成
+        """获取或生成归一化帧（唯一入口）
+
+        缓存: 仅 Redis（不再使用 PostgreSQL normalized_frames 表）
         使用 per-key 锁防止并发 thundering herd
-        
-        新版本输出 (n_samples, 32)：每传感器 4 通道 (value, temp, humidity, pressure)
-        旧缓存 (n_samples, 8) 会被自动重新生成为 32 通道版本
-        
+
+        输出 (n_samples, 32)：每传感器 4 通道 (value, temp, humidity, pressure)
+
         Args:
             sample_id: 样本 ID
             method: 插值方法
             n_samples: 采样点数
             use_cache: 是否使用缓存（True=优先从缓存读取，False=强制重新生成）
-            
+            phase_names: 可选的阶段名称列表，仅使用这些阶段的数据生成帧
+
         Returns:
             (numpy array (n_samples, 32) 或 None, from_cache: bool)
         """
         n_channels = 32  # 8 sensors × 4 channels
         redis_cache = get_frame_cache()
-        cache_key = f"{sample_id}:{method}:{n_samples}"
+        phase_suffix = self._phase_names_suffix(phase_names)
+        cache_key = f"{sample_id}:{method}:{n_samples}{phase_suffix}"
 
-        # ── 快速路径: 无锁读缓存 ──
-        if use_cache:
-            frames, from_cache, source = self._try_read_from_cache(
-                sample_id, method, n_samples, n_channels, redis_cache
-            )
-            if frames is not None:
-                logger.info(f"缓存 HIT ({source}): sample={sample_id}, {method}/{n_samples}")
-                return frames, from_cache
+        # ── 快速路径: 无锁读 Redis 缓存 ──
+        if use_cache and redis_cache:
+            if phase_names:
+                cached = redis_cache.get_by_key(cache_key, n_samples, n_channels)
+            else:
+                cached = redis_cache.get(sample_id, method, n_samples)
+                # 检查 shape 是否匹配（旧缓存可能是 8 通道）
+                if cached is not None and cached.shape != (n_samples, n_channels):
+                    logger.info(f"缓存 STALE ({cached.shape}): sample={sample_id}, 需重新生成")
+                    redis_cache.delete(sample_id, method, n_samples)
+                    cached = None
+            if cached is not None:
+                logger.info(f"缓存 HIT (redis): sample={sample_id}, {method}/{n_samples}")
+                return cached, True
 
         # ── 慢路径: 加锁生成, 防止并发重复计算 ──
         lock = _get_inflight_lock(cache_key)
@@ -861,52 +499,41 @@ class FrameNormalizer:
 
         try:
             # double-check: 可能其他线程已经生成完毕
-            if use_cache:
-                frames, from_cache, source = self._try_read_from_cache(
-                    sample_id, method, n_samples, n_channels, redis_cache
-                )
-                if frames is not None:
-                    logger.info(f"缓存 HIT ({source}, after lock): sample={sample_id}, {method}/{n_samples}")
-                    return frames, from_cache
+            if use_cache and redis_cache:
+                if phase_names:
+                    cached = redis_cache.get_by_key(cache_key, n_samples, n_channels)
+                else:
+                    cached = redis_cache.get(sample_id, method, n_samples)
+                    if cached is not None and cached.shape != (n_samples, n_channels):
+                        redis_cache.delete(sample_id, method, n_samples)
+                        cached = None
+                if cached is not None:
+                    logger.info(f"缓存 HIT (redis, after lock): sample={sample_id}, {method}/{n_samples}")
+                    return cached, True
 
-            # 3. 生成新数据 (32 通道)
-            logger.info(f"缓存 MISS → 生成: sample={sample_id}, {method}/{n_samples}")
-            result = self.save_normalized_frames_by_sample(
+            # 生成帧
+            logger.info(
+                f"缓存 MISS → 生成: sample={sample_id}, {method}/{n_samples}"
+                + (f", phases={phase_names}" if phase_names else "")
+            )
+            frames_array, meta = self.create_normalized_frames_by_sample(
                 sample_id=sample_id,
                 n_samples=n_samples,
-                methods=[method],
+                method=method,
+                phase_names=phase_names,
             )
-
-            if result.get(method, 0) == 0:
+            if frames_array is None or frames_array.size == 0:
                 return None, False
-
-            # 重新读取生成的数据
-            query = """
-                SELECT frame_idx, mox_readings
-                FROM normalized_frames
-                WHERE sample_id = %s AND method = %s AND n_samples = %s
-                ORDER BY frame_idx
-            """
-            with get_cursor() as cur:
-                cur.execute(query, [sample_id, method, n_samples])
-                rows = cur.fetchall()
-
-            if not rows or len(rows) != n_samples:
-                return None, False
-
-            frames = np.zeros((n_samples, n_channels))
-            for row in rows:
-                idx = row["frame_idx"]
-                readings = row["mox_readings"]
-                if isinstance(readings, list) and len(readings) == n_channels:
-                    frames[idx] = readings
 
             # 写入 Redis 缓存
             if redis_cache:
-                redis_cache.set(sample_id, method, n_samples, frames)
+                if phase_names:
+                    redis_cache.set_by_key(cache_key, frames_array, n_samples)
+                else:
+                    redis_cache.set(sample_id, method, n_samples, frames_array)
                 logger.info(f"缓存 SET (redis): sample={sample_id}, {method}/{n_samples}")
 
-            return frames, False
+            return frames_array, False
         finally:
             lock.release()
 
@@ -914,31 +541,26 @@ class FrameNormalizer:
         self,
         sample_id: int,
     ) -> dict:
-        """检查归一化帧的状态（基于 sample_id 的新接口）"""
-        query = """
-            SELECT 
-                method::text,
-                n_samples,
-                original_point_counts,
-                time_range_ms
-            FROM normalized_frames_meta
-            WHERE sample_id = %s
-            ORDER BY method
+        """检查归一化帧的缓存状态
+
+        注意：不再查 DB，仅检查 Redis 缓存和原始数据质量
         """
-        with get_cursor() as cur:
-            cur.execute(query, [sample_id])
-            rows = cur.fetchall()
+        redis_cache = get_frame_cache()
 
-        if not rows:
-            return {"exists": False, "variants": []}
+        # Redis 缓存状态
+        variants: list[dict] = []
+        if redis_cache:
+            status = redis_cache.get_status(sample_id)
+            for v in status.get("variants", []):
+                variants.append({
+                    "method": v.get("method", ""),
+                    "n_samples": v.get("nSamples", 0),
+                    "original_point_counts": [],
+                    "time_range_ms": 0,
+                })
 
-        variants = []
-        for row in rows:
-            variants.append({
-                "method": row["method"],
-                "n_samples": row["n_samples"],
-                "original_point_counts": row["original_point_counts"] or [],
-                "time_range_ms": row["time_range_ms"] or 0,
-            })
-
-        return {"exists": True, "variants": variants}
+        return {
+            "exists": len(variants) > 0,
+            "cached": len(variants) > 0,
+            "variants": variants,
+        }

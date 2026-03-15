@@ -367,71 +367,23 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
         request: pb.NormalizedFramesStatusRequest,
         context: grpc.ServicerContext,
     ) -> pb.NormalizedFramesStatusResponse:
-        """检查归一化帧状态"""
-        logger.info(f"GetNormalizedFramesStatus: run_id={request.run_id}")
-
-        try:
-            status = self._frame_normalizer.get_normalized_frames_status(
-                run_id=request.run_id,
-                phase_name=request.phase_name if request.phase_name else None,
-            )
-
-            response = pb.NormalizedFramesStatusResponse(
-                exists=status["exists"],
-                total_frames=status["total_frames"],
-            )
-
-            for m in status["meta"]:
-                meta = pb.NormalizedFramesMeta(
-                    method=m["method"],
-                    n_samples=m["n_samples"],
-                    original_point_counts=m["original_point_counts"],
-                    time_range_ms=m["time_range_ms"],
-                    phase_name=m["phase_name"],
-                )
-                response.meta.append(meta)
-
-            return response
-
-        except Exception as e:
-            logger.exception(f"GetNormalizedFramesStatus failed: {e}")
-            context.set_code(grpc.StatusCode.INTERNAL)
-            context.set_details(str(e))
-            return pb.NormalizedFramesStatusResponse()
+        """[DEPRECATED] 旧 run_id 接口，请使用 GetSampleFramesStatus"""
+        logger.warning(f"GetNormalizedFramesStatus called (DEPRECATED): run_id={request.run_id}")
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Deprecated: use GetSampleFramesStatus instead")
+        return pb.NormalizedFramesStatusResponse(exists=False, total_frames=0)
 
     def GenerateNormalizedFrames(
         self,
         request: pb.GenerateNormalizedFramesRequest,
         context: grpc.ServicerContext,
     ) -> pb.GenerateNormalizedFramesResponse:
-        """生成归一化帧"""
-        logger.info(f"GenerateNormalizedFrames: run_id={request.run_id}")
-
-        try:
-            n_samples = request.n_samples if request.n_samples > 0 else 50
-            methods = list(request.methods) if request.methods else ["linear", "pchip"]
-            phase_names = list(request.phase_names) if request.phase_names else None
-
-            results = self._frame_normalizer.generate_all_phases(
-                run_id=request.run_id,
-                phase_names=phase_names,
-                n_samples=n_samples,
-                methods=methods,
-            )
-
-            total = sum(results.values())
-            return pb.GenerateNormalizedFramesResponse(
-                success=True,
-                message=f"Generated {total} frames",
-                frames_generated=results,
-            )
-
-        except Exception as e:
-            logger.exception(f"GenerateNormalizedFrames failed: {e}")
-            return pb.GenerateNormalizedFramesResponse(
-                success=False,
-                message=str(e),
-            )
+        """[DEPRECATED] 旧 run_id 接口，请使用 GenerateSampleFrames"""
+        logger.warning(f"GenerateNormalizedFrames called (DEPRECATED): run_id={request.run_id}")
+        return pb.GenerateNormalizedFramesResponse(
+            success=False,
+            message="Deprecated: use GenerateSampleFrames instead",
+        )
 
     # ============================================================
     # Sample-based Normalized Frames API (新 sample_id 接口)
@@ -630,12 +582,14 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
             n_samples = request.n_samples if request.n_samples > 0 else 50
             method = request.method if request.method else "linear"
             use_cache = request.use_cache if request.HasField("use_cache") else True
+            phase_names = list(request.phase_names) if request.phase_names else None
 
             frames, from_cache = self._frame_normalizer.get_normalized_frames_by_sample(
                 sample_id=request.sample_id,
                 method=method,
                 n_samples=n_samples,
                 use_cache=use_cache,
+                phase_names=phase_names,
             )
 
             elapsed_ms = (_time.monotonic() - t0) * 1000
