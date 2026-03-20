@@ -1,4 +1,4 @@
-"""归一化帧生成模块 - 将异步传感器数据重采样为固定长度帧"""
+"""对齐序列生成模块 - 将异步传感器数据重采样为固定长度对齐序列"""
 
 import threading
 import time
@@ -10,15 +10,15 @@ from scipy import interpolate
 
 from .connection import get_cursor
 from ..logger import logger
-from ..cache.frame_cache import FrameCache
+from ..cache.aligned_series_cache import AlignedSeriesCache
 
 
 InterpolationMethod = Literal["linear", "pchip"]
 
 # 全局 Redis 缓存实例（懒加载）
-_frame_cache: FrameCache | None = None
-_frame_cache_last_fail: float = 0.0  # 上次连接失败的时间戳
-_FRAME_CACHE_RETRY_INTERVAL = 60.0  # 失败后 60 秒内不重试
+_series_cache: AlignedSeriesCache | None = None
+_series_cache_last_fail: float = 0.0  # 上次连接失败的时间戳
+_SERIES_CACHE_RETRY_INTERVAL = 60.0  # 失败后 60 秒内不重试
 
 # 并发请求去重锁 (防止 thundering herd)
 _inflight_locks: dict[str, threading.Lock] = {}
@@ -33,51 +33,80 @@ def _get_inflight_lock(key: str) -> threading.Lock:
         return _inflight_locks[key]
 
 
-def get_frame_cache() -> FrameCache | None:
+def get_series_cache() -> AlignedSeriesCache | None:
     """获取或创建 Redis 缓存实例（带失败退避）"""
-    global _frame_cache, _frame_cache_last_fail
-    if _frame_cache is not None:
-        return _frame_cache
+    global _series_cache, _series_cache_last_fail
+    if _series_cache is not None:
+        return _series_cache
     # 退避：距上次失败不足 60 秒则跳过
-    if time.time() - _frame_cache_last_fail < _FRAME_CACHE_RETRY_INTERVAL:
+    if time.time() - _series_cache_last_fail < _SERIES_CACHE_RETRY_INTERVAL:
         return None
     try:
-        cache = FrameCache()
+        cache = AlignedSeriesCache()
         if not cache.health_check():
-            logger.warning("Redis 健康检查失败，禁用缓存 (%.0fs 后重试)", _FRAME_CACHE_RETRY_INTERVAL)
-            _frame_cache_last_fail = time.time()
+            logger.warning("Redis 健康检查失败，禁用缓存 (%.0fs 后重试)", _SERIES_CACHE_RETRY_INTERVAL)
+            _series_cache_last_fail = time.time()
             return None
-        _frame_cache = cache
+        _series_cache = cache
         logger.info("Redis 缓存已连接")
-        return _frame_cache
+        return _series_cache
     except Exception as e:
-        logger.warning(f"Redis 连接失败，禁用缓存 ({_FRAME_CACHE_RETRY_INTERVAL:.0f}s 后重试): {e}")
-        _frame_cache_last_fail = time.time()
+        logger.warning(f"Redis 连接失败，禁用缓存 ({_SERIES_CACHE_RETRY_INTERVAL:.0f}s 后重试): {e}")
+        _series_cache_last_fail = time.time()
         return None
 
 
-class FrameNormalizer:
-    """归一化帧生成器"""
+class SeriesAligner:
+    """对齐序列生成器"""
 
     def get_raw_sensor_data_by_sample(
         self,
         sample_id: int,
     ) -> pd.DataFrame:
-        """获取指定样本的原始传感器数据（新接口）"""
-        query = """
-            SELECT 
-                time_ms,
-                sensor_idx,
-                value,
-                temperature,
-                humidity,
-                pressure
-            FROM sensor_readings_v2
-            WHERE sample_id = %s
-            ORDER BY sensor_idx, time_ms
+        """获取指定样本的原始传感器数据
+
+        注意: sensor_readings_v2 是 TimescaleDB hypertable，压缩的 segment_by
+        为 (run_id, sensor_idx)。直接 WHERE sample_id = X 在压缩 chunk 上无法
+        正确过滤，因此改为先查 samples 表获取 run_id + 时间范围，再用这些条件查询。
         """
         with get_cursor() as cur:
-            cur.execute(query, [sample_id])
+            # 1) 获取样本的 run_id 和时间范围
+            cur.execute(
+                "SELECT run_id, start_time_ms, end_time_ms FROM samples WHERE id = %s",
+                [sample_id],
+            )
+            sample_row = cur.fetchone()
+
+        if not sample_row:
+            logger.warning(f"Sample not found: sample_id={sample_id}")
+            return pd.DataFrame()
+
+        run_id = sample_row["run_id"]
+        start_ms = sample_row["start_time_ms"]
+        end_ms = sample_row["end_time_ms"]
+
+        # 2) 用 run_id + 时间范围查询（兼容压缩 chunk）
+        with get_cursor() as cur:
+            if end_ms:
+                cur.execute(
+                    """
+                    SELECT time_ms, sensor_idx, value, temperature, humidity, pressure
+                    FROM sensor_readings_v2
+                    WHERE run_id = %s AND time_ms >= %s AND time_ms <= %s
+                    ORDER BY sensor_idx, time_ms
+                    """,
+                    [run_id, start_ms, end_ms],
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT time_ms, sensor_idx, value, temperature, humidity, pressure
+                    FROM sensor_readings_v2
+                    WHERE run_id = %s AND time_ms >= %s
+                    ORDER BY sensor_idx, time_ms
+                    """,
+                    [run_id, start_ms],
+                )
             rows = cur.fetchall()
 
         if not rows:
@@ -318,7 +347,7 @@ class FrameNormalizer:
         except Exception:
             return np.full(n_samples, np.nan)
 
-    def create_normalized_frames_by_sample(
+    def create_aligned_series_by_sample(
         self,
         sample_id: int,
         n_samples: int = 100,
@@ -326,7 +355,7 @@ class FrameNormalizer:
         phase_names: list[str] | None = None,
     ) -> tuple[np.ndarray, dict]:
         """
-        将异步传感器数据归一化为固定长度帧（基于 sample_id 的新接口）
+        将异步传感器数据对齐重采样为固定长度序列（基于 sample_id 的接口）
         
         每个传感器 4 通道: value, temperature, humidity, pressure
         输出 shape = (n_samples, 32)，列顺序:
@@ -337,12 +366,12 @@ class FrameNormalizer:
         
         Args:
             sample_id: 样本 ID
-            n_samples: 输出帧数
+            n_samples: 输出采样点数
             method: 插值方法 ('linear' 或 'pchip')
             phase_names: 可选的 phase 名称列表，仅使用这些 phase 时间段内的数据
         
         Returns:
-            (frames_array, meta): 帧数据 (n_samples, 32) 和元数据
+            (series_array, meta): 对齐序列数据 (n_samples, 32) 和元数据
         """
         # 根据是否指定 phase_names 选择数据获取方式
         if phase_names:
@@ -410,7 +439,7 @@ class FrameNormalizer:
                 all_columns.append(
                     resampled[ch].get(i, np.full(n_samples, np.nan))
                 )
-        frames_array = np.column_stack(all_columns)
+        series_array = np.column_stack(all_columns)
 
         # 计算时间范围
         all_times = raw_df["time_ms"]
@@ -426,7 +455,7 @@ class FrameNormalizer:
             "phase_names": phase_names,
         }
 
-        return frames_array, meta
+        return series_array, meta
 
     # ============================================================
     # 基于 sample_id 的接口 (唯一接口)
@@ -436,7 +465,7 @@ class FrameNormalizer:
     # [已移除] create_normalized_frames (旧 run_id 接口)
     # [已移除] save_normalized_frames / get_normalized_frames / get_normalized_frames_status
     # [已移除] get_available_phases / generate_all_phases
-    # 上述方法的功能已被 get_normalized_frames_by_sample (Redis-only) 替代
+    # 上述方法的功能已被 get_aligned_series_by_sample (Redis-only) 替代
 
     @staticmethod
     def _phase_names_suffix(phase_names: list[str] | None) -> str:
@@ -445,7 +474,7 @@ class FrameNormalizer:
             return ""
         return ":" + ",".join(sorted(phase_names))
 
-    def get_normalized_frames_by_sample(
+    def get_aligned_series_by_sample(
         self,
         sample_id: int,
         method: InterpolationMethod = "linear",
@@ -453,9 +482,9 @@ class FrameNormalizer:
         use_cache: bool = True,
         phase_names: list[str] | None = None,
     ) -> tuple[np.ndarray | None, bool]:
-        """获取或生成归一化帧（唯一入口）
+        """获取或生成对齐序列（唯一入口）
 
-        缓存: 仅 Redis（不再使用 PostgreSQL normalized_frames 表）
+        缓存: 仅 Redis（不再使用 PostgreSQL）
         使用 per-key 锁防止并发 thundering herd
 
         输出 (n_samples, 32)：每传感器 4 通道 (value, temp, humidity, pressure)
@@ -465,13 +494,13 @@ class FrameNormalizer:
             method: 插值方法
             n_samples: 采样点数
             use_cache: 是否使用缓存（True=优先从缓存读取，False=强制重新生成）
-            phase_names: 可选的阶段名称列表，仅使用这些阶段的数据生成帧
+            phase_names: 可选的阶段名称列表，仅使用这些阶段的数据生成对齐序列
 
         Returns:
             (numpy array (n_samples, 32) 或 None, from_cache: bool)
         """
         n_channels = 32  # 8 sensors × 4 channels
-        redis_cache = get_frame_cache()
+        redis_cache = get_series_cache()
         phase_suffix = self._phase_names_suffix(phase_names)
         cache_key = f"{sample_id}:{method}:{n_samples}{phase_suffix}"
 
@@ -511,41 +540,41 @@ class FrameNormalizer:
                     logger.info(f"缓存 HIT (redis, after lock): sample={sample_id}, {method}/{n_samples}")
                     return cached, True
 
-            # 生成帧
+            # 生成对齐序列
             logger.info(
                 f"缓存 MISS → 生成: sample={sample_id}, {method}/{n_samples}"
                 + (f", phases={phase_names}" if phase_names else "")
             )
-            frames_array, meta = self.create_normalized_frames_by_sample(
+            series_array, meta = self.create_aligned_series_by_sample(
                 sample_id=sample_id,
                 n_samples=n_samples,
                 method=method,
                 phase_names=phase_names,
             )
-            if frames_array is None or frames_array.size == 0:
+            if series_array is None or series_array.size == 0:
                 return None, False
 
             # 写入 Redis 缓存
             if redis_cache:
                 if phase_names:
-                    redis_cache.set_by_key(cache_key, frames_array, n_samples)
+                    redis_cache.set_by_key(cache_key, series_array, n_samples)
                 else:
-                    redis_cache.set(sample_id, method, n_samples, frames_array)
+                    redis_cache.set(sample_id, method, n_samples, series_array)
                 logger.info(f"缓存 SET (redis): sample={sample_id}, {method}/{n_samples}")
 
-            return frames_array, False
+            return series_array, False
         finally:
             lock.release()
 
-    def get_normalized_frames_status_by_sample(
+    def get_aligned_series_status_by_sample(
         self,
         sample_id: int,
     ) -> dict:
-        """检查归一化帧的缓存状态
+        """检查对齐序列的缓存状态
 
         注意：不再查 DB，仅检查 Redis 缓存和原始数据质量
         """
-        redis_cache = get_frame_cache()
+        redis_cache = get_series_cache()
 
         # Redis 缓存状态
         variants: list[dict] = []

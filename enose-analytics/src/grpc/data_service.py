@@ -74,7 +74,7 @@ class DataServiceServicer(pb_grpc.DataServiceServicer):
                     experiment_id=exp["experiment_id"],
                     start_time=start_ts,
                     end_time=end_ts,
-                    frame_count=exp["frame_count"],
+                    reading_count=exp["frame_count"],
                     sample_count=exp["sample_count"],
                     phases=exp["phases"],
                     labels=exp["labels"],
@@ -250,7 +250,7 @@ class DataServiceServicer(pb_grpc.DataServiceServicer):
             experiment_id=detail["experiment_id"],
             start_time=start_ts,
             end_time=end_ts,
-            frame_count=detail["frame_count"],
+            reading_count=detail["frame_count"],
             status=detail["status"],
             avg_temperature=detail["avg_temperature"],
             avg_humidity=detail["avg_humidity"],
@@ -271,7 +271,7 @@ class DataServiceServicer(pb_grpc.DataServiceServicer):
                     name=phase["name"],
                     start_time=phase_start,
                     end_time=phase_end,
-                    frame_count=phase["frame_count"],
+                    reading_count=phase["frame_count"],
                 )
             )
 

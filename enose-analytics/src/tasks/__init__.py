@@ -1,5 +1,5 @@
 """后台任务模块"""
 
-from .frame_backfill import FrameBackfillTask
+from .series_backfill import SeriesBackfillTask
 
-__all__ = ["FrameBackfillTask"]
+__all__ = ["SeriesBackfillTask"]

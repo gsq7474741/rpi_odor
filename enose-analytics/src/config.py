@@ -104,14 +104,33 @@ class QualityConfig(BaseModel):
     disabled_flags: list[str] = []
 
 
-class FrameBackfillConfig(BaseModel):
-    """帧自动回填配置"""
+class SeriesBackfillConfig(BaseModel):
+    """对齐序列自动回填配置"""
 
     enabled: bool = True
-    n_samples: int = 50
-    methods: list[str] = ["linear", "pchip"]
+    series_len: int = 100
+    methods: list[str] = ["pchip"]
     poll_interval_s: int = 300
     batch_size: int = 50
+
+
+class LabelBackfillConfig(BaseModel):
+    """ML 标签自动回填配置
+
+    在样本完成时自动为简单策略生成标签，集成在 SeriesBackfillTask 中。
+    contrastive 类型 (params_group) 等复杂策略暂不自动生成。
+    """
+
+    enabled: bool = True
+    auto_strategies: list[str] = [
+        "liquid_identity",
+        "primary_liquid",
+        "mixture_formula",
+        "concentration",
+        "total_volume",
+        "gas_pump_speed",
+        "env_temperature",
+    ]
 
 
 class ModelConfig(BaseModel):
@@ -152,7 +171,8 @@ class Settings(BaseSettings):
     redis: RedisConfig = RedisConfig()
     minio: MinioConfig = MinioConfig()
     quality: QualityConfig = QualityConfig()
-    frame_backfill: FrameBackfillConfig = FrameBackfillConfig()
+    series_backfill: SeriesBackfillConfig = SeriesBackfillConfig()
+    label_backfill: LabelBackfillConfig = LabelBackfillConfig()
     model: ModelConfig = ModelConfig()
     visualization: VisualizationConfig = VisualizationConfig()
     logging: LoggingConfig = LoggingConfig()

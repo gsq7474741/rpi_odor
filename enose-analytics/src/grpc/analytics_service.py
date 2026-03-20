@@ -9,7 +9,7 @@ from google.protobuf import timestamp_pb2
 from ..analytics.visualization import VisualizationEngine, VisualizationType
 from ..logger import logger
 from ..cache.visualization_cache import VisualizationCache
-from ..db.frame_normalizer import FrameNormalizer
+from ..db.series_aligner import SeriesAligner
 from ..db.quality_repository import QualityRepository
 from ..db.sample_reader import SampleReader
 from ..db.sensor_reader import SensorReader
@@ -44,7 +44,7 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
         self._sample_reader = SampleReader()
         self._quality_repo = QualityRepository()
         self._vis_engine = VisualizationEngine()
-        self._frame_normalizer = FrameNormalizer()
+        self._series_aligner = SeriesAligner()
 
     def _build_response_from_cache(
         self, cached: dict, vis_type: int
@@ -136,19 +136,19 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
             # 优先使用 sample_ids 进行样本级降维（每个 sample 一个点）
             if sample_ids:
                 logger.info(f"Using sample-based visualization with {len(sample_ids)} samples")
-                n_samples_per_frame = 50  # 每个样本的帧数
+                n_samples_per_series = 50  # 每个样本的采样点数
                 
                 for sid in sample_ids[:max_points]:  # 限制最大样本数
-                    frames, _ = self._frame_normalizer.get_normalized_frames_by_sample(
+                    series, _ = self._series_aligner.get_aligned_series_by_sample(
                         sample_id=sid,
                         method="linear",
-                        n_samples=n_samples_per_frame,
+                        n_samples=n_samples_per_series,
                         use_cache=True,
                     )
                     
-                    if frames is not None and frames.size > 0:
+                    if series is not None and series.size > 0:
                         # 展平为高维向量: (n_samples, 32) -> (n_samples * 32,)
-                        features = frames.flatten().tolist()
+                        features = series.flatten().tolist()
                         
                         # 获取样本信息用于标签
                         sample_info = self._sample_reader.get_sample(sid)
@@ -178,15 +178,15 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
                         if not sid:
                             continue
                         
-                        frames, _ = self._frame_normalizer.get_normalized_frames_by_sample(
+                        series, _ = self._series_aligner.get_aligned_series_by_sample(
                             sample_id=sid,
                             method="linear",
                             n_samples=50,
                             use_cache=True,
                         )
                         
-                        if frames is not None and frames.size > 0:
-                            features = frames.flatten().tolist()
+                        if series is not None and series.size > 0:
+                            features = series.flatten().tolist()
                             label = sample.get("phaseName", "")
                             liquid_names = sample.get("liquidNames", [])
                             if liquid_names:
@@ -370,7 +370,7 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
         """[DEPRECATED] 旧 run_id 接口，请使用 GetSampleFramesStatus"""
         logger.warning(f"GetNormalizedFramesStatus called (DEPRECATED): run_id={request.run_id}")
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Deprecated: use GetSampleFramesStatus instead")
+        context.set_details("Deprecated: use GetSampleAlignedSeriesStatus instead")
         return pb.NormalizedFramesStatusResponse(exists=False, total_frames=0)
 
     def GenerateNormalizedFrames(
@@ -382,33 +382,33 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
         logger.warning(f"GenerateNormalizedFrames called (DEPRECATED): run_id={request.run_id}")
         return pb.GenerateNormalizedFramesResponse(
             success=False,
-            message="Deprecated: use GenerateSampleFrames instead",
+            message="Deprecated: use GenerateSampleAlignedSeries instead",
         )
 
     # ============================================================
-    # Sample-based Normalized Frames API (新 sample_id 接口)
+    # Sample-based Aligned Series API (基于 sample_id 的对齐序列接口)
     # ============================================================
 
-    def GetSampleFramesStatus(
+    def GetSampleAlignedSeriesStatus(
         self,
-        request: pb.SampleFramesStatusRequest,
+        request: pb.SampleAlignedSeriesStatusRequest,
         context: grpc.ServicerContext,
-    ) -> pb.SampleFramesStatusResponse:
-        """检查指定 sample 的归一化帧状态"""
-        logger.info(f"GetSampleFramesStatus: sample_id={request.sample_id}")
+    ) -> pb.SampleAlignedSeriesStatusResponse:
+        """检查指定 sample 的对齐序列状态"""
+        logger.info(f"GetSampleAlignedSeriesStatus: sample_id={request.sample_id}")
 
         try:
-            status = self._frame_normalizer.get_normalized_frames_status_by_sample(
+            status = self._series_aligner.get_aligned_series_status_by_sample(
                 sample_id=request.sample_id,
             )
 
-            response = pb.SampleFramesStatusResponse(
+            response = pb.SampleAlignedSeriesStatusResponse(
                 exists=status["exists"],
                 cached=status.get("cached", False),
             )
 
             for v in status.get("variants", []):
-                meta = pb.SampleFramesMeta(
+                meta = pb.SampleAlignedSeriesMeta(
                     method=v["method"],
                     n_samples=v["n_samples"],
                     original_point_counts=v.get("original_point_counts", []),
@@ -419,105 +419,124 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
             return response
 
         except Exception as e:
-            logger.exception(f"GetSampleFramesStatus failed: {e}")
+            logger.exception(f"GetSampleAlignedSeriesStatus failed: {e}")
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(str(e))
-            return pb.SampleFramesStatusResponse()
+            return pb.SampleAlignedSeriesStatusResponse()
 
-    def GetBatchSampleFramesStatus(
+    def GetBatchSampleAlignedSeriesStatus(
         self,
-        request: pb.BatchSampleFramesStatusRequest,
+        request: pb.BatchSampleAlignedSeriesStatusRequest,
         context: grpc.ServicerContext,
-    ) -> pb.BatchSampleFramesStatusResponse:
-        """批量检查样本帧状态（减少网络往返）"""
+    ) -> pb.BatchSampleAlignedSeriesStatusResponse:
+        """批量检查样本对齐序列状态（单次 Redis pipeline，替代逐个 SCAN）"""
         sample_ids = list(request.sample_ids)
-        logger.info(f"GetBatchSampleFramesStatus: {len(sample_ids)} samples")
+        logger.info(f"GetBatchSampleAlignedSeriesStatus: {len(sample_ids)} samples")
 
-        response = pb.BatchSampleFramesStatusResponse()
+        response = pb.BatchSampleAlignedSeriesStatusResponse()
 
+        # 使用 Redis pipeline 批量 EXISTS 检查（单次网络往返）
+        from ..db.series_aligner import get_series_cache
+        redis_cache = get_series_cache()
+
+        if redis_cache:
+            try:
+                batch_status = redis_cache.get_status_batch(sample_ids)
+                for sample_id in sample_ids:
+                    st = batch_status.get(sample_id, {"cached": False, "variants": []})
+                    sample_response = pb.SampleAlignedSeriesStatusResponse(
+                        exists=st["cached"],
+                        cached=st["cached"],
+                    )
+                    for v in st.get("variants", []):
+                        meta = pb.SampleAlignedSeriesMeta(
+                            method=v["method"],
+                            n_samples=v["nSamples"],
+                        )
+                        sample_response.variants.append(meta)
+                    response.statuses[sample_id].CopyFrom(sample_response)
+                return response
+            except Exception as e:
+                logger.warning(f"GetBatchSampleAlignedSeriesStatus batch failed, falling back: {e}")
+
+        # Fallback: 逐个检查
         for sample_id in sample_ids:
             try:
-                status = self._frame_normalizer.get_normalized_frames_status_by_sample(
+                status = self._series_aligner.get_aligned_series_status_by_sample(
                     sample_id=sample_id,
                 )
-
-                sample_response = pb.SampleFramesStatusResponse(
+                sample_response = pb.SampleAlignedSeriesStatusResponse(
                     exists=status["exists"],
                     cached=status.get("cached", False),
                 )
-
                 for v in status.get("variants", []):
-                    meta = pb.SampleFramesMeta(
+                    meta = pb.SampleAlignedSeriesMeta(
                         method=v["method"],
                         n_samples=v["n_samples"],
-                        original_point_counts=v.get("original_point_counts", []),
-                        time_range_ms=v.get("time_range_ms", 0),
                     )
                     sample_response.variants.append(meta)
-
                 response.statuses[sample_id].CopyFrom(sample_response)
-
             except Exception as e:
-                logger.warning(f"GetBatchSampleFramesStatus: sample_id={sample_id} failed: {e}")
-                response.statuses[sample_id].CopyFrom(pb.SampleFramesStatusResponse(exists=False, cached=False))
+                logger.warning(f"GetBatchSampleAlignedSeriesStatus: sample_id={sample_id} failed: {e}")
+                response.statuses[sample_id].CopyFrom(pb.SampleAlignedSeriesStatusResponse(exists=False, cached=False))
 
         return response
 
-    def GenerateSampleFrames(
+    def GenerateSampleAlignedSeries(
         self,
-        request: pb.GenerateSampleFramesRequest,
+        request: pb.GenerateSampleAlignedSeriesRequest,
         context: grpc.ServicerContext,
-    ) -> pb.GenerateSampleFramesResponse:
-        """生成指定 sample 的归一化帧"""
-        logger.info(f"GenerateSampleFrames: sample_id={request.sample_id}")
+    ) -> pb.GenerateSampleAlignedSeriesResponse:
+        """生成指定 sample 的对齐序列"""
+        logger.info(f"GenerateSampleAlignedSeries: sample_id={request.sample_id}")
 
         try:
             n_samples = request.n_samples if request.n_samples > 0 else 50
             methods = list(request.methods) if request.methods else ["linear", "pchip"]
             use_cache = request.use_cache if request.HasField("use_cache") else True
 
-            frames_generated = {}
+            series_generated = {}
             from_cache = False
 
             for method in methods:
-                frames, cached = self._frame_normalizer.get_normalized_frames_by_sample(
+                series, cached = self._series_aligner.get_aligned_series_by_sample(
                     sample_id=request.sample_id,
                     method=method,
                     n_samples=n_samples,
                     use_cache=use_cache,
                 )
-                if frames is not None:
-                    frames_generated[method] = len(frames)
+                if series is not None:
+                    series_generated[method] = len(series)
                     from_cache = from_cache or cached
 
-            total_generated = sum(frames_generated.values())
-            return pb.GenerateSampleFramesResponse(
+            total_generated = sum(series_generated.values())
+            return pb.GenerateSampleAlignedSeriesResponse(
                 success=True,
-                message=f"Generated {total_generated} frames",
-                frames_generated=frames_generated,
+                message=f"Generated {total_generated} aligned series",
+                series_generated=series_generated,
                 from_cache=from_cache,
             )
 
         except Exception as e:
-            logger.exception(f"GenerateSampleFrames failed: {e}")
-            return pb.GenerateSampleFramesResponse(
+            logger.exception(f"GenerateSampleAlignedSeries failed: {e}")
+            return pb.GenerateSampleAlignedSeriesResponse(
                 success=False,
                 message=str(e),
             )
 
-    def GenerateBatchSampleFrames(
+    def GenerateBatchSampleAlignedSeries(
         self,
-        request: pb.BatchGenerateSampleFramesRequest,
+        request: pb.BatchGenerateSampleAlignedSeriesRequest,
         context: grpc.ServicerContext,
-    ) -> pb.BatchGenerateSampleFramesResponse:
-        """批量生成样本帧（减少网络往返）"""
+    ) -> pb.BatchGenerateSampleAlignedSeriesResponse:
+        """批量生成样本对齐序列（减少网络往返）"""
         sample_ids = list(request.sample_ids)
         n_samples = request.n_samples if request.n_samples > 0 else 50
         methods = list(request.methods) if request.methods else ["linear", "pchip"]
         use_cache = request.use_cache if request.HasField("use_cache") else True
 
         logger.info(
-            f"GenerateBatchSampleFrames: {len(sample_ids)} samples, "
+            f"GenerateBatchSampleAlignedSeries: {len(sample_ids)} samples, "
             f"n_samples={n_samples}, methods={methods}, use_cache={use_cache}"
         )
 
@@ -532,13 +551,13 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
                 sample_success = True
 
                 for method in methods:
-                    frames, cached = self._frame_normalizer.get_normalized_frames_by_sample(
+                    series, cached = self._series_aligner.get_aligned_series_by_sample(
                         sample_id=sample_id,
                         method=method,
                         n_samples=n_samples,
                         use_cache=use_cache,
                     )
-                    if frames is None:
+                    if series is None:
                         sample_success = False
                         break
                     sample_from_cache = sample_from_cache or cached
@@ -549,19 +568,19 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
                         from_cache_count += 1
                 else:
                     failed_count += 1
-                    errors[sample_id] = "Failed to generate frames"
+                    errors[sample_id] = "Failed to generate aligned series"
 
             except Exception as e:
                 failed_count += 1
                 errors[sample_id] = str(e)
-                logger.warning(f"GenerateBatchSampleFrames: sample_id={sample_id} failed: {e}")
+                logger.warning(f"GenerateBatchSampleAlignedSeries: sample_id={sample_id} failed: {e}")
 
         logger.info(
-            f"GenerateBatchSampleFrames completed: "
+            f"GenerateBatchSampleAlignedSeries completed: "
             f"success={success_count}, failed={failed_count}, from_cache={from_cache_count}"
         )
 
-        return pb.BatchGenerateSampleFramesResponse(
+        return pb.BatchGenerateSampleAlignedSeriesResponse(
             total_samples=len(sample_ids),
             success_count=success_count,
             failed_count=failed_count,
@@ -569,12 +588,12 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
             errors=errors,
         )
 
-    def GetSampleFrames(
+    def GetSampleAlignedSeries(
         self,
-        request: pb.GetSampleFramesRequest,
+        request: pb.GetSampleAlignedSeriesRequest,
         context: grpc.ServicerContext,
-    ) -> pb.GetSampleFramesResponse:
-        """获取指定 sample 的归一化帧数据"""
+    ) -> pb.GetSampleAlignedSeriesResponse:
+        """获取指定 sample 的对齐序列数据"""
         import time as _time
         t0 = _time.monotonic()
 
@@ -584,7 +603,7 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
             use_cache = request.use_cache if request.HasField("use_cache") else True
             phase_names = list(request.phase_names) if request.phase_names else None
 
-            frames, from_cache = self._frame_normalizer.get_normalized_frames_by_sample(
+            series, from_cache = self._series_aligner.get_aligned_series_by_sample(
                 sample_id=request.sample_id,
                 method=method,
                 n_samples=n_samples,
@@ -594,42 +613,42 @@ class AnalyticsServiceImpl(pb_grpc.AnalyticsServiceServicer):
 
             elapsed_ms = (_time.monotonic() - t0) * 1000
 
-            if frames is None:
+            if series is None:
                 logger.info(
-                    f"GetSampleFrames: sample={request.sample_id}, "
+                    f"GetSampleAlignedSeries: sample={request.sample_id}, "
                     f"{method}/{n_samples} → EMPTY ({elapsed_ms:.0f}ms)"
                 )
-                return pb.GetSampleFramesResponse(
+                return pb.GetSampleAlignedSeriesResponse(
                     success=False,
-                    frames=[],
+                    aligned_series=[],
                     n_samples=0,
-                    n_sensors=0,
+                    n_channels=0,
                     from_cache=False,
                 )
 
-            # frames 是 numpy array, shape = (n_samples, n_sensors)
+            # series 是 numpy array, shape = (n_samples, n_channels)
             # 展平为一维数组传输
-            flat_frames = frames.flatten().tolist()
-            n_sensors = frames.shape[1] if len(frames.shape) > 1 else 8
+            flat_series = series.flatten().tolist()
+            n_channels = series.shape[1] if len(series.shape) > 1 else 32
 
             logger.info(
-                f"GetSampleFrames: sample={request.sample_id}, "
+                f"GetSampleAlignedSeries: sample={request.sample_id}, "
                 f"{method}/{n_samples} → {'cached' if from_cache else 'generated'} ({elapsed_ms:.0f}ms)"
             )
 
-            return pb.GetSampleFramesResponse(
+            return pb.GetSampleAlignedSeriesResponse(
                 success=True,
-                frames=flat_frames,
+                aligned_series=flat_series,
                 n_samples=n_samples,
-                n_sensors=n_sensors,
+                n_channels=n_channels,
                 from_cache=from_cache,
             )
 
         except Exception as e:
-            logger.exception(f"GetSampleFrames failed: {e}")
+            logger.exception(f"GetSampleAlignedSeries failed: {e}")
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(str(e))
-            return pb.GetSampleFramesResponse(success=False)
+            return pb.GetSampleAlignedSeriesResponse(success=False)
 
 
 def add_to_server(server: grpc.Server) -> None:

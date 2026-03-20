@@ -55,30 +55,30 @@ class AnalyticsServiceStub(object):
                 request_serializer=enose__analytics__pb2.GenerateNormalizedFramesRequest.SerializeToString,
                 response_deserializer=enose__analytics__pb2.GenerateNormalizedFramesResponse.FromString,
                 )
-        self.GetSampleFramesStatus = channel.unary_unary(
-                '/enose.analytics.v1.AnalyticsService/GetSampleFramesStatus',
-                request_serializer=enose__analytics__pb2.SampleFramesStatusRequest.SerializeToString,
-                response_deserializer=enose__analytics__pb2.SampleFramesStatusResponse.FromString,
+        self.GetSampleAlignedSeriesStatus = channel.unary_unary(
+                '/enose.analytics.v1.AnalyticsService/GetSampleAlignedSeriesStatus',
+                request_serializer=enose__analytics__pb2.SampleAlignedSeriesStatusRequest.SerializeToString,
+                response_deserializer=enose__analytics__pb2.SampleAlignedSeriesStatusResponse.FromString,
                 )
-        self.GetBatchSampleFramesStatus = channel.unary_unary(
-                '/enose.analytics.v1.AnalyticsService/GetBatchSampleFramesStatus',
-                request_serializer=enose__analytics__pb2.BatchSampleFramesStatusRequest.SerializeToString,
-                response_deserializer=enose__analytics__pb2.BatchSampleFramesStatusResponse.FromString,
+        self.GetBatchSampleAlignedSeriesStatus = channel.unary_unary(
+                '/enose.analytics.v1.AnalyticsService/GetBatchSampleAlignedSeriesStatus',
+                request_serializer=enose__analytics__pb2.BatchSampleAlignedSeriesStatusRequest.SerializeToString,
+                response_deserializer=enose__analytics__pb2.BatchSampleAlignedSeriesStatusResponse.FromString,
                 )
-        self.GenerateSampleFrames = channel.unary_unary(
-                '/enose.analytics.v1.AnalyticsService/GenerateSampleFrames',
-                request_serializer=enose__analytics__pb2.GenerateSampleFramesRequest.SerializeToString,
-                response_deserializer=enose__analytics__pb2.GenerateSampleFramesResponse.FromString,
+        self.GenerateSampleAlignedSeries = channel.unary_unary(
+                '/enose.analytics.v1.AnalyticsService/GenerateSampleAlignedSeries',
+                request_serializer=enose__analytics__pb2.GenerateSampleAlignedSeriesRequest.SerializeToString,
+                response_deserializer=enose__analytics__pb2.GenerateSampleAlignedSeriesResponse.FromString,
                 )
-        self.GenerateBatchSampleFrames = channel.unary_unary(
-                '/enose.analytics.v1.AnalyticsService/GenerateBatchSampleFrames',
-                request_serializer=enose__analytics__pb2.BatchGenerateSampleFramesRequest.SerializeToString,
-                response_deserializer=enose__analytics__pb2.BatchGenerateSampleFramesResponse.FromString,
+        self.GenerateBatchSampleAlignedSeries = channel.unary_unary(
+                '/enose.analytics.v1.AnalyticsService/GenerateBatchSampleAlignedSeries',
+                request_serializer=enose__analytics__pb2.BatchGenerateSampleAlignedSeriesRequest.SerializeToString,
+                response_deserializer=enose__analytics__pb2.BatchGenerateSampleAlignedSeriesResponse.FromString,
                 )
-        self.GetSampleFrames = channel.unary_unary(
-                '/enose.analytics.v1.AnalyticsService/GetSampleFrames',
-                request_serializer=enose__analytics__pb2.GetSampleFramesRequest.SerializeToString,
-                response_deserializer=enose__analytics__pb2.GetSampleFramesResponse.FromString,
+        self.GetSampleAlignedSeries = channel.unary_unary(
+                '/enose.analytics.v1.AnalyticsService/GetSampleAlignedSeries',
+                request_serializer=enose__analytics__pb2.GetSampleAlignedSeriesRequest.SerializeToString,
+                response_deserializer=enose__analytics__pb2.GetSampleAlignedSeriesResponse.FromString,
                 )
 
 
@@ -125,51 +125,51 @@ class AnalyticsServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def GetNormalizedFramesStatus(self, request, context):
-        """检查归一化帧状态
+        """[DEPRECATED] 检查归一化帧状态 - 请使用 GetSampleAlignedSeriesStatus
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def GenerateNormalizedFrames(self, request, context):
-        """生成归一化帧
+        """[DEPRECATED] 生成归一化帧 - 请使用 GenerateSampleAlignedSeries
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def GetSampleFramesStatus(self, request, context):
-        """========== 基于 sample_id 的新接口 ==========
+    def GetSampleAlignedSeriesStatus(self, request, context):
+        """========== 基于 sample_id 的接口 ==========
 
-        检查样本帧状态（含缓存状态）
+        检查样本对齐序列状态（含缓存状态）
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def GetBatchSampleFramesStatus(self, request, context):
-        """批量检查样本帧状态（减少网络往返）
+    def GetBatchSampleAlignedSeriesStatus(self, request, context):
+        """批量检查样本对齐序列状态（减少网络往返）
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def GenerateSampleFrames(self, request, context):
-        """生成样本帧（支持 Redis 缓存）
+    def GenerateSampleAlignedSeries(self, request, context):
+        """生成样本对齐序列（支持 Redis 缓存）
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def GenerateBatchSampleFrames(self, request, context):
-        """批量生成样本帧（减少网络往返）
+    def GenerateBatchSampleAlignedSeries(self, request, context):
+        """批量生成样本对齐序列（减少网络往返）
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def GetSampleFrames(self, request, context):
-        """获取样本帧数据
+    def GetSampleAlignedSeries(self, request, context):
+        """获取样本对齐序列数据
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -213,30 +213,30 @@ def add_AnalyticsServiceServicer_to_server(servicer, server):
                     request_deserializer=enose__analytics__pb2.GenerateNormalizedFramesRequest.FromString,
                     response_serializer=enose__analytics__pb2.GenerateNormalizedFramesResponse.SerializeToString,
             ),
-            'GetSampleFramesStatus': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetSampleFramesStatus,
-                    request_deserializer=enose__analytics__pb2.SampleFramesStatusRequest.FromString,
-                    response_serializer=enose__analytics__pb2.SampleFramesStatusResponse.SerializeToString,
+            'GetSampleAlignedSeriesStatus': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetSampleAlignedSeriesStatus,
+                    request_deserializer=enose__analytics__pb2.SampleAlignedSeriesStatusRequest.FromString,
+                    response_serializer=enose__analytics__pb2.SampleAlignedSeriesStatusResponse.SerializeToString,
             ),
-            'GetBatchSampleFramesStatus': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetBatchSampleFramesStatus,
-                    request_deserializer=enose__analytics__pb2.BatchSampleFramesStatusRequest.FromString,
-                    response_serializer=enose__analytics__pb2.BatchSampleFramesStatusResponse.SerializeToString,
+            'GetBatchSampleAlignedSeriesStatus': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetBatchSampleAlignedSeriesStatus,
+                    request_deserializer=enose__analytics__pb2.BatchSampleAlignedSeriesStatusRequest.FromString,
+                    response_serializer=enose__analytics__pb2.BatchSampleAlignedSeriesStatusResponse.SerializeToString,
             ),
-            'GenerateSampleFrames': grpc.unary_unary_rpc_method_handler(
-                    servicer.GenerateSampleFrames,
-                    request_deserializer=enose__analytics__pb2.GenerateSampleFramesRequest.FromString,
-                    response_serializer=enose__analytics__pb2.GenerateSampleFramesResponse.SerializeToString,
+            'GenerateSampleAlignedSeries': grpc.unary_unary_rpc_method_handler(
+                    servicer.GenerateSampleAlignedSeries,
+                    request_deserializer=enose__analytics__pb2.GenerateSampleAlignedSeriesRequest.FromString,
+                    response_serializer=enose__analytics__pb2.GenerateSampleAlignedSeriesResponse.SerializeToString,
             ),
-            'GenerateBatchSampleFrames': grpc.unary_unary_rpc_method_handler(
-                    servicer.GenerateBatchSampleFrames,
-                    request_deserializer=enose__analytics__pb2.BatchGenerateSampleFramesRequest.FromString,
-                    response_serializer=enose__analytics__pb2.BatchGenerateSampleFramesResponse.SerializeToString,
+            'GenerateBatchSampleAlignedSeries': grpc.unary_unary_rpc_method_handler(
+                    servicer.GenerateBatchSampleAlignedSeries,
+                    request_deserializer=enose__analytics__pb2.BatchGenerateSampleAlignedSeriesRequest.FromString,
+                    response_serializer=enose__analytics__pb2.BatchGenerateSampleAlignedSeriesResponse.SerializeToString,
             ),
-            'GetSampleFrames': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetSampleFrames,
-                    request_deserializer=enose__analytics__pb2.GetSampleFramesRequest.FromString,
-                    response_serializer=enose__analytics__pb2.GetSampleFramesResponse.SerializeToString,
+            'GetSampleAlignedSeries': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetSampleAlignedSeries,
+                    request_deserializer=enose__analytics__pb2.GetSampleAlignedSeriesRequest.FromString,
+                    response_serializer=enose__analytics__pb2.GetSampleAlignedSeriesResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -372,7 +372,7 @@ class AnalyticsService(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def GetSampleFramesStatus(request,
+    def GetSampleAlignedSeriesStatus(request,
             target,
             options=(),
             channel_credentials=None,
@@ -382,14 +382,14 @@ class AnalyticsService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/enose.analytics.v1.AnalyticsService/GetSampleFramesStatus',
-            enose__analytics__pb2.SampleFramesStatusRequest.SerializeToString,
-            enose__analytics__pb2.SampleFramesStatusResponse.FromString,
+        return grpc.experimental.unary_unary(request, target, '/enose.analytics.v1.AnalyticsService/GetSampleAlignedSeriesStatus',
+            enose__analytics__pb2.SampleAlignedSeriesStatusRequest.SerializeToString,
+            enose__analytics__pb2.SampleAlignedSeriesStatusResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def GetBatchSampleFramesStatus(request,
+    def GetBatchSampleAlignedSeriesStatus(request,
             target,
             options=(),
             channel_credentials=None,
@@ -399,14 +399,14 @@ class AnalyticsService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/enose.analytics.v1.AnalyticsService/GetBatchSampleFramesStatus',
-            enose__analytics__pb2.BatchSampleFramesStatusRequest.SerializeToString,
-            enose__analytics__pb2.BatchSampleFramesStatusResponse.FromString,
+        return grpc.experimental.unary_unary(request, target, '/enose.analytics.v1.AnalyticsService/GetBatchSampleAlignedSeriesStatus',
+            enose__analytics__pb2.BatchSampleAlignedSeriesStatusRequest.SerializeToString,
+            enose__analytics__pb2.BatchSampleAlignedSeriesStatusResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def GenerateSampleFrames(request,
+    def GenerateSampleAlignedSeries(request,
             target,
             options=(),
             channel_credentials=None,
@@ -416,14 +416,14 @@ class AnalyticsService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/enose.analytics.v1.AnalyticsService/GenerateSampleFrames',
-            enose__analytics__pb2.GenerateSampleFramesRequest.SerializeToString,
-            enose__analytics__pb2.GenerateSampleFramesResponse.FromString,
+        return grpc.experimental.unary_unary(request, target, '/enose.analytics.v1.AnalyticsService/GenerateSampleAlignedSeries',
+            enose__analytics__pb2.GenerateSampleAlignedSeriesRequest.SerializeToString,
+            enose__analytics__pb2.GenerateSampleAlignedSeriesResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def GenerateBatchSampleFrames(request,
+    def GenerateBatchSampleAlignedSeries(request,
             target,
             options=(),
             channel_credentials=None,
@@ -433,14 +433,14 @@ class AnalyticsService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/enose.analytics.v1.AnalyticsService/GenerateBatchSampleFrames',
-            enose__analytics__pb2.BatchGenerateSampleFramesRequest.SerializeToString,
-            enose__analytics__pb2.BatchGenerateSampleFramesResponse.FromString,
+        return grpc.experimental.unary_unary(request, target, '/enose.analytics.v1.AnalyticsService/GenerateBatchSampleAlignedSeries',
+            enose__analytics__pb2.BatchGenerateSampleAlignedSeriesRequest.SerializeToString,
+            enose__analytics__pb2.BatchGenerateSampleAlignedSeriesResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def GetSampleFrames(request,
+    def GetSampleAlignedSeries(request,
             target,
             options=(),
             channel_credentials=None,
@@ -450,9 +450,9 @@ class AnalyticsService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/enose.analytics.v1.AnalyticsService/GetSampleFrames',
-            enose__analytics__pb2.GetSampleFramesRequest.SerializeToString,
-            enose__analytics__pb2.GetSampleFramesResponse.FromString,
+        return grpc.experimental.unary_unary(request, target, '/enose.analytics.v1.AnalyticsService/GetSampleAlignedSeries',
+            enose__analytics__pb2.GetSampleAlignedSeriesRequest.SerializeToString,
+            enose__analytics__pb2.GetSampleAlignedSeriesResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

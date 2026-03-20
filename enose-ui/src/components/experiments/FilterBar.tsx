@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useExperiments } from "./context/ExperimentsContext";
 import {
   Popover,
@@ -18,7 +18,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { X, Filter, ChevronsUpDown, Anchor, FlaskConical, ShieldCheck, Search } from "lucide-react";
+import { X, Filter, ChevronsUpDown, Anchor, FlaskConical, ShieldCheck, Search, Trash2, AlertTriangle, Loader2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export type SortField = "runId" | "sampleIdx" | "time" | "phase";
@@ -173,7 +182,45 @@ export function FilterBar() {
     availableLiquids,
     availablePhases,
     filterOptionsLoading,
+    setAvailableRuns,
+    setRuns,
+    runs,
   } = useExperiments();
+
+  // 删除 Run 状态
+  const [deleteRunTarget, setDeleteRunTarget] = useState<number[] | null>(null);
+  const [deletingRun, setDeletingRun] = useState(false);
+
+  const handleDeleteRunConfirm = useCallback(async () => {
+    if (!deleteRunTarget || deleteRunTarget.length === 0) return;
+    setDeletingRun(true);
+    const toastId = toast.loading(`正在删除 ${deleteRunTarget.length} 个 Run...`);
+    try {
+      const res = await fetch("/api/runs", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ runIds: deleteRunTarget }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "删除失败");
+
+      toast.success(`已删除 ${data.deleted} 个 Run（${data.samplesDeleted} 个样本）`, { id: toastId });
+
+      // 从筛选选项和 run 列表中移除
+      const deletedSet = new Set(deleteRunTarget);
+      setAvailableRuns(availableRuns.filter(r => !deletedSet.has(r.id)));
+      setRuns(runs.filter(r => !deletedSet.has(r.id)));
+      // 清除筛选中已删除的 runId
+      if (filters.runIds.some(id => deletedSet.has(id))) {
+        updateFilters({ runIds: filters.runIds.filter(id => !deletedSet.has(id)) });
+      }
+      setDeleteRunTarget(null);
+    } catch (err) {
+      toast.error(`删除失败: ${err}`, { id: toastId });
+    } finally {
+      setDeletingRun(false);
+    }
+  }, [deleteRunTarget, availableRuns, runs, filters.runIds, setAvailableRuns, setRuns, updateFilters]);
 
   const hasFilters =
     filters.runIds.length > 0 ||
@@ -184,7 +231,8 @@ export function FilterBar() {
     filters.qualityLevels.length > 0 ||
     filters.showAnchorsOnly ||
     filters.showBlanksOnly ||
-    filters.hideAnchorsAndBlanks;
+    filters.hideAnchorsAndBlanks ||
+    filters.showAnomaliesOnly;
 
   // 切换函数
   const toggleRunId = (runId: number) => {
@@ -275,6 +323,17 @@ export function FilterBar() {
           loading={filterOptionsLoading}
           searchable
         />
+        {filters.runIds.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
+            title={`删除已筛选的 ${filters.runIds.length} 个 Run`}
+            onClick={() => setDeleteRunTarget(filters.runIds)}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
       </div>
 
       {/* 阶段多选 */}
@@ -360,6 +419,23 @@ export function FilterBar() {
         />
       </div>
 
+      {/* 异常筛选 */}
+      <Button
+        variant={filters.showAnomaliesOnly ? "secondary" : "ghost"}
+        size="sm"
+        className={cn(
+          "h-7 px-2 text-xs gap-1",
+          filters.showAnomaliesOnly && "border-orange-400/50 text-orange-600"
+        )}
+        onClick={() =>
+          updateFilters({ showAnomaliesOnly: !filters.showAnomaliesOnly })
+        }
+        title="仅显示异常样本（采集未完成、时间过短、字段缺失等）"
+      >
+        <AlertTriangle className="h-3 w-3" />
+        异常
+      </Button>
+
       {/* 锚点/空白快捷筛选 */}
       <div className="flex items-center gap-1">
         <Button
@@ -430,6 +506,31 @@ export function FilterBar() {
           清除
         </Button>
       )}
+
+      {/* 删除 Run 确认对话框 */}
+      <AlertDialog open={!!deleteRunTarget} onOpenChange={(open) => !open && setDeleteRunTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除 {deleteRunTarget?.length} 个 Run</AlertDialogTitle>
+            <AlertDialogDescription>
+              此操作将永久删除 Run #{deleteRunTarget?.join(", #")} 及其所有样本和关联数据（传感器读数、对齐序列、ML 标签等）。此操作不可撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setDeleteRunTarget(null)} disabled={deletingRun}>
+              取消
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteRunConfirm}
+              disabled={deletingRun}
+            >
+              {deletingRun ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+              确认删除
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

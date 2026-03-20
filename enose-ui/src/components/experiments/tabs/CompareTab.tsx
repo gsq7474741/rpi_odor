@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { useExperiments, SampleWithFrameStatus } from "../context/ExperimentsContext";
+import { useExperiments, SampleWithSeriesStatus } from "../context/ExperimentsContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -137,7 +137,7 @@ export function CompareTab() {
   const paramRows = useMemo((): ParamRow[] => {
     if (selectedSamples.length < 2) return [];
 
-    const formatLiquidFormula = (s: SampleWithFrameStatus) => {
+    const formatLiquidFormula = (s: SampleWithSeriesStatus) => {
       if (!s.liquidNames || s.liquidNames.length === 0) return "-";
       if (s.liquidNames.length === 1) return s.liquidNames[0];
       // 归一化比例：ratio 可能是小数(0.2, 0.8)或百分比(20, 80)，统一按比例归一化
@@ -152,7 +152,7 @@ export function CompareTab() {
         .join(" + ");
     };
 
-    const formatTermination = (s: SampleWithFrameStatus) => {
+    const formatTermination = (s: SampleWithSeriesStatus) => {
       if (!s.terminationType) return "-";
       return `${s.terminationType}: ${s.terminationValue}`;
     };

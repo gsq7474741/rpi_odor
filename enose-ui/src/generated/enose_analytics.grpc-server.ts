@@ -70,16 +70,16 @@ import { StartTrainingResponse } from "./enose_analytics";
 import { StartTrainingRequest } from "./enose_analytics";
 import { TrainProgress } from "./enose_analytics";
 import { TrainModelRequest } from "./enose_analytics";
-import { GetSampleFramesResponse } from "./enose_analytics";
-import { GetSampleFramesRequest } from "./enose_analytics";
-import { BatchGenerateSampleFramesResponse } from "./enose_analytics";
-import { BatchGenerateSampleFramesRequest } from "./enose_analytics";
-import { GenerateSampleFramesResponse } from "./enose_analytics";
-import { GenerateSampleFramesRequest } from "./enose_analytics";
-import { BatchSampleFramesStatusResponse } from "./enose_analytics";
-import { BatchSampleFramesStatusRequest } from "./enose_analytics";
-import { SampleFramesStatusResponse } from "./enose_analytics";
-import { SampleFramesStatusRequest } from "./enose_analytics";
+import { GetSampleAlignedSeriesResponse } from "./enose_analytics";
+import { GetSampleAlignedSeriesRequest } from "./enose_analytics";
+import { BatchGenerateSampleAlignedSeriesResponse } from "./enose_analytics";
+import { BatchGenerateSampleAlignedSeriesRequest } from "./enose_analytics";
+import { GenerateSampleAlignedSeriesResponse } from "./enose_analytics";
+import { GenerateSampleAlignedSeriesRequest } from "./enose_analytics";
+import { BatchSampleAlignedSeriesStatusResponse } from "./enose_analytics";
+import { BatchSampleAlignedSeriesStatusRequest } from "./enose_analytics";
+import { SampleAlignedSeriesStatusResponse } from "./enose_analytics";
+import { SampleAlignedSeriesStatusRequest } from "./enose_analytics";
 import { GenerateNormalizedFramesResponse } from "./enose_analytics";
 import { GenerateNormalizedFramesRequest } from "./enose_analytics";
 import { NormalizedFramesStatusResponse } from "./enose_analytics";
@@ -130,14 +130,14 @@ export interface IAnalyticsService extends grpc.UntypedServiceImplementation {
      */
     updateQualityConfig: grpc.handleUnaryCall<QualityConfig, QualityConfig>;
     /**
-     * [DEPRECATED] 检查归一化帧状态 - 请使用 GetSampleFramesStatus
+     * [DEPRECATED] 检查归一化帧状态 - 请使用 GetSampleAlignedSeriesStatus
      *
      * @deprecated
      * @generated from protobuf rpc: GetNormalizedFramesStatus
      */
     getNormalizedFramesStatus: grpc.handleUnaryCall<NormalizedFramesStatusRequest, NormalizedFramesStatusResponse>;
     /**
-     * [DEPRECATED] 生成归一化帧 - 请使用 GenerateSampleFrames
+     * [DEPRECATED] 生成归一化帧 - 请使用 GenerateSampleAlignedSeries
      *
      * @deprecated
      * @generated from protobuf rpc: GenerateNormalizedFrames
@@ -146,35 +146,35 @@ export interface IAnalyticsService extends grpc.UntypedServiceImplementation {
     // ========== 基于 sample_id 的接口 ==========
 
     /**
-     * 检查样本帧状态（含缓存状态）
+     * 检查样本对齐序列状态（含缓存状态）
      *
-     * @generated from protobuf rpc: GetSampleFramesStatus
+     * @generated from protobuf rpc: GetSampleAlignedSeriesStatus
      */
-    getSampleFramesStatus: grpc.handleUnaryCall<SampleFramesStatusRequest, SampleFramesStatusResponse>;
+    getSampleAlignedSeriesStatus: grpc.handleUnaryCall<SampleAlignedSeriesStatusRequest, SampleAlignedSeriesStatusResponse>;
     /**
-     * 批量检查样本帧状态（减少网络往返）
+     * 批量检查样本对齐序列状态（减少网络往返）
      *
-     * @generated from protobuf rpc: GetBatchSampleFramesStatus
+     * @generated from protobuf rpc: GetBatchSampleAlignedSeriesStatus
      */
-    getBatchSampleFramesStatus: grpc.handleUnaryCall<BatchSampleFramesStatusRequest, BatchSampleFramesStatusResponse>;
+    getBatchSampleAlignedSeriesStatus: grpc.handleUnaryCall<BatchSampleAlignedSeriesStatusRequest, BatchSampleAlignedSeriesStatusResponse>;
     /**
-     * 生成样本帧（支持 Redis 缓存）
+     * 生成样本对齐序列（支持 Redis 缓存）
      *
-     * @generated from protobuf rpc: GenerateSampleFrames
+     * @generated from protobuf rpc: GenerateSampleAlignedSeries
      */
-    generateSampleFrames: grpc.handleUnaryCall<GenerateSampleFramesRequest, GenerateSampleFramesResponse>;
+    generateSampleAlignedSeries: grpc.handleUnaryCall<GenerateSampleAlignedSeriesRequest, GenerateSampleAlignedSeriesResponse>;
     /**
-     * 批量生成样本帧（减少网络往返）
+     * 批量生成样本对齐序列（减少网络往返）
      *
-     * @generated from protobuf rpc: GenerateBatchSampleFrames
+     * @generated from protobuf rpc: GenerateBatchSampleAlignedSeries
      */
-    generateBatchSampleFrames: grpc.handleUnaryCall<BatchGenerateSampleFramesRequest, BatchGenerateSampleFramesResponse>;
+    generateBatchSampleAlignedSeries: grpc.handleUnaryCall<BatchGenerateSampleAlignedSeriesRequest, BatchGenerateSampleAlignedSeriesResponse>;
     /**
-     * 获取样本帧数据
+     * 获取样本对齐序列数据
      *
-     * @generated from protobuf rpc: GetSampleFrames
+     * @generated from protobuf rpc: GetSampleAlignedSeries
      */
-    getSampleFrames: grpc.handleUnaryCall<GetSampleFramesRequest, GetSampleFramesResponse>;
+    getSampleAlignedSeries: grpc.handleUnaryCall<GetSampleAlignedSeriesRequest, GetSampleAlignedSeriesResponse>;
 }
 /**
  * @grpc/grpc-js definition for the protobuf service enose.analytics.v1.AnalyticsService.
@@ -258,55 +258,55 @@ export const analyticsServiceDefinition: grpc.ServiceDefinition<IAnalyticsServic
         responseSerialize: value => Buffer.from(GenerateNormalizedFramesResponse.toBinary(value)),
         requestSerialize: value => Buffer.from(GenerateNormalizedFramesRequest.toBinary(value))
     },
-    getSampleFramesStatus: {
-        path: "/enose.analytics.v1.AnalyticsService/GetSampleFramesStatus",
-        originalName: "GetSampleFramesStatus",
+    getSampleAlignedSeriesStatus: {
+        path: "/enose.analytics.v1.AnalyticsService/GetSampleAlignedSeriesStatus",
+        originalName: "GetSampleAlignedSeriesStatus",
         requestStream: false,
         responseStream: false,
-        responseDeserialize: bytes => SampleFramesStatusResponse.fromBinary(bytes),
-        requestDeserialize: bytes => SampleFramesStatusRequest.fromBinary(bytes),
-        responseSerialize: value => Buffer.from(SampleFramesStatusResponse.toBinary(value)),
-        requestSerialize: value => Buffer.from(SampleFramesStatusRequest.toBinary(value))
+        responseDeserialize: bytes => SampleAlignedSeriesStatusResponse.fromBinary(bytes),
+        requestDeserialize: bytes => SampleAlignedSeriesStatusRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(SampleAlignedSeriesStatusResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(SampleAlignedSeriesStatusRequest.toBinary(value))
     },
-    getBatchSampleFramesStatus: {
-        path: "/enose.analytics.v1.AnalyticsService/GetBatchSampleFramesStatus",
-        originalName: "GetBatchSampleFramesStatus",
+    getBatchSampleAlignedSeriesStatus: {
+        path: "/enose.analytics.v1.AnalyticsService/GetBatchSampleAlignedSeriesStatus",
+        originalName: "GetBatchSampleAlignedSeriesStatus",
         requestStream: false,
         responseStream: false,
-        responseDeserialize: bytes => BatchSampleFramesStatusResponse.fromBinary(bytes),
-        requestDeserialize: bytes => BatchSampleFramesStatusRequest.fromBinary(bytes),
-        responseSerialize: value => Buffer.from(BatchSampleFramesStatusResponse.toBinary(value)),
-        requestSerialize: value => Buffer.from(BatchSampleFramesStatusRequest.toBinary(value))
+        responseDeserialize: bytes => BatchSampleAlignedSeriesStatusResponse.fromBinary(bytes),
+        requestDeserialize: bytes => BatchSampleAlignedSeriesStatusRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(BatchSampleAlignedSeriesStatusResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(BatchSampleAlignedSeriesStatusRequest.toBinary(value))
     },
-    generateSampleFrames: {
-        path: "/enose.analytics.v1.AnalyticsService/GenerateSampleFrames",
-        originalName: "GenerateSampleFrames",
+    generateSampleAlignedSeries: {
+        path: "/enose.analytics.v1.AnalyticsService/GenerateSampleAlignedSeries",
+        originalName: "GenerateSampleAlignedSeries",
         requestStream: false,
         responseStream: false,
-        responseDeserialize: bytes => GenerateSampleFramesResponse.fromBinary(bytes),
-        requestDeserialize: bytes => GenerateSampleFramesRequest.fromBinary(bytes),
-        responseSerialize: value => Buffer.from(GenerateSampleFramesResponse.toBinary(value)),
-        requestSerialize: value => Buffer.from(GenerateSampleFramesRequest.toBinary(value))
+        responseDeserialize: bytes => GenerateSampleAlignedSeriesResponse.fromBinary(bytes),
+        requestDeserialize: bytes => GenerateSampleAlignedSeriesRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(GenerateSampleAlignedSeriesResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(GenerateSampleAlignedSeriesRequest.toBinary(value))
     },
-    generateBatchSampleFrames: {
-        path: "/enose.analytics.v1.AnalyticsService/GenerateBatchSampleFrames",
-        originalName: "GenerateBatchSampleFrames",
+    generateBatchSampleAlignedSeries: {
+        path: "/enose.analytics.v1.AnalyticsService/GenerateBatchSampleAlignedSeries",
+        originalName: "GenerateBatchSampleAlignedSeries",
         requestStream: false,
         responseStream: false,
-        responseDeserialize: bytes => BatchGenerateSampleFramesResponse.fromBinary(bytes),
-        requestDeserialize: bytes => BatchGenerateSampleFramesRequest.fromBinary(bytes),
-        responseSerialize: value => Buffer.from(BatchGenerateSampleFramesResponse.toBinary(value)),
-        requestSerialize: value => Buffer.from(BatchGenerateSampleFramesRequest.toBinary(value))
+        responseDeserialize: bytes => BatchGenerateSampleAlignedSeriesResponse.fromBinary(bytes),
+        requestDeserialize: bytes => BatchGenerateSampleAlignedSeriesRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(BatchGenerateSampleAlignedSeriesResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(BatchGenerateSampleAlignedSeriesRequest.toBinary(value))
     },
-    getSampleFrames: {
-        path: "/enose.analytics.v1.AnalyticsService/GetSampleFrames",
-        originalName: "GetSampleFrames",
+    getSampleAlignedSeries: {
+        path: "/enose.analytics.v1.AnalyticsService/GetSampleAlignedSeries",
+        originalName: "GetSampleAlignedSeries",
         requestStream: false,
         responseStream: false,
-        responseDeserialize: bytes => GetSampleFramesResponse.fromBinary(bytes),
-        requestDeserialize: bytes => GetSampleFramesRequest.fromBinary(bytes),
-        responseSerialize: value => Buffer.from(GetSampleFramesResponse.toBinary(value)),
-        requestSerialize: value => Buffer.from(GetSampleFramesRequest.toBinary(value))
+        responseDeserialize: bytes => GetSampleAlignedSeriesResponse.fromBinary(bytes),
+        requestDeserialize: bytes => GetSampleAlignedSeriesRequest.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(GetSampleAlignedSeriesResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(GetSampleAlignedSeriesRequest.toBinary(value))
     }
 };
 // ============================================================================

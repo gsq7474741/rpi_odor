@@ -23,13 +23,13 @@ export interface SavedQuery {
     showBlanksOnly: boolean;
     hideAnchorsAndBlanks: boolean;
     searchQuery: string;
-    hasFrames: boolean | null;
+    hasAlignedSeries: boolean | null;
   };
   // ML 标签配置
   mlLabelConfig: string;
   mlSplitRatios: { train: number; val: number };
-  // Frame 配置
-  frameConfig: { method: string; nSamples: number };
+  // 对齐序列配置
+  seriesConfig: { method: string; nSamples: number };
 }
 
 const STORAGE_KEY = "enose-saved-queries";

@@ -125,9 +125,9 @@ export function LivePcaPanel({ runId, active, experimentStatus }: LivePcaPanelPr
       setLoading(true);
       setError(null);
       try {
-        // Fetch frames for all samples
-        const framesPromises = samples.map(async (sample) => {
-          const res = await fetch("/api/analytics/sample-frames", {
+        // Fetch aligned series for all samples
+        const seriesPromises = samples.map(async (sample) => {
+          const res = await fetch("/api/analytics/sample-aligned-series", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -138,20 +138,20 @@ export function LivePcaPanel({ runId, active, experimentStatus }: LivePcaPanelPr
             }),
           });
           const data = await res.json();
-          return { sample, frames: data.frames as number[] | null, success: data.success };
+          return { sample, alignedSeries: data.frames as number[] | null, success: data.success };
         });
 
-        const results = await Promise.all(framesPromises);
-        const valid = results.filter(r => r.success && r.frames && r.frames.length > 0);
+        const results = await Promise.all(seriesPromises);
+        const valid = results.filter(r => r.success && r.alignedSeries && r.alignedSeries.length > 0);
 
         if (valid.length < 2) {
-          setError("样本帧不足");
+          setError("样本对齐序列不足");
           setLoading(false);
           return;
         }
 
         // Project using PCA
-        const dataMatrix = valid.map(r => r.frames!);
+        const dataMatrix = valid.map(r => r.alignedSeries!);
         const result = await projectData(dataMatrix, {
           type: "PCA",
           nComponents: 2,

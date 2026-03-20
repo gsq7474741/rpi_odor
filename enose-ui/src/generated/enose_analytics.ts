@@ -399,41 +399,41 @@ export interface GenerateNormalizedFramesResponse {
     }; // 每个阶段+方法生成的帧数
 }
 // ============================================================================
-// 基于 sample_id 的归一化帧消息 (新接口)
+// 基于 sample_id 的对齐序列消息 (新接口)
 // ============================================================================
 
 /**
- * @generated from protobuf message enose.analytics.v1.SampleFramesStatusRequest
+ * @generated from protobuf message enose.analytics.v1.SampleAlignedSeriesStatusRequest
  */
-export interface SampleFramesStatusRequest {
+export interface SampleAlignedSeriesStatusRequest {
     /**
      * @generated from protobuf field: int32 sample_id = 1
      */
     sampleId: number; // 样本 ID
 }
 /**
- * @generated from protobuf message enose.analytics.v1.SampleFramesStatusResponse
+ * @generated from protobuf message enose.analytics.v1.SampleAlignedSeriesStatusResponse
  */
-export interface SampleFramesStatusResponse {
+export interface SampleAlignedSeriesStatusResponse {
     /**
      * @generated from protobuf field: bool exists = 1
      */
-    exists: boolean; // 是否存在归一化帧
+    exists: boolean; // 是否存在对齐序列
     /**
      * @generated from protobuf field: bool cached = 2
      */
     cached: boolean; // 是否在 Redis 缓存中
     /**
-     * @generated from protobuf field: repeated enose.analytics.v1.SampleFramesMeta variants = 3
+     * @generated from protobuf field: repeated enose.analytics.v1.SampleAlignedSeriesMeta variants = 3
      */
-    variants: SampleFramesMeta[]; // 不同参数的变体
+    variants: SampleAlignedSeriesMeta[]; // 不同参数的变体
 }
 /**
  * 批量查询请求
  *
- * @generated from protobuf message enose.analytics.v1.BatchSampleFramesStatusRequest
+ * @generated from protobuf message enose.analytics.v1.BatchSampleAlignedSeriesStatusRequest
  */
-export interface BatchSampleFramesStatusRequest {
+export interface BatchSampleAlignedSeriesStatusRequest {
     /**
      * @generated from protobuf field: repeated int32 sample_ids = 1
      */
@@ -442,20 +442,20 @@ export interface BatchSampleFramesStatusRequest {
 /**
  * 批量查询响应
  *
- * @generated from protobuf message enose.analytics.v1.BatchSampleFramesStatusResponse
+ * @generated from protobuf message enose.analytics.v1.BatchSampleAlignedSeriesStatusResponse
  */
-export interface BatchSampleFramesStatusResponse {
+export interface BatchSampleAlignedSeriesStatusResponse {
     /**
-     * @generated from protobuf field: map<int32, enose.analytics.v1.SampleFramesStatusResponse> statuses = 1
+     * @generated from protobuf field: map<int32, enose.analytics.v1.SampleAlignedSeriesStatusResponse> statuses = 1
      */
     statuses: {
-        [key: number]: SampleFramesStatusResponse;
+        [key: number]: SampleAlignedSeriesStatusResponse;
     }; // sample_id -> 状态
 }
 /**
- * @generated from protobuf message enose.analytics.v1.SampleFramesMeta
+ * @generated from protobuf message enose.analytics.v1.SampleAlignedSeriesMeta
  */
-export interface SampleFramesMeta {
+export interface SampleAlignedSeriesMeta {
     /**
      * @generated from protobuf field: string method = 1
      */
@@ -474,9 +474,9 @@ export interface SampleFramesMeta {
     timeRangeMs: string; // 原始时间跨度
 }
 /**
- * @generated from protobuf message enose.analytics.v1.GenerateSampleFramesRequest
+ * @generated from protobuf message enose.analytics.v1.GenerateSampleAlignedSeriesRequest
  */
-export interface GenerateSampleFramesRequest {
+export interface GenerateSampleAlignedSeriesRequest {
     /**
      * @generated from protobuf field: int32 sample_id = 1
      */
@@ -495,9 +495,9 @@ export interface GenerateSampleFramesRequest {
     useCache?: boolean; // 是否使用 Redis 缓存 (默认 true)
 }
 /**
- * @generated from protobuf message enose.analytics.v1.GenerateSampleFramesResponse
+ * @generated from protobuf message enose.analytics.v1.GenerateSampleAlignedSeriesResponse
  */
-export interface GenerateSampleFramesResponse {
+export interface GenerateSampleAlignedSeriesResponse {
     /**
      * @generated from protobuf field: bool success = 1
      */
@@ -507,22 +507,22 @@ export interface GenerateSampleFramesResponse {
      */
     message: string;
     /**
-     * @generated from protobuf field: map<string, int32> frames_generated = 3
+     * @generated from protobuf field: map<string, int32> series_generated = 3
      */
-    framesGenerated: {
+    seriesGenerated: {
         [key: string]: number;
-    }; // 每种方法生成的帧数
+    }; // 每种方法生成的序列数
     /**
      * @generated from protobuf field: bool from_cache = 4
      */
     fromCache: boolean; // 是否从缓存获取
 }
 /**
- * 批量生成样本帧请求
+ * 批量生成样本对齐序列请求
  *
- * @generated from protobuf message enose.analytics.v1.BatchGenerateSampleFramesRequest
+ * @generated from protobuf message enose.analytics.v1.BatchGenerateSampleAlignedSeriesRequest
  */
-export interface BatchGenerateSampleFramesRequest {
+export interface BatchGenerateSampleAlignedSeriesRequest {
     /**
      * @generated from protobuf field: repeated int32 sample_ids = 1
      */
@@ -541,11 +541,11 @@ export interface BatchGenerateSampleFramesRequest {
     useCache?: boolean; // 是否使用 Redis 缓存 (默认 true)
 }
 /**
- * 批量生成样本帧响应
+ * 批量生成样本对齐序列响应
  *
- * @generated from protobuf message enose.analytics.v1.BatchGenerateSampleFramesResponse
+ * @generated from protobuf message enose.analytics.v1.BatchGenerateSampleAlignedSeriesResponse
  */
-export interface BatchGenerateSampleFramesResponse {
+export interface BatchGenerateSampleAlignedSeriesResponse {
     /**
      * @generated from protobuf field: int32 total_samples = 1
      */
@@ -570,9 +570,9 @@ export interface BatchGenerateSampleFramesResponse {
     }; // 失败的样本 ID -> 错误信息
 }
 /**
- * @generated from protobuf message enose.analytics.v1.GetSampleFramesRequest
+ * @generated from protobuf message enose.analytics.v1.GetSampleAlignedSeriesRequest
  */
-export interface GetSampleFramesRequest {
+export interface GetSampleAlignedSeriesRequest {
     /**
      * @generated from protobuf field: int32 sample_id = 1
      */
@@ -595,25 +595,25 @@ export interface GetSampleFramesRequest {
     phaseNames: string[]; // 可选: 仅使用指定阶段的数据 (空=使用样本默认数据)
 }
 /**
- * @generated from protobuf message enose.analytics.v1.GetSampleFramesResponse
+ * @generated from protobuf message enose.analytics.v1.GetSampleAlignedSeriesResponse
  */
-export interface GetSampleFramesResponse {
+export interface GetSampleAlignedSeriesResponse {
     /**
      * @generated from protobuf field: bool success = 1
      */
     success: boolean;
     /**
-     * @generated from protobuf field: repeated double frames = 2
+     * @generated from protobuf field: repeated double aligned_series = 2
      */
-    frames: number[]; // 帧数据 (flatten: n_samples * n_channels)
+    alignedSeries: number[]; // 对齐序列数据 (flatten: n_samples * n_channels)
     /**
      * @generated from protobuf field: int32 n_samples = 3
      */
     nSamples: number; // 采样点数
     /**
-     * @generated from protobuf field: int32 n_sensors = 4
+     * @generated from protobuf field: int32 n_channels = 4
      */
-    nSensors: number; // 通道数 (32: 8传感器 × 4物理量 [value, temp, humidity, pressure])
+    nChannels: number; // 通道数 (32: 8传感器 × 4物理量 [value, temp, humidity, pressure])
     /**
      * @generated from protobuf field: bool from_cache = 5
      */
@@ -1174,9 +1174,9 @@ export interface ExperimentSummary {
      */
     endTime?: Timestamp;
     /**
-     * @generated from protobuf field: int32 frame_count = 4
+     * @generated from protobuf field: int32 reading_count = 4
      */
-    frameCount: number;
+    readingCount: number;
     /**
      * @generated from protobuf field: repeated string phases = 5
      */
@@ -1492,9 +1492,9 @@ export interface ExperimentDetail {
      */
     endTime?: Timestamp;
     /**
-     * @generated from protobuf field: int32 frame_count = 4
+     * @generated from protobuf field: int32 reading_count = 4
      */
-    frameCount: number;
+    readingCount: number;
     /**
      * @generated from protobuf field: string status = 5
      */
@@ -1557,9 +1557,9 @@ export interface PhaseInfo {
      */
     endTime?: Timestamp;
     /**
-     * @generated from protobuf field: int32 frame_count = 4
+     * @generated from protobuf field: int32 reading_count = 4
      */
-    frameCount: number;
+    readingCount: number;
 }
 // ============================================================================
 // 样本消息
@@ -2377,9 +2377,9 @@ export interface ExportDataRequest {
      */
     includeRawData: boolean;
     /**
-     * @generated from protobuf field: bool include_frames = 4
+     * @generated from protobuf field: bool include_aligned_series = 4
      */
-    includeFrames: boolean;
+    includeAlignedSeries: boolean;
     /**
      * @generated from protobuf field: bool include_ml_labels = 5
      */
@@ -2389,19 +2389,19 @@ export interface ExportDataRequest {
      */
     includeDataset: boolean;
     /**
-     * 帧配置（归一化帧 + 训练数据集共用）
+     * 对齐序列配置（对齐序列 + 训练数据集共用）
      *
-     * @generated from protobuf field: string frame_method = 10
+     * @generated from protobuf field: string series_method = 10
      */
-    frameMethod: string; // "linear" / "pchip"
+    seriesMethod: string; // "linear" / "pchip"
     /**
-     * @generated from protobuf field: int32 frame_n_samples = 11
+     * @generated from protobuf field: int32 series_n_samples = 11
      */
-    frameNSamples: number; // 50-500
+    seriesNSamples: number; // 50-500
     /**
-     * @generated from protobuf field: string frame_format = 12
+     * @generated from protobuf field: string series_format = 12
      */
-    frameFormat: string; // "npz" / "csv"
+    seriesFormat: string; // "npz" / "csv"
     /**
      * ML 标签配置
      *
@@ -2495,13 +2495,13 @@ export interface StartTrainingRequest {
      */
     valRatio: number;
     /**
-     * @generated from protobuf field: int32 frame_n_samples = 10
+     * @generated from protobuf field: int32 series_n_samples = 10
      */
-    frameNSamples: number; // 归一化帧采样点数
+    seriesNSamples: number; // 对齐序列采样点数
     /**
-     * @generated from protobuf field: string frame_method = 11
+     * @generated from protobuf field: string series_method = 11
      */
-    frameMethod: string; // "linear" / "pchip"
+    seriesMethod: string; // "linear" / "pchip"
     /**
      * @generated from protobuf field: int32 seed = 12
      */
@@ -4047,20 +4047,20 @@ class GenerateNormalizedFramesResponse$Type extends MessageType<GenerateNormaliz
  */
 export const GenerateNormalizedFramesResponse = new GenerateNormalizedFramesResponse$Type();
 // @generated message type with reflection information, may provide speed optimized methods
-class SampleFramesStatusRequest$Type extends MessageType<SampleFramesStatusRequest> {
+class SampleAlignedSeriesStatusRequest$Type extends MessageType<SampleAlignedSeriesStatusRequest> {
     constructor() {
-        super("enose.analytics.v1.SampleFramesStatusRequest", [
+        super("enose.analytics.v1.SampleAlignedSeriesStatusRequest", [
             { no: 1, name: "sample_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
         ]);
     }
-    create(value?: PartialMessage<SampleFramesStatusRequest>): SampleFramesStatusRequest {
+    create(value?: PartialMessage<SampleAlignedSeriesStatusRequest>): SampleAlignedSeriesStatusRequest {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.sampleId = 0;
         if (value !== undefined)
-            reflectionMergePartial<SampleFramesStatusRequest>(this, message, value);
+            reflectionMergePartial<SampleAlignedSeriesStatusRequest>(this, message, value);
         return message;
     }
-    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: SampleFramesStatusRequest): SampleFramesStatusRequest {
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: SampleAlignedSeriesStatusRequest): SampleAlignedSeriesStatusRequest {
         let message = target ?? this.create(), end = reader.pos + length;
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
@@ -4079,7 +4079,7 @@ class SampleFramesStatusRequest$Type extends MessageType<SampleFramesStatusReque
         }
         return message;
     }
-    internalBinaryWrite(message: SampleFramesStatusRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+    internalBinaryWrite(message: SampleAlignedSeriesStatusRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
         /* int32 sample_id = 1; */
         if (message.sampleId !== 0)
             writer.tag(1, WireType.Varint).int32(message.sampleId);
@@ -4090,28 +4090,28 @@ class SampleFramesStatusRequest$Type extends MessageType<SampleFramesStatusReque
     }
 }
 /**
- * @generated MessageType for protobuf message enose.analytics.v1.SampleFramesStatusRequest
+ * @generated MessageType for protobuf message enose.analytics.v1.SampleAlignedSeriesStatusRequest
  */
-export const SampleFramesStatusRequest = new SampleFramesStatusRequest$Type();
+export const SampleAlignedSeriesStatusRequest = new SampleAlignedSeriesStatusRequest$Type();
 // @generated message type with reflection information, may provide speed optimized methods
-class SampleFramesStatusResponse$Type extends MessageType<SampleFramesStatusResponse> {
+class SampleAlignedSeriesStatusResponse$Type extends MessageType<SampleAlignedSeriesStatusResponse> {
     constructor() {
-        super("enose.analytics.v1.SampleFramesStatusResponse", [
+        super("enose.analytics.v1.SampleAlignedSeriesStatusResponse", [
             { no: 1, name: "exists", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
             { no: 2, name: "cached", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
-            { no: 3, name: "variants", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => SampleFramesMeta }
+            { no: 3, name: "variants", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => SampleAlignedSeriesMeta }
         ]);
     }
-    create(value?: PartialMessage<SampleFramesStatusResponse>): SampleFramesStatusResponse {
+    create(value?: PartialMessage<SampleAlignedSeriesStatusResponse>): SampleAlignedSeriesStatusResponse {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.exists = false;
         message.cached = false;
         message.variants = [];
         if (value !== undefined)
-            reflectionMergePartial<SampleFramesStatusResponse>(this, message, value);
+            reflectionMergePartial<SampleAlignedSeriesStatusResponse>(this, message, value);
         return message;
     }
-    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: SampleFramesStatusResponse): SampleFramesStatusResponse {
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: SampleAlignedSeriesStatusResponse): SampleAlignedSeriesStatusResponse {
         let message = target ?? this.create(), end = reader.pos + length;
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
@@ -4122,8 +4122,8 @@ class SampleFramesStatusResponse$Type extends MessageType<SampleFramesStatusResp
                 case /* bool cached */ 2:
                     message.cached = reader.bool();
                     break;
-                case /* repeated enose.analytics.v1.SampleFramesMeta variants */ 3:
-                    message.variants.push(SampleFramesMeta.internalBinaryRead(reader, reader.uint32(), options));
+                case /* repeated enose.analytics.v1.SampleAlignedSeriesMeta variants */ 3:
+                    message.variants.push(SampleAlignedSeriesMeta.internalBinaryRead(reader, reader.uint32(), options));
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -4136,16 +4136,16 @@ class SampleFramesStatusResponse$Type extends MessageType<SampleFramesStatusResp
         }
         return message;
     }
-    internalBinaryWrite(message: SampleFramesStatusResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+    internalBinaryWrite(message: SampleAlignedSeriesStatusResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
         /* bool exists = 1; */
         if (message.exists !== false)
             writer.tag(1, WireType.Varint).bool(message.exists);
         /* bool cached = 2; */
         if (message.cached !== false)
             writer.tag(2, WireType.Varint).bool(message.cached);
-        /* repeated enose.analytics.v1.SampleFramesMeta variants = 3; */
+        /* repeated enose.analytics.v1.SampleAlignedSeriesMeta variants = 3; */
         for (let i = 0; i < message.variants.length; i++)
-            SampleFramesMeta.internalBinaryWrite(message.variants[i], writer.tag(3, WireType.LengthDelimited).fork(), options).join();
+            SampleAlignedSeriesMeta.internalBinaryWrite(message.variants[i], writer.tag(3, WireType.LengthDelimited).fork(), options).join();
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -4153,24 +4153,24 @@ class SampleFramesStatusResponse$Type extends MessageType<SampleFramesStatusResp
     }
 }
 /**
- * @generated MessageType for protobuf message enose.analytics.v1.SampleFramesStatusResponse
+ * @generated MessageType for protobuf message enose.analytics.v1.SampleAlignedSeriesStatusResponse
  */
-export const SampleFramesStatusResponse = new SampleFramesStatusResponse$Type();
+export const SampleAlignedSeriesStatusResponse = new SampleAlignedSeriesStatusResponse$Type();
 // @generated message type with reflection information, may provide speed optimized methods
-class BatchSampleFramesStatusRequest$Type extends MessageType<BatchSampleFramesStatusRequest> {
+class BatchSampleAlignedSeriesStatusRequest$Type extends MessageType<BatchSampleAlignedSeriesStatusRequest> {
     constructor() {
-        super("enose.analytics.v1.BatchSampleFramesStatusRequest", [
+        super("enose.analytics.v1.BatchSampleAlignedSeriesStatusRequest", [
             { no: 1, name: "sample_ids", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ }
         ]);
     }
-    create(value?: PartialMessage<BatchSampleFramesStatusRequest>): BatchSampleFramesStatusRequest {
+    create(value?: PartialMessage<BatchSampleAlignedSeriesStatusRequest>): BatchSampleAlignedSeriesStatusRequest {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.sampleIds = [];
         if (value !== undefined)
-            reflectionMergePartial<BatchSampleFramesStatusRequest>(this, message, value);
+            reflectionMergePartial<BatchSampleAlignedSeriesStatusRequest>(this, message, value);
         return message;
     }
-    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: BatchSampleFramesStatusRequest): BatchSampleFramesStatusRequest {
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: BatchSampleAlignedSeriesStatusRequest): BatchSampleAlignedSeriesStatusRequest {
         let message = target ?? this.create(), end = reader.pos + length;
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
@@ -4193,7 +4193,7 @@ class BatchSampleFramesStatusRequest$Type extends MessageType<BatchSampleFramesS
         }
         return message;
     }
-    internalBinaryWrite(message: BatchSampleFramesStatusRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+    internalBinaryWrite(message: BatchSampleAlignedSeriesStatusRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
         /* repeated int32 sample_ids = 1; */
         if (message.sampleIds.length) {
             writer.tag(1, WireType.LengthDelimited).fork();
@@ -4208,29 +4208,29 @@ class BatchSampleFramesStatusRequest$Type extends MessageType<BatchSampleFramesS
     }
 }
 /**
- * @generated MessageType for protobuf message enose.analytics.v1.BatchSampleFramesStatusRequest
+ * @generated MessageType for protobuf message enose.analytics.v1.BatchSampleAlignedSeriesStatusRequest
  */
-export const BatchSampleFramesStatusRequest = new BatchSampleFramesStatusRequest$Type();
+export const BatchSampleAlignedSeriesStatusRequest = new BatchSampleAlignedSeriesStatusRequest$Type();
 // @generated message type with reflection information, may provide speed optimized methods
-class BatchSampleFramesStatusResponse$Type extends MessageType<BatchSampleFramesStatusResponse> {
+class BatchSampleAlignedSeriesStatusResponse$Type extends MessageType<BatchSampleAlignedSeriesStatusResponse> {
     constructor() {
-        super("enose.analytics.v1.BatchSampleFramesStatusResponse", [
-            { no: 1, name: "statuses", kind: "map", K: 5 /*ScalarType.INT32*/, V: { kind: "message", T: () => SampleFramesStatusResponse } }
+        super("enose.analytics.v1.BatchSampleAlignedSeriesStatusResponse", [
+            { no: 1, name: "statuses", kind: "map", K: 5 /*ScalarType.INT32*/, V: { kind: "message", T: () => SampleAlignedSeriesStatusResponse } }
         ]);
     }
-    create(value?: PartialMessage<BatchSampleFramesStatusResponse>): BatchSampleFramesStatusResponse {
+    create(value?: PartialMessage<BatchSampleAlignedSeriesStatusResponse>): BatchSampleAlignedSeriesStatusResponse {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.statuses = {};
         if (value !== undefined)
-            reflectionMergePartial<BatchSampleFramesStatusResponse>(this, message, value);
+            reflectionMergePartial<BatchSampleAlignedSeriesStatusResponse>(this, message, value);
         return message;
     }
-    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: BatchSampleFramesStatusResponse): BatchSampleFramesStatusResponse {
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: BatchSampleAlignedSeriesStatusResponse): BatchSampleAlignedSeriesStatusResponse {
         let message = target ?? this.create(), end = reader.pos + length;
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
             switch (fieldNo) {
-                case /* map<int32, enose.analytics.v1.SampleFramesStatusResponse> statuses */ 1:
+                case /* map<int32, enose.analytics.v1.SampleAlignedSeriesStatusResponse> statuses */ 1:
                     this.binaryReadMap1(message.statuses, reader, options);
                     break;
                 default:
@@ -4244,8 +4244,8 @@ class BatchSampleFramesStatusResponse$Type extends MessageType<BatchSampleFrames
         }
         return message;
     }
-    private binaryReadMap1(map: BatchSampleFramesStatusResponse["statuses"], reader: IBinaryReader, options: BinaryReadOptions): void {
-        let len = reader.uint32(), end = reader.pos + len, key: keyof BatchSampleFramesStatusResponse["statuses"] | undefined, val: BatchSampleFramesStatusResponse["statuses"][any] | undefined;
+    private binaryReadMap1(map: BatchSampleAlignedSeriesStatusResponse["statuses"], reader: IBinaryReader, options: BinaryReadOptions): void {
+        let len = reader.uint32(), end = reader.pos + len, key: keyof BatchSampleAlignedSeriesStatusResponse["statuses"] | undefined, val: BatchSampleAlignedSeriesStatusResponse["statuses"][any] | undefined;
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
             switch (fieldNo) {
@@ -4253,19 +4253,19 @@ class BatchSampleFramesStatusResponse$Type extends MessageType<BatchSampleFrames
                     key = reader.int32();
                     break;
                 case 2:
-                    val = SampleFramesStatusResponse.internalBinaryRead(reader, reader.uint32(), options);
+                    val = SampleAlignedSeriesStatusResponse.internalBinaryRead(reader, reader.uint32(), options);
                     break;
-                default: throw new globalThis.Error("unknown map entry field for enose.analytics.v1.BatchSampleFramesStatusResponse.statuses");
+                default: throw new globalThis.Error("unknown map entry field for enose.analytics.v1.BatchSampleAlignedSeriesStatusResponse.statuses");
             }
         }
-        map[key ?? 0] = val ?? SampleFramesStatusResponse.create();
+        map[key ?? 0] = val ?? SampleAlignedSeriesStatusResponse.create();
     }
-    internalBinaryWrite(message: BatchSampleFramesStatusResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
-        /* map<int32, enose.analytics.v1.SampleFramesStatusResponse> statuses = 1; */
+    internalBinaryWrite(message: BatchSampleAlignedSeriesStatusResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* map<int32, enose.analytics.v1.SampleAlignedSeriesStatusResponse> statuses = 1; */
         for (let k of globalThis.Object.keys(message.statuses)) {
             writer.tag(1, WireType.LengthDelimited).fork().tag(1, WireType.Varint).int32(parseInt(k));
             writer.tag(2, WireType.LengthDelimited).fork();
-            SampleFramesStatusResponse.internalBinaryWrite(message.statuses[k as any], writer, options);
+            SampleAlignedSeriesStatusResponse.internalBinaryWrite(message.statuses[k as any], writer, options);
             writer.join().join();
         }
         let u = options.writeUnknownFields;
@@ -4275,30 +4275,30 @@ class BatchSampleFramesStatusResponse$Type extends MessageType<BatchSampleFrames
     }
 }
 /**
- * @generated MessageType for protobuf message enose.analytics.v1.BatchSampleFramesStatusResponse
+ * @generated MessageType for protobuf message enose.analytics.v1.BatchSampleAlignedSeriesStatusResponse
  */
-export const BatchSampleFramesStatusResponse = new BatchSampleFramesStatusResponse$Type();
+export const BatchSampleAlignedSeriesStatusResponse = new BatchSampleAlignedSeriesStatusResponse$Type();
 // @generated message type with reflection information, may provide speed optimized methods
-class SampleFramesMeta$Type extends MessageType<SampleFramesMeta> {
+class SampleAlignedSeriesMeta$Type extends MessageType<SampleAlignedSeriesMeta> {
     constructor() {
-        super("enose.analytics.v1.SampleFramesMeta", [
+        super("enose.analytics.v1.SampleAlignedSeriesMeta", [
             { no: 1, name: "method", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 2, name: "n_samples", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 3, name: "original_point_counts", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ },
             { no: 4, name: "time_range_ms", kind: "scalar", T: 3 /*ScalarType.INT64*/ }
         ]);
     }
-    create(value?: PartialMessage<SampleFramesMeta>): SampleFramesMeta {
+    create(value?: PartialMessage<SampleAlignedSeriesMeta>): SampleAlignedSeriesMeta {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.method = "";
         message.nSamples = 0;
         message.originalPointCounts = [];
         message.timeRangeMs = "0";
         if (value !== undefined)
-            reflectionMergePartial<SampleFramesMeta>(this, message, value);
+            reflectionMergePartial<SampleAlignedSeriesMeta>(this, message, value);
         return message;
     }
-    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: SampleFramesMeta): SampleFramesMeta {
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: SampleAlignedSeriesMeta): SampleAlignedSeriesMeta {
         let message = target ?? this.create(), end = reader.pos + length;
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
@@ -4330,7 +4330,7 @@ class SampleFramesMeta$Type extends MessageType<SampleFramesMeta> {
         }
         return message;
     }
-    internalBinaryWrite(message: SampleFramesMeta, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+    internalBinaryWrite(message: SampleAlignedSeriesMeta, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
         /* string method = 1; */
         if (message.method !== "")
             writer.tag(1, WireType.LengthDelimited).string(message.method);
@@ -4354,29 +4354,29 @@ class SampleFramesMeta$Type extends MessageType<SampleFramesMeta> {
     }
 }
 /**
- * @generated MessageType for protobuf message enose.analytics.v1.SampleFramesMeta
+ * @generated MessageType for protobuf message enose.analytics.v1.SampleAlignedSeriesMeta
  */
-export const SampleFramesMeta = new SampleFramesMeta$Type();
+export const SampleAlignedSeriesMeta = new SampleAlignedSeriesMeta$Type();
 // @generated message type with reflection information, may provide speed optimized methods
-class GenerateSampleFramesRequest$Type extends MessageType<GenerateSampleFramesRequest> {
+class GenerateSampleAlignedSeriesRequest$Type extends MessageType<GenerateSampleAlignedSeriesRequest> {
     constructor() {
-        super("enose.analytics.v1.GenerateSampleFramesRequest", [
+        super("enose.analytics.v1.GenerateSampleAlignedSeriesRequest", [
             { no: 1, name: "sample_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 2, name: "n_samples", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 3, name: "methods", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
             { no: 4, name: "use_cache", kind: "scalar", opt: true, T: 8 /*ScalarType.BOOL*/ }
         ]);
     }
-    create(value?: PartialMessage<GenerateSampleFramesRequest>): GenerateSampleFramesRequest {
+    create(value?: PartialMessage<GenerateSampleAlignedSeriesRequest>): GenerateSampleAlignedSeriesRequest {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.sampleId = 0;
         message.nSamples = 0;
         message.methods = [];
         if (value !== undefined)
-            reflectionMergePartial<GenerateSampleFramesRequest>(this, message, value);
+            reflectionMergePartial<GenerateSampleAlignedSeriesRequest>(this, message, value);
         return message;
     }
-    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GenerateSampleFramesRequest): GenerateSampleFramesRequest {
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GenerateSampleAlignedSeriesRequest): GenerateSampleAlignedSeriesRequest {
         let message = target ?? this.create(), end = reader.pos + length;
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
@@ -4404,7 +4404,7 @@ class GenerateSampleFramesRequest$Type extends MessageType<GenerateSampleFramesR
         }
         return message;
     }
-    internalBinaryWrite(message: GenerateSampleFramesRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+    internalBinaryWrite(message: GenerateSampleAlignedSeriesRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
         /* int32 sample_id = 1; */
         if (message.sampleId !== 0)
             writer.tag(1, WireType.Varint).int32(message.sampleId);
@@ -4424,30 +4424,30 @@ class GenerateSampleFramesRequest$Type extends MessageType<GenerateSampleFramesR
     }
 }
 /**
- * @generated MessageType for protobuf message enose.analytics.v1.GenerateSampleFramesRequest
+ * @generated MessageType for protobuf message enose.analytics.v1.GenerateSampleAlignedSeriesRequest
  */
-export const GenerateSampleFramesRequest = new GenerateSampleFramesRequest$Type();
+export const GenerateSampleAlignedSeriesRequest = new GenerateSampleAlignedSeriesRequest$Type();
 // @generated message type with reflection information, may provide speed optimized methods
-class GenerateSampleFramesResponse$Type extends MessageType<GenerateSampleFramesResponse> {
+class GenerateSampleAlignedSeriesResponse$Type extends MessageType<GenerateSampleAlignedSeriesResponse> {
     constructor() {
-        super("enose.analytics.v1.GenerateSampleFramesResponse", [
+        super("enose.analytics.v1.GenerateSampleAlignedSeriesResponse", [
             { no: 1, name: "success", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
             { no: 2, name: "message", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
-            { no: 3, name: "frames_generated", kind: "map", K: 9 /*ScalarType.STRING*/, V: { kind: "scalar", T: 5 /*ScalarType.INT32*/ } },
+            { no: 3, name: "series_generated", kind: "map", K: 9 /*ScalarType.STRING*/, V: { kind: "scalar", T: 5 /*ScalarType.INT32*/ } },
             { no: 4, name: "from_cache", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
         ]);
     }
-    create(value?: PartialMessage<GenerateSampleFramesResponse>): GenerateSampleFramesResponse {
+    create(value?: PartialMessage<GenerateSampleAlignedSeriesResponse>): GenerateSampleAlignedSeriesResponse {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.success = false;
         message.message = "";
-        message.framesGenerated = {};
+        message.seriesGenerated = {};
         message.fromCache = false;
         if (value !== undefined)
-            reflectionMergePartial<GenerateSampleFramesResponse>(this, message, value);
+            reflectionMergePartial<GenerateSampleAlignedSeriesResponse>(this, message, value);
         return message;
     }
-    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GenerateSampleFramesResponse): GenerateSampleFramesResponse {
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GenerateSampleAlignedSeriesResponse): GenerateSampleAlignedSeriesResponse {
         let message = target ?? this.create(), end = reader.pos + length;
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
@@ -4458,8 +4458,8 @@ class GenerateSampleFramesResponse$Type extends MessageType<GenerateSampleFrames
                 case /* string message */ 2:
                     message.message = reader.string();
                     break;
-                case /* map<string, int32> frames_generated */ 3:
-                    this.binaryReadMap3(message.framesGenerated, reader, options);
+                case /* map<string, int32> series_generated */ 3:
+                    this.binaryReadMap3(message.seriesGenerated, reader, options);
                     break;
                 case /* bool from_cache */ 4:
                     message.fromCache = reader.bool();
@@ -4475,8 +4475,8 @@ class GenerateSampleFramesResponse$Type extends MessageType<GenerateSampleFrames
         }
         return message;
     }
-    private binaryReadMap3(map: GenerateSampleFramesResponse["framesGenerated"], reader: IBinaryReader, options: BinaryReadOptions): void {
-        let len = reader.uint32(), end = reader.pos + len, key: keyof GenerateSampleFramesResponse["framesGenerated"] | undefined, val: GenerateSampleFramesResponse["framesGenerated"][any] | undefined;
+    private binaryReadMap3(map: GenerateSampleAlignedSeriesResponse["seriesGenerated"], reader: IBinaryReader, options: BinaryReadOptions): void {
+        let len = reader.uint32(), end = reader.pos + len, key: keyof GenerateSampleAlignedSeriesResponse["seriesGenerated"] | undefined, val: GenerateSampleAlignedSeriesResponse["seriesGenerated"][any] | undefined;
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
             switch (fieldNo) {
@@ -4486,21 +4486,21 @@ class GenerateSampleFramesResponse$Type extends MessageType<GenerateSampleFrames
                 case 2:
                     val = reader.int32();
                     break;
-                default: throw new globalThis.Error("unknown map entry field for enose.analytics.v1.GenerateSampleFramesResponse.frames_generated");
+                default: throw new globalThis.Error("unknown map entry field for enose.analytics.v1.GenerateSampleAlignedSeriesResponse.series_generated");
             }
         }
         map[key ?? ""] = val ?? 0;
     }
-    internalBinaryWrite(message: GenerateSampleFramesResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+    internalBinaryWrite(message: GenerateSampleAlignedSeriesResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
         /* bool success = 1; */
         if (message.success !== false)
             writer.tag(1, WireType.Varint).bool(message.success);
         /* string message = 2; */
         if (message.message !== "")
             writer.tag(2, WireType.LengthDelimited).string(message.message);
-        /* map<string, int32> frames_generated = 3; */
-        for (let k of globalThis.Object.keys(message.framesGenerated))
-            writer.tag(3, WireType.LengthDelimited).fork().tag(1, WireType.LengthDelimited).string(k).tag(2, WireType.Varint).int32(message.framesGenerated[k]).join();
+        /* map<string, int32> series_generated = 3; */
+        for (let k of globalThis.Object.keys(message.seriesGenerated))
+            writer.tag(3, WireType.LengthDelimited).fork().tag(1, WireType.LengthDelimited).string(k).tag(2, WireType.Varint).int32(message.seriesGenerated[k]).join();
         /* bool from_cache = 4; */
         if (message.fromCache !== false)
             writer.tag(4, WireType.Varint).bool(message.fromCache);
@@ -4511,29 +4511,29 @@ class GenerateSampleFramesResponse$Type extends MessageType<GenerateSampleFrames
     }
 }
 /**
- * @generated MessageType for protobuf message enose.analytics.v1.GenerateSampleFramesResponse
+ * @generated MessageType for protobuf message enose.analytics.v1.GenerateSampleAlignedSeriesResponse
  */
-export const GenerateSampleFramesResponse = new GenerateSampleFramesResponse$Type();
+export const GenerateSampleAlignedSeriesResponse = new GenerateSampleAlignedSeriesResponse$Type();
 // @generated message type with reflection information, may provide speed optimized methods
-class BatchGenerateSampleFramesRequest$Type extends MessageType<BatchGenerateSampleFramesRequest> {
+class BatchGenerateSampleAlignedSeriesRequest$Type extends MessageType<BatchGenerateSampleAlignedSeriesRequest> {
     constructor() {
-        super("enose.analytics.v1.BatchGenerateSampleFramesRequest", [
+        super("enose.analytics.v1.BatchGenerateSampleAlignedSeriesRequest", [
             { no: 1, name: "sample_ids", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ },
             { no: 2, name: "n_samples", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 3, name: "methods", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
             { no: 4, name: "use_cache", kind: "scalar", opt: true, T: 8 /*ScalarType.BOOL*/ }
         ]);
     }
-    create(value?: PartialMessage<BatchGenerateSampleFramesRequest>): BatchGenerateSampleFramesRequest {
+    create(value?: PartialMessage<BatchGenerateSampleAlignedSeriesRequest>): BatchGenerateSampleAlignedSeriesRequest {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.sampleIds = [];
         message.nSamples = 0;
         message.methods = [];
         if (value !== undefined)
-            reflectionMergePartial<BatchGenerateSampleFramesRequest>(this, message, value);
+            reflectionMergePartial<BatchGenerateSampleAlignedSeriesRequest>(this, message, value);
         return message;
     }
-    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: BatchGenerateSampleFramesRequest): BatchGenerateSampleFramesRequest {
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: BatchGenerateSampleAlignedSeriesRequest): BatchGenerateSampleAlignedSeriesRequest {
         let message = target ?? this.create(), end = reader.pos + length;
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
@@ -4565,7 +4565,7 @@ class BatchGenerateSampleFramesRequest$Type extends MessageType<BatchGenerateSam
         }
         return message;
     }
-    internalBinaryWrite(message: BatchGenerateSampleFramesRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+    internalBinaryWrite(message: BatchGenerateSampleAlignedSeriesRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
         /* repeated int32 sample_ids = 1; */
         if (message.sampleIds.length) {
             writer.tag(1, WireType.LengthDelimited).fork();
@@ -4589,13 +4589,13 @@ class BatchGenerateSampleFramesRequest$Type extends MessageType<BatchGenerateSam
     }
 }
 /**
- * @generated MessageType for protobuf message enose.analytics.v1.BatchGenerateSampleFramesRequest
+ * @generated MessageType for protobuf message enose.analytics.v1.BatchGenerateSampleAlignedSeriesRequest
  */
-export const BatchGenerateSampleFramesRequest = new BatchGenerateSampleFramesRequest$Type();
+export const BatchGenerateSampleAlignedSeriesRequest = new BatchGenerateSampleAlignedSeriesRequest$Type();
 // @generated message type with reflection information, may provide speed optimized methods
-class BatchGenerateSampleFramesResponse$Type extends MessageType<BatchGenerateSampleFramesResponse> {
+class BatchGenerateSampleAlignedSeriesResponse$Type extends MessageType<BatchGenerateSampleAlignedSeriesResponse> {
     constructor() {
-        super("enose.analytics.v1.BatchGenerateSampleFramesResponse", [
+        super("enose.analytics.v1.BatchGenerateSampleAlignedSeriesResponse", [
             { no: 1, name: "total_samples", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 2, name: "success_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 3, name: "failed_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
@@ -4603,7 +4603,7 @@ class BatchGenerateSampleFramesResponse$Type extends MessageType<BatchGenerateSa
             { no: 5, name: "errors", kind: "map", K: 5 /*ScalarType.INT32*/, V: { kind: "scalar", T: 9 /*ScalarType.STRING*/ } }
         ]);
     }
-    create(value?: PartialMessage<BatchGenerateSampleFramesResponse>): BatchGenerateSampleFramesResponse {
+    create(value?: PartialMessage<BatchGenerateSampleAlignedSeriesResponse>): BatchGenerateSampleAlignedSeriesResponse {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.totalSamples = 0;
         message.successCount = 0;
@@ -4611,10 +4611,10 @@ class BatchGenerateSampleFramesResponse$Type extends MessageType<BatchGenerateSa
         message.fromCacheCount = 0;
         message.errors = {};
         if (value !== undefined)
-            reflectionMergePartial<BatchGenerateSampleFramesResponse>(this, message, value);
+            reflectionMergePartial<BatchGenerateSampleAlignedSeriesResponse>(this, message, value);
         return message;
     }
-    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: BatchGenerateSampleFramesResponse): BatchGenerateSampleFramesResponse {
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: BatchGenerateSampleAlignedSeriesResponse): BatchGenerateSampleAlignedSeriesResponse {
         let message = target ?? this.create(), end = reader.pos + length;
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
@@ -4645,8 +4645,8 @@ class BatchGenerateSampleFramesResponse$Type extends MessageType<BatchGenerateSa
         }
         return message;
     }
-    private binaryReadMap5(map: BatchGenerateSampleFramesResponse["errors"], reader: IBinaryReader, options: BinaryReadOptions): void {
-        let len = reader.uint32(), end = reader.pos + len, key: keyof BatchGenerateSampleFramesResponse["errors"] | undefined, val: BatchGenerateSampleFramesResponse["errors"][any] | undefined;
+    private binaryReadMap5(map: BatchGenerateSampleAlignedSeriesResponse["errors"], reader: IBinaryReader, options: BinaryReadOptions): void {
+        let len = reader.uint32(), end = reader.pos + len, key: keyof BatchGenerateSampleAlignedSeriesResponse["errors"] | undefined, val: BatchGenerateSampleAlignedSeriesResponse["errors"][any] | undefined;
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
             switch (fieldNo) {
@@ -4656,12 +4656,12 @@ class BatchGenerateSampleFramesResponse$Type extends MessageType<BatchGenerateSa
                 case 2:
                     val = reader.string();
                     break;
-                default: throw new globalThis.Error("unknown map entry field for enose.analytics.v1.BatchGenerateSampleFramesResponse.errors");
+                default: throw new globalThis.Error("unknown map entry field for enose.analytics.v1.BatchGenerateSampleAlignedSeriesResponse.errors");
             }
         }
         map[key ?? 0] = val ?? "";
     }
-    internalBinaryWrite(message: BatchGenerateSampleFramesResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+    internalBinaryWrite(message: BatchGenerateSampleAlignedSeriesResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
         /* int32 total_samples = 1; */
         if (message.totalSamples !== 0)
             writer.tag(1, WireType.Varint).int32(message.totalSamples);
@@ -4684,13 +4684,13 @@ class BatchGenerateSampleFramesResponse$Type extends MessageType<BatchGenerateSa
     }
 }
 /**
- * @generated MessageType for protobuf message enose.analytics.v1.BatchGenerateSampleFramesResponse
+ * @generated MessageType for protobuf message enose.analytics.v1.BatchGenerateSampleAlignedSeriesResponse
  */
-export const BatchGenerateSampleFramesResponse = new BatchGenerateSampleFramesResponse$Type();
+export const BatchGenerateSampleAlignedSeriesResponse = new BatchGenerateSampleAlignedSeriesResponse$Type();
 // @generated message type with reflection information, may provide speed optimized methods
-class GetSampleFramesRequest$Type extends MessageType<GetSampleFramesRequest> {
+class GetSampleAlignedSeriesRequest$Type extends MessageType<GetSampleAlignedSeriesRequest> {
     constructor() {
-        super("enose.analytics.v1.GetSampleFramesRequest", [
+        super("enose.analytics.v1.GetSampleAlignedSeriesRequest", [
             { no: 1, name: "sample_id", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 2, name: "method", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 3, name: "n_samples", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
@@ -4698,17 +4698,17 @@ class GetSampleFramesRequest$Type extends MessageType<GetSampleFramesRequest> {
             { no: 5, name: "phase_names", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ }
         ]);
     }
-    create(value?: PartialMessage<GetSampleFramesRequest>): GetSampleFramesRequest {
+    create(value?: PartialMessage<GetSampleAlignedSeriesRequest>): GetSampleAlignedSeriesRequest {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.sampleId = 0;
         message.method = "";
         message.nSamples = 0;
         message.phaseNames = [];
         if (value !== undefined)
-            reflectionMergePartial<GetSampleFramesRequest>(this, message, value);
+            reflectionMergePartial<GetSampleAlignedSeriesRequest>(this, message, value);
         return message;
     }
-    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetSampleFramesRequest): GetSampleFramesRequest {
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetSampleAlignedSeriesRequest): GetSampleAlignedSeriesRequest {
         let message = target ?? this.create(), end = reader.pos + length;
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
@@ -4739,7 +4739,7 @@ class GetSampleFramesRequest$Type extends MessageType<GetSampleFramesRequest> {
         }
         return message;
     }
-    internalBinaryWrite(message: GetSampleFramesRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+    internalBinaryWrite(message: GetSampleAlignedSeriesRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
         /* int32 sample_id = 1; */
         if (message.sampleId !== 0)
             writer.tag(1, WireType.Varint).int32(message.sampleId);
@@ -4762,32 +4762,32 @@ class GetSampleFramesRequest$Type extends MessageType<GetSampleFramesRequest> {
     }
 }
 /**
- * @generated MessageType for protobuf message enose.analytics.v1.GetSampleFramesRequest
+ * @generated MessageType for protobuf message enose.analytics.v1.GetSampleAlignedSeriesRequest
  */
-export const GetSampleFramesRequest = new GetSampleFramesRequest$Type();
+export const GetSampleAlignedSeriesRequest = new GetSampleAlignedSeriesRequest$Type();
 // @generated message type with reflection information, may provide speed optimized methods
-class GetSampleFramesResponse$Type extends MessageType<GetSampleFramesResponse> {
+class GetSampleAlignedSeriesResponse$Type extends MessageType<GetSampleAlignedSeriesResponse> {
     constructor() {
-        super("enose.analytics.v1.GetSampleFramesResponse", [
+        super("enose.analytics.v1.GetSampleAlignedSeriesResponse", [
             { no: 1, name: "success", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
-            { no: 2, name: "frames", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 2, name: "aligned_series", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 1 /*ScalarType.DOUBLE*/ },
             { no: 3, name: "n_samples", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 4, name: "n_sensors", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "n_channels", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 5, name: "from_cache", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
         ]);
     }
-    create(value?: PartialMessage<GetSampleFramesResponse>): GetSampleFramesResponse {
+    create(value?: PartialMessage<GetSampleAlignedSeriesResponse>): GetSampleAlignedSeriesResponse {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.success = false;
-        message.frames = [];
+        message.alignedSeries = [];
         message.nSamples = 0;
-        message.nSensors = 0;
+        message.nChannels = 0;
         message.fromCache = false;
         if (value !== undefined)
-            reflectionMergePartial<GetSampleFramesResponse>(this, message, value);
+            reflectionMergePartial<GetSampleAlignedSeriesResponse>(this, message, value);
         return message;
     }
-    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetSampleFramesResponse): GetSampleFramesResponse {
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetSampleAlignedSeriesResponse): GetSampleAlignedSeriesResponse {
         let message = target ?? this.create(), end = reader.pos + length;
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
@@ -4795,18 +4795,18 @@ class GetSampleFramesResponse$Type extends MessageType<GetSampleFramesResponse> 
                 case /* bool success */ 1:
                     message.success = reader.bool();
                     break;
-                case /* repeated double frames */ 2:
+                case /* repeated double aligned_series */ 2:
                     if (wireType === WireType.LengthDelimited)
                         for (let e = reader.int32() + reader.pos; reader.pos < e;)
-                            message.frames.push(reader.double());
+                            message.alignedSeries.push(reader.double());
                     else
-                        message.frames.push(reader.double());
+                        message.alignedSeries.push(reader.double());
                     break;
                 case /* int32 n_samples */ 3:
                     message.nSamples = reader.int32();
                     break;
-                case /* int32 n_sensors */ 4:
-                    message.nSensors = reader.int32();
+                case /* int32 n_channels */ 4:
+                    message.nChannels = reader.int32();
                     break;
                 case /* bool from_cache */ 5:
                     message.fromCache = reader.bool();
@@ -4822,23 +4822,23 @@ class GetSampleFramesResponse$Type extends MessageType<GetSampleFramesResponse> 
         }
         return message;
     }
-    internalBinaryWrite(message: GetSampleFramesResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+    internalBinaryWrite(message: GetSampleAlignedSeriesResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
         /* bool success = 1; */
         if (message.success !== false)
             writer.tag(1, WireType.Varint).bool(message.success);
-        /* repeated double frames = 2; */
-        if (message.frames.length) {
+        /* repeated double aligned_series = 2; */
+        if (message.alignedSeries.length) {
             writer.tag(2, WireType.LengthDelimited).fork();
-            for (let i = 0; i < message.frames.length; i++)
-                writer.double(message.frames[i]);
+            for (let i = 0; i < message.alignedSeries.length; i++)
+                writer.double(message.alignedSeries[i]);
             writer.join();
         }
         /* int32 n_samples = 3; */
         if (message.nSamples !== 0)
             writer.tag(3, WireType.Varint).int32(message.nSamples);
-        /* int32 n_sensors = 4; */
-        if (message.nSensors !== 0)
-            writer.tag(4, WireType.Varint).int32(message.nSensors);
+        /* int32 n_channels = 4; */
+        if (message.nChannels !== 0)
+            writer.tag(4, WireType.Varint).int32(message.nChannels);
         /* bool from_cache = 5; */
         if (message.fromCache !== false)
             writer.tag(5, WireType.Varint).bool(message.fromCache);
@@ -4849,9 +4849,9 @@ class GetSampleFramesResponse$Type extends MessageType<GetSampleFramesResponse> 
     }
 }
 /**
- * @generated MessageType for protobuf message enose.analytics.v1.GetSampleFramesResponse
+ * @generated MessageType for protobuf message enose.analytics.v1.GetSampleAlignedSeriesResponse
  */
-export const GetSampleFramesResponse = new GetSampleFramesResponse$Type();
+export const GetSampleAlignedSeriesResponse = new GetSampleAlignedSeriesResponse$Type();
 // @generated message type with reflection information, may provide speed optimized methods
 class TrainModelRequest$Type extends MessageType<TrainModelRequest> {
     constructor() {
@@ -6546,7 +6546,7 @@ class ExperimentSummary$Type extends MessageType<ExperimentSummary> {
             { no: 1, name: "experiment_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 2, name: "start_time", kind: "message", T: () => Timestamp },
             { no: 3, name: "end_time", kind: "message", T: () => Timestamp },
-            { no: 4, name: "frame_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "reading_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 5, name: "phases", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
             { no: 6, name: "labels", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
             { no: 7, name: "status", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
@@ -6556,7 +6556,7 @@ class ExperimentSummary$Type extends MessageType<ExperimentSummary> {
     create(value?: PartialMessage<ExperimentSummary>): ExperimentSummary {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.experimentId = "";
-        message.frameCount = 0;
+        message.readingCount = 0;
         message.phases = [];
         message.labels = [];
         message.status = "";
@@ -6579,8 +6579,8 @@ class ExperimentSummary$Type extends MessageType<ExperimentSummary> {
                 case /* google.protobuf.Timestamp end_time */ 3:
                     message.endTime = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.endTime);
                     break;
-                case /* int32 frame_count */ 4:
-                    message.frameCount = reader.int32();
+                case /* int32 reading_count */ 4:
+                    message.readingCount = reader.int32();
                     break;
                 case /* repeated string phases */ 5:
                     message.phases.push(reader.string());
@@ -6615,9 +6615,9 @@ class ExperimentSummary$Type extends MessageType<ExperimentSummary> {
         /* google.protobuf.Timestamp end_time = 3; */
         if (message.endTime)
             Timestamp.internalBinaryWrite(message.endTime, writer.tag(3, WireType.LengthDelimited).fork(), options).join();
-        /* int32 frame_count = 4; */
-        if (message.frameCount !== 0)
-            writer.tag(4, WireType.Varint).int32(message.frameCount);
+        /* int32 reading_count = 4; */
+        if (message.readingCount !== 0)
+            writer.tag(4, WireType.Varint).int32(message.readingCount);
         /* repeated string phases = 5; */
         for (let i = 0; i < message.phases.length; i++)
             writer.tag(5, WireType.LengthDelimited).string(message.phases[i]);
@@ -7401,7 +7401,7 @@ class ExperimentDetail$Type extends MessageType<ExperimentDetail> {
             { no: 1, name: "experiment_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 2, name: "start_time", kind: "message", T: () => Timestamp },
             { no: 3, name: "end_time", kind: "message", T: () => Timestamp },
-            { no: 4, name: "frame_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 4, name: "reading_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 5, name: "status", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 6, name: "phases", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => PhaseInfo },
             { no: 7, name: "labels", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => SampleLabel },
@@ -7416,7 +7416,7 @@ class ExperimentDetail$Type extends MessageType<ExperimentDetail> {
     create(value?: PartialMessage<ExperimentDetail>): ExperimentDetail {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.experimentId = "";
-        message.frameCount = 0;
+        message.readingCount = 0;
         message.status = "";
         message.phases = [];
         message.labels = [];
@@ -7444,8 +7444,8 @@ class ExperimentDetail$Type extends MessageType<ExperimentDetail> {
                 case /* google.protobuf.Timestamp end_time */ 3:
                     message.endTime = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.endTime);
                     break;
-                case /* int32 frame_count */ 4:
-                    message.frameCount = reader.int32();
+                case /* int32 reading_count */ 4:
+                    message.readingCount = reader.int32();
                     break;
                 case /* string status */ 5:
                     message.status = reader.string();
@@ -7495,9 +7495,9 @@ class ExperimentDetail$Type extends MessageType<ExperimentDetail> {
         /* google.protobuf.Timestamp end_time = 3; */
         if (message.endTime)
             Timestamp.internalBinaryWrite(message.endTime, writer.tag(3, WireType.LengthDelimited).fork(), options).join();
-        /* int32 frame_count = 4; */
-        if (message.frameCount !== 0)
-            writer.tag(4, WireType.Varint).int32(message.frameCount);
+        /* int32 reading_count = 4; */
+        if (message.readingCount !== 0)
+            writer.tag(4, WireType.Varint).int32(message.readingCount);
         /* string status = 5; */
         if (message.status !== "")
             writer.tag(5, WireType.LengthDelimited).string(message.status);
@@ -7542,13 +7542,13 @@ class PhaseInfo$Type extends MessageType<PhaseInfo> {
             { no: 1, name: "name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 2, name: "start_time", kind: "message", T: () => Timestamp },
             { no: 3, name: "end_time", kind: "message", T: () => Timestamp },
-            { no: 4, name: "frame_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+            { no: 4, name: "reading_count", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
         ]);
     }
     create(value?: PartialMessage<PhaseInfo>): PhaseInfo {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.name = "";
-        message.frameCount = 0;
+        message.readingCount = 0;
         if (value !== undefined)
             reflectionMergePartial<PhaseInfo>(this, message, value);
         return message;
@@ -7567,8 +7567,8 @@ class PhaseInfo$Type extends MessageType<PhaseInfo> {
                 case /* google.protobuf.Timestamp end_time */ 3:
                     message.endTime = Timestamp.internalBinaryRead(reader, reader.uint32(), options, message.endTime);
                     break;
-                case /* int32 frame_count */ 4:
-                    message.frameCount = reader.int32();
+                case /* int32 reading_count */ 4:
+                    message.readingCount = reader.int32();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -7591,9 +7591,9 @@ class PhaseInfo$Type extends MessageType<PhaseInfo> {
         /* google.protobuf.Timestamp end_time = 3; */
         if (message.endTime)
             Timestamp.internalBinaryWrite(message.endTime, writer.tag(3, WireType.LengthDelimited).fork(), options).join();
-        /* int32 frame_count = 4; */
-        if (message.frameCount !== 0)
-            writer.tag(4, WireType.Varint).int32(message.frameCount);
+        /* int32 reading_count = 4; */
+        if (message.readingCount !== 0)
+            writer.tag(4, WireType.Varint).int32(message.readingCount);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -10150,12 +10150,12 @@ class ExportDataRequest$Type extends MessageType<ExportDataRequest> {
             { no: 1, name: "sample_ids", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ },
             { no: 2, name: "include_params", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
             { no: 3, name: "include_raw_data", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
-            { no: 4, name: "include_frames", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 4, name: "include_aligned_series", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
             { no: 5, name: "include_ml_labels", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
             { no: 6, name: "include_dataset", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
-            { no: 10, name: "frame_method", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
-            { no: 11, name: "frame_n_samples", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 12, name: "frame_format", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 10, name: "series_method", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 11, name: "series_n_samples", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 12, name: "series_format", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 15, name: "ml_label_configs", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
             { no: 20, name: "dataset_label_config", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 21, name: "dataset_split", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
@@ -10169,12 +10169,12 @@ class ExportDataRequest$Type extends MessageType<ExportDataRequest> {
         message.sampleIds = [];
         message.includeParams = false;
         message.includeRawData = false;
-        message.includeFrames = false;
+        message.includeAlignedSeries = false;
         message.includeMlLabels = false;
         message.includeDataset = false;
-        message.frameMethod = "";
-        message.frameNSamples = 0;
-        message.frameFormat = "";
+        message.seriesMethod = "";
+        message.seriesNSamples = 0;
+        message.seriesFormat = "";
         message.mlLabelConfigs = [];
         message.datasetLabelConfig = "";
         message.datasetSplit = false;
@@ -10203,8 +10203,8 @@ class ExportDataRequest$Type extends MessageType<ExportDataRequest> {
                 case /* bool include_raw_data */ 3:
                     message.includeRawData = reader.bool();
                     break;
-                case /* bool include_frames */ 4:
-                    message.includeFrames = reader.bool();
+                case /* bool include_aligned_series */ 4:
+                    message.includeAlignedSeries = reader.bool();
                     break;
                 case /* bool include_ml_labels */ 5:
                     message.includeMlLabels = reader.bool();
@@ -10212,14 +10212,14 @@ class ExportDataRequest$Type extends MessageType<ExportDataRequest> {
                 case /* bool include_dataset */ 6:
                     message.includeDataset = reader.bool();
                     break;
-                case /* string frame_method */ 10:
-                    message.frameMethod = reader.string();
+                case /* string series_method */ 10:
+                    message.seriesMethod = reader.string();
                     break;
-                case /* int32 frame_n_samples */ 11:
-                    message.frameNSamples = reader.int32();
+                case /* int32 series_n_samples */ 11:
+                    message.seriesNSamples = reader.int32();
                     break;
-                case /* string frame_format */ 12:
-                    message.frameFormat = reader.string();
+                case /* string series_format */ 12:
+                    message.seriesFormat = reader.string();
                     break;
                 case /* repeated string ml_label_configs */ 15:
                     message.mlLabelConfigs.push(reader.string());
@@ -10264,24 +10264,24 @@ class ExportDataRequest$Type extends MessageType<ExportDataRequest> {
         /* bool include_raw_data = 3; */
         if (message.includeRawData !== false)
             writer.tag(3, WireType.Varint).bool(message.includeRawData);
-        /* bool include_frames = 4; */
-        if (message.includeFrames !== false)
-            writer.tag(4, WireType.Varint).bool(message.includeFrames);
+        /* bool include_aligned_series = 4; */
+        if (message.includeAlignedSeries !== false)
+            writer.tag(4, WireType.Varint).bool(message.includeAlignedSeries);
         /* bool include_ml_labels = 5; */
         if (message.includeMlLabels !== false)
             writer.tag(5, WireType.Varint).bool(message.includeMlLabels);
         /* bool include_dataset = 6; */
         if (message.includeDataset !== false)
             writer.tag(6, WireType.Varint).bool(message.includeDataset);
-        /* string frame_method = 10; */
-        if (message.frameMethod !== "")
-            writer.tag(10, WireType.LengthDelimited).string(message.frameMethod);
-        /* int32 frame_n_samples = 11; */
-        if (message.frameNSamples !== 0)
-            writer.tag(11, WireType.Varint).int32(message.frameNSamples);
-        /* string frame_format = 12; */
-        if (message.frameFormat !== "")
-            writer.tag(12, WireType.LengthDelimited).string(message.frameFormat);
+        /* string series_method = 10; */
+        if (message.seriesMethod !== "")
+            writer.tag(10, WireType.LengthDelimited).string(message.seriesMethod);
+        /* int32 series_n_samples = 11; */
+        if (message.seriesNSamples !== 0)
+            writer.tag(11, WireType.Varint).int32(message.seriesNSamples);
+        /* string series_format = 12; */
+        if (message.seriesFormat !== "")
+            writer.tag(12, WireType.LengthDelimited).string(message.seriesFormat);
         /* repeated string ml_label_configs = 15; */
         for (let i = 0; i < message.mlLabelConfigs.length; i++)
             writer.tag(15, WireType.LengthDelimited).string(message.mlLabelConfigs[i]);
@@ -10386,8 +10386,8 @@ class StartTrainingRequest$Type extends MessageType<StartTrainingRequest> {
             { no: 7, name: "run_ids", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 5 /*ScalarType.INT32*/ },
             { no: 8, name: "train_ratio", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
             { no: 9, name: "val_ratio", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
-            { no: 10, name: "frame_n_samples", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 11, name: "frame_method", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 10, name: "series_n_samples", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 11, name: "series_method", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 12, name: "seed", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 20, name: "hyperparams_json", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
         ]);
@@ -10403,8 +10403,8 @@ class StartTrainingRequest$Type extends MessageType<StartTrainingRequest> {
         message.runIds = [];
         message.trainRatio = 0;
         message.valRatio = 0;
-        message.frameNSamples = 0;
-        message.frameMethod = "";
+        message.seriesNSamples = 0;
+        message.seriesMethod = "";
         message.seed = 0;
         message.hyperparamsJson = "";
         if (value !== undefined)
@@ -10451,11 +10451,11 @@ class StartTrainingRequest$Type extends MessageType<StartTrainingRequest> {
                 case /* double val_ratio */ 9:
                     message.valRatio = reader.double();
                     break;
-                case /* int32 frame_n_samples */ 10:
-                    message.frameNSamples = reader.int32();
+                case /* int32 series_n_samples */ 10:
+                    message.seriesNSamples = reader.int32();
                     break;
-                case /* string frame_method */ 11:
-                    message.frameMethod = reader.string();
+                case /* string series_method */ 11:
+                    message.seriesMethod = reader.string();
                     break;
                 case /* int32 seed */ 12:
                     message.seed = reader.int32();
@@ -10510,12 +10510,12 @@ class StartTrainingRequest$Type extends MessageType<StartTrainingRequest> {
         /* double val_ratio = 9; */
         if (message.valRatio !== 0)
             writer.tag(9, WireType.Bit64).double(message.valRatio);
-        /* int32 frame_n_samples = 10; */
-        if (message.frameNSamples !== 0)
-            writer.tag(10, WireType.Varint).int32(message.frameNSamples);
-        /* string frame_method = 11; */
-        if (message.frameMethod !== "")
-            writer.tag(11, WireType.LengthDelimited).string(message.frameMethod);
+        /* int32 series_n_samples = 10; */
+        if (message.seriesNSamples !== 0)
+            writer.tag(10, WireType.Varint).int32(message.seriesNSamples);
+        /* string series_method = 11; */
+        if (message.seriesMethod !== "")
+            writer.tag(11, WireType.LengthDelimited).string(message.seriesMethod);
         /* int32 seed = 12; */
         if (message.seed !== 0)
             writer.tag(12, WireType.Varint).int32(message.seed);
@@ -11550,11 +11550,11 @@ export const AnalyticsService = new ServiceType("enose.analytics.v1.AnalyticsSer
     { name: "UpdateQualityConfig", options: {}, I: QualityConfig, O: QualityConfig },
     { name: "GetNormalizedFramesStatus", options: {}, I: NormalizedFramesStatusRequest, O: NormalizedFramesStatusResponse },
     { name: "GenerateNormalizedFrames", options: {}, I: GenerateNormalizedFramesRequest, O: GenerateNormalizedFramesResponse },
-    { name: "GetSampleFramesStatus", options: {}, I: SampleFramesStatusRequest, O: SampleFramesStatusResponse },
-    { name: "GetBatchSampleFramesStatus", options: {}, I: BatchSampleFramesStatusRequest, O: BatchSampleFramesStatusResponse },
-    { name: "GenerateSampleFrames", options: {}, I: GenerateSampleFramesRequest, O: GenerateSampleFramesResponse },
-    { name: "GenerateBatchSampleFrames", options: {}, I: BatchGenerateSampleFramesRequest, O: BatchGenerateSampleFramesResponse },
-    { name: "GetSampleFrames", options: {}, I: GetSampleFramesRequest, O: GetSampleFramesResponse }
+    { name: "GetSampleAlignedSeriesStatus", options: {}, I: SampleAlignedSeriesStatusRequest, O: SampleAlignedSeriesStatusResponse },
+    { name: "GetBatchSampleAlignedSeriesStatus", options: {}, I: BatchSampleAlignedSeriesStatusRequest, O: BatchSampleAlignedSeriesStatusResponse },
+    { name: "GenerateSampleAlignedSeries", options: {}, I: GenerateSampleAlignedSeriesRequest, O: GenerateSampleAlignedSeriesResponse },
+    { name: "GenerateBatchSampleAlignedSeries", options: {}, I: BatchGenerateSampleAlignedSeriesRequest, O: BatchGenerateSampleAlignedSeriesResponse },
+    { name: "GetSampleAlignedSeries", options: {}, I: GetSampleAlignedSeriesRequest, O: GetSampleAlignedSeriesResponse }
 ]);
 /**
  * @generated ServiceType for protobuf service enose.analytics.v1.ModelService

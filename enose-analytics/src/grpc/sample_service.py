@@ -40,17 +40,18 @@ class SampleServiceImpl(pb_grpc.SampleServiceServicer):
                 params_hash=request.params_hash if request.HasField("params_hash") else None,
             )
 
-            # Batch fetch phase transitions and reading counts
+            # Batch fetch phase transitions
+            # NOTE: 跳过 get_reading_counts_batch — 它 JOIN sensor_readings_v2 极慢
+            # reading_count 仅在 GetSample 单样本详情时计算
             sample_ids = [s["id"] for s in samples]
             transitions_map = self.reader.get_phase_transitions_batch(sample_ids)
-            reading_counts = self.reader.get_reading_counts_batch(sample_ids)
 
             return pb.ListSamplesResponse(
                 samples=[
                     self._to_proto_sample(
                         s,
                         phase_transitions=transitions_map.get(s["id"]),
-                        reading_count=reading_counts.get(s["id"], 0),
+                        reading_count=0,
                     )
                     for s in samples
                 ],

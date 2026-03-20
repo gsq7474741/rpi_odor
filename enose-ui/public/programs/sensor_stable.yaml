@@ -1,0 +1,128 @@
+id: sensor_stable
+name: sensor_stable
+description: ''
+version: 1.0.0
+hardware:
+  bottle_capacity_ml: 150
+  max_fill_ml: 100
+  liquids:
+    - id: default
+      name: 默认液体
+      type: LIQUID_SAMPLE
+steps:
+  - name: 配置加热器
+    configure_heater:
+      configs:
+        - profile_name: constant_320
+          temps:
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+            - 320
+          durs:
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+            - 5
+          sensor_indices:
+            - 0
+            - 1
+            - 2
+            - 3
+            - 4
+            - 5
+            - 6
+            - 7
+  - name: 传感器预热
+    phase_name: PREHEAT
+    preheat:
+      max_duration_s: 600
+      record_data: false
+      gas_pump_pwm: 50
+      stability:
+        window_s: 100
+        threshold_percent: 5
+_compile_estimate:
+  total_duration_s: 300
+  peak_liquid_level_ml: 0
+  peak_liquid_level_ml_with_wash: 0
+  total_inject_ml: 0
+  total_drain_ml: 0
+  total_wash_volume_ml: 0
+  liquid_consumption: []
+  pump_estimates: []
+_editor_layout:
+  nodes:
+    - id: node_1
+      type: start
+      position:
+        x: -595
+        'y': 307
+      data:
+        description: ''
+        version: 1.0.0
+    - id: node_2
+      type: end
+      position:
+        x: -595
+        'y': 760
+      data: {}
+    - id: node_3
+      type: configureHeater
+      position:
+        x: -595
+        'y': 442
+      data:
+        sensorProfiles:
+          '0': constant_320
+          '1': constant_320
+          '2': constant_320
+          '3': constant_320
+          '4': constant_320
+          '5': constant_320
+          '6': constant_320
+          '7': constant_320
+          '8': ''
+    - id: node_4
+      type: preheat
+      position:
+        x: -595
+        'y': 601
+      data:
+        name: 传感器预热
+        mode: stability
+        durationS: 60
+        maxDurationS: 600
+        sensorIndices: []
+        recordData: false
+        gasPumpPwm: 50
+        stabilityWindowS: 100
+        stabilityThresholdPercent: 5
+  edges:
+    - id: xy-edge__node_1flow-node_3flow
+      source: node_1
+      target: node_3
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_3flow-node_4flow
+      source: node_3
+      target: node_4
+      sourceHandle: flow
+      targetHandle: flow
+    - id: xy-edge__node_4flow-node_2flow
+      source: node_4
+      target: node_2
+      sourceHandle: flow
+      targetHandle: flow

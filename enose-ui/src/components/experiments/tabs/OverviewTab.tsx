@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useExperiments, SampleWithFrameStatus } from "../context/ExperimentsContext";
+import { useExperiments, SampleWithSeriesStatus } from "../context/ExperimentsContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -75,8 +75,8 @@ export function OverviewTab() {
     const phases = new Set(sel.map((s) => s.phaseName || "(无)"));
     const hashes = new Set(sel.map((s) => s.paramsHash || "(无)"));
 
-    const withFrames = sel.filter((s) => s.frameStatus?.hasFrames).length;
-    const frameCoverage = sel.length > 0 ? (withFrames / sel.length) * 100 : 0;
+    const withSeries = sel.filter((s) => s.seriesStatus?.hasAlignedSeries).length;
+    const seriesCoverage = sel.length > 0 ? (withSeries / sel.length) * 100 : 0;
 
     const durations = sel.filter((s) => s.durationS != null).map((s) => s.durationS!);
     const avgDuration = durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : null;
@@ -97,8 +97,8 @@ export function OverviewTab() {
       liquidCount: liquids.size,
       phaseCount: phases.size,
       hashCount: hashes.size,
-      frameCoverage,
-      withFrames,
+      seriesCoverage,
+      withSeries,
       avgDuration,
       totalDuration,
       avgTemp,
@@ -241,11 +241,11 @@ export function OverviewTab() {
               icon={<Hash className="h-3.5 w-3.5" />}
             />
             <StatCard
-              label="帧覆盖"
-              value={`${stats.frameCoverage.toFixed(0)}%`}
-              sub={`${stats.withFrames}/${stats.sampleCount}`}
+              label="序列覆盖"
+              value={`${stats.seriesCoverage.toFixed(0)}%`}
+              sub={`${stats.withSeries}/${stats.sampleCount}`}
               icon={<Database className="h-3.5 w-3.5" />}
-              accent={stats.frameCoverage >= 100 ? "green" : stats.frameCoverage > 0 ? "amber" : "red"}
+              accent={stats.seriesCoverage >= 100 ? "green" : stats.seriesCoverage > 0 ? "amber" : "red"}
             />
             <StatCard
               label="平均时长"
@@ -530,7 +530,7 @@ function GroupCard({
   expandedGroups: Set<string>;
   onToggleGroup: (key: string) => void;
   onRemoveGroup: (ids: number[]) => void;
-  allSamples: SampleWithFrameStatus[];
+  allSamples: SampleWithSeriesStatus[];
   mono?: boolean;
 }) {
   return (

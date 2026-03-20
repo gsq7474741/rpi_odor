@@ -239,6 +239,8 @@ class SampleReader:
         params_hash: str | None = None,
     ) -> pd.DataFrame:
         """获取样本的聚合特征（用于 PCA/t-SNE/UMAP）"""
+        # NOTE: sensor_readings_v2 是 TimescaleDB 压缩表，segment_by=(run_id, sensor_idx)，
+        # 不能用 sr.sample_id = s.id JOIN，需要用 run_id + time_ms 范围关联
         if sample_ids:
             query = """
                 SELECT 
@@ -252,7 +254,10 @@ class SampleReader:
                     MIN(sr.value) as min_value,
                     MAX(sr.value) as max_value
                 FROM samples s
-                JOIN sensor_readings_v2 sr ON sr.sample_id = s.id
+                JOIN sensor_readings_v2 sr 
+                    ON sr.run_id = s.run_id 
+                    AND sr.time_ms >= s.start_time_ms 
+                    AND sr.time_ms <= s.end_time_ms
                 WHERE s.id = ANY(%s)
                 GROUP BY s.id, s.params_hash, s.phase_name, s.liquid_names, sr.sensor_idx
                 ORDER BY s.id, sr.sensor_idx
@@ -271,7 +276,10 @@ class SampleReader:
                     MIN(sr.value) as min_value,
                     MAX(sr.value) as max_value
                 FROM samples s
-                JOIN sensor_readings_v2 sr ON sr.sample_id = s.id
+                JOIN sensor_readings_v2 sr 
+                    ON sr.run_id = s.run_id 
+                    AND sr.time_ms >= s.start_time_ms 
+                    AND sr.time_ms <= s.end_time_ms
                 WHERE s.params_hash = %s
                 GROUP BY s.id, s.params_hash, s.phase_name, s.liquid_names, sr.sensor_idx
                 ORDER BY s.id, sr.sensor_idx
@@ -375,22 +383,38 @@ class SampleReader:
         return [r["phase_name"] for r in rows]
 
     def get_reading_count(self, sample_id: int) -> int:
-        """获取样本的传感器读数计数"""
-        query = "SELECT COUNT(*) FROM sensor_readings_v2 WHERE sample_id = %s"
+        """获取样本的传感器读数计数
+        
+        NOTE: 使用 run_id + time_ms 范围查询，兼容 TimescaleDB 压缩 chunk
+        """
+        query = """
+            SELECT COUNT(*) FROM sensor_readings_v2 sr
+            JOIN samples s ON sr.run_id = s.run_id
+                AND sr.time_ms >= s.start_time_ms
+                AND sr.time_ms <= s.end_time_ms
+            WHERE s.id = %s
+        """
         with get_cursor() as cur:
             cur.execute(query, [sample_id])
             row = cur.fetchone()
         return row["count"] if row else 0
 
     def get_reading_counts_batch(self, sample_ids: list[int]) -> dict[int, int]:
-        """批量获取多个样本的传感器读数计数"""
+        """批量获取多个样本的传感器读数计数
+        
+        NOTE: 使用 run_id + time_ms 范围查询，兼容 TimescaleDB 压缩 chunk
+        """
         if not sample_ids:
             return {}
         query = """
-            SELECT sample_id, COUNT(*) as cnt
-            FROM sensor_readings_v2
-            WHERE sample_id = ANY(%s)
-            GROUP BY sample_id
+            SELECT s.id as sample_id, COUNT(*) as cnt
+            FROM samples s
+            JOIN sensor_readings_v2 sr 
+                ON sr.run_id = s.run_id
+                AND sr.time_ms >= s.start_time_ms
+                AND sr.time_ms <= s.end_time_ms
+            WHERE s.id = ANY(%s)
+            GROUP BY s.id
         """
         with get_cursor() as cur:
             cur.execute(query, [sample_ids])

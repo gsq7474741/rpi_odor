@@ -12,7 +12,7 @@ from typing import Any, Iterator
 import grpc
 import numpy as np
 
-from ..cache.frame_cache import FrameCache
+from ..cache.aligned_series_cache import AlignedSeriesCache
 from ..db.ml_label_repository import MLLabelRepository
 from ..db.sample_reader import SampleReader
 from ..logger import logger
@@ -31,17 +31,17 @@ class ExportServiceImpl(pb_grpc.ExportServiceServicer):
         self._sample_reader = SampleReader()
         self._label_repo = MLLabelRepository()
         try:
-            self._frame_cache = FrameCache()
+            self._series_cache = AlignedSeriesCache()
         except Exception as e:
-            logger.warning(f"FrameCache 初始化失败(导出帧功能不可用): {e}")
-            self._frame_cache = None
+            logger.warning(f"AlignedSeriesCache 初始化失败(导出对齐序列功能不可用): {e}")
+            self._series_cache = None
 
     def ExportData(self, request, context):
         """导出数据 - 流式返回 ZIP 文件"""
         logger.info(
             f"ExportData: {len(request.sample_ids)} samples, "
             f"params={request.include_params}, raw={request.include_raw_data}, "
-            f"frames={request.include_frames}, labels={request.include_ml_labels}, "
+            f"aligned_series={request.include_aligned_series}, labels={request.include_ml_labels}, "
             f"dataset={request.include_dataset}"
         )
 
@@ -52,7 +52,7 @@ class ExportServiceImpl(pb_grpc.ExportServiceServicer):
                 total_steps = sum([
                     1 if request.include_params else 0,
                     len(request.sample_ids) if request.include_raw_data else 0,
-                    1 if request.include_frames else 0,
+                    1 if request.include_aligned_series else 0,
                     1 if request.include_ml_labels else 0,
                     1 if request.include_dataset else 0,
                     1,  # metadata.json
@@ -80,18 +80,18 @@ class ExportServiceImpl(pb_grpc.ExportServiceServicer):
                         raw_csv = self._build_raw_csv(sid)
                         zf.writestr(f"raw/sample_{sid}.csv", raw_csv)
 
-                # C. 归一化数据帧
-                if request.include_frames:
+                # C. 对齐序列
+                if request.include_aligned_series:
                     current_step += 1
                     yield pb.ExportDataChunk(
-                        filename="frames",
+                        filename="aligned_series",
                         progress_percent=_pct(current_step, total_steps),
                     )
-                    self._write_frames(
+                    self._write_aligned_series(
                         zf, request.sample_ids,
-                        request.frame_method or "linear",
-                        request.frame_n_samples or 100,
-                        request.frame_format or "npz",
+                        request.series_method or "linear",
+                        request.series_n_samples or 100,
+                        request.series_format or "npz",
                     )
 
                 # D. ML 标签
@@ -116,8 +116,8 @@ class ExportServiceImpl(pb_grpc.ExportServiceServicer):
                     )
                     self._write_dataset(
                         zf, request.sample_ids,
-                        request.frame_method or "linear",
-                        request.frame_n_samples or 100,
+                        request.series_method or "linear",
+                        request.series_n_samples or 100,
                         request.dataset_label_config or "liquid_identity",
                         request.dataset_split,
                         request.dataset_train_ratio or 0.7,
@@ -195,7 +195,7 @@ class ExportServiceImpl(pb_grpc.ExportServiceServicer):
             return b"time_ms,sensor_idx,value,temperature,humidity,pressure,heater_step\n"
         return df.to_csv(index=False).encode("utf-8")
 
-    def _write_frames(
+    def _write_aligned_series(
         self,
         zf: zipfile.ZipFile,
         sample_ids: list[int],
@@ -203,27 +203,27 @@ class ExportServiceImpl(pb_grpc.ExportServiceServicer):
         n_samples: int,
         fmt: str,
     ):
-        """写入归一化帧到 ZIP"""
-        if not self._frame_cache:
-            logger.warning("FrameCache 不可用，跳过帧导出")
+        """写入对齐序列到 ZIP"""
+        if not self._series_cache:
+            logger.warning("AlignedSeriesCache 不可用，跳过对齐序列导出")
             return
 
         if fmt == "npz":
-            # 收集所有帧到一个 NPZ
+            # 收集所有对齐序列到一个 NPZ
             arrays = {}
             for sid in sample_ids:
-                arr = self._frame_cache.get(sid, method, n_samples)
+                arr = self._series_cache.get(sid, method, n_samples)
                 if arr is not None:
                     arrays[f"sample_{sid}"] = arr
 
             if arrays:
                 npz_buffer = io.BytesIO()
                 np.savez_compressed(npz_buffer, **arrays)
-                zf.writestr("frames.npz", npz_buffer.getvalue())
+                zf.writestr("aligned_series.npz", npz_buffer.getvalue())
         else:
             # CSV: 每样本一个文件
             for sid in sample_ids:
-                arr = self._frame_cache.get(sid, method, n_samples)
+                arr = self._series_cache.get(sid, method, n_samples)
                 if arr is None:
                     continue
                 output = io.StringIO()
@@ -232,7 +232,7 @@ class ExportServiceImpl(pb_grpc.ExportServiceServicer):
                 writer.writerow(["point_idx"] + [f"ch{i}" for i in range(n_ch)])
                 for idx in range(arr.shape[0]):
                     writer.writerow([idx] + [f"{v:.6f}" for v in arr[idx]])
-                zf.writestr(f"frames/sample_{sid}.csv", output.getvalue().encode("utf-8"))
+                zf.writestr(f"aligned_series/sample_{sid}.csv", output.getvalue().encode("utf-8"))
 
     def _build_labels_csv(
         self,
@@ -279,9 +279,9 @@ class ExportServiceImpl(pb_grpc.ExportServiceServicer):
         val_ratio: float,
         fmt: str,
     ):
-        """写入训练数据集（帧矩阵 + 标签）"""
-        if not self._frame_cache:
-            logger.warning("FrameCache 不可用，跳过数据集导出")
+        """写入训练数据集（对齐序列 + 标签）"""
+        if not self._series_cache:
+            logger.warning("AlignedSeriesCache 不可用，跳过数据集导出")
             return
 
         # 获取标签
@@ -290,7 +290,7 @@ class ExportServiceImpl(pb_grpc.ExportServiceServicer):
         config = self._label_repo.get_config_by_name(label_config)
         label_type = config.get("label_type", "classification") if config else "classification"
 
-        # 收集有效样本（同时有帧和标签）
+        # 收集有效样本（同时有对齐序列和标签）
         X_list: list[np.ndarray] = []
         y_list: list[Any] = []
         ids_list: list[int] = []
@@ -298,7 +298,7 @@ class ExportServiceImpl(pb_grpc.ExportServiceServicer):
         for sid in sample_ids:
             if sid not in label_map:
                 continue
-            arr = self._frame_cache.get(sid, method, n_samples)
+            arr = self._series_cache.get(sid, method, n_samples)
             if arr is None:
                 continue
 
@@ -312,7 +312,7 @@ class ExportServiceImpl(pb_grpc.ExportServiceServicer):
                 y_list.append(lbl.get("label_num", 0.0))
 
         if not X_list:
-            logger.warning(f"数据集为空: 无有效样本 (帧+标签)")
+            logger.warning(f"数据集为空: 无有效样本 (对齐序列+标签)")
             return
 
         X = np.array(X_list)  # (N, n_samples, n_channels)
@@ -447,14 +447,14 @@ class ExportServiceImpl(pb_grpc.ExportServiceServicer):
             "include": {
                 "params": request.include_params,
                 "raw_data": request.include_raw_data,
-                "frames": request.include_frames,
+                "aligned_series": request.include_aligned_series,
                 "ml_labels": request.include_ml_labels,
                 "dataset": request.include_dataset,
             },
-            "frame_config": {
-                "method": request.frame_method or "linear",
-                "n_samples": request.frame_n_samples or 100,
-                "format": request.frame_format or "npz",
+            "series_config": {
+                "method": request.series_method or "linear",
+                "n_samples": request.series_n_samples or 100,
+                "format": request.series_format or "npz",
             },
             "ml_label_configs": list(request.ml_label_configs),
             "dataset_config": {

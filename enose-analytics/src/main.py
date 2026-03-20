@@ -58,19 +58,25 @@ def serve() -> None:
     server.start()
     logger.info(f"gRPC server started on {address}")
 
-    # 启动后台帧回填任务
+    # 启动后台对齐序列回填任务
     backfill_task = None
-    if settings.frame_backfill.enabled:
-        from .tasks import FrameBackfillTask
-        backfill_task = FrameBackfillTask(
-            n_samples=settings.frame_backfill.n_samples,
-            methods=settings.frame_backfill.methods,  # type: ignore
-            poll_interval_s=settings.frame_backfill.poll_interval_s,
-            batch_size=settings.frame_backfill.batch_size,
+    if settings.series_backfill.enabled:
+        from .tasks import SeriesBackfillTask
+        label_strategies = (
+            settings.label_backfill.auto_strategies
+            if settings.label_backfill.enabled
+            else []
+        )
+        backfill_task = SeriesBackfillTask(
+            n_samples=settings.series_backfill.series_len,
+            methods=settings.series_backfill.methods,  # type: ignore
+            poll_interval_s=settings.series_backfill.poll_interval_s,
+            batch_size=settings.series_backfill.batch_size,
+            label_strategies=label_strategies,
         )
         backfill_task.start()
     else:
-        logger.info("帧自动回填任务已禁用")
+        logger.info("对齐序列自动回填任务已禁用")
 
     # 信号处理
     def shutdown(signum: int, frame: object) -> None:

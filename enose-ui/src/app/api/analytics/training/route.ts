@@ -145,8 +145,8 @@ export async function POST(request: NextRequest) {
         runIds: body.runIds || [],
         trainRatio: body.trainRatio || 0.7,
         valRatio: body.valRatio || 0.15,
-        frameNSamples: body.frameNSamples || 100,
-        frameMethod: body.frameMethod || "linear",
+        seriesNSamples: body.seriesNSamples || 100,
+        seriesMethod: body.seriesMethod || "linear",
         seed: body.seed || 42,
         hyperparamsJson: body.hyperparamsJson || JSON.stringify(body.hyperparams || {}),
       });

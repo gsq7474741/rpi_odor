@@ -2,12 +2,12 @@
  * 数据导出工具函数
  */
 
-import type { SampleWithFrameStatus } from "@/components/experiments/context/ExperimentsContext";
+import type { SampleWithSeriesStatus } from "@/components/experiments/context/ExperimentsContext";
 
 /**
  * 将样本数组转为参数 CSV 字符串
  */
-export function samplesToParamsCsv(samples: SampleWithFrameStatus[]): string {
+export function samplesToParamsCsv(samples: SampleWithSeriesStatus[]): string {
   const headers = [
     "sample_id",
     "run_id",
@@ -29,7 +29,7 @@ export function samplesToParamsCsv(samples: SampleWithFrameStatus[]): string {
     "params_hash",
     "duration_s",
     "reading_count",
-    "has_frames",
+    "has_aligned_series",
   ];
 
   const rows = samples.map((s) => [
@@ -53,7 +53,7 @@ export function samplesToParamsCsv(samples: SampleWithFrameStatus[]): string {
     s.paramsHash,
     s.durationS ?? "",
     s.readingCount ?? "",
-    s.frameStatus?.hasFrames ? "true" : "false",
+    s.seriesStatus?.hasAlignedSeries ? "true" : "false",
   ]);
 
   const csvLines = [
@@ -116,11 +116,11 @@ export function estimateRawDataSize(readingCount: number): number {
 }
 
 /**
- * 估算帧数据大小
+ * 估算对齐序列数据大小
  * NPZ: n_samples * 8 channels * 8 bytes (float64) + overhead
  * CSV: n_samples * 8 channels * ~10 chars + headers
  */
-export function estimateFrameSize(
+export function estimateSeriesSize(
   nSamples: number,
   sampleCount: number,
   format: "npz" | "csv"

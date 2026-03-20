@@ -159,7 +159,7 @@ class _TCNNetwork(nn.Module):
 class TCNModel(BaseDeepModel):
     """时序卷积网络 - 支持分类和回归
 
-    输入: (N, T, 8, 4) 归一化帧
+    输入: (N, T, 8, 4) 对齐序列
     数据处理: reshape → 逐通道 z-score → Conv1d
     训练优化: SOAP + CosineAnnealingLR + Kaiming 初始化 + 梯度裁剪 + 标签平滑
     """

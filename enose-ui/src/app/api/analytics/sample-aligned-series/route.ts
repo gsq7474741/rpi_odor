@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { 
-  getSampleFramesStatus, 
-  getBatchSampleFramesStatus,
-  generateSampleFrames,
-  generateBatchSampleFrames,
-  getSampleFrames 
+  getSampleAlignedSeriesStatus, 
+  getBatchSampleAlignedSeriesStatus,
+  generateSampleAlignedSeries,
+  generateBatchSampleAlignedSeries,
+  getSampleAlignedSeries 
 } from "@/lib/analytics-grpc-client";
 
-// GET /api/analytics/sample-frames?sampleId=123
-// GET /api/analytics/sample-frames?sampleIds=123,456,789 (批量查询)
-// 获取指定 sample 的归一化帧状态
+// GET /api/analytics/sample-aligned-series?sampleId=123
+// GET /api/analytics/sample-aligned-series?sampleIds=123,456,789 (批量查询)
+// 获取指定 sample 的对齐序列状态
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const sampleIdsParam = searchParams.get("sampleIds");
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      const response = await getBatchSampleFramesStatus({ sampleIds });
+      const response = await getBatchSampleAlignedSeriesStatus({ sampleIds });
       
       // 转换 map 为对象
       const statuses: Record<number, {
@@ -58,9 +58,9 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json({ statuses });
     } catch (error) {
-      console.error("Failed to get batch sample frames status:", error);
+      console.error("Failed to get batch sample aligned series status:", error);
       return NextResponse.json(
-        { error: "Failed to get batch sample frames status" },
+        { error: "Failed to get batch sample aligned series status" },
         { status: 500 }
       );
     }
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const response = await getSampleFramesStatus({ sampleId });
+    const response = await getSampleAlignedSeriesStatus({ sampleId });
 
     return NextResponse.json({
       exists: response.exists,
@@ -90,16 +90,16 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (error) {
-    console.error("Failed to get sample frames status:", error);
+    console.error("Failed to get sample aligned series status:", error);
     return NextResponse.json(
-      { error: "Failed to get sample frames status" },
+      { error: "Failed to get sample aligned series status" },
       { status: 500 }
     );
   }
 }
 
-// POST /api/analytics/sample-frames
-// 生成或获取指定 sample 的归一化帧
+// POST /api/analytics/sample-aligned-series
+// 生成或获取指定 sample 的对齐序列
 // 支持批量: { sampleIds: [1,2,3], action: "generateBatch" }
 export async function POST(request: NextRequest) {
   try {
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
 
     // 批量生成模式
     if (action === "generateBatch" && sampleIds && Array.isArray(sampleIds)) {
-      const response = await generateBatchSampleFrames({
+      const response = await generateBatchSampleAlignedSeries({
         sampleIds: sampleIds.map((id: number | string) => typeof id === 'string' ? parseInt(id) : id),
         nSamples: nSamples || 50,
         methods: body.methods || ["linear", "pchip"],
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
 
     // action: "generate" | "get" (默认 generate)
     if (action === "get") {
-      const response = await getSampleFrames({
+      const response = await getSampleAlignedSeries({
         sampleId,
         nSamples: nSamples || 50,
         method: method || "linear",
@@ -144,15 +144,15 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: response.success,
-        frames: response.frames,
+        frames: response.alignedSeries,
         nSamples: response.nSamples,
-        nSensors: response.nSensors,
+        nChannels: response.nChannels,
         fromCache: response.fromCache,
       });
     }
 
-    // 默认: 生成归一化帧
-    const response = await generateSampleFrames({
+    // 默认: 生成对齐序列
+    const response = await generateSampleAlignedSeries({
       sampleId,
       nSamples: nSamples || 50,
       methods: body.methods || ["linear", "pchip"],
@@ -166,9 +166,9 @@ export async function POST(request: NextRequest) {
       fromCache: response.fromCache,
     });
   } catch (error) {
-    console.error("Failed to process sample frames:", error);
+    console.error("Failed to process sample aligned series:", error);
     return NextResponse.json(
-      { error: "Failed to process sample frames" },
+      { error: "Failed to process sample aligned series" },
       { status: 500 }
     );
   }

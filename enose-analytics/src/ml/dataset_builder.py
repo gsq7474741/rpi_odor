@@ -1,6 +1,6 @@
 """ML 数据集构建器
 
-从样本帧数据 + ML 标签构建训练/验证/测试数据集，支持：
+从样本对齐序列数据 + ML 标签构建训练/验证/测试数据集，支持：
 - 分类任务：特征矩阵 + 离散标签
 - 回归任务：特征矩阵 + 连续标签
 - 对比学习：正负样本对
@@ -19,7 +19,7 @@ from sklearn.model_selection import (
     LeaveOneOut,
 )
 
-from ..db.frame_normalizer import FrameNormalizer
+from ..db.series_aligner import SeriesAligner
 from ..db.ml_label_repository import MLLabelRepository
 from ..logger import logger
 
@@ -33,7 +33,7 @@ class DatasetBuilder:
 
     def __init__(self):
         self.label_repo = MLLabelRepository()
-        self.frame_normalizer = FrameNormalizer()
+        self.series_aligner = SeriesAligner()
 
     def build_classification_dataset(
         self,
@@ -48,7 +48,7 @@ class DatasetBuilder:
         seed: int = 42,
         split_method: str = "stratified_holdout",
         k_folds: int = 5,
-        frame_phase_names: list[str] | None = None,
+        series_phase_names: list[str] | None = None,
     ) -> dict[str, Any]:
         """构建分类数据集
 
@@ -58,7 +58,7 @@ class DatasetBuilder:
                 "X_val": np.ndarray,    "y_val": np.ndarray,
                 "X_test": np.ndarray,   "y_test": np.ndarray,
                 "class_names": list[str],
-                "frame_shape": tuple,  # (T, 8, 4)
+                "series_shape": tuple,  # (T, 8, 4)
                 "n_classes": int,
             }
         """
@@ -76,7 +76,7 @@ class DatasetBuilder:
         unique_labels = sorted(set(lbl["label_str"] for lbl in labels if lbl.get("label_str")))
         label_to_idx = {name: i for i, name in enumerate(unique_labels)}
 
-        # 提取归一化帧 (T, 8, 4)
+        # 提取对齐序列 (T, 8, 4)
         X_list: list[np.ndarray] = []
         y_list: list[int] = []
         skipped_ids: list[int] = []
@@ -85,9 +85,9 @@ class DatasetBuilder:
             if not lbl.get("label_str"):
                 continue
             sample_id = lbl["sample_id"]
-            frames = self._extract_sample_frames(sample_id, n_samples, method, frame_phase_names)
-            if frames is not None:
-                X_list.append(frames)
+            series = self._extract_sample_series(sample_id, n_samples, method, series_phase_names)
+            if series is not None:
+                X_list.append(series)
                 y_list.append(label_to_idx[lbl["label_str"]])
             else:
                 skipped_ids.append(sample_id)
@@ -95,7 +95,7 @@ class DatasetBuilder:
         if skipped_ids:
             logger.warning(
                 f"Skipped {len(skipped_ids)}/{len(skipped_ids)+len(X_list)} samples "
-                f"(no frame data): {skipped_ids[:10]}{'...' if len(skipped_ids) > 10 else ''}"
+                f"(no aligned series data): {skipped_ids[:10]}{'...' if len(skipped_ids) > 10 else ''}"
             )
 
         if not X_list:
@@ -114,7 +114,7 @@ class DatasetBuilder:
         return {
             **splits,
             "class_names": unique_labels,
-            "frame_shape": X.shape[1:],  # (T, 8, 4)
+            "series_shape": X.shape[1:],  # (T, 8, 4)
             "n_classes": len(unique_labels),
         }
 
@@ -139,7 +139,7 @@ class DatasetBuilder:
                 "X_train": np.ndarray,  "y_train": np.ndarray,
                 "X_val": np.ndarray,    "y_val": np.ndarray,
                 "X_test": np.ndarray,   "y_test": np.ndarray,
-                "frame_shape": tuple,  # (T, 8, 4)
+                "series_shape": tuple,  # (T, 8, 4)
                 "y_min": float, "y_max": float, "y_mean": float,
             }
         """
@@ -159,9 +159,9 @@ class DatasetBuilder:
             if lbl.get("label_num") is None:
                 continue
             sample_id = lbl["sample_id"]
-            frames = self._extract_sample_frames(sample_id, n_samples, method)
-            if frames is not None:
-                X_list.append(frames)
+            series = self._extract_sample_series(sample_id, n_samples, method)
+            if series is not None:
+                X_list.append(series)
                 y_list.append(float(lbl["label_num"]))
 
         if not X_list:
@@ -178,7 +178,7 @@ class DatasetBuilder:
 
         return {
             **splits,
-            "frame_shape": X.shape[1:],  # (T, 8, 4)
+            "series_shape": X.shape[1:],  # (T, 8, 4)
             "y_min": float(y.min()),
             "y_max": float(y.max()),
             "y_mean": float(y.mean()),
@@ -200,7 +200,7 @@ class DatasetBuilder:
                 "anchor_features": np.ndarray,   # (N, T, 8, 4)
                 "other_features": np.ndarray,    # (N, T, 8, 4)
                 "is_positive": np.ndarray,       # (N,) bool
-                "frame_shape": tuple,  # (T, 8, 4)
+                "series_shape": tuple,  # (T, 8, 4)
                 "n_positive": int,
                 "n_negative": int,
             }
@@ -260,11 +260,11 @@ class DatasetBuilder:
 
         for a_id, b_id, positive in all_pairs:
             if a_id not in feature_cache:
-                feat = self._extract_sample_frames(a_id, n_samples, method)
+                feat = self._extract_sample_series(a_id, n_samples, method)
                 if feat is not None:
                     feature_cache[a_id] = feat
             if b_id not in feature_cache:
-                feat = self._extract_sample_frames(b_id, n_samples, method)
+                feat = self._extract_sample_series(b_id, n_samples, method)
                 if feat is not None:
                     feature_cache[b_id] = feat
 
@@ -280,48 +280,48 @@ class DatasetBuilder:
             "anchor_features": np.array(anchor_features),
             "other_features": np.array(other_features),
             "is_positive": np.array(is_positive),
-            "frame_shape": anchor_features[0].shape,  # (T, 8, 4)
+            "series_shape": anchor_features[0].shape,  # (T, 8, 4)
             "n_positive": sum(is_positive),
             "n_negative": sum(not p for p in is_positive),
         }
 
-    def _extract_sample_frames(
+    def _extract_sample_series(
         self, sample_id: int, n_samples: int, method: str,
-        frame_phase_names: list[str] | None = None,
+        phase_names: list[str] | None = None,
     ) -> np.ndarray | None:
-        """提取单个样本的归一化帧
+        """提取单个样本的对齐序列
 
-        使用 FrameNormalizer 的三级缓存（Redis → DB → 重新生成）
+        使用 SeriesAligner 的缓存（Redis → 重新生成）
 
         Args:
-            frame_phase_names: 可选的阶段名称列表，仅使用这些阶段的数据生成帧
+            phase_names: 可选的阶段名称列表，仅使用这些阶段的数据生成对齐序列
 
         Returns:
             (T, 8, 4) 形状的 numpy 数组，8 传感器 × 4 物理量
             (value, temperature, humidity, pressure)
         """
         try:
-            frames, _from_cache = self.frame_normalizer.get_normalized_frames_by_sample(
+            series, _from_cache = self.series_aligner.get_aligned_series_by_sample(
                 sample_id=sample_id,
                 method=method,
                 n_samples=n_samples,
-                phase_names=frame_phase_names,
+                phase_names=phase_names,
             )
-            if frames is not None and frames.size > 0:
-                # FrameNormalizer 返回 (T, 32) → reshape 为 (T, 8, 4)
+            if series is not None and series.size > 0:
+                # SeriesAligner 返回 (T, 32) → reshape 为 (T, 8, 4)
                 # 列顺序: [8×value, 8×temp, 8×humidity, 8×pressure]
                 # reshape 为 (T, 4, 8) 然后 transpose 为 (T, 8, 4)
-                T = frames.shape[0]
-                reshaped = frames.reshape(T, self.N_CHANNELS_PER_SENSOR, self.N_SENSORS)  # (T, 4, 8)
+                T = series.shape[0]
+                reshaped = series.reshape(T, self.N_CHANNELS_PER_SENSOR, self.N_SENSORS)  # (T, 4, 8)
                 result = reshaped.transpose(0, 2, 1).astype(np.float32)  # (T, 8, 4)
-                # 处理 NaN（传感器数据缺失时 FrameNormalizer 会填 NaN）
+                # 处理 NaN（传感器数据缺失时 SeriesAligner 会填 NaN）
                 nan_count = np.isnan(result).sum()
                 if nan_count > 0:
                     logger.debug(f"Sample {sample_id}: {nan_count} NaN values replaced with 0")
                     np.nan_to_num(result, copy=False, nan=0.0)
                 return result
         except Exception as e:
-            logger.warning(f"FrameNormalizer failed for sample {sample_id}: {e}")
+            logger.warning(f"SeriesAligner failed for sample {sample_id}: {e}")
 
         return None
 

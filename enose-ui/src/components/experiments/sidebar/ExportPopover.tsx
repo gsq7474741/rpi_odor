@@ -37,18 +37,18 @@ import {
   downloadBlob,
   formatFileSize,
   estimateRawDataSize,
-  estimateFrameSize,
+  estimateSeriesSize,
 } from "@/lib/export-utils";
 
-type FrameFormat = "npz" | "csv";
+type SeriesFormat = "npz" | "csv";
 type DatasetFormat = "npz" | "csv";
 type PackageMode = "zip" | "separate";
 
 interface ExportConfig {
   includeParams: boolean;
   includeRawData: boolean;
-  includeFrames: boolean;
-  frameFormat: FrameFormat;
+  includeAlignedSeries: boolean;
+  seriesFormat: SeriesFormat;
   includeMlLabels: boolean;
   includeDataset: boolean;
   datasetFormat: DatasetFormat;
@@ -58,8 +58,8 @@ interface ExportConfig {
 const DEFAULT_CONFIG: ExportConfig = {
   includeParams: true,
   includeRawData: false,
-  includeFrames: false,
-  frameFormat: "npz",
+  includeAlignedSeries: false,
+  seriesFormat: "npz",
   includeMlLabels: false,
   includeDataset: false,
   datasetFormat: "npz",
@@ -70,7 +70,7 @@ export function ExportPopover() {
   const {
     samples,
     selectedSampleIds,
-    frameConfig,
+    seriesConfig,
     mlLabelConfig,
     mlSplitRatios,
   } = useExperiments();
@@ -84,12 +84,12 @@ export function ExportPopover() {
     [samples, selectedSampleIds]
   );
 
-  // 帧可用性
-  const samplesWithFrames = useMemo(
-    () => selectedSamples.filter((s) => s.frameStatus?.hasFrames),
+  // 对齐序列可用性
+  const samplesWithSeries = useMemo(
+    () => selectedSamples.filter((s) => s.seriesStatus?.hasAlignedSeries),
     [selectedSamples]
   );
-  const framesAvailable = samplesWithFrames.length > 0;
+  const seriesAvailable = samplesWithSeries.length > 0;
 
   // ML 标签是否可用（在 ML 标签 tab 中已选择策略）
   const mlLabelAvailable = !!mlLabelConfig;
@@ -107,17 +107,17 @@ export function ExportPopover() {
         0
       );
     }
-    if (config.includeFrames) {
-      total += estimateFrameSize(
-        frameConfig.nSamples,
-        samplesWithFrames.length,
-        config.frameFormat
+    if (config.includeAlignedSeries) {
+      total += estimateSeriesSize(
+        seriesConfig.nSamples,
+        samplesWithSeries.length,
+        config.seriesFormat
       );
     }
     if (config.includeDataset) {
-      total += estimateFrameSize(
-        frameConfig.nSamples,
-        samplesWithFrames.length,
+      total += estimateSeriesSize(
+        seriesConfig.nSamples,
+        samplesWithSeries.length,
         config.datasetFormat
       );
     }
@@ -125,13 +125,13 @@ export function ExportPopover() {
       total += selectedSamples.length * 100;
     }
     return total;
-  }, [config, selectedSamples, samplesWithFrames, frameConfig]);
+  }, [config, selectedSamples, samplesWithSeries, seriesConfig]);
 
   // 有几种数据类型被勾选
   const checkedCount = [
     config.includeParams,
     config.includeRawData,
-    config.includeFrames,
+    config.includeAlignedSeries,
     config.includeMlLabels,
     config.includeDataset,
   ].filter(Boolean).length;
@@ -140,7 +140,7 @@ export function ExportPopover() {
   const frontendOnly =
     config.includeParams &&
     !config.includeRawData &&
-    !config.includeFrames &&
+    !config.includeAlignedSeries &&
     !config.includeMlLabels &&
     !config.includeDataset;
 
@@ -170,10 +170,10 @@ export function ExportPopover() {
         sampleIds: Array.from(selectedSampleIds),
         includeParams: config.includeParams,
         includeRawData: config.includeRawData,
-        includeFrames: config.includeFrames,
-        frameMethod: frameConfig.method,
-        frameNSamples: frameConfig.nSamples,
-        frameFormat: config.frameFormat,
+        includeAlignedSeries: config.includeAlignedSeries,
+        seriesMethod: seriesConfig.method,
+        seriesNSamples: seriesConfig.nSamples,
+        seriesFormat: config.seriesFormat,
         includeMlLabels: config.includeMlLabels,
         mlLabelConfigs: mlLabelConfig ? [mlLabelConfig] : [],
         includeDataset: config.includeDataset,
@@ -199,7 +199,7 @@ export function ExportPopover() {
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
       const ext = checkedCount > 1 || config.packageMode === "zip" ? "zip" : 
                   config.includeRawData ? "zip" :
-                  config.includeFrames ? config.frameFormat :
+                  config.includeAlignedSeries ? config.seriesFormat :
                   config.includeDataset ? config.datasetFormat :
                   "csv";
       downloadBlob(blob, `export_${timestamp}.${ext}`);
@@ -219,7 +219,7 @@ export function ExportPopover() {
     selectedSamples,
     selectedSampleIds,
     config,
-    frameConfig,
+    seriesConfig,
   ]);
 
   // 更新配置的 helper
@@ -280,38 +280,38 @@ export function ExportPopover() {
             )}
           />
 
-          {/* C: 归一化数据帧 */}
+          {/* C: 对齐序列 */}
           <div className="space-y-1.5">
             <ExportOption
               icon={Layers}
-              label="归一化数据帧"
-              description={`${frameConfig.method} × ${frameConfig.nSamples}点 (n, 8)`}
-              checked={config.includeFrames}
-              onCheckedChange={(v) => updateConfig("includeFrames", v)}
+              label="对齐序列"
+              description={`${seriesConfig.method} × ${seriesConfig.nSamples}点 (n, 8)`}
+              checked={config.includeAlignedSeries}
+              onCheckedChange={(v) => updateConfig("includeAlignedSeries", v)}
               estimate={formatFileSize(
-                estimateFrameSize(
-                  frameConfig.nSamples,
-                  samplesWithFrames.length,
-                  config.frameFormat
+                estimateSeriesSize(
+                  seriesConfig.nSamples,
+                  samplesWithSeries.length,
+                  config.seriesFormat
                 )
               )}
-              disabled={!framesAvailable}
+              disabled={!seriesAvailable}
               disabledReason={
-                !framesAvailable
-                  ? "请先在「数据帧管理」中生成帧"
+                !seriesAvailable
+                  ? "请先在「对齐序列管理」中生成序列"
                   : undefined
               }
               badge={
-                framesAvailable
-                  ? `${samplesWithFrames.length}/${selectedSamples.length} 有帧`
+                seriesAvailable
+                  ? `${samplesWithSeries.length}/${selectedSamples.length} 有序列`
                   : undefined
               }
             />
-            {config.includeFrames && (
+            {config.includeAlignedSeries && (
               <div className="ml-7 space-y-1">
                 <FormatSelector
-                  value={config.frameFormat}
-                  onChange={(v) => updateConfig("frameFormat", v as FrameFormat)}
+                  value={config.seriesFormat}
+                  onChange={(v) => updateConfig("seriesFormat", v as SeriesFormat)}
                 />
               </div>
             )}
@@ -334,20 +334,20 @@ export function ExportPopover() {
             <ExportOption
               icon={Brain}
               label="训练数据集"
-              description={mlLabelAvailable ? `${mlLabelConfig} · ${mlSplitRatios.train}/${mlSplitRatios.val}/${testRatio}` : "帧矩阵 + 标签"}
+              description={mlLabelAvailable ? `${mlLabelConfig} · ${mlSplitRatios.train}/${mlSplitRatios.val}/${testRatio}` : "对齐序列 + 标签"}
               checked={config.includeDataset}
               onCheckedChange={(v) => updateConfig("includeDataset", v)}
               estimate={formatFileSize(
-                estimateFrameSize(
-                  frameConfig.nSamples,
-                  samplesWithFrames.length,
+                estimateSeriesSize(
+                  seriesConfig.nSamples,
+                  samplesWithSeries.length,
                   config.datasetFormat
                 )
               )}
-              disabled={!framesAvailable || !mlLabelAvailable}
+              disabled={!seriesAvailable || !mlLabelAvailable}
               disabledReason={
-                !framesAvailable
-                  ? "请先生成帧"
+                !seriesAvailable
+                  ? "请先生成对齐序列"
                   : !mlLabelAvailable
                   ? "请先在「ML 标签」tab 中选择标签策略"
                   : undefined

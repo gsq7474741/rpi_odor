@@ -79,16 +79,16 @@ import type { TrainModelRequest } from "./enose_analytics";
 import { AnalyticsService } from "./enose_analytics";
 import type { BinaryWriteOptions } from "@protobuf-ts/runtime";
 import type { BinaryReadOptions } from "@protobuf-ts/runtime";
-import type { GetSampleFramesResponse } from "./enose_analytics";
-import type { GetSampleFramesRequest } from "./enose_analytics";
-import type { BatchGenerateSampleFramesResponse } from "./enose_analytics";
-import type { BatchGenerateSampleFramesRequest } from "./enose_analytics";
-import type { GenerateSampleFramesResponse } from "./enose_analytics";
-import type { GenerateSampleFramesRequest } from "./enose_analytics";
-import type { BatchSampleFramesStatusResponse } from "./enose_analytics";
-import type { BatchSampleFramesStatusRequest } from "./enose_analytics";
-import type { SampleFramesStatusResponse } from "./enose_analytics";
-import type { SampleFramesStatusRequest } from "./enose_analytics";
+import type { GetSampleAlignedSeriesResponse } from "./enose_analytics";
+import type { GetSampleAlignedSeriesRequest } from "./enose_analytics";
+import type { BatchGenerateSampleAlignedSeriesResponse } from "./enose_analytics";
+import type { BatchGenerateSampleAlignedSeriesRequest } from "./enose_analytics";
+import type { GenerateSampleAlignedSeriesResponse } from "./enose_analytics";
+import type { GenerateSampleAlignedSeriesRequest } from "./enose_analytics";
+import type { BatchSampleAlignedSeriesStatusResponse } from "./enose_analytics";
+import type { BatchSampleAlignedSeriesStatusRequest } from "./enose_analytics";
+import type { SampleAlignedSeriesStatusResponse } from "./enose_analytics";
+import type { SampleAlignedSeriesStatusRequest } from "./enose_analytics";
 import type { GenerateNormalizedFramesResponse } from "./enose_analytics";
 import type { GenerateNormalizedFramesRequest } from "./enose_analytics";
 import type { NormalizedFramesStatusResponse } from "./enose_analytics";
@@ -150,7 +150,7 @@ export interface IAnalyticsServiceClient {
     updateQualityConfig(input: QualityConfig, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: QualityConfig) => void): grpc.ClientUnaryCall;
     updateQualityConfig(input: QualityConfig, callback: (err: grpc.ServiceError | null, value?: QualityConfig) => void): grpc.ClientUnaryCall;
     /**
-     * [DEPRECATED] 检查归一化帧状态 - 请使用 GetSampleFramesStatus
+     * [DEPRECATED] 检查归一化帧状态 - 请使用 GetSampleAlignedSeriesStatus
      *
      * @deprecated
      * @generated from protobuf rpc: GetNormalizedFramesStatus
@@ -160,7 +160,7 @@ export interface IAnalyticsServiceClient {
     getNormalizedFramesStatus(input: NormalizedFramesStatusRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: NormalizedFramesStatusResponse) => void): grpc.ClientUnaryCall;
     getNormalizedFramesStatus(input: NormalizedFramesStatusRequest, callback: (err: grpc.ServiceError | null, value?: NormalizedFramesStatusResponse) => void): grpc.ClientUnaryCall;
     /**
-     * [DEPRECATED] 生成归一化帧 - 请使用 GenerateSampleFrames
+     * [DEPRECATED] 生成归一化帧 - 请使用 GenerateSampleAlignedSeries
      *
      * @deprecated
      * @generated from protobuf rpc: GenerateNormalizedFrames
@@ -172,50 +172,50 @@ export interface IAnalyticsServiceClient {
     // ========== 基于 sample_id 的接口 ==========
 
     /**
-     * 检查样本帧状态（含缓存状态）
+     * 检查样本对齐序列状态（含缓存状态）
      *
-     * @generated from protobuf rpc: GetSampleFramesStatus
+     * @generated from protobuf rpc: GetSampleAlignedSeriesStatus
      */
-    getSampleFramesStatus(input: SampleFramesStatusRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: SampleFramesStatusResponse) => void): grpc.ClientUnaryCall;
-    getSampleFramesStatus(input: SampleFramesStatusRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: SampleFramesStatusResponse) => void): grpc.ClientUnaryCall;
-    getSampleFramesStatus(input: SampleFramesStatusRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: SampleFramesStatusResponse) => void): grpc.ClientUnaryCall;
-    getSampleFramesStatus(input: SampleFramesStatusRequest, callback: (err: grpc.ServiceError | null, value?: SampleFramesStatusResponse) => void): grpc.ClientUnaryCall;
+    getSampleAlignedSeriesStatus(input: SampleAlignedSeriesStatusRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: SampleAlignedSeriesStatusResponse) => void): grpc.ClientUnaryCall;
+    getSampleAlignedSeriesStatus(input: SampleAlignedSeriesStatusRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: SampleAlignedSeriesStatusResponse) => void): grpc.ClientUnaryCall;
+    getSampleAlignedSeriesStatus(input: SampleAlignedSeriesStatusRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: SampleAlignedSeriesStatusResponse) => void): grpc.ClientUnaryCall;
+    getSampleAlignedSeriesStatus(input: SampleAlignedSeriesStatusRequest, callback: (err: grpc.ServiceError | null, value?: SampleAlignedSeriesStatusResponse) => void): grpc.ClientUnaryCall;
     /**
-     * 批量检查样本帧状态（减少网络往返）
+     * 批量检查样本对齐序列状态（减少网络往返）
      *
-     * @generated from protobuf rpc: GetBatchSampleFramesStatus
+     * @generated from protobuf rpc: GetBatchSampleAlignedSeriesStatus
      */
-    getBatchSampleFramesStatus(input: BatchSampleFramesStatusRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: BatchSampleFramesStatusResponse) => void): grpc.ClientUnaryCall;
-    getBatchSampleFramesStatus(input: BatchSampleFramesStatusRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: BatchSampleFramesStatusResponse) => void): grpc.ClientUnaryCall;
-    getBatchSampleFramesStatus(input: BatchSampleFramesStatusRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: BatchSampleFramesStatusResponse) => void): grpc.ClientUnaryCall;
-    getBatchSampleFramesStatus(input: BatchSampleFramesStatusRequest, callback: (err: grpc.ServiceError | null, value?: BatchSampleFramesStatusResponse) => void): grpc.ClientUnaryCall;
+    getBatchSampleAlignedSeriesStatus(input: BatchSampleAlignedSeriesStatusRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: BatchSampleAlignedSeriesStatusResponse) => void): grpc.ClientUnaryCall;
+    getBatchSampleAlignedSeriesStatus(input: BatchSampleAlignedSeriesStatusRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: BatchSampleAlignedSeriesStatusResponse) => void): grpc.ClientUnaryCall;
+    getBatchSampleAlignedSeriesStatus(input: BatchSampleAlignedSeriesStatusRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: BatchSampleAlignedSeriesStatusResponse) => void): grpc.ClientUnaryCall;
+    getBatchSampleAlignedSeriesStatus(input: BatchSampleAlignedSeriesStatusRequest, callback: (err: grpc.ServiceError | null, value?: BatchSampleAlignedSeriesStatusResponse) => void): grpc.ClientUnaryCall;
     /**
-     * 生成样本帧（支持 Redis 缓存）
+     * 生成样本对齐序列（支持 Redis 缓存）
      *
-     * @generated from protobuf rpc: GenerateSampleFrames
+     * @generated from protobuf rpc: GenerateSampleAlignedSeries
      */
-    generateSampleFrames(input: GenerateSampleFramesRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: GenerateSampleFramesResponse) => void): grpc.ClientUnaryCall;
-    generateSampleFrames(input: GenerateSampleFramesRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: GenerateSampleFramesResponse) => void): grpc.ClientUnaryCall;
-    generateSampleFrames(input: GenerateSampleFramesRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: GenerateSampleFramesResponse) => void): grpc.ClientUnaryCall;
-    generateSampleFrames(input: GenerateSampleFramesRequest, callback: (err: grpc.ServiceError | null, value?: GenerateSampleFramesResponse) => void): grpc.ClientUnaryCall;
+    generateSampleAlignedSeries(input: GenerateSampleAlignedSeriesRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: GenerateSampleAlignedSeriesResponse) => void): grpc.ClientUnaryCall;
+    generateSampleAlignedSeries(input: GenerateSampleAlignedSeriesRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: GenerateSampleAlignedSeriesResponse) => void): grpc.ClientUnaryCall;
+    generateSampleAlignedSeries(input: GenerateSampleAlignedSeriesRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: GenerateSampleAlignedSeriesResponse) => void): grpc.ClientUnaryCall;
+    generateSampleAlignedSeries(input: GenerateSampleAlignedSeriesRequest, callback: (err: grpc.ServiceError | null, value?: GenerateSampleAlignedSeriesResponse) => void): grpc.ClientUnaryCall;
     /**
-     * 批量生成样本帧（减少网络往返）
+     * 批量生成样本对齐序列（减少网络往返）
      *
-     * @generated from protobuf rpc: GenerateBatchSampleFrames
+     * @generated from protobuf rpc: GenerateBatchSampleAlignedSeries
      */
-    generateBatchSampleFrames(input: BatchGenerateSampleFramesRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: BatchGenerateSampleFramesResponse) => void): grpc.ClientUnaryCall;
-    generateBatchSampleFrames(input: BatchGenerateSampleFramesRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: BatchGenerateSampleFramesResponse) => void): grpc.ClientUnaryCall;
-    generateBatchSampleFrames(input: BatchGenerateSampleFramesRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: BatchGenerateSampleFramesResponse) => void): grpc.ClientUnaryCall;
-    generateBatchSampleFrames(input: BatchGenerateSampleFramesRequest, callback: (err: grpc.ServiceError | null, value?: BatchGenerateSampleFramesResponse) => void): grpc.ClientUnaryCall;
+    generateBatchSampleAlignedSeries(input: BatchGenerateSampleAlignedSeriesRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: BatchGenerateSampleAlignedSeriesResponse) => void): grpc.ClientUnaryCall;
+    generateBatchSampleAlignedSeries(input: BatchGenerateSampleAlignedSeriesRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: BatchGenerateSampleAlignedSeriesResponse) => void): grpc.ClientUnaryCall;
+    generateBatchSampleAlignedSeries(input: BatchGenerateSampleAlignedSeriesRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: BatchGenerateSampleAlignedSeriesResponse) => void): grpc.ClientUnaryCall;
+    generateBatchSampleAlignedSeries(input: BatchGenerateSampleAlignedSeriesRequest, callback: (err: grpc.ServiceError | null, value?: BatchGenerateSampleAlignedSeriesResponse) => void): grpc.ClientUnaryCall;
     /**
-     * 获取样本帧数据
+     * 获取样本对齐序列数据
      *
-     * @generated from protobuf rpc: GetSampleFrames
+     * @generated from protobuf rpc: GetSampleAlignedSeries
      */
-    getSampleFrames(input: GetSampleFramesRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: GetSampleFramesResponse) => void): grpc.ClientUnaryCall;
-    getSampleFrames(input: GetSampleFramesRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: GetSampleFramesResponse) => void): grpc.ClientUnaryCall;
-    getSampleFrames(input: GetSampleFramesRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: GetSampleFramesResponse) => void): grpc.ClientUnaryCall;
-    getSampleFrames(input: GetSampleFramesRequest, callback: (err: grpc.ServiceError | null, value?: GetSampleFramesResponse) => void): grpc.ClientUnaryCall;
+    getSampleAlignedSeries(input: GetSampleAlignedSeriesRequest, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: GetSampleAlignedSeriesResponse) => void): grpc.ClientUnaryCall;
+    getSampleAlignedSeries(input: GetSampleAlignedSeriesRequest, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: GetSampleAlignedSeriesResponse) => void): grpc.ClientUnaryCall;
+    getSampleAlignedSeries(input: GetSampleAlignedSeriesRequest, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: GetSampleAlignedSeriesResponse) => void): grpc.ClientUnaryCall;
+    getSampleAlignedSeries(input: GetSampleAlignedSeriesRequest, callback: (err: grpc.ServiceError | null, value?: GetSampleAlignedSeriesResponse) => void): grpc.ClientUnaryCall;
 }
 // ============================================================================
 // Analytics Service - 质量检测与在线分析
@@ -276,7 +276,7 @@ export class AnalyticsServiceClient extends grpc.Client implements IAnalyticsSer
         return this.makeUnaryRequest<QualityConfig, QualityConfig>(`/${AnalyticsService.typeName}/${method.name}`, (value: QualityConfig): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): QualityConfig => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
-     * [DEPRECATED] 检查归一化帧状态 - 请使用 GetSampleFramesStatus
+     * [DEPRECATED] 检查归一化帧状态 - 请使用 GetSampleAlignedSeriesStatus
      *
      * @deprecated
      * @generated from protobuf rpc: GetNormalizedFramesStatus
@@ -286,7 +286,7 @@ export class AnalyticsServiceClient extends grpc.Client implements IAnalyticsSer
         return this.makeUnaryRequest<NormalizedFramesStatusRequest, NormalizedFramesStatusResponse>(`/${AnalyticsService.typeName}/${method.name}`, (value: NormalizedFramesStatusRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): NormalizedFramesStatusResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
-     * [DEPRECATED] 生成归一化帧 - 请使用 GenerateSampleFrames
+     * [DEPRECATED] 生成归一化帧 - 请使用 GenerateSampleAlignedSeries
      *
      * @deprecated
      * @generated from protobuf rpc: GenerateNormalizedFrames
@@ -298,49 +298,49 @@ export class AnalyticsServiceClient extends grpc.Client implements IAnalyticsSer
     // ========== 基于 sample_id 的接口 ==========
 
     /**
-     * 检查样本帧状态（含缓存状态）
+     * 检查样本对齐序列状态（含缓存状态）
      *
-     * @generated from protobuf rpc: GetSampleFramesStatus
+     * @generated from protobuf rpc: GetSampleAlignedSeriesStatus
      */
-    getSampleFramesStatus(input: SampleFramesStatusRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: SampleFramesStatusResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: SampleFramesStatusResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: SampleFramesStatusResponse) => void)): grpc.ClientUnaryCall {
+    getSampleAlignedSeriesStatus(input: SampleAlignedSeriesStatusRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: SampleAlignedSeriesStatusResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: SampleAlignedSeriesStatusResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: SampleAlignedSeriesStatusResponse) => void)): grpc.ClientUnaryCall {
         const method = AnalyticsService.methods[7];
-        return this.makeUnaryRequest<SampleFramesStatusRequest, SampleFramesStatusResponse>(`/${AnalyticsService.typeName}/${method.name}`, (value: SampleFramesStatusRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): SampleFramesStatusResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+        return this.makeUnaryRequest<SampleAlignedSeriesStatusRequest, SampleAlignedSeriesStatusResponse>(`/${AnalyticsService.typeName}/${method.name}`, (value: SampleAlignedSeriesStatusRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): SampleAlignedSeriesStatusResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
-     * 批量检查样本帧状态（减少网络往返）
+     * 批量检查样本对齐序列状态（减少网络往返）
      *
-     * @generated from protobuf rpc: GetBatchSampleFramesStatus
+     * @generated from protobuf rpc: GetBatchSampleAlignedSeriesStatus
      */
-    getBatchSampleFramesStatus(input: BatchSampleFramesStatusRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: BatchSampleFramesStatusResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: BatchSampleFramesStatusResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: BatchSampleFramesStatusResponse) => void)): grpc.ClientUnaryCall {
+    getBatchSampleAlignedSeriesStatus(input: BatchSampleAlignedSeriesStatusRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: BatchSampleAlignedSeriesStatusResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: BatchSampleAlignedSeriesStatusResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: BatchSampleAlignedSeriesStatusResponse) => void)): grpc.ClientUnaryCall {
         const method = AnalyticsService.methods[8];
-        return this.makeUnaryRequest<BatchSampleFramesStatusRequest, BatchSampleFramesStatusResponse>(`/${AnalyticsService.typeName}/${method.name}`, (value: BatchSampleFramesStatusRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): BatchSampleFramesStatusResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+        return this.makeUnaryRequest<BatchSampleAlignedSeriesStatusRequest, BatchSampleAlignedSeriesStatusResponse>(`/${AnalyticsService.typeName}/${method.name}`, (value: BatchSampleAlignedSeriesStatusRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): BatchSampleAlignedSeriesStatusResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
-     * 生成样本帧（支持 Redis 缓存）
+     * 生成样本对齐序列（支持 Redis 缓存）
      *
-     * @generated from protobuf rpc: GenerateSampleFrames
+     * @generated from protobuf rpc: GenerateSampleAlignedSeries
      */
-    generateSampleFrames(input: GenerateSampleFramesRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GenerateSampleFramesResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GenerateSampleFramesResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: GenerateSampleFramesResponse) => void)): grpc.ClientUnaryCall {
+    generateSampleAlignedSeries(input: GenerateSampleAlignedSeriesRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GenerateSampleAlignedSeriesResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GenerateSampleAlignedSeriesResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: GenerateSampleAlignedSeriesResponse) => void)): grpc.ClientUnaryCall {
         const method = AnalyticsService.methods[9];
-        return this.makeUnaryRequest<GenerateSampleFramesRequest, GenerateSampleFramesResponse>(`/${AnalyticsService.typeName}/${method.name}`, (value: GenerateSampleFramesRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): GenerateSampleFramesResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+        return this.makeUnaryRequest<GenerateSampleAlignedSeriesRequest, GenerateSampleAlignedSeriesResponse>(`/${AnalyticsService.typeName}/${method.name}`, (value: GenerateSampleAlignedSeriesRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): GenerateSampleAlignedSeriesResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
-     * 批量生成样本帧（减少网络往返）
+     * 批量生成样本对齐序列（减少网络往返）
      *
-     * @generated from protobuf rpc: GenerateBatchSampleFrames
+     * @generated from protobuf rpc: GenerateBatchSampleAlignedSeries
      */
-    generateBatchSampleFrames(input: BatchGenerateSampleFramesRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: BatchGenerateSampleFramesResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: BatchGenerateSampleFramesResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: BatchGenerateSampleFramesResponse) => void)): grpc.ClientUnaryCall {
+    generateBatchSampleAlignedSeries(input: BatchGenerateSampleAlignedSeriesRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: BatchGenerateSampleAlignedSeriesResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: BatchGenerateSampleAlignedSeriesResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: BatchGenerateSampleAlignedSeriesResponse) => void)): grpc.ClientUnaryCall {
         const method = AnalyticsService.methods[10];
-        return this.makeUnaryRequest<BatchGenerateSampleFramesRequest, BatchGenerateSampleFramesResponse>(`/${AnalyticsService.typeName}/${method.name}`, (value: BatchGenerateSampleFramesRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): BatchGenerateSampleFramesResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+        return this.makeUnaryRequest<BatchGenerateSampleAlignedSeriesRequest, BatchGenerateSampleAlignedSeriesResponse>(`/${AnalyticsService.typeName}/${method.name}`, (value: BatchGenerateSampleAlignedSeriesRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): BatchGenerateSampleAlignedSeriesResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
-     * 获取样本帧数据
+     * 获取样本对齐序列数据
      *
-     * @generated from protobuf rpc: GetSampleFrames
+     * @generated from protobuf rpc: GetSampleAlignedSeries
      */
-    getSampleFrames(input: GetSampleFramesRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GetSampleFramesResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GetSampleFramesResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: GetSampleFramesResponse) => void)): grpc.ClientUnaryCall {
+    getSampleAlignedSeries(input: GetSampleAlignedSeriesRequest, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GetSampleAlignedSeriesResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: GetSampleAlignedSeriesResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: GetSampleAlignedSeriesResponse) => void)): grpc.ClientUnaryCall {
         const method = AnalyticsService.methods[11];
-        return this.makeUnaryRequest<GetSampleFramesRequest, GetSampleFramesResponse>(`/${AnalyticsService.typeName}/${method.name}`, (value: GetSampleFramesRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): GetSampleFramesResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+        return this.makeUnaryRequest<GetSampleAlignedSeriesRequest, GetSampleAlignedSeriesResponse>(`/${AnalyticsService.typeName}/${method.name}`, (value: GetSampleAlignedSeriesRequest): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): GetSampleAlignedSeriesResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
 }
 // ============================================================================

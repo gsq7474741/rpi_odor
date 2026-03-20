@@ -28,7 +28,7 @@ from ..logger import logger
 
 
 # 需要 flatten 输入的传统模型（非时序）
-FLAT_MODELS = {"mlp", "svm", "xgboost", "kmeans"}
+FLAT_MODELS = {"mlp", "svm", "xgboost", "kmeans", "rf", "lr", "lda", "knn"}
 
 
 def _prepare_X(X: np.ndarray, model_type: str) -> np.ndarray:
@@ -77,8 +77,8 @@ class TrainingManager:
         run_ids: list[int] | None = None,
         train_ratio: float = 0.7,
         val_ratio: float = 0.15,
-        frame_n_samples: int = 100,
-        frame_method: str = "linear",
+        series_n_samples: int = 100,
+        series_method: str = "linear",
         seed: int = 42,
         hyperparams: dict[str, Any] | None = None,
         split_method: str = "stratified_holdout",
@@ -105,8 +105,8 @@ class TrainingManager:
             "run_ids": run_ids,
             "train_ratio": train_ratio,
             "val_ratio": val_ratio,
-            "frame_n_samples": frame_n_samples,
-            "frame_method": frame_method,
+            "series_n_samples": series_n_samples,
+            "series_method": series_method,
             "seed": seed,
             "split_method": split_method,
             "k_folds": k_folds,
@@ -216,7 +216,7 @@ class TrainingManager:
             y_test = dataset.get("y_test")
             class_names = dataset.get("class_names", [])
             folds = dataset.get("folds")  # K-Fold 时有值
-            frame_shape = dataset.get("frame_shape", X_train_raw.shape[1:])
+            series_shape = dataset.get("series_shape", X_train_raw.shape[1:])
 
             n_classes = dataset.get("n_classes", 0)
             is_kfold = folds is not None and len(folds) > 1
@@ -231,7 +231,7 @@ class TrainingManager:
 
             logger.info(
                 f"Job {job_id}: Dataset built - "
-                f"frame_shape={frame_shape}, X_shape={X_train.shape}, "
+                f"series_shape={series_shape}, X_shape={X_train.shape}, "
                 f"train={len(X_train)}, val={len(X_val) if X_val is not None else 0}, "
                 f"test={len(X_test) if X_test is not None else 0}, "
                 f"n_classes={n_classes}, class_names={class_names}"
@@ -548,8 +548,8 @@ class TrainingManager:
         run_ids = config.get("run_ids")
         train_ratio = config.get("train_ratio", 0.7)
         val_ratio = config.get("val_ratio", 0.15)
-        n_samples = config.get("frame_n_samples", 100)
-        method = config.get("frame_method", "linear")
+        n_samples = config.get("series_n_samples") or config.get("frame_n_samples", 100)
+        method = config.get("series_method") or config.get("frame_method", "linear")
         seed = config.get("seed", 42)
         split_method = config.get("split_method", "stratified_holdout")
         k_folds = config.get("k_folds", 5)

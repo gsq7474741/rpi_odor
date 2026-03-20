@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listSamples, getSampleFrames } from "@/lib/analytics-grpc-client";
+import { listSamples, getSampleAlignedSeries } from "@/lib/analytics-grpc-client";
 import { ListSamplesRequest, Sample } from "@/generated/enose_analytics";
 import pool from "@/lib/db";
 
@@ -7,14 +7,14 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const action = searchParams.get("action");
 
-  // 归一化帧数据
-  if (action === "frames") {
+  // 对齐序列数据
+  if (action === "aligned-series" || action === "frames") {
     const sampleId = parseInt(searchParams.get("sampleId") || "0");
     const method = searchParams.get("method") || "linear";
     const nSamples = parseInt(searchParams.get("nSamples") || "100");
 
     try {
-      const response = await getSampleFrames({
+      const response = await getSampleAlignedSeries({
         sampleId,
         method,
         nSamples,
@@ -24,35 +24,35 @@ export async function GET(request: NextRequest) {
       if (!response.success) {
         return NextResponse.json({
           success: false,
-          error: "Failed to get frames",
+          error: "Failed to get aligned series",
         });
       }
 
-      // 将平铺的 frames 数组 (n_samples * 8) 转换为帧数组
-      const frameCount = response.nSamples;
+      // 将平铺的序列数组 (n_samples * 8) 转换为点数组
+      const pointCount = response.nSamples;
       const sensorCount = response.nSensors || 8;
-      const frames: { frameIdx: number; values: number[] }[] = [];
+      const points: { pointIdx: number; values: number[] }[] = [];
 
-      for (let i = 0; i < frameCount; i++) {
+      for (let i = 0; i < pointCount; i++) {
         const values: number[] = [];
         for (let j = 0; j < sensorCount; j++) {
           values.push(response.frames[i * sensorCount + j] || 0);
         }
-        frames.push({
-          frameIdx: i,
+        points.push({
+          pointIdx: i,
           values,
         });
       }
 
       return NextResponse.json({
         success: true,
-        frames,
+        frames: points,  // 保持 JSON key 兼容，待前端消费方更新后可改为 points
         nSamples: response.nSamples,
         nSensors: response.nSensors,
         fromCache: response.fromCache,
       });
     } catch (error) {
-      console.error("Error fetching sample frames:", error);
+      console.error("Error fetching sample aligned series:", error);
       return NextResponse.json(
         { success: false, error: "Internal server error" },
         { status: 500 }
@@ -104,13 +104,12 @@ export async function GET(request: NextRequest) {
       // 从数据库直接按 ID 批量查询
       const result = await pool.query(
         `SELECT s.id, s.run_id, s.sample_idx, 
-                EXTRACT(EPOCH FROM s.start_time) * 1000 AS start_time_ms,
-                EXTRACT(EPOCH FROM s.end_time) * 1000 AS end_time_ms,
+                s.start_time_ms,
+                s.end_time_ms,
                 s.params_hash, s.total_volume_ml, s.flow_rate_ml_s,
                 s.gas_pump_pwm, s.termination_type, s.termination_value,
                 s.max_duration_s, s.pre_wash_count, s.phase_name,
                 s.avg_temperature_c, s.avg_humidity_pct, s.avg_pressure_hpa,
-                s.reading_count,
                 s.reagent_batch_id, s.reagent_prep_date, s.prev_sample_id,
                 s.samples_since_wash, s.sensor_hours_at_sample,
                 s.is_anchor, s.is_blank, s.experiment_phase,
@@ -205,7 +204,7 @@ export async function GET(request: NextRequest) {
             ? (Number(r.end_time_ms) - Number(r.start_time_ms)) / 1000
             : null,
           phaseTransitions: ptMap[r.id] || [],
-          readingCount: r.reading_count || 0,
+          readingCount: 0,
           reagentBatchId: r.reagent_batch_id || null,
           reagentPrepDate: r.reagent_prep_date || null,
           prevSampleId: r.prev_sample_id || null,
@@ -514,7 +513,7 @@ export async function DELETE(request: NextRequest) {
         sampleIds,
       });
     } catch (err) {
-      await client.query("ROLLBACK");
+      await client.query("ROLLBACK").catch(() => {});
       throw err;
     } finally {
       client.release();

@@ -134,7 +134,7 @@ class LabelGenerator:
             return {"label_str": sample.get("params_hash", "")}
         elif strategy == "env_temperature":
             temp = sample.get("avg_temperature_c")
-            return {"label_num": temp} if temp is not None else None
+            return {"label_num": temp} if temp is not None else {"label_num": 0.0}
         else:
             logger.warning(f"Unknown strategy: {strategy}")
             return None
@@ -173,7 +173,7 @@ class LabelGenerator:
     ) -> dict[str, Any] | None:
         """浓度：输出配方中每种液体的浓度（归一化为百分比）"""
         if not liquids:
-            return None
+            return {"label_str": "none", "label_json": {}}
         raw = {liq.get("name", "?"): float(liq.get("ratio", 0.0)) for liq in liquids}
         # 归一化：如果总和 ≈ 1（小数比例），转为百分比；否则保持原值
         total = sum(raw.values())

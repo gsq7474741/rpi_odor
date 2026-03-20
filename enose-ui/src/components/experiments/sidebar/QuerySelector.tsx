@@ -38,13 +38,13 @@ export function QuerySelector() {
     filters,
     mlLabelConfig,
     mlSplitRatios,
-    frameConfig,
+    seriesConfig,
     addSamplesToSelection,
     clearSampleSelection,
     updateFilters,
     setMlLabelConfig,
     setMlSplitRatios,
-    setFrameConfig,
+    setSeriesConfig,
   } = useExperiments();
 
   const { queries, saveQuery, deleteQuery } = useSavedQueries();
@@ -75,11 +75,11 @@ export function QuerySelector() {
         showBlanksOnly: filters.showBlanksOnly,
         hideAnchorsAndBlanks: filters.hideAnchorsAndBlanks,
         searchQuery: filters.searchQuery,
-        hasFrames: filters.hasFrames,
+        hasAlignedSeries: filters.hasAlignedSeries,
       },
       mlLabelConfig,
       mlSplitRatios,
-      frameConfig: { method: frameConfig.method, nSamples: frameConfig.nSamples },
+      seriesConfig: { method: seriesConfig.method, nSamples: seriesConfig.nSamples },
     });
 
     toast.success(`选择集「${queryName}」已保存`);
@@ -107,11 +107,11 @@ export function QuerySelector() {
       setMlSplitRatios(query.mlSplitRatios);
     }
 
-    // 恢复 Frame 配置
-    if (query.frameConfig) {
-      setFrameConfig({
-        method: query.frameConfig.method as "linear" | "pchip",
-        nSamples: query.frameConfig.nSamples,
+    // 恢复对齐序列配置
+    if (query.seriesConfig) {
+      setSeriesConfig({
+        method: query.seriesConfig.method as "linear" | "pchip",
+        nSamples: query.seriesConfig.nSamples,
       });
     }
 
@@ -225,7 +225,7 @@ export function QuerySelector() {
                         )}
                         <Badge variant="outline" className="text-[10px] h-4 px-1 gap-0.5">
                           <Layers className="h-2.5 w-2.5" />
-                          {q.frameConfig.method} × {q.frameConfig.nSamples}
+                          {q.seriesConfig.method} × {q.seriesConfig.nSamples}
                         </Badge>
                         <span className="text-[10px] text-muted-foreground ml-auto">
                           {formatDate(q.updatedAt)}
@@ -285,7 +285,7 @@ export function QuerySelector() {
                   数据分割：{mlSplitRatios.train}/{mlSplitRatios.val}/{100 - mlSplitRatios.train - mlSplitRatios.val}
                 </li>
                 <li>
-                  帧配置：{frameConfig.method} × {frameConfig.nSamples} 点
+                  序列配置：{seriesConfig.method} × {seriesConfig.nSamples} 点
                 </li>
                 {filters.runIds.length > 0 && (
                   <li>筛选 Run: {filters.runIds.join(", ")}</li>

@@ -1,5 +1,5 @@
 """缓存模块"""
 
-from .frame_cache import FrameCache
+from .aligned_series_cache import AlignedSeriesCache
 
-__all__ = ["FrameCache"]
+__all__ = ["AlignedSeriesCache"]

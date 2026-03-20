@@ -37,16 +37,16 @@ import type {
   Sample,
   GetSampleGroupsRequest,
   GetSampleGroupsResponse,
-  SampleFramesStatusRequest,
-  SampleFramesStatusResponse,
-  BatchSampleFramesStatusRequest,
-  BatchSampleFramesStatusResponse,
-  GenerateSampleFramesRequest,
-  GenerateSampleFramesResponse,
-  BatchGenerateSampleFramesRequest,
-  BatchGenerateSampleFramesResponse,
-  GetSampleFramesRequest,
-  GetSampleFramesResponse,
+  SampleAlignedSeriesStatusRequest,
+  SampleAlignedSeriesStatusResponse,
+  BatchSampleAlignedSeriesStatusRequest,
+  BatchSampleAlignedSeriesStatusResponse,
+  GenerateSampleAlignedSeriesRequest,
+  GenerateSampleAlignedSeriesResponse,
+  BatchGenerateSampleAlignedSeriesRequest,
+  BatchGenerateSampleAlignedSeriesResponse,
+  GetSampleAlignedSeriesRequest,
+  GetSampleAlignedSeriesResponse,
   GetAvailablePhasesRequest,
   GetAvailablePhasesResponse,
   GetPhaseTransitionsRequest,
@@ -93,6 +93,8 @@ const CHANNEL_OPTIONS: grpc.ChannelOptions = {
   "grpc.initial_reconnect_backoff_ms": 500,
   "grpc.max_reconnect_backoff_ms": 5000,
   "grpc.min_reconnect_backoff_ms": 250,
+  "grpc.max_receive_message_length": 32 * 1024 * 1024,  // 32MB
+  "grpc.max_send_message_length": 32 * 1024 * 1024,     // 32MB
 };
 
 // 创建客户端实例
@@ -560,50 +562,50 @@ export async function getSampleGroups(request: GetSampleGroupsRequest): Promise<
 }
 
 // ============================================================
-// Sample-based Normalized Frames API (新 sample_id 接口)
+// Sample-based Aligned Series API (新 sample_id 接口)
 // ============================================================
 
-export async function getSampleFramesStatus(request: SampleFramesStatusRequest): Promise<SampleFramesStatusResponse> {
+export async function getSampleAlignedSeriesStatus(request: SampleAlignedSeriesStatusRequest): Promise<SampleAlignedSeriesStatusResponse> {
   const client = getAnalyticsClient();
   return analyticsPromisify(
     client,
-    client.getSampleFramesStatus.bind(client),
+    client.getSampleAlignedSeriesStatus.bind(client),
     request
   );
 }
 
-export async function getBatchSampleFramesStatus(request: BatchSampleFramesStatusRequest): Promise<BatchSampleFramesStatusResponse> {
+export async function getBatchSampleAlignedSeriesStatus(request: BatchSampleAlignedSeriesStatusRequest): Promise<BatchSampleAlignedSeriesStatusResponse> {
   const client = getAnalyticsClient();
   return analyticsPromisify(
     client,
-    client.getBatchSampleFramesStatus.bind(client),
+    client.getBatchSampleAlignedSeriesStatus.bind(client),
     request
   );
 }
 
-export async function generateSampleFrames(request: GenerateSampleFramesRequest): Promise<GenerateSampleFramesResponse> {
+export async function generateSampleAlignedSeries(request: GenerateSampleAlignedSeriesRequest): Promise<GenerateSampleAlignedSeriesResponse> {
   const client = getAnalyticsClient();
   return analyticsPromisify(
     client,
-    client.generateSampleFrames.bind(client),
+    client.generateSampleAlignedSeries.bind(client),
     request
   );
 }
 
-export async function generateBatchSampleFrames(request: BatchGenerateSampleFramesRequest): Promise<BatchGenerateSampleFramesResponse> {
+export async function generateBatchSampleAlignedSeries(request: BatchGenerateSampleAlignedSeriesRequest): Promise<BatchGenerateSampleAlignedSeriesResponse> {
   const client = getAnalyticsClient();
   return analyticsPromisify(
     client,
-    client.generateBatchSampleFrames.bind(client),
+    client.generateBatchSampleAlignedSeries.bind(client),
     request
   );
 }
 
-export async function getSampleFrames(request: GetSampleFramesRequest): Promise<GetSampleFramesResponse> {
+export async function getSampleAlignedSeries(request: GetSampleAlignedSeriesRequest): Promise<GetSampleAlignedSeriesResponse> {
   const client = getAnalyticsClient();
   return analyticsPromisify(
     client,
-    client.getSampleFrames.bind(client),
+    client.getSampleAlignedSeries.bind(client),
     request
   );
 }

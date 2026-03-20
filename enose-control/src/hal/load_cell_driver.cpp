@@ -341,17 +341,18 @@ LoadCellDriver::WaitForEmptyResult LoadCellDriver::wait_for_empty_bottle(
     
     WaitForEmptyResult result;
     
-    // 获取参考空瓶值：优先使用动态值
     float reference_weight = dynamic_empty_weight_.value_or(0.0f);
+    float initial_weight = status_.filtered_weight;
+    float peak_weight = initial_weight;
+    bool weight_decreased = false;
     
-    spdlog::info("LoadCellDriver: Waiting for empty bottle (ref={:.1f}g, tol={:.1f}g, timeout={:.1f}s, window={:.1f}s)",
-                 reference_weight, tolerance, timeout_sec, stability_window_sec);
+    spdlog::info("LoadCellDriver: Waiting for empty bottle (ref={:.1f}g, initial={:.1f}g, tol={:.1f}g, timeout={:.1f}s, window={:.1f}s)",
+                 reference_weight, initial_weight, tolerance, timeout_sec, stability_window_sec);
     
     auto start_time = std::chrono::steady_clock::now();
-    int stable_count = 0;
-    float last_weight = 0.0f;
     std::optional<std::chrono::steady_clock::time_point> window_start_time;
     float stable_weight = 0.0f;
+    int log_counter = 0;
     
     while (true) {
         // 检查是否被外部中断
@@ -366,71 +367,75 @@ LoadCellDriver::WaitForEmptyResult LoadCellDriver::wait_for_empty_bottle(
         auto elapsed = std::chrono::duration<float>(std::chrono::steady_clock::now() - start_time).count();
         if (elapsed >= timeout_sec) {
             result.success = false;
+            result.empty_weight = status_.filtered_weight;
             result.error_message = "等待空瓶稳定超时";
-            spdlog::warn("LoadCellDriver: Wait for empty bottle timeout");
+            spdlog::warn("LoadCellDriver: Wait for empty bottle timeout (current={:.1f}g, peak={:.1f}g, decreased={}, stable={})",
+                         status_.filtered_weight, peak_weight, weight_decreased, status_.is_stable);
             return result;
         }
         
         float current_weight = status_.filtered_weight;
         bool is_stable = status_.is_stable;
         
-        // 对于第一次使用（没有参考值），只需要等待稳定
-        bool is_near_reference = (reference_weight == 0.0f) || 
-                                  (std::abs(current_weight - reference_weight) <= tolerance);
+        // 追踪峰值和下降
+        if (current_weight > peak_weight) {
+            peak_weight = current_weight;
+        }
+        if (peak_weight - current_weight > tolerance) {
+            weight_decreased = true;
+        }
         
-        if (is_near_reference && is_stable) {
-            if (std::abs(current_weight - last_weight) < 1.0f) {
-                stable_count++;
-                if (stable_count >= 3) {
-                    // 达到稳态
-                    if (stability_window_sec <= 0) {
-                        // 不使用稳定窗口，直接更新空瓶值并返回
+        // 空瓶判断条件（三选一）:
+        // 1. 重量从峰值显著下降后稳定（排废完成的主要判据）
+        // 2. 当前重量接近已知参考空瓶值（辅助快速通过）
+        // 3. 无参考值时仅需稳定（首次使用）
+        bool drain_completed = weight_decreased && is_stable;
+        bool near_reference = (reference_weight > 0.0f) && 
+                              (std::abs(current_weight - reference_weight) <= tolerance) && is_stable;
+        bool first_time_stable = (reference_weight == 0.0f) && is_stable;
+        
+        bool should_check_window = drain_completed || near_reference || first_time_stable;
+        
+        if (should_check_window) {
+            if (!window_start_time.has_value()) {
+                window_start_time = std::chrono::steady_clock::now();
+                stable_weight = current_weight;
+                spdlog::info("LoadCellDriver: Stability window started ({:.1f}g, drain={}, near_ref={}, first={})",
+                             current_weight, drain_completed, near_reference, first_time_stable);
+            } else {
+                if (std::abs(current_weight - stable_weight) >= 1.0f) {
+                    // 重量仍在变化，刷新窗口
+                    window_start_time = std::chrono::steady_clock::now();
+                    stable_weight = current_weight;
+                    spdlog::debug("LoadCellDriver: Weight shifted to {:.1f}g, reset stability window", current_weight);
+                } else {
+                    auto window_elapsed = std::chrono::duration<float>(
+                        std::chrono::steady_clock::now() - *window_start_time).count();
+                    if (window_elapsed >= stability_window_sec) {
+                        // 稳定窗口完成，确认空瓶
                         dynamic_empty_weight_ = current_weight;
                         result.success = true;
                         result.empty_weight = current_weight;
-                        spdlog::info("LoadCellDriver: Empty bottle detected: {:.1f}g", current_weight);
+                        spdlog::info("LoadCellDriver: Empty bottle detected: {:.1f}g (stable {:.1f}s, peak was {:.1f}g)",
+                                     current_weight, window_elapsed, peak_weight);
                         return result;
                     }
-                    
-                    if (!window_start_time.has_value()) {
-                        window_start_time = std::chrono::steady_clock::now();
-                        stable_weight = current_weight;
-                        spdlog::info("LoadCellDriver: Stability window started ({:.1f}g)", current_weight);
-                    } else {
-                        if (std::abs(current_weight - stable_weight) >= 0.5f) {
-                            // 重量变化，刷新窗口
-                            window_start_time = std::chrono::steady_clock::now();
-                            stable_weight = current_weight;
-                            spdlog::info("LoadCellDriver: New stable state ({:.1f}g), reset window", current_weight);
-                        } else {
-                            auto window_elapsed = std::chrono::duration<float>(
-                                std::chrono::steady_clock::now() - *window_start_time).count();
-                            if (window_elapsed >= stability_window_sec) {
-                                // 窗口完成，更新空瓶值并返回
-                                dynamic_empty_weight_ = current_weight;
-                                result.success = true;
-                                result.empty_weight = current_weight;
-                                spdlog::info("LoadCellDriver: Stability window complete, empty weight: {:.1f}g", current_weight);
-                                return result;
-                            }
-                        }
-                    }
-                }
-            } else {
-                stable_count = 0;
-                if (window_start_time.has_value()) {
-                    spdlog::debug("LoadCellDriver: Weight change, reset window");
-                    window_start_time.reset();
                 }
             }
         } else {
-            stable_count = 0;
             if (window_start_time.has_value()) {
+                spdlog::debug("LoadCellDriver: Lost stability ({:.1f}g, stable={}), reset window",
+                              current_weight, is_stable);
                 window_start_time.reset();
             }
         }
         
-        last_weight = current_weight;
+        // 每 5s 打印一次调试日志
+        if (++log_counter % 10 == 0) {
+            spdlog::debug("LoadCellDriver: drain progress: {:.1f}s, weight={:.1f}g, peak={:.1f}g, decreased={}, stable={}",
+                          elapsed, current_weight, peak_weight, weight_decreased, is_stable);
+        }
+        
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 }

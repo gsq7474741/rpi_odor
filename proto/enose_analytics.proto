@@ -28,32 +28,32 @@ service AnalyticsService {
   // 更新质检配置
   rpc UpdateQualityConfig(QualityConfig) returns (QualityConfig);
   
-  // [DEPRECATED] 检查归一化帧状态 - 请使用 GetSampleFramesStatus
+  // [DEPRECATED] 检查归一化帧状态 - 请使用 GetSampleAlignedSeriesStatus
   rpc GetNormalizedFramesStatus(NormalizedFramesStatusRequest) returns (NormalizedFramesStatusResponse) {
     option deprecated = true;
   }
   
-  // [DEPRECATED] 生成归一化帧 - 请使用 GenerateSampleFrames
+  // [DEPRECATED] 生成归一化帧 - 请使用 GenerateSampleAlignedSeries
   rpc GenerateNormalizedFrames(GenerateNormalizedFramesRequest) returns (GenerateNormalizedFramesResponse) {
     option deprecated = true;
   }
   
   // ========== 基于 sample_id 的接口 ==========
   
-  // 检查样本帧状态（含缓存状态）
-  rpc GetSampleFramesStatus(SampleFramesStatusRequest) returns (SampleFramesStatusResponse);
+  // 检查样本对齐序列状态（含缓存状态）
+  rpc GetSampleAlignedSeriesStatus(SampleAlignedSeriesStatusRequest) returns (SampleAlignedSeriesStatusResponse);
   
-  // 批量检查样本帧状态（减少网络往返）
-  rpc GetBatchSampleFramesStatus(BatchSampleFramesStatusRequest) returns (BatchSampleFramesStatusResponse);
+  // 批量检查样本对齐序列状态（减少网络往返）
+  rpc GetBatchSampleAlignedSeriesStatus(BatchSampleAlignedSeriesStatusRequest) returns (BatchSampleAlignedSeriesStatusResponse);
   
-  // 生成样本帧（支持 Redis 缓存）
-  rpc GenerateSampleFrames(GenerateSampleFramesRequest) returns (GenerateSampleFramesResponse);
+  // 生成样本对齐序列（支持 Redis 缓存）
+  rpc GenerateSampleAlignedSeries(GenerateSampleAlignedSeriesRequest) returns (GenerateSampleAlignedSeriesResponse);
   
-  // 批量生成样本帧（减少网络往返）
-  rpc GenerateBatchSampleFrames(BatchGenerateSampleFramesRequest) returns (BatchGenerateSampleFramesResponse);
+  // 批量生成样本对齐序列（减少网络往返）
+  rpc GenerateBatchSampleAlignedSeries(BatchGenerateSampleAlignedSeriesRequest) returns (BatchGenerateSampleAlignedSeriesResponse);
   
-  // 获取样本帧数据
-  rpc GetSampleFrames(GetSampleFramesRequest) returns (GetSampleFramesResponse);
+  // 获取样本对齐序列数据
+  rpc GetSampleAlignedSeries(GetSampleAlignedSeriesRequest) returns (GetSampleAlignedSeriesResponse);
 }
 
 // ============================================================================
@@ -309,60 +309,60 @@ message GenerateNormalizedFramesResponse {
 }
 
 // ============================================================================
-// 基于 sample_id 的归一化帧消息 (新接口)
+// 基于 sample_id 的对齐序列消息 (新接口)
 // ============================================================================
 
-message SampleFramesStatusRequest {
+message SampleAlignedSeriesStatusRequest {
   int32 sample_id = 1;  // 样本 ID
 }
 
-message SampleFramesStatusResponse {
-  bool exists = 1;                         // 是否存在归一化帧
-  bool cached = 2;                         // 是否在 Redis 缓存中
-  repeated SampleFramesMeta variants = 3;  // 不同参数的变体
+message SampleAlignedSeriesStatusResponse {
+  bool exists = 1;                                  // 是否存在对齐序列
+  bool cached = 2;                                  // 是否在 Redis 缓存中
+  repeated SampleAlignedSeriesMeta variants = 3;    // 不同参数的变体
 }
 
 // 批量查询请求
-message BatchSampleFramesStatusRequest {
+message BatchSampleAlignedSeriesStatusRequest {
   repeated int32 sample_ids = 1;  // 样本 ID 列表
 }
 
 // 批量查询响应
-message BatchSampleFramesStatusResponse {
-  map<int32, SampleFramesStatusResponse> statuses = 1;  // sample_id -> 状态
+message BatchSampleAlignedSeriesStatusResponse {
+  map<int32, SampleAlignedSeriesStatusResponse> statuses = 1;  // sample_id -> 状态
 }
 
-message SampleFramesMeta {
+message SampleAlignedSeriesMeta {
   string method = 1;                        // linear 或 pchip
   int32 n_samples = 2;                      // 采样点数
   repeated int32 original_point_counts = 3; // 每个传感器的原始点数
   int64 time_range_ms = 4;                  // 原始时间跨度
 }
 
-message GenerateSampleFramesRequest {
+message GenerateSampleAlignedSeriesRequest {
   int32 sample_id = 1;            // 样本 ID
   int32 n_samples = 2;            // 采样点数 (默认 100)
   repeated string methods = 3;    // 插值方法列表 (默认 ["linear", "pchip"])
   optional bool use_cache = 4;    // 是否使用 Redis 缓存 (默认 true)
 }
 
-message GenerateSampleFramesResponse {
+message GenerateSampleAlignedSeriesResponse {
   bool success = 1;
   string message = 2;
-  map<string, int32> frames_generated = 3;  // 每种方法生成的帧数
+  map<string, int32> series_generated = 3;  // 每种方法生成的序列数
   bool from_cache = 4;                      // 是否从缓存获取
 }
 
-// 批量生成样本帧请求
-message BatchGenerateSampleFramesRequest {
+// 批量生成样本对齐序列请求
+message BatchGenerateSampleAlignedSeriesRequest {
   repeated int32 sample_ids = 1;      // 样本 ID 列表
   int32 n_samples = 2;                // 采样点数 (默认 100)
   repeated string methods = 3;        // 插值方法列表 (默认 ["linear", "pchip"])
   optional bool use_cache = 4;        // 是否使用 Redis 缓存 (默认 true)
 }
 
-// 批量生成样本帧响应
-message BatchGenerateSampleFramesResponse {
+// 批量生成样本对齐序列响应
+message BatchGenerateSampleAlignedSeriesResponse {
   int32 total_samples = 1;            // 总样本数
   int32 success_count = 2;            // 成功数
   int32 failed_count = 3;             // 失败数
@@ -370,7 +370,7 @@ message BatchGenerateSampleFramesResponse {
   map<int32, string> errors = 5;      // 失败的样本 ID -> 错误信息
 }
 
-message GetSampleFramesRequest {
+message GetSampleAlignedSeriesRequest {
   int32 sample_id = 1;            // 样本 ID
   string method = 2;              // 插值方法 (默认 "linear")
   int32 n_samples = 3;            // 采样点数 (默认 100)
@@ -378,12 +378,12 @@ message GetSampleFramesRequest {
   repeated string phase_names = 5; // 可选: 仅使用指定阶段的数据 (空=使用样本默认数据)
 }
 
-message GetSampleFramesResponse {
+message GetSampleAlignedSeriesResponse {
   bool success = 1;
-  repeated double frames = 2;     // 帧数据 (flatten: n_samples * n_channels)
-  int32 n_samples = 3;            // 采样点数
-  int32 n_sensors = 4;            // 通道数 (32: 8传感器 × 4物理量 [value, temp, humidity, pressure])
-  bool from_cache = 5;            // 是否从 Redis 缓存获取
+  repeated double aligned_series = 2;  // 对齐序列数据 (flatten: n_samples * n_channels)
+  int32 n_samples = 3;                 // 采样点数
+  int32 n_channels = 4;                // 通道数 (32: 8传感器 × 4物理量 [value, temp, humidity, pressure])
+  bool from_cache = 5;                 // 是否从 Redis 缓存获取
 }
 
 // ============================================================================
@@ -623,7 +623,7 @@ message ExperimentSummary {
   string experiment_id = 1;
   google.protobuf.Timestamp start_time = 2;
   google.protobuf.Timestamp end_time = 3;
-  int32 frame_count = 4;
+  int32 reading_count = 4;
   repeated string phases = 5;
   repeated string labels = 6;  // 关联的标签名称
   string status = 7;  // running, completed, error
@@ -755,7 +755,7 @@ message ExperimentDetail {
   string experiment_id = 1;
   google.protobuf.Timestamp start_time = 2;
   google.protobuf.Timestamp end_time = 3;
-  int32 frame_count = 4;
+  int32 reading_count = 4;
   string status = 5;
   
   // 阶段信息
@@ -779,7 +779,7 @@ message PhaseInfo {
   string name = 1;
   google.protobuf.Timestamp start_time = 2;
   google.protobuf.Timestamp end_time = 3;
-  int32 frame_count = 4;
+  int32 reading_count = 4;
 }
 
 // ============================================================================
@@ -1150,14 +1150,14 @@ message ExportDataRequest {
   // 类型开关
   bool include_params = 2;
   bool include_raw_data = 3;
-  bool include_frames = 4;
+  bool include_aligned_series = 4;
   bool include_ml_labels = 5;
   bool include_dataset = 6;
 
-  // 帧配置（归一化帧 + 训练数据集共用）
-  string frame_method = 10;            // "linear" / "pchip"
-  int32 frame_n_samples = 11;          // 50-500
-  string frame_format = 12;            // "npz" / "csv"
+  // 对齐序列配置（对齐序列 + 训练数据集共用）
+  string series_method = 10;            // "linear" / "pchip"
+  int32 series_n_samples = 11;          // 50-500
+  string series_format = 12;            // "npz" / "csv"
 
   // ML 标签配置
   repeated string ml_label_configs = 15;  // 标签策略名列表
@@ -1192,8 +1192,8 @@ message StartTrainingRequest {
   repeated int32 run_ids = 7;
   double train_ratio = 8;
   double val_ratio = 9;
-  int32 frame_n_samples = 10;          // 归一化帧采样点数
-  string frame_method = 11;            // "linear" / "pchip"
+  int32 series_n_samples = 10;         // 对齐序列采样点数
+  string series_method = 11;            // "linear" / "pchip"
   int32 seed = 12;
 
   // 超参数 (JSON 字符串，模型类型不同参数不同)

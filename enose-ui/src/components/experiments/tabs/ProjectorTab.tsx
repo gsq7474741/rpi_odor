@@ -79,7 +79,7 @@ type ComputeMode = "frontend" | "backend";
 const MAX_FRONTEND_SAMPLES = 5000;
 
 export function ProjectorTab() {
-  const { filters, selectedSampleIds, samples, allSelectedSamples, frameConfig, hoveredSampleId, mlLabelConfig, setMlLabelConfig } = useExperiments();
+  const { filters, selectedSampleIds, samples, allSelectedSamples, seriesConfig, hoveredSampleId, mlLabelConfig, setMlLabelConfig } = useExperiments();
 
   const [loading, setLoading] = useState(false);
   const [visType, setVisType] = useState<VisType>("PCA");
@@ -114,8 +114,8 @@ export function ProjectorTab() {
   const [tsneIteration, setTsneIteration] = useState(0);
   const [tsneRunning, setTsneRunning] = useState(false);
   
-  // Cache for sample frames data (to avoid re-fetching)
-  const framesDataRef = useRef<{ cacheKey: string; sampleIds: number[]; data: number[][] } | null>(null);
+  // Cache for sample aligned series data (to avoid re-fetching)
+  const seriesDataRef = useRef<{ cacheKey: string; sampleIds: number[]; data: number[][] } | null>(null);
 
   // Ref for buildVisResult so t-SNE onStep always uses the latest (picks up nClusters changes)
   const buildVisResultRef = useRef<typeof buildVisResult | null>(null);
@@ -181,8 +181,8 @@ export function ProjectorTab() {
       .catch(console.error);
   }, [activeLabelStrategy, selectedSampleIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 获取样本帧数据
-  const fetchFramesData = useCallback(async () => {
+  // 获取样本对齐序列数据
+  const fetchSeriesData = useCallback(async () => {
     const sampleIdsList = Array.from(selectedSampleIds);
     if (sampleIdsList.length === 0) return null;
 
@@ -190,46 +190,46 @@ export function ProjectorTab() {
     const phaseNamesArr = selectedPhases.size > 0 ? Array.from(selectedPhases).sort() : [];
     const phaseSuffix = phaseNamesArr.length > 0 ? `_${phaseNamesArr.join(",")}` : "";
 
-    // Check cache（包含 frameConfig 参数 + selectedPhases）
-    const cacheKey = `${sampleIdsList.join(",")}_${frameConfig.method}_${frameConfig.nSamples}${phaseSuffix}`;
-    if (framesDataRef.current && 
-        framesDataRef.current.cacheKey === cacheKey) {
-      return framesDataRef.current;
+    // Check cache（包含 seriesConfig 参数 + selectedPhases）
+    const cacheKey = `${sampleIdsList.join(",")}_${seriesConfig.method}_${seriesConfig.nSamples}${phaseSuffix}`;
+    if (seriesDataRef.current && 
+        seriesDataRef.current.cacheKey === cacheKey) {
+      return seriesDataRef.current;
     }
 
-    setProgressMessage("获取样本帧数据...");
+    setProgressMessage("获取样本对齐序列数据...");
 
-    const framesPromises = sampleIdsList.map(async (sampleId) => {
-      const response = await fetch("/api/analytics/sample-frames", {
+    const seriesPromises = sampleIdsList.map(async (sampleId) => {
+      const response = await fetch("/api/analytics/sample-aligned-series", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sampleId,
-          nSamples: frameConfig.nSamples,
-          method: frameConfig.method,
+          nSamples: seriesConfig.nSamples,
+          method: seriesConfig.method,
           action: "get",
           ...(phaseNamesArr.length > 0 ? { phaseNames: phaseNamesArr } : {}),
         }),
       });
       const data = await response.json();
-      return { sampleId, frames: data.frames as number[] | null, success: data.success };
+      return { sampleId, alignedSeries: data.frames as number[] | null, success: data.success };
     });
 
-    const framesResults = await Promise.all(framesPromises);
-    const validFrames = framesResults.filter(r => r.success && r.frames && r.frames.length > 0);
+    const seriesResults = await Promise.all(seriesPromises);
+    const validSeries = seriesResults.filter(r => r.success && r.alignedSeries && r.alignedSeries.length > 0);
 
-    if (validFrames.length === 0) {
+    if (validSeries.length === 0) {
       return null;
     }
 
     const result = {
       cacheKey,
-      sampleIds: validFrames.map(r => r.sampleId),
-      data: validFrames.map(r => r.frames!),
+      sampleIds: validSeries.map(r => r.sampleId),
+      data: validSeries.map(r => r.alignedSeries!),
     };
-    framesDataRef.current = result;
+    seriesDataRef.current = result;
     return result;
-  }, [selectedSampleIds, frameConfig, selectedPhases]);
+  }, [selectedSampleIds, seriesConfig, selectedPhases]);
 
   // 构建可视化结果
   const buildVisResult = useCallback((
@@ -282,18 +282,17 @@ export function ProjectorTab() {
   }, [buildVisResult]);
 
   // 统一元数据+标签刷新 effect
-  // 当 allSelectedSamples 缓存更新 或 labelVersion 递增（标签获取完成）时，
+  // 当 allSelectedSamples 缓存更新、labelVersion 递增、或 visResult 变化时，
   // 用最新数据刷新 visResult 中每个点的所有属性字段。
-  const visResultRef = useRef(visResult);
-  useEffect(() => { visResultRef.current = visResult; }, [visResult]);
-
+  // visResult 作为依赖确保：即使 allSelectedSamples 先于 visResult 完成更新，
+  // 后续 visResult 被设置时也能触发元数据修补。
+  // `if (updated)` 防止无限循环：第二次运行时所有元数据已正确 → 不会再调用 setVisResult。
   useEffect(() => {
-    const currentResult = visResultRef.current;
-    if (!currentResult || currentResult.points.length === 0) return;
+    if (!visResult || visResult.points.length === 0) return;
 
     const sampleMap = new Map(allSelectedSamples.map(s => [s.id, s]));
     let updated = false;
-    const newPoints = currentResult.points.map(p => {
+    const newPoints = visResult.points.map(p => {
       const sampleId = parseInt(p.id);
       if (isNaN(sampleId)) return p;
 
@@ -326,16 +325,16 @@ export function ProjectorTab() {
     if (updated) {
       setVisResult(prev => prev ? { ...prev, points: newPoints } : prev);
     }
-  }, [allSelectedSamples, labelVersion]);
+  }, [allSelectedSamples, labelVersion, visResult]);
 
   // Track sphereize state for cache invalidation
   const sphereizeRef = useRef(sphereize);
   
   // 创建或获取 DataSet
   const getOrCreateDataSet = useCallback(async (): Promise<ProjectionDataSet | null> => {
-    const framesData = await fetchFramesData();
-    if (!framesData) {
-      toast.error("没有可用的帧数据，请先生成数据帧");
+    const seriesData = await fetchSeriesData();
+    if (!seriesData) {
+      toast.error("没有可用的对齐序列数据，请先生成对齐序列");
       return null;
     }
 
@@ -343,7 +342,7 @@ export function ProjectorTab() {
     // Include sphereize in cache key - if it changed, we need a new DataSet
     const sphereizeChanged = sphereizeRef.current !== sphereize;
     const needsNewDataSet = !dataSet || 
-      dataSet.getPointCount() !== framesData.sampleIds.length ||
+      dataSet.getPointCount() !== seriesData.sampleIds.length ||
       dataSet.getSeed() !== seed ||
       sphereizeChanged;
 
@@ -351,8 +350,8 @@ export function ProjectorTab() {
       // Update ref to track current sphereize state
       sphereizeRef.current = sphereize;
       
-      const points: DataPoint[] = framesData.data.map((vec, i) => ({
-        id: framesData.sampleIds[i],
+      const points: DataPoint[] = seriesData.data.map((vec, i) => ({
+        id: seriesData.sampleIds[i],
         vector: vec.map(v => (isNaN(v) || !isFinite(v)) ? 0 : v), // Sanitize NaN/Infinity
         metadata: {},
         projections: {},
@@ -370,19 +369,19 @@ export function ProjectorTab() {
     }
 
     return dataSet;
-  }, [fetchFramesData, dataSet, seed, sphereize]);
+  }, [fetchSeriesData, dataSet, seed, sphereize]);
 
   // 启动迭代式 t-SNE
   const startIterativeTSNE = useCallback(async () => {
     const ds = await getOrCreateDataSet();
     if (!ds) return;
 
-    const framesData = framesDataRef.current;
-    if (!framesData) return;
+    const seriesData = seriesDataRef.current;
+    if (!seriesData) return;
 
     // Minimum sample count check
-    if (framesData.data.length < 3) {
-      toast.warning(`至少需要 3 个有效样本进行降维，当前仅 ${framesData.data.length} 个`);
+    if (seriesData.data.length < 3) {
+      toast.warning(`至少需要 3 个有效样本进行降维，当前仅 ${seriesData.data.length} 个`);
       return;
     }
 
@@ -404,7 +403,7 @@ export function ProjectorTab() {
         if (iteration % 5 === 0 || iteration < 10) {
           const build = buildVisResultRef.current;
           if (build) {
-            setVisResult(build(points, framesData.sampleIds, "TSNE"));
+            setVisResult(build(points, seriesData.sampleIds, "TSNE"));
           }
         }
       },
@@ -449,17 +448,17 @@ export function ProjectorTab() {
     };
   }, [tsneRunner]);
 
-  // frameConfig 变化时，清除旧数据集并自动重新计算
-  const prevFrameConfigRef = useRef(frameConfig);
-  const frameConfigChangedRef = useRef(false);
+  // seriesConfig 变化时，清除旧数据集并自动重新计算
+  const prevSeriesConfigRef = useRef(seriesConfig);
+  const seriesConfigChangedRef = useRef(false);
   useEffect(() => {
     if (
-      prevFrameConfigRef.current.method !== frameConfig.method ||
-      prevFrameConfigRef.current.nSamples !== frameConfig.nSamples
+      prevSeriesConfigRef.current.method !== seriesConfig.method ||
+      prevSeriesConfigRef.current.nSamples !== seriesConfig.nSamples
     ) {
-      prevFrameConfigRef.current = frameConfig;
+      prevSeriesConfigRef.current = seriesConfig;
       // 清除缓存和数据集
-      framesDataRef.current = null;
+      seriesDataRef.current = null;
       setDataSet(null);
       setVisResult(null);
       // 停止正在运行的 t-SNE
@@ -470,17 +469,17 @@ export function ProjectorTab() {
         setTsneIteration(0);
       }
       // 标记需要重新计算
-      frameConfigChangedRef.current = true;
+      seriesConfigChangedRef.current = true;
     }
-  }, [frameConfig, tsneRunner]);
+  }, [seriesConfig, tsneRunner]);
 
-  // frameConfig 变化后、状态更新提交后自动重新计算
+  // seriesConfig 变化后、状态更新提交后自动重新计算
   useEffect(() => {
-    if (frameConfigChangedRef.current && selectedSampleIds.size >= 3) {
-      frameConfigChangedRef.current = false;
+    if (seriesConfigChangedRef.current && selectedSampleIds.size >= 3) {
+      seriesConfigChangedRef.current = false;
       fetchVisualization();
     }
-  }, [frameConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [seriesConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // selectedPhases 变化时，清除旧数据集并自动重新计算
   const prevPhasesRef = useRef<Set<string>>(selectedPhases);
@@ -490,7 +489,7 @@ export function ProjectorTab() {
     if (prev !== curr) {
       prevPhasesRef.current = selectedPhases;
       // 清除缓存和数据集
-      framesDataRef.current = null;
+      seriesDataRef.current = null;
       setDataSet(null);
       setVisResult(null);
       // 停止正在运行的 t-SNE
@@ -531,17 +530,17 @@ export function ProjectorTab() {
     const ds = await getOrCreateDataSet();
     if (!ds) return;
 
-    const framesData = framesDataRef.current;
-    if (!framesData) return;
+    const seriesData = seriesDataRef.current;
+    if (!seriesData) return;
 
     // Minimum sample count check
-    if (framesData.data.length < 3) {
-      toast.warning(`至少需要 3 个有效样本进行降维，当前仅 ${framesData.data.length} 个`);
+    if (seriesData.data.length < 3) {
+      toast.warning(`至少需要 3 个有效样本进行降维，当前仅 ${seriesData.data.length} 个`);
       return;
     }
 
     setLoading(true);
-    setProgressMessage(`运行 ${visType} 降维 (${framesData.data.length} 样本)...`);
+    setProgressMessage(`运行 ${visType} 降维 (${seriesData.data.length} 样本)...`);
 
     try {
       const nComponents = is3D ? 3 : 2;
@@ -551,7 +550,7 @@ export function ProjectorTab() {
         ds.projectPCA(nComponents);
         const projectedPoints = ds.getProjection("PCA", nComponents);
         const explainedVariance = ds.getExplainedVariance();
-        setVisResult(buildVisResult(projectedPoints, framesData.sampleIds, visType, explainedVariance));
+        setVisResult(buildVisResultRef.current!(projectedPoints, seriesData.sampleIds, visType, explainedVariance));
       } else if (visType === "UMAP") {
         // Yield to event loop so loading spinner renders before blocking UMAP computation
         await new Promise(resolve => setTimeout(resolve, 10));
@@ -559,11 +558,11 @@ export function ProjectorTab() {
           setProgressMessage(`${message} (${progress.toFixed(0)}%)`);
         });
         const projectedPoints = ds.getProjection("UMAP", nComponents);
-        setVisResult(buildVisResult(projectedPoints, framesData.sampleIds, visType));
+        setVisResult(buildVisResultRef.current!(projectedPoints, seriesData.sampleIds, visType));
       }
 
       setProgressMessage("");
-      toast.success(`前端降维完成: ${framesData.sampleIds.length} 样本 (种子: ${seed})`);
+      toast.success(`前端降维完成: ${seriesData.sampleIds.length} 样本 (种子: ${seed})`);
     } catch (error) {
       console.error("Frontend projection failed:", error);
       toast.error(`前端降维失败: ${error instanceof Error ? error.message : String(error)}`);
@@ -571,7 +570,7 @@ export function ProjectorTab() {
       setLoading(false);
       setProgressMessage("");
     }
-  }, [visType, getOrCreateDataSet, startIterativeTSNE, is3D, buildVisResult, seed]);
+  }, [visType, getOrCreateDataSet, startIterativeTSNE, is3D, seed]);
 
   // 后端计算降维
   const computeBackend = useCallback(async () => {

@@ -51,7 +51,7 @@ const CLUSTER_COLORS = [
 ];
 
 export function ProjectorTBTab() {
-  const { selectedSampleIds, samples, frameConfig } = useExperiments();
+  const { selectedSampleIds, samples, seriesConfig } = useExperiments();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const bgColor = useMemo(() => isDark ? 0x0a0a0b : 0xffffff, [isDark]);
@@ -68,7 +68,7 @@ export function ProjectorTBTab() {
   const containerRef = useRef<HTMLDivElement>(null);
   const scatterPlotRef = useRef<ScatterPlot | null>(null);
   const visualizerRef = useRef<ScatterPlotVisualizerSprites | null>(null);
-  const framesDataRef = useRef<{ cacheKey: string; sampleIds: number[]; data: number[][] } | null>(null);
+  const seriesDataRef = useRef<{ cacheKey: string; sampleIds: number[]; data: number[][] } | null>(null);
   const projectedDataRef = useRef<{ positions: Float32Array; clusters: number[] } | null>(null);
 
   // Initialize ScatterPlot when container is ready
@@ -174,28 +174,28 @@ export function ProjectorTBTab() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // frameConfig 变化时，清除旧帧缓存和投影结果，并自动重新计算
-  const prevFrameConfigRef = useRef(frameConfig);
-  const frameConfigChangedRef = useRef(false);
+  // seriesConfig 变化时，清除旧序列缓存和投影结果，并自动重新计算
+  const prevSeriesConfigRef = useRef(seriesConfig);
+  const seriesConfigChangedRef = useRef(false);
   useEffect(() => {
     if (
-      prevFrameConfigRef.current.method !== frameConfig.method ||
-      prevFrameConfigRef.current.nSamples !== frameConfig.nSamples
+      prevSeriesConfigRef.current.method !== seriesConfig.method ||
+      prevSeriesConfigRef.current.nSamples !== seriesConfig.nSamples
     ) {
-      prevFrameConfigRef.current = frameConfig;
-      framesDataRef.current = null;
+      prevSeriesConfigRef.current = seriesConfig;
+      seriesDataRef.current = null;
       projectedDataRef.current = null;
-      frameConfigChangedRef.current = true;
+      seriesConfigChangedRef.current = true;
     }
-  }, [frameConfig]);
+  }, [seriesConfig]);
 
-  // frameConfig 变化后自动重新计算
+  // seriesConfig 变化后自动重新计算
   useEffect(() => {
-    if (frameConfigChangedRef.current && selectedSampleIds.size >= 3) {
-      frameConfigChangedRef.current = false;
+    if (seriesConfigChangedRef.current && selectedSampleIds.size >= 3) {
+      seriesConfigChangedRef.current = false;
       computeProjection();
     }
-  }, [frameConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [seriesConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 选中样本变化时自动计算
   const prevSelectedRef = useRef(selectedSampleIds);
@@ -206,50 +206,50 @@ export function ProjectorTBTab() {
     }
   }, [selectedSampleIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch sample frames data
-  const fetchFramesData = useCallback(async () => {
+  // Fetch sample aligned series data
+  const fetchSeriesData = useCallback(async () => {
     const sampleIdsList = Array.from(selectedSampleIds);
     if (sampleIdsList.length === 0) return null;
 
-    // Check cache（包含 frameConfig 参数）
-    const cacheKey = `${sampleIdsList.join(",")}_${frameConfig.method}_${frameConfig.nSamples}`;
-    if (framesDataRef.current && 
-        framesDataRef.current.cacheKey === cacheKey) {
-      return framesDataRef.current;
+    // Check cache（包含 seriesConfig 参数）
+    const cacheKey = `${sampleIdsList.join(",")}_${seriesConfig.method}_${seriesConfig.nSamples}`;
+    if (seriesDataRef.current && 
+        seriesDataRef.current.cacheKey === cacheKey) {
+      return seriesDataRef.current;
     }
 
-    setProgressMessage("获取样本帧数据...");
+    setProgressMessage("获取样本对齐序列数据...");
 
-    const framesPromises = sampleIdsList.map(async (sampleId) => {
-      const response = await fetch("/api/analytics/sample-frames", {
+    const seriesPromises = sampleIdsList.map(async (sampleId) => {
+      const response = await fetch("/api/analytics/sample-aligned-series", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sampleId,
-          nSamples: frameConfig.nSamples,
-          method: frameConfig.method,
+          nSamples: seriesConfig.nSamples,
+          method: seriesConfig.method,
           action: "get",
         }),
       });
       const data = await response.json();
-      return { sampleId, frames: data.frames as number[] | null, success: data.success };
+      return { sampleId, alignedSeries: data.frames as number[] | null, success: data.success };
     });
 
-    const framesResults = await Promise.all(framesPromises);
-    const validFrames = framesResults.filter(r => r.success && r.frames && r.frames.length > 0);
+    const seriesResults = await Promise.all(seriesPromises);
+    const validSeries = seriesResults.filter(r => r.success && r.alignedSeries && r.alignedSeries.length > 0);
 
-    if (validFrames.length === 0) {
+    if (validSeries.length === 0) {
       return null;
     }
 
     const result = {
       cacheKey,
-      sampleIds: validFrames.map(r => r.sampleId),
-      data: validFrames.map(r => r.frames!),
+      sampleIds: validSeries.map(r => r.sampleId),
+      data: validSeries.map(r => r.alignedSeries!),
     };
-    framesDataRef.current = result;
+    seriesDataRef.current = result;
     return result;
-  }, [selectedSampleIds, frameConfig]);
+  }, [selectedSampleIds, seriesConfig]);
 
   // Update scatter plot with new data
   const updateScatterPlot = useCallback((positions: Float32Array, clusters: number[]) => {
@@ -278,9 +278,9 @@ export function ProjectorTBTab() {
 
   // Compute projection
   const computeProjection = useCallback(async () => {
-    const framesData = await fetchFramesData();
-    if (!framesData) {
-      toast.error("没有可用的帧数据，请先生成数据帧");
+    const seriesData = await fetchSeriesData();
+    if (!seriesData) {
+      toast.error("没有可用的对齐序列数据，请先生成对齐序列");
       return;
     }
 
@@ -296,7 +296,7 @@ export function ProjectorTBTab() {
         perplexity,
       };
 
-      const result = await projectData(framesData.data, options);
+      const result = await projectData(seriesData.data, options);
 
       // Normalize to fit in unit cube
       const projectedPoints = result.points;
@@ -354,7 +354,7 @@ export function ProjectorTBTab() {
       setLoading(false);
       setProgressMessage("");
     }
-  }, [fetchFramesData, visType, is3D, perplexity, nClusters, updateScatterPlot]);
+  }, [fetchSeriesData, visType, is3D, perplexity, nClusters, updateScatterPlot]);
 
   // Reset camera
   const resetCamera = useCallback(() => {

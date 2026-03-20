@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useMemo } from "react";
-import { useExperiments, SampleWithFrameStatus } from "../context/ExperimentsContext";
+import { useExperiments, SampleWithSeriesStatus, detectAnomalies, ANOMALY_LABELS } from "../context/ExperimentsContext";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,20 +24,12 @@ import {
   Database,
   ArrowUp,
   ArrowDown,
-  RefreshCw,
   Trash2,
-  Copy,
   ClipboardCopy,
   CheckSquare,
-  XSquare,
   Filter,
+  AlertTriangle,
 } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -61,7 +53,7 @@ type SortField = "runId" | "sampleId" | "time";
 type SortOrder = "asc" | "desc";
 
 interface SampleTableProps {
-  onSelectSample?: (sample: SampleWithFrameStatus) => void;
+  onSelectSample?: (sample: SampleWithSeriesStatus) => void;
 }
 
 export function SampleTable({ onSelectSample }: SampleTableProps) {
@@ -87,7 +79,6 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
 
   const [sortField, setSortField] = useState<SortField>("time");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
-  const [recalculating, setRecalculating] = useState<Set<number>>(new Set());
 
   // 方案D: 全选全部筛选结果状态
   const [showSelectAllBanner, setShowSelectAllBanner] = useState(false);
@@ -95,30 +86,21 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
 
   // 右键菜单 & 删除确认
   const [deleteTarget, setDeleteTarget] = useState<{ ids: number[]; label: string } | null>(null);
-  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
 
-  const deleteExpectedText = useMemo(() => {
-    if (!deleteTarget) return "";
-    return deleteTarget.ids.length === 1
-      ? `确认删除S#${deleteTarget.ids[0]}`
-      : `确认删除${deleteTarget.ids.length}个样本`;
-  }, [deleteTarget]);
-
   // 右键菜单触发删除（单个样本或选中的多个样本）
-  const handleDeleteRequest = useCallback((sample: SampleWithFrameStatus) => {
+  const handleDeleteRequest = useCallback((sample: SampleWithSeriesStatus) => {
     if (selectedSampleIds.has(sample.id) && selectedSampleIds.size > 1) {
       const ids = Array.from(selectedSampleIds);
       setDeleteTarget({ ids, label: `${ids.length} 个选中样本` });
     } else {
       setDeleteTarget({ ids: [sample.id], label: `S#${sample.id}` });
     }
-    setDeleteConfirmText("");
   }, [selectedSampleIds]);
 
   // 执行删除
   const handleDeleteConfirm = useCallback(async () => {
-    if (!deleteTarget || deleteConfirmText !== deleteExpectedText) return;
+    if (!deleteTarget) return;
     setDeleting(true);
     const toastId = toast.loading(`正在删除 ${deleteTarget.label}...`);
     try {
@@ -143,10 +125,10 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
     } finally {
       setDeleting(false);
     }
-  }, [deleteTarget, deleteConfirmText, deleteExpectedText, samples, samplesTotal, removeSamplesFromSelection, setSamples, setSamplesTotal]);
+  }, [deleteTarget, samples, samplesTotal, removeSamplesFromSelection, setSamples, setSamplesTotal]);
 
   // 复制样本 ID 到剪贴板
-  const handleCopyIds = useCallback((sample: SampleWithFrameStatus) => {
+  const handleCopyIds = useCallback((sample: SampleWithSeriesStatus) => {
     const ids = selectedSampleIds.has(sample.id) && selectedSampleIds.size > 1
       ? Array.from(selectedSampleIds)
       : [sample.id];
@@ -155,13 +137,13 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
   }, [selectedSampleIds]);
 
   // 仅选中此样本
-  const handleSelectOnly = useCallback((sample: SampleWithFrameStatus) => {
+  const handleSelectOnly = useCallback((sample: SampleWithSeriesStatus) => {
     removeSamplesFromSelection(Array.from(selectedSampleIds));
     addSamplesToSelection([sample.id]);
   }, [selectedSampleIds, removeSamplesFromSelection, addSamplesToSelection]);
 
   // 按 Run 筛选
-  const handleFilterByRun = useCallback((sample: SampleWithFrameStatus) => {
+  const handleFilterByRun = useCallback((sample: SampleWithSeriesStatus) => {
     updateFilters({ runIds: [sample.runId] });
     toast.success(`已筛选 Run #${sample.runId}`);
   }, [updateFilters]);
@@ -169,59 +151,6 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
   // 用 ref 持有 runs，避免 loadSamples 依赖 runs 导致级联刷新
   const runsRef = useRef(runs);
   runsRef.current = runs;
-
-  // 单样本重新计算数据帧
-  const handleRecalcSingle = useCallback(async (sampleId: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setRecalculating(prev => new Set(prev).add(sampleId));
-    const toastId = toast.loading(`重新计算 S#${sampleId} 的数据帧...`);
-    try {
-      const response = await fetch("/api/analytics/sample-frames", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sampleIds: [sampleId],
-          nSamples: 100,
-          methods: ["linear", "pchip"],
-          useCache: false,
-          action: "generateBatch",
-        }),
-      });
-      const result = await response.json();
-      // 刷新该样本的帧状态
-      const statusRes = await fetch(`/api/analytics/sample-frames?sampleIds=${sampleId}`);
-      const statusData = await statusRes.json();
-      if (statusData.statuses?.[sampleId]) {
-        const updatedSamples = samples.map(s => {
-          if (s.id === sampleId) {
-            return {
-              ...s,
-              frameStatus: {
-                hasFrames: statusData.statuses[sampleId].exists || false,
-                cached: statusData.statuses[sampleId].cached || false,
-                variants: statusData.statuses[sampleId].variants || [],
-              },
-            };
-          }
-          return s;
-        });
-        setSamples(updatedSamples);
-      }
-      if (result.failedCount > 0) {
-        toast.warning(`S#${sampleId} 重算部分失败`, { id: toastId });
-      } else {
-        toast.success(`S#${sampleId} 数据帧已更新`, { id: toastId });
-      }
-    } catch {
-      toast.error(`S#${sampleId} 重算失败`, { id: toastId });
-    } finally {
-      setRecalculating(prev => {
-        const next = new Set(prev);
-        next.delete(sampleId);
-        return next;
-      });
-    }
-  }, [samples, setSamples]);
 
   const pageSize = 50;
   const totalPages = Math.ceil(samplesTotal / pageSize);
@@ -284,20 +213,27 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
           runCreatedAtMap[run.id] = run.createdAt;
         });
 
-        // 转换为 SampleWithFrameStatus
-        const samplesWithStatus: SampleWithFrameStatus[] = data.samples.map(
-          (s: SampleWithFrameStatus) => ({
+        // 获取 run 状态映射（用于异常检测）
+        const runStateMap: Record<number, string> = {};
+        runsRef.current.forEach((run) => {
+          runStateMap[run.id] = run.state;
+        });
+
+        // 转换为 SampleWithSeriesStatus，并计算异常标记
+        const samplesWithStatus: SampleWithSeriesStatus[] = data.samples.map(
+          (s: SampleWithSeriesStatus) => ({
             ...s,
-            frameStatus: null, // 稍后批量获取
+            seriesStatus: null, // 稍后批量获取
             runCreatedAt: runCreatedAtMap[s.runId] || null,
+            anomalyFlags: detectAnomalies(s, runStateMap[s.runId]),
           })
         );
 
         setSamples(samplesWithStatus);
         setSamplesTotal(data.total); // 使用服务端返回的真实总数
 
-        // 批量获取数据帧状态
-        loadFrameStatuses(samplesWithStatus);
+        // 批量获取对齐序列状态
+        loadSeriesStatuses(samplesWithStatus);
       }
     } catch (error) {
       console.error("Failed to load samples:", error);
@@ -306,8 +242,8 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
     }
   }, [samplesPage, filters, sortField, sortOrder, setSamples, setSamplesLoading, setSamplesTotal]);
 
-  // 批量获取数据帧状态
-  const loadFrameStatuses = async (sampleList: SampleWithFrameStatus[]) => {
+  // 批量获取对齐序列状态
+  const loadSeriesStatuses = async (sampleList: SampleWithSeriesStatus[]) => {
     if (sampleList.length === 0) return;
     
     // 使用批量查询接口
@@ -315,15 +251,15 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
     
     try {
       const response = await fetch(
-        `/api/analytics/sample-frames?sampleIds=${sampleIds}`
+        `/api/analytics/sample-aligned-series?sampleIds=${sampleIds}`
       );
       const data = await response.json();
       
       if (data.statuses) {
         const updatedSamples = sampleList.map(sample => ({
           ...sample,
-          frameStatus: {
-            hasFrames: data.statuses[sample.id]?.exists || false,
+          seriesStatus: {
+            hasAlignedSeries: data.statuses[sample.id]?.exists || false,
             cached: data.statuses[sample.id]?.cached || false,
             variants: data.statuses[sample.id]?.variants || [],
           },
@@ -331,7 +267,7 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
         setSamples(updatedSamples);
       }
     } catch (error) {
-      console.error("Failed to load frame statuses:", error);
+      console.error("Failed to load series statuses:", error);
     }
   };
 
@@ -340,9 +276,20 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
     loadSamples();
   }, [loadSamples]);
 
+  // 客户端异常筛选（showAnomaliesOnly）
+  const displaySamples = useMemo(() => {
+    if (!filters.showAnomaliesOnly) return samples;
+    return samples.filter(s => s.anomalyFlags && s.anomalyFlags.length > 0);
+  }, [samples, filters.showAnomaliesOnly]);
+
+  // 筛选变更时重置"全选全部"提示条
+  useEffect(() => {
+    setShowSelectAllBanner(false);
+  }, [filters]);
+
   // 点击样本
   const handleSampleClick = useCallback(
-    (sample: SampleWithFrameStatus) => {
+    (sample: SampleWithSeriesStatus) => {
       toggleSampleSelection(sample.id);
       onSelectSample?.(sample);
     },
@@ -350,8 +297,8 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
   );
 
   // 全选/取消全选
-  const allSelected = samples.length > 0 && samples.every((s) => selectedSampleIds.has(s.id));
-  const someSelected = samples.some((s) => selectedSampleIds.has(s.id));
+  const allSelected = displaySamples.length > 0 && displaySamples.every((s) => selectedSampleIds.has(s.id));
+  const someSelected = displaySamples.some((s) => selectedSampleIds.has(s.id));
 
   // 构建当前筛选条件的 URL 参数（复用于 loadSamples 和 fetchAllFilteredIds）
   const buildFilterParams = useCallback(() => {
@@ -387,18 +334,18 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
   }, [filters]);
 
   const handleSelectAll = useCallback(() => {
-    const pageIds = samples.map(s => s.id);
+    const pageIds = displaySamples.map(s => s.id);
     if (allSelected) {
       removeSamplesFromSelection(pageIds);
       setShowSelectAllBanner(false);
     } else {
       addSamplesToSelection(pageIds);
       // 如果总数超过当前页，显示“全选全部筛选结果”提示
-      if (samplesTotal > samples.length) {
+      if (samplesTotal > displaySamples.length) {
         setShowSelectAllBanner(true);
       }
     }
-  }, [allSelected, samples, samplesTotal, addSamplesToSelection, removeSamplesFromSelection]);
+  }, [allSelected, displaySamples, samplesTotal, addSamplesToSelection, removeSamplesFromSelection]);
 
   // 方案D: 全选全部筛选结果
   const handleSelectAllFiltered = useCallback(async () => {
@@ -474,7 +421,7 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
       {/* 方案D: 全选全部筛选结果提示条 */}
       {showSelectAllBanner && (
         <div className="flex items-center justify-center gap-2 px-3 py-1.5 border-b bg-blue-50 dark:bg-blue-950/30 text-xs">
-          <span>已选中当前页 {samples.length} 个样本。</span>
+          <span>已选中当前页 {displaySamples.length} 个样本。</span>
           <Button
             variant="link"
             size="sm"
@@ -494,16 +441,17 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
       {/* 样本列表 */}
       <ScrollArea className="flex-1">
         <div className="space-y-0.5 p-1">
-          {samples.length === 0 ? (
+          {displaySamples.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
               <FlaskConical className="h-8 w-8 mb-2" />
-              <span className="text-sm">暂无样本</span>
+              <span className="text-sm">{filters.showAnomaliesOnly ? "无异常样本" : "暂无样本"}</span>
             </div>
           ) : (
-            samples.map((sample) => {
+            displaySamples.map((sample) => {
               const isSelected = selectedSampleIds.has(sample.id);
-              const hasFrames = sample.frameStatus?.hasFrames;
-              const isCached = sample.frameStatus?.cached;
+              const hasAlignedSeries = sample.seriesStatus?.hasAlignedSeries;
+              const isCached = sample.seriesStatus?.cached;
+              const hasAnomaly = sample.anomalyFlags && sample.anomalyFlags.length > 0;
 
               return (
                 <ContextMenu key={sample.id}>
@@ -513,6 +461,7 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
                         "flex items-center gap-2 px-2 py-2 rounded-md cursor-pointer transition-colors",
                         "hover:bg-accent group",
                         isSelected && "bg-accent",
+                        hasAnomaly && !isSelected && "bg-orange-50/50 dark:bg-orange-950/20",
                         hoveredSampleId === sample.id && "ring-1 ring-primary/50"
                       )}
                       onClick={() => handleSampleClick(sample)}
@@ -525,7 +474,13 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
                         onClick={(e) => e.stopPropagation()}
                       />
 
-                      <FlaskConical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      {hasAnomaly ? (
+                        <span title={sample.anomalyFlags.map(f => ANOMALY_LABELS[f]).join("、")}>
+                          <AlertTriangle className="h-4 w-4 text-orange-500 flex-shrink-0" />
+                        </span>
+                      ) : (
+                        <FlaskConical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      )}
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
@@ -535,6 +490,16 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
                           <Badge variant="outline" className="text-xs">
                             Run #{sample.runId}
                           </Badge>
+                          {hasAnomaly && (
+                            <Badge
+                              variant="outline"
+                              className="text-xs border-orange-400/50 text-orange-600 bg-orange-50 dark:bg-orange-950/30"
+                              title={sample.anomalyFlags.map(f => ANOMALY_LABELS[f]).join("、")}
+                            >
+                              <AlertTriangle className="h-3 w-3 mr-0.5" />
+                              {sample.anomalyFlags.length}
+                            </Badge>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <span className="truncate max-w-[120px]">
@@ -545,11 +510,11 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
                         </div>
                       </div>
 
-                  {/* 数据帧状态 + 重算按钮 */}
+                  {/* 对齐序列状态 */}
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    {sample.frameStatus === null ? (
+                    {sample.seriesStatus === null ? (
                       <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                    ) : hasFrames ? (
+                    ) : hasAlignedSeries ? (
                       <Badge
                         variant="outline"
                         className={cn(
@@ -559,9 +524,9 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
                             : "border-blue-500/50 text-blue-700 bg-blue-50"
                         )}
                         title={
-                          sample.frameStatus.variants
-                            .map((v) => `${v.method}@${v.nSamples}`)
-                            .join(", ") || "有数据帧"
+                          sample.seriesStatus.variants
+                            .map((v: { method: string; nSamples: number }) => `${v.method}@${v.nSamples}`)
+                            .join(", ") || "有对齐序列"
                         }
                       >
                         {isCached ? (
@@ -569,7 +534,7 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
                         ) : (
                           <CheckCircle className="h-3 w-3" />
                         )}
-                        帧
+                        已对齐
                       </Badge>
                     ) : (
                       <Badge
@@ -577,32 +542,9 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
                         className="text-xs text-muted-foreground gap-1"
                       >
                         <Circle className="h-3 w-3" />
-                        无帧
+                        未对齐
                       </Badge>
                     )}
-                    {/* 单样本重算按钮 */}
-                    <TooltipProvider delayDuration={300}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={(e) => handleRecalcSingle(sample.id, e)}
-                            disabled={recalculating.has(sample.id)}
-                          >
-                            {recalculating.has(sample.id) ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <RefreshCw className="h-3 w-3" />
-                            )}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="left">
-                          <p className="text-xs">重新计算数据帧</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
                   </div>
                     </div>
                   </ContextMenuTrigger>
@@ -671,24 +613,8 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>删除 {deleteTarget?.label}</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-3 text-sm text-muted-foreground">
-                <div>
-                  此操作将永久删除样本及其所有关联数据（传感器读数、归一化帧、ML 标签、Phase 转换记录）。
-                  <strong className="text-destructive">此操作不可撤销。</strong>
-                </div>
-                <div>请输入 <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">{deleteExpectedText}</code> 以确认：</div>
-                <Input
-                value={deleteConfirmText}
-                onChange={(e) => setDeleteConfirmText(e.target.value)}
-                placeholder={deleteExpectedText}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && deleteConfirmText === deleteExpectedText) {
-                    handleDeleteConfirm();
-                  }
-                }}
-              />
-              </div>
+            <AlertDialogDescription>
+              此操作将永久删除样本及其所有关联数据（传感器读数、对齐序列、ML 标签、Phase 转换记录）。此操作不可撤销。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -698,7 +624,7 @@ export function SampleTable({ onSelectSample }: SampleTableProps) {
             <Button
               variant="destructive"
               onClick={handleDeleteConfirm}
-              disabled={deleteConfirmText !== deleteExpectedText || deleting}
+              disabled={deleting}
             >
               {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
               确认删除

@@ -6,8 +6,8 @@ export type {
   ComparisonItem,
   FilterState,
   ExperimentsState,
-  FrameStatus,
-  SampleWithFrameStatus,
+  AlignedSeriesStatus,
+  SampleWithSeriesStatus,
 } from "./context/ExperimentsContext";
 
 export { FilterPanel, RunTree, SampleTable, SelectionBar } from "./sidebar";

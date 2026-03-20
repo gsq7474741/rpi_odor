@@ -68,9 +68,9 @@ export interface Sample {
   qualityLevel: string | null;
 }
 
-// 数据帧状态
-export interface FrameStatus {
-  hasFrames: boolean;
+// 对齐序列状态
+export interface AlignedSeriesStatus {
+  hasAlignedSeries: boolean;
   cached: boolean;
   variants: {
     method: string;
@@ -78,16 +78,66 @@ export interface FrameStatus {
   }[];
 }
 
-// 数据帧使用配置（选择使用哪个变体）
-export interface FrameConfig {
+// 对齐序列使用配置（选择使用哪个变体）
+export interface AlignedSeriesConfig {
   method: "linear" | "pchip";
   nSamples: number;
 }
 
-// 带数据帧状态的样本
-export interface SampleWithFrameStatus extends Sample {
-  frameStatus: FrameStatus | null;
+// 异常标记
+export type AnomalyFlag =
+  | "incomplete"       // end_time_ms 为空，采集未正常结束
+  | "too_short"        // 持续时间 < 5 秒
+  | "missing_liquid"   // SAMPLE/DOSE/INJECT 阶段缺少液体信息
+  | "no_readings"      // readingCount === 0（无传感器数据）
+  | "run_error";       // 所属 Run 状态为 error/aborted
+
+export const ANOMALY_LABELS: Record<AnomalyFlag, string> = {
+  incomplete: "采集未完成",
+  too_short: "持续时间过短",
+  missing_liquid: "液体信息缺失",
+  no_readings: "无传感器数据",
+  run_error: "Run 异常终止",
+};
+
+/** 根据样本数据计算异常标记 */
+export function detectAnomalies(
+  sample: Sample,
+  runState?: string,
+): AnomalyFlag[] {
+  const flags: AnomalyFlag[] = [];
+  // 1. 采集未完成
+  if (sample.endTimeMs === null || sample.endTimeMs === 0) {
+    flags.push("incomplete");
+  }
+  // 2. 持续时间过短（< 5 秒）
+  if (
+    sample.durationS !== null &&
+    sample.durationS >= 0 &&
+    sample.durationS < 5
+  ) {
+    flags.push("too_short");
+  }
+  // 3. 需要液体的阶段缺少液体信息
+  const needsLiquid = ["SAMPLE", "DOSE", "INJECT"];
+  if (
+    needsLiquid.includes(sample.phaseName) &&
+    (!sample.liquidNames || sample.liquidNames.length === 0)
+  ) {
+    flags.push("missing_liquid");
+  }
+  // 4. Run 异常
+  if (runState && (runState === "error" || runState === "aborted")) {
+    flags.push("run_error");
+  }
+  return flags;
+}
+
+// 带对齐序列状态的样本
+export interface SampleWithSeriesStatus extends Sample {
+  seriesStatus: AlignedSeriesStatus | null;
   runCreatedAt: string | null;  // Run 创建时间，用于显示来源
+  anomalyFlags: AnomalyFlag[];  // 异常标记
 }
 
 // 样本组
@@ -125,7 +175,8 @@ export interface FilterState {
   pwmRange: [number, number] | null;
   paramsHash: string | null;
   searchQuery: string;
-  hasFrames: boolean | null;  // 按数据帧状态筛选
+  hasAlignedSeries: boolean | null;  // 按对齐序列状态筛选
+  showAnomaliesOnly: boolean;        // 仅显示异常样本
 }
 
 // 上下文状态
@@ -137,7 +188,7 @@ export interface ExperimentsState {
   runsPage: number;
   
   // 数据 - Samples (核心数据)
-  samples: SampleWithFrameStatus[];
+  samples: SampleWithSeriesStatus[];
   samplesLoading: boolean;
   samplesTotal: number;
   samplesPage: number;
@@ -150,7 +201,7 @@ export interface ExperimentsState {
   // 选中项 - 唯一选择实体是样本
   selectedSampleIds: Set<number>;
   // 所有选中样本的缓存数据（跨页保持）
-  allSelectedSamples: SampleWithFrameStatus[];
+  allSelectedSamples: SampleWithSeriesStatus[];
   // @deprecated 待移除，保留用于兼容
   selectedRunIds: Set<number>;
   
@@ -161,9 +212,9 @@ export interface ExperimentsState {
   // 筛选
   filters: FilterState;
   
-  // 数据帧使用配置
-  frameConfig: FrameConfig;
-  setFrameConfig: (config: Partial<FrameConfig>) => void;
+  // 对齐序列使用配置
+  seriesConfig: AlignedSeriesConfig;
+  setSeriesConfig: (config: Partial<AlignedSeriesConfig>) => void;
   
   // ML 标签配置（TrainingTab 写入，ExportPopover 读取）
   mlLabelConfig: string;
@@ -198,7 +249,7 @@ export interface ExperimentsState {
   clearRunSelection: () => void;
   
   // 样本数据操作
-  setSamples: (samples: SampleWithFrameStatus[]) => void;
+  setSamples: (samples: SampleWithSeriesStatus[]) => void;
   setSamplesLoading: (loading: boolean) => void;
   setSamplesTotal: (total: number) => void;
   setSamplesPage: (page: number) => void;
@@ -216,8 +267,8 @@ export interface ExperimentsState {
   setAvailablePhases: (phases: string[]) => void;
   setFilterOptionsLoading: (loading: boolean) => void;
   
-  // 刷新选中样本的帧状态
-  refreshFrameStatuses: () => Promise<void>;
+  // 刷新选中样本的对齐序列状态
+  refreshSeriesStatuses: () => Promise<void>;
   
   // 悬停联动（SampleTable ↔ 散点图）
   hoveredSampleId: number | null;
@@ -238,7 +289,8 @@ const defaultFilters: FilterState = {
   pwmRange: null,
   paramsHash: null,
   searchQuery: "",
-  hasFrames: null,
+  hasAlignedSeries: null,
+  showAnomaliesOnly: false,
 };
 
 const ExperimentsContext = createContext<ExperimentsState | null>(null);
@@ -251,7 +303,7 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
   const [runsPage, setRunsPage] = useState(0);
   
   // 样本数据状态
-  const [samples, setSamples] = useState<SampleWithFrameStatus[]>([]);
+  const [samples, setSamples] = useState<SampleWithSeriesStatus[]>([]);
   const [samplesLoading, setSamplesLoading] = useState(false);
   const [samplesTotal, setSamplesTotal] = useState(0);
   const [samplesPage, setSamplesPage] = useState(0);
@@ -265,7 +317,7 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
   const [selectedRunIds, setSelectedRunIds] = useState<Set<number>>(new Set());
   const [selectedSampleIds, setSelectedSampleIds] = useState<Set<number>>(new Set());
   // 跨页选中样本缓存：当样本被选中时缓存其数据，取消时移除
-  const [selectedSamplesCache, setSelectedSamplesCache] = useState<Map<number, SampleWithFrameStatus>>(new Map());
+  const [selectedSamplesCache, setSelectedSamplesCache] = useState<Map<number, SampleWithSeriesStatus>>(new Map());
   
   // 当前页样本变化时，将已选中的样本数据同步到缓存
   useEffect(() => {
@@ -332,7 +384,7 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
               for (const s of data.samples) {
                 // 只添加仍在选中集中的样本
                 if (selectedSampleIds.has(s.id)) {
-                  next.set(s.id, { ...s, frameStatus: null, runCreatedAt: null } as SampleWithFrameStatus);
+                  next.set(s.id, { ...s, seriesStatus: null, runCreatedAt: null, anomalyFlags: detectAnomalies(s) } as SampleWithSeriesStatus);
                 }
               }
               return next;
@@ -357,10 +409,10 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
   // 悬停联动
   const [hoveredSampleId, setHoveredSampleId] = useState<number | null>(null);
   
-  // 数据帧使用配置
-  const [frameConfig, setFrameConfigState] = useState<FrameConfig>({ method: "pchip", nSamples: 50 });
-  const setFrameConfig = useCallback((partial: Partial<FrameConfig>) => {
-    setFrameConfigState(prev => ({ ...prev, ...partial }));
+  // 对齐序列使用配置
+  const [seriesConfig, setSeriesConfigState] = useState<AlignedSeriesConfig>({ method: "pchip", nSamples: 50 });
+  const setSeriesConfig = useCallback((partial: Partial<AlignedSeriesConfig>) => {
+    setSeriesConfigState(prev => ({ ...prev, ...partial }));
   }, []);
   
   // 可用选项
@@ -509,22 +561,28 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
   // 更新筛选
   const updateFilters = useCallback((newFilters: Partial<FilterState>) => {
     setFilters(prev => ({ ...prev, ...newFilters }));
-    setRunsPage(0); // 重置分页
+    setRunsPage(0);
+    setSamplesPage(0); // 筛选变更 → 回到第一页
+    setSelectedSampleIds(new Set()); // 筛选变更 → 清除选择
+    setSelectedSamplesCache(new Map());
   }, []);
   
   // 清空筛选
   const clearFilters = useCallback(() => {
     setFilters(defaultFilters);
     setRunsPage(0);
+    setSamplesPage(0);
+    setSelectedSampleIds(new Set());
+    setSelectedSamplesCache(new Map());
   }, []);
 
-  // 刷新选中样本的帧状态
-  const refreshFrameStatuses = useCallback(async () => {
+  // 刷新选中样本的对齐序列状态
+  const refreshSeriesStatuses = useCallback(async () => {
     const selectedIds = Array.from(selectedSampleIds);
     if (selectedIds.length === 0) return;
     try {
       const response = await fetch(
-        `/api/analytics/sample-frames?sampleIds=${selectedIds.join(",")}`
+        `/api/analytics/sample-aligned-series?sampleIds=${selectedIds.join(",")}`
       );
       const data = await response.json();
       if (data.statuses) {
@@ -532,8 +590,8 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
           if (selectedSampleIds.has(sample.id) && data.statuses[sample.id]) {
             return {
               ...sample,
-              frameStatus: {
-                hasFrames: data.statuses[sample.id].exists || false,
+              seriesStatus: {
+                hasAlignedSeries: data.statuses[sample.id].exists || false,
                 cached: data.statuses[sample.id].cached || false,
                 variants: data.statuses[sample.id].variants || [],
               },
@@ -565,8 +623,8 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
     comparisonMode,
     comparisonItems,
     filters,
-    frameConfig,
-    setFrameConfig,
+    seriesConfig,
+    setSeriesConfig,
     mlLabelConfig,
     setMlLabelConfig,
     mlSplitRatios,
@@ -604,7 +662,7 @@ export function ExperimentsProvider({ children }: { children: ReactNode }) {
     setAvailableLiquids,
     setAvailablePhases,
     setFilterOptionsLoading,
-    refreshFrameStatuses,
+    refreshSeriesStatuses,
     hoveredSampleId,
     setHoveredSampleId,
   };

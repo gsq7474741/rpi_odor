@@ -40,13 +40,25 @@ minio:
     models: "models"
     datasets: "datasets"
 
-# 帧自动回填配置
-frame_backfill:
-  enabled: true                    # 是否启用后台自动帧生成
-  n_samples: 50                    # 默认采样点数
-  methods: ["linear", "pchip"]     # 默认插值方法
+# 对齐序列自动回填配置
+series_backfill:
+  enabled: true                    # 是否启用后台自动对齐序列生成
+  series_len: 100                  # 对齐序列长度（采样点数）
+  methods: ["pchip"]               # 插值方法
   poll_interval_s: 300             # 轮询间隔 (秒)
   batch_size: 50                   # 每次轮询最大处理样本数
+
+# ML 标签自动回填配置
+label_backfill:
+  enabled: true                    # 是否启用样本完成后自动生成标签
+  auto_strategies:                 # 自动生成的策略列表 (排除 contrastive 类型)
+    - "liquid_identity"
+    - "primary_liquid"
+    - "mixture_formula"
+    - "concentration"
+    - "total_volume"
+    - "gas_pump_speed"
+    - "env_temperature"
 
 # 质量检测配置 (所有阈值可调)
 quality:

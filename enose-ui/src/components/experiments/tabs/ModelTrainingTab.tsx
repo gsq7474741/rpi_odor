@@ -129,11 +129,15 @@ interface ProgressPoint {
 
 const MODEL_OPTIONS = [
   { value: "mlp", label: "MLP", framework: "PyTorch" },
-  { value: "svm", label: "SVM", framework: "sklearn" },
-  { value: "xgboost", label: "XGBoost", framework: "XGBoost" },
   { value: "cnn1d", label: "CNN-1D", framework: "PyTorch" },
   { value: "tcn", label: "TCN", framework: "PyTorch" },
   { value: "transformer", label: "Transformer", framework: "PyTorch" },
+  { value: "rf", label: "Random Forest", framework: "sklearn" },
+  { value: "lr", label: "Logistic Regression", framework: "sklearn" },
+  { value: "lda", label: "LDA", framework: "sklearn" },
+  { value: "knn", label: "KNN", framework: "sklearn" },
+  { value: "svm", label: "SVM", framework: "sklearn" },
+  { value: "xgboost", label: "XGBoost", framework: "XGBoost" },
 ];
 
 const TASK_OPTIONS = [
@@ -146,6 +150,10 @@ const MODEL_TASK_SUPPORT: Record<string, string[]> = {
   cnn1d: ["classification", "regression"],
   tcn: ["classification", "regression"],
   transformer: ["classification", "regression"],
+  rf: ["classification", "regression"],
+  lr: ["classification"],
+  lda: ["classification"],
+  knn: ["classification", "regression"],
   svm: ["classification", "regression"],
   xgboost: ["classification", "regression"],
   kmeans: ["clustering"],
@@ -163,15 +171,19 @@ const SPLIT_METHOD_OPTIONS = [
 
 const DEFAULT_HYPERPARAMS: Record<string, Record<string, unknown>> = {
   mlp: { hidden_layers: [128, 64], activation: "relu", dropout: 0.1, epochs: 100, learning_rate: 0.003, batch_size: 32, early_stopping_patience: 10, label_smoothing: 0.1, weight_decay: 0.0001 },
-  svm: { C: 1.0, kernel: "rbf", gamma: "scale", degree: 3 },
-  xgboost: { n_estimators: 100, max_depth: 6, learning_rate: 0.1, subsample: 0.8, colsample_bytree: 0.8 },
   cnn1d: { n_filters: [32, 64], kernel_sizes: [5, 3], pool_size: 2, fc_dims: [64], dropout: 0.3, epochs: 100, learning_rate: 0.001, batch_size: 32, early_stopping_patience: 10 },
   tcn: { n_channels: [32, 64, 64], kernel_size: 3, dropout: 0.1, epochs: 100, learning_rate: 0.003, batch_size: 32, early_stopping_patience: 10, label_smoothing: 0.1, weight_decay: 0.0001 },
   transformer: { d_model: 64, nhead: 4, n_layers: 2, dim_ff: 128, dropout: 0.1, epochs: 100, learning_rate: 0.001, batch_size: 32, early_stopping_patience: 10 },
+  rf: { n_estimators: 200, max_depth: 0, min_samples_split: 2, min_samples_leaf: 1, max_features: "sqrt" },
+  lr: { C: 1.0, solver: "lbfgs", max_iter: 5000, penalty: "l2" },
+  lda: { solver: "svd" },
+  knn: { n_neighbors: 5, weights: "uniform", metric: "minkowski", p: 2 },
+  svm: { C: 1.0, kernel: "rbf", gamma: "scale", degree: 3 },
+  xgboost: { n_estimators: 100, max_depth: 6, learning_rate: 0.1, subsample: 0.8, colsample_bytree: 0.8 },
 };
 
 export function ModelTrainingTab() {
-  const { selectedSampleIds, mlLabelConfig, setMlLabelConfig, mlSplitRatios, setMlSplitRatios, frameConfig } = useExperiments();
+  const { selectedSampleIds, mlLabelConfig, setMlLabelConfig, mlSplitRatios, setMlSplitRatios, seriesConfig } = useExperiments();
 
   // mlLabelConfig 是标签策略名 (string)
   // mlSplitRatios 是 { train: number, val: number } (百分比如 70/15)
@@ -486,8 +498,8 @@ export function ModelTrainingTab() {
           sampleIds: Array.from(selectedSampleIds),
           trainRatio: mlSplitRatios.train / 100,
           valRatio: mlSplitRatios.val / 100,
-          frameNSamples: frameConfig.nSamples,
-          frameMethod: frameConfig.method,
+          seriesNSamples: seriesConfig.nSamples,
+          seriesMethod: seriesConfig.method,
           seed: 42,
           hyperparams: { ...hyperparams, split_method: splitMethod, k_folds: kFolds },
         }),
@@ -843,7 +855,7 @@ export function ModelTrainingTab() {
                 )}
 
                 <div className="text-xs text-muted-foreground">
-                  <p>帧采样: <span className="font-medium text-foreground">{frameConfig.nSamples}</span> 点, {frameConfig.method}</p>
+                  <p>序列采样: <span className="font-medium text-foreground">{seriesConfig.nSamples}</span> 点, {seriesConfig.method}</p>
                 </div>
               </CardContent>
             </Card>
@@ -1411,6 +1423,31 @@ function HyperparamsForm({
               <SelectContent>
                 {["rbf", "linear", "poly", "sigmoid"].map((k) => (
                   <SelectItem key={k} value={k}>{k}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        );
+      }
+      // 字符串下拉选项映射
+      const STRING_SELECT_OPTIONS: Record<string, string[]> = {
+        solver: modelType === "lr" ? ["lbfgs", "liblinear", "newton-cg", "sag", "saga"] : ["svd", "lsqr", "eigen"],
+        penalty: ["l2", "l1", "elasticnet", "none"],
+        weights: ["uniform", "distance"],
+        metric: ["minkowski", "euclidean", "manhattan", "chebyshev", "cosine"],
+        max_features: ["sqrt", "log2"],
+      };
+      if (STRING_SELECT_OPTIONS[key]) {
+        return (
+          <div key={key} className="flex items-center gap-2">
+            <Label className="text-[11px] text-muted-foreground w-32 flex-shrink-0">{key}</Label>
+            <Select value={value} onValueChange={(v) => update(key, v)} disabled={disabled}>
+              <SelectTrigger className="h-7 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STRING_SELECT_OPTIONS[key].map((opt) => (
+                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
