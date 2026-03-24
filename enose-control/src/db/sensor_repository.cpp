@@ -86,7 +86,8 @@ void SensorRepository::clear_run_context() {
     std::lock_guard<std::mutex> lock(context_mutex_);
     current_run_id_.reset();
     current_phase_.clear();
-    spdlog::debug("SensorRepository: cleared run context");
+    current_sample_id_.reset();
+    spdlog::debug("SensorRepository: cleared run context (including sample_id)");
 }
 
 void SensorRepository::set_sample_context(int32_t sample_id) {

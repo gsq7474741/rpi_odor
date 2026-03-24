@@ -716,10 +716,10 @@ void ExperimentValidator::check_liquid_sufficiency() {
         }
         
         if (required > 0 && required > available) {
-            add_error("hardware.liquids", "INSUFFICIENT_LIQUID",
-                     "液体 " + liquid_id + " 不足: 需要 " + 
+            add_warning("hardware.liquids", "INSUFFICIENT_LIQUID",
+                     "液体 " + liquid_id + " 余量不足: 需要 " + 
                      std::to_string(required) + " ml，仅有 " + 
-                     std::to_string(available) + " ml");
+                     std::to_string(available) + " ml（执行时将在不足处暂停等待补充）");
         }
         
         spdlog::debug("液体余量检查: id={}, required={} ml, available={} ml", 

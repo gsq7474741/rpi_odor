@@ -498,18 +498,21 @@ export function graphToYaml(
   },
   compilationResult?: CompilationResult  // 使用编译器的完整输出
 ): string {
-  // 收集液体源节点信息（样品液体）
+  // 收集液体源节点信息（样品液体），按 liquidId 去重
   const liquidSources = nodes.filter((n) => n.type === NodeType.LIQUID_SOURCE);
-  const liquids: YamlLiquid[] = liquidSources.map((n) => {
+  const seenLiquidIds = new Set<string>();
+  const liquids: YamlLiquid[] = [];
+  for (const n of liquidSources) {
     const data = n.data as Record<string, unknown>;
-    // 注意: pump_index 已废弃，不再输出到 YAML
-    // 泵绑定在耗材管理中配置，运行时从数据库查询
-    return {
-      id: String(data.liquidId || `liquid_${n.id}`),
+    const id = String(data.liquidId || `liquid_${n.id}`);
+    if (seenLiquidIds.has(id)) continue;
+    seenLiquidIds.add(id);
+    liquids.push({
+      id,
       name: String(data.liquidName || '未命名'),
       type: 'LIQUID_SAMPLE',
-    };
-  });
+    });
+  }
 
   // 收集清洗节点使用的清洗液（去重）
   const washNodes = nodes.filter((n) => n.type === NodeType.WASH);

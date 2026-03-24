@@ -53,6 +53,11 @@ class ExperimentServiceStub(object):
                 request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
                 response_deserializer=enose__experiment__pb2.ExperimentStatusResponse.FromString,
                 )
+        self.ConfirmUserAction = channel.unary_unary(
+                '/enose.experiment.ExperimentService/ConfirmUserAction',
+                request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+                response_deserializer=enose__experiment__pb2.ExperimentStatusResponse.FromString,
+                )
         self.SubscribeExperimentEvents = channel.unary_stream(
                 '/enose.experiment.ExperimentService/SubscribeExperimentEvents',
                 request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
@@ -115,6 +120,13 @@ class ExperimentServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ConfirmUserAction(self, request, context):
+        """确认用户操作（从 WAITING_USER_ACTION 恢复执行）
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SubscribeExperimentEvents(self, request, context):
         """订阅实验事件流
         """
@@ -157,6 +169,11 @@ def add_ExperimentServiceServicer_to_server(servicer, server):
             ),
             'GetExperimentStatus': grpc.unary_unary_rpc_method_handler(
                     servicer.GetExperimentStatus,
+                    request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                    response_serializer=enose__experiment__pb2.ExperimentStatusResponse.SerializeToString,
+            ),
+            'ConfirmUserAction': grpc.unary_unary_rpc_method_handler(
+                    servicer.ConfirmUserAction,
                     request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                     response_serializer=enose__experiment__pb2.ExperimentStatusResponse.SerializeToString,
             ),
@@ -292,6 +309,23 @@ class ExperimentService(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/enose.experiment.ExperimentService/GetExperimentStatus',
+            google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            enose__experiment__pb2.ExperimentStatusResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ConfirmUserAction(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/enose.experiment.ExperimentService/ConfirmUserAction',
             google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             enose__experiment__pb2.ExperimentStatusResponse.FromString,
             options, channel_credentials,

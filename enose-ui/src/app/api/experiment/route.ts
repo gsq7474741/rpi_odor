@@ -185,6 +185,14 @@ export async function POST(request: Request) {
         );
         break;
         
+      case "confirm-user-action":
+        result = await promisifyWithTimeout(
+          client.confirmUserAction.bind(client),
+          Empty,
+          5000
+        );
+        break;
+        
       case "unload":
         // unload 映射到 stop（在 loaded 状态下 stop 就是卸载）
         result = await promisifyWithTimeout(

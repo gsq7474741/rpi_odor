@@ -77,6 +77,11 @@ public:
         const ::google::protobuf::Empty* request,
         ::enose::experiment::ExperimentStatusResponse* response) override;
     
+    ::grpc::Status ConfirmUserAction(
+        ::grpc::ServerContext* context,
+        const ::google::protobuf::Empty* request,
+        ::enose::experiment::ExperimentStatusResponse* response) override;
+
     ::grpc::Status SubscribeExperimentEvents(
         ::grpc::ServerContext* context,
         const ::google::protobuf::Empty* request,
@@ -110,6 +115,12 @@ private:
     std::atomic<bool> pause_requested_{false};
     std::condition_variable pause_cv_;
     std::mutex pause_mutex_;
+    
+    // 用户操作等待（服务端余量断点）
+    std::atomic<bool> user_action_confirmed_{false};
+    std::mutex user_action_mutex_;
+    std::condition_variable user_action_cv_;
+    ::enose::experiment::UserActionInfo current_user_action_;
     
     // 执行状态
     int current_step_index_ = 0;
@@ -198,6 +209,11 @@ private:
     bool check_stop_or_pause();  // 步骤间调用：检查停止+暂停（暂停时阻塞）
     bool check_stop();           // 步骤内调用：仅检查停止（步骤是原子操作，不被暂停打断）
     void wait_if_paused();
+    
+    // 余量断点：执行前检查泵余量是否足够，不足时暂停等待用户确认
+    bool check_inject_volume(const ::enose::experiment::InjectAction& action);
+    bool check_wash_volume(const ::enose::experiment::WashAction& action);
+    void wait_for_user_action(const ::enose::experiment::UserActionInfo& info);
     
     // 转换系统状态
     workflows::SystemState::State convert_state(::enose::experiment::SystemState state);

@@ -34,6 +34,7 @@ ExperimentServiceImpl::~ExperimentServiceImpl() {
     // 停止执行线程
     stop_requested_ = true;
     pause_cv_.notify_all();
+    user_action_cv_.notify_all();
     event_cv_.notify_all();
     
     if (execution_thread_ && execution_thread_->joinable()) {
@@ -267,11 +268,13 @@ ExperimentServiceImpl::~ExperimentServiceImpl() {
         return ::grpc::Status::OK;
     }
     
-    // 如果是运行中/暂停状态，请求停止
-    if (state_ == experiment::EXP_RUNNING || state_ == experiment::EXP_PAUSED) {
+    // 如果是运行中/暂停/等待用户操作状态，请求停止
+    if (state_ == experiment::EXP_RUNNING || state_ == experiment::EXP_PAUSED ||
+        state_ == experiment::EXP_WAITING_USER_ACTION) {
         spdlog::info("停止实验");
         stop_requested_ = true;
         pause_cv_.notify_all();
+        user_action_cv_.notify_all();
         state_ = experiment::EXP_ABORTING;
         emit_event(experiment::ExperimentEvent::EXPERIMENT_STOPPED, "实验已停止");
     }
@@ -339,6 +342,40 @@ ExperimentServiceImpl::~ExperimentServiceImpl() {
     
     std::lock_guard<std::mutex> lock(mutex_);
     fill_status_response(response);
+    return ::grpc::Status::OK;
+}
+
+::grpc::Status ExperimentServiceImpl::ConfirmUserAction(
+    ::grpc::ServerContext* context,
+    const google::protobuf::Empty* request,
+    experiment::ExperimentStatusResponse* response) {
+    
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        
+        if (state_ != experiment::EXP_WAITING_USER_ACTION) {
+            spdlog::warn("ConfirmUserAction: 当前不在等待用户操作状态 (state={})", static_cast<int>(state_));
+            fill_status_response(response);
+            return ::grpc::Status::OK;
+        }
+        
+        spdlog::info("用户确认操作，恢复实验执行");
+    }
+    
+    // 设置确认标志并唤醒等待线程
+    {
+        std::lock_guard<std::mutex> lock(user_action_mutex_);
+        user_action_confirmed_ = true;
+    }
+    user_action_cv_.notify_all();
+    
+    add_log("用户已确认操作，实验恢复执行");
+    emit_event(experiment::ExperimentEvent::USER_ACTION_CONFIRMED, "用户已确认操作");
+    
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        fill_status_response(response);
+    }
     return ::grpc::Status::OK;
 }
 
@@ -579,6 +616,11 @@ void ExperimentServiceImpl::execute_step(const experiment::Step& step) {
 }
 
 void ExperimentServiceImpl::execute_inject(const experiment::InjectAction& action) {
+    // 余量断点：执行前检查泵余量是否足够
+    if (check_inject_volume(action)) {
+        return;  // 被停止
+    }
+    
     add_log("进样: 目标量=" + std::to_string(action.target_volume_ml()) + "ml");
     
     // 使用事务守卫保证状态一致性 (Phase 1.3)
@@ -1059,10 +1101,11 @@ void ExperimentServiceImpl::execute_acquire(const experiment::AcquireAction& act
         
         add_log("完成样本记录: id=" + std::to_string(current_sample_ctx_.sample_id));
         
-        // 清除传感器上下文
-        if (sensor_repo_) {
-            sensor_repo_->clear_sample_context();
-        }
+        // 注意: 不在此处清除 sample_id 上下文。
+        // ACQUIRE 之后的 WASH/INJECT 阶段的传感器数据仍需关联到此 sample_id,
+        // 以便分析中利用解析(desorption)动力学数据。
+        // sample_id 会在下一次 set_sample_context() 时自然覆盖,
+        // 或在 clear_run_context() 时清除。
     }
     
     // 注意: 阶段上下文的清除由下一个步骤的 phase 转换自动处理
@@ -1255,6 +1298,11 @@ void ExperimentServiceImpl::execute_phase_marker(const experiment::PhaseMarkerAc
 }
 
 void ExperimentServiceImpl::execute_wash(const experiment::WashAction& action) {
+    // 余量断点：执行前检查清洗液余量是否足够
+    if (check_wash_volume(action)) {
+        return;  // 被停止
+    }
+    
     const auto& lc_config = load_cell_->get_config();
     float target_ml = action.target_volume_ml();
     
@@ -1626,8 +1674,14 @@ void ExperimentServiceImpl::fill_status_response(experiment::ExperimentStatusRes
         response->set_progress_percent(progress);
     }
     
+    // 填充用户操作信息（当处于等待用户操作状态时）
+    if (state_ == experiment::EXP_WAITING_USER_ACTION) {
+        *response->mutable_user_action_info() = current_user_action_;
+    }
+    
     // 计算已运行时间
-    if (state_ == experiment::EXP_RUNNING || state_ == experiment::EXP_PAUSED) {
+    if (state_ == experiment::EXP_RUNNING || state_ == experiment::EXP_PAUSED ||
+        state_ == experiment::EXP_WAITING_USER_ACTION) {
         auto now = std::chrono::steady_clock::now();
         auto elapsed = now - start_time_;
         response->set_elapsed_s(
@@ -1655,7 +1709,8 @@ void ExperimentServiceImpl::fill_status_response(experiment::ExperimentStatusRes
     }
     
     // 数据质量快照
-    if (state_ == experiment::EXP_RUNNING || state_ == experiment::EXP_PAUSED) {
+    if (state_ == experiment::EXP_RUNNING || state_ == experiment::EXP_PAUSED ||
+        state_ == experiment::EXP_WAITING_USER_ACTION) {
         auto qsnap = quality_monitor_.get_snapshot();
         auto* quality = response->mutable_quality();
         quality->set_overall_level(
@@ -1995,6 +2050,191 @@ void ExperimentServiceImpl::execute_preheat(const experiment::PreheatAction& act
     // 提交事务并恢复到初始状态
     guard.commit_and_restore();
     add_log("预热完成");
+}
+
+// ============================================================
+// 余量断点：服务端控制的用户操作等待
+// ============================================================
+
+void ExperimentServiceImpl::wait_for_user_action(const experiment::UserActionInfo& info) {
+    // 保存用户操作信息到成员变量（供 fill_status_response 使用）
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        current_user_action_ = info;
+        state_ = experiment::EXP_WAITING_USER_ACTION;
+    }
+    
+    add_log("⚠️ 实验暂停: " + info.message());
+    emit_event(experiment::ExperimentEvent::USER_ACTION_REQUIRED, info.message());
+    
+    // 发送 Web Push 推送通知
+    try {
+        nlohmann::json push_payload;
+        push_payload["title"] = "实验需要操作";
+        push_payload["body"] = info.message();
+        push_payload["url"] = "/run";
+        push_payload["tag"] = "user-action-required";
+        std::string cmd = "/home/user/web_push_venv/bin/python3 /home/user/rpi_odor/scripts/web_push_sender.py '"
+                          + push_payload.dump() + "' 2>&1";
+        FILE* pipe = popen(cmd.c_str(), "r");
+        if (pipe) {
+            char buffer[256];
+            std::string result;
+            while (fgets(buffer, sizeof(buffer), pipe)) {
+                result += buffer;
+            }
+            int ret = pclose(pipe);
+            if (ret == 0) {
+                spdlog::info("Web Push 发送成功: {}", result);
+            } else {
+                spdlog::warn("Web Push 发送失败 (code={}): {}", ret, result);
+            }
+        }
+    } catch (const std::exception& e) {
+        spdlog::warn("Web Push 异常: {}", e.what());
+    }
+    
+    // 重置确认标志
+    user_action_confirmed_ = false;
+    
+    // 阻塞等待用户确认或停止请求
+    {
+        std::unique_lock<std::mutex> lock(user_action_mutex_);
+        user_action_cv_.wait(lock, [this] {
+            return user_action_confirmed_.load() || stop_requested_.load();
+        });
+    }
+    
+    // 恢复状态
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        current_user_action_.Clear();
+        if (!stop_requested_) {
+            state_ = experiment::EXP_RUNNING;
+        }
+    }
+}
+
+bool ExperimentServiceImpl::check_inject_volume(const experiment::InjectAction& action) {
+    if (!consumable_repo_) return false;
+    
+    double total_volume = action.target_volume_ml();
+    
+    // 计算总比例用于归一化
+    double total_ratio = 0;
+    for (const auto& comp : action.components()) {
+        total_ratio += comp.ratio();
+    }
+    if (total_ratio <= 0) total_ratio = 1.0;
+    
+    // 收集所有余量不足的泵
+    experiment::UserActionInfo info;
+    info.set_action_type("insufficient_liquid");
+    bool has_warning = false;
+    
+    for (const auto& comp : action.components()) {
+        double ratio_pct = comp.ratio() / total_ratio;
+        if (ratio_pct < 0.01) continue;
+        
+        double volume_ml = total_volume * ratio_pct;
+        
+        int liquid_id = 0;
+        try {
+            liquid_id = std::stoi(comp.liquid_id());
+        } catch (...) {
+            continue;
+        }
+        
+        auto pumps = consumable_repo_->get_pumps_by_liquid_id(liquid_id);
+        if (pumps.empty()) continue;
+        
+        // 选择余量最多的泵
+        auto best_pump = std::max_element(pumps.begin(), pumps.end(),
+            [](const db::PumpAssignmentRecord& a, const db::PumpAssignmentRecord& b) {
+                return a.remaining_volume_ml() < b.remaining_volume_ml();
+            });
+        
+        double remaining = best_pump->remaining_volume_ml();
+        
+        // 如果余量不足以完成本次进样，触发断点
+        if (remaining < volume_ml) {
+            // 获取液体名称
+            std::string liquid_name = comp.liquid_id();
+            if (loaded_program_) {
+                for (const auto& liquid : loaded_program_->hardware().liquids()) {
+                    if (liquid.id() == comp.liquid_id()) {
+                        liquid_name = liquid.name();
+                        break;
+                    }
+                }
+            }
+            
+            auto* warning = info.add_pump_warnings();
+            warning->set_pump_index(best_pump->pump_index);
+            warning->set_liquid_name(liquid_name);
+            warning->set_remaining_ml(remaining);
+            warning->set_required_ml(volume_ml);
+            warning->set_is_wash_pump(false);
+            has_warning = true;
+        }
+    }
+    
+    if (!has_warning) return false;
+    
+    // 构造提示消息
+    std::string msg = "进样液体余量不足，请补充后确认继续:";
+    for (int i = 0; i < info.pump_warnings_size(); i++) {
+        const auto& w = info.pump_warnings(i);
+        msg += " [泵" + std::to_string(w.pump_index()) + " " + w.liquid_name() + 
+               " 余量" + std::to_string(static_cast<int>(w.remaining_ml())) + 
+               "ml < 需要" + std::to_string(static_cast<int>(w.required_ml())) + "ml]";
+    }
+    info.set_message(msg);
+    
+    wait_for_user_action(info);
+    return stop_requested_.load();
+}
+
+bool ExperimentServiceImpl::check_wash_volume(const experiment::WashAction& action) {
+    if (!consumable_repo_) return false;
+    
+    // 清洗总需要量 = 单次量 × 重复次数
+    double total_needed = action.target_volume_ml() * action.repeat_count();
+    
+    // 查询清洗泵余量（默认泵索引 0）
+    auto wash_pump = consumable_repo_->get_wash_pump_assignment(0);
+    if (!wash_pump) return false;
+    
+    double remaining = wash_pump->remaining_volume_ml();
+    
+    if (remaining >= total_needed) return false;
+    
+    // 获取清洗液名称
+    std::string liquid_name = "清洗液";
+    if (wash_pump->liquid_id.has_value()) {
+        auto liquid = consumable_repo_->get_liquid(wash_pump->liquid_id.value());
+        if (liquid) {
+            liquid_name = liquid->name;
+        }
+    }
+    
+    experiment::UserActionInfo info;
+    info.set_action_type("insufficient_wash_liquid");
+    
+    auto* warning = info.add_pump_warnings();
+    warning->set_pump_index(0);
+    warning->set_liquid_name(liquid_name);
+    warning->set_remaining_ml(remaining);
+    warning->set_required_ml(total_needed);
+    warning->set_is_wash_pump(true);
+    
+    std::string msg = "清洗液余量不足，请补充后确认继续: [清洗泵 " + liquid_name + 
+                      " 余量" + std::to_string(static_cast<int>(remaining)) + 
+                      "ml < 需要" + std::to_string(static_cast<int>(total_needed)) + "ml]";
+    info.set_message(msg);
+    
+    wait_for_user_action(info);
+    return stop_requested_.load();
 }
 
 } // namespace grpc_service

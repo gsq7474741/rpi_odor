@@ -65,6 +65,12 @@ export interface IExperimentService extends grpc.UntypedServiceImplementation {
      */
     getExperimentStatus: grpc.handleUnaryCall<Empty, ExperimentStatusResponse>;
     /**
+     * 确认用户操作（从 WAITING_USER_ACTION 恢复执行）
+     *
+     * @generated from protobuf rpc: ConfirmUserAction
+     */
+    confirmUserAction: grpc.handleUnaryCall<Empty, ExperimentStatusResponse>;
+    /**
      * 订阅实验事件流
      *
      * @generated from protobuf rpc: SubscribeExperimentEvents
@@ -146,6 +152,16 @@ export const experimentServiceDefinition: grpc.ServiceDefinition<IExperimentServ
     getExperimentStatus: {
         path: "/enose.experiment.ExperimentService/GetExperimentStatus",
         originalName: "GetExperimentStatus",
+        requestStream: false,
+        responseStream: false,
+        responseDeserialize: bytes => ExperimentStatusResponse.fromBinary(bytes),
+        requestDeserialize: bytes => Empty.fromBinary(bytes),
+        responseSerialize: value => Buffer.from(ExperimentStatusResponse.toBinary(value)),
+        requestSerialize: value => Buffer.from(Empty.toBinary(value))
+    },
+    confirmUserAction: {
+        path: "/enose.experiment.ExperimentService/ConfirmUserAction",
+        originalName: "ConfirmUserAction",
         requestStream: false,
         responseStream: false,
         responseDeserialize: bytes => ExperimentStatusResponse.fromBinary(bytes),

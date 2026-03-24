@@ -1092,6 +1092,12 @@ export interface ExperimentStatusResponse {
      */
     programFilename: string;
     /**
+     * 用户操作提示（当 state=EXP_WAITING_USER_ACTION 时有效）
+     *
+     * @generated from protobuf field: enose.experiment.UserActionInfo user_action_info = 26
+     */
+    userActionInfo?: UserActionInfo;
+    /**
      * 数据质量快照（实时）
      *
      * @generated from protobuf field: enose.experiment.DataQualitySnapshot quality = 30
@@ -1236,6 +1242,55 @@ export interface DataQualityAlert {
      */
     count: number; // 出现次数}
 /**
+ * 用户操作提示信息（服务端余量断点）
+ *
+ * @generated from protobuf message enose.experiment.UserActionInfo
+ */
+export interface UserActionInfo {
+    /**
+     * 操作类型: "insufficient_liquid", "insufficient_wash_liquid"
+     *
+     * @generated from protobuf field: string action_type = 1
+     */
+    actionType: string;
+    /**
+     * 提示消息（人类可读）
+     *
+     * @generated from protobuf field: string message = 2
+     */
+    message: string;
+    /**
+     * 需要补充的泵警告列表
+     *
+     * @generated from protobuf field: repeated enose.experiment.PumpVolumeWarning pump_warnings = 3
+     */
+    pumpWarnings: PumpVolumeWarning[];
+}
+/**
+ * 泵余量警告
+ *
+ * @generated from protobuf message enose.experiment.PumpVolumeWarning
+ */
+export interface PumpVolumeWarning {
+    /**
+     * @generated from protobuf field: int32 pump_index = 1
+     */
+    pumpIndex: number;
+    /**
+     * @generated from protobuf field: string liquid_name = 2
+     */
+    liquidName: string;
+    /**
+     * @generated from protobuf field: double remaining_ml = 3
+     */
+    remainingMl: number; // 当前余量    /**
+     * @generated from protobuf field: double required_ml = 4
+     */
+    requiredMl: number; // 本步骤需要量    /**
+     * @generated from protobuf field: bool is_wash_pump = 5
+     */
+    isWashPump: boolean; // 是否为清洗泵}
+/**
  * 实验事件
  *
  * @generated from protobuf message enose.experiment.ExperimentEvent
@@ -1339,7 +1394,19 @@ export enum ExperimentEvent_EventType {
     /**
      * @generated from protobuf enum value: SENSOR_READING = 21;
      */
-    SENSOR_READING = 21
+    SENSOR_READING = 21,
+    /**
+     * 需要用户操作（余量不足等）
+     *
+     * @generated from protobuf enum value: USER_ACTION_REQUIRED = 22;
+     */
+    USER_ACTION_REQUIRED = 22,
+    /**
+     * 用户已确认操作
+     *
+     * @generated from protobuf enum value: USER_ACTION_CONFIRMED = 23;
+     */
+    USER_ACTION_CONFIRMED = 23
 }
 /**
  * 液体类型
@@ -1474,7 +1541,13 @@ export enum ExperimentState {
      *
      * @generated from protobuf enum value: EXP_ABORTED = 9;
      */
-    EXP_ABORTED = 9
+    EXP_ABORTED = 9,
+    /**
+     * 等待用户操作（服务端触发的余量断点）
+     *
+     * @generated from protobuf enum value: EXP_WAITING_USER_ACTION = 10;
+     */
+    EXP_WAITING_USER_ACTION = 10
 }
 // ============================================================// 数据质量 (DataQuality)// 实时传感器数据质量监控// ============================================================
 
@@ -3695,6 +3768,7 @@ class ExperimentStatusResponse$Type extends MessageType<ExperimentStatusResponse
             { no: 23, name: "program_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 24, name: "step_elapsed_s", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
             { no: 25, name: "program_filename", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 26, name: "user_action_info", kind: "message", T: () => UserActionInfo },
             { no: 30, name: "quality", kind: "message", T: () => DataQualitySnapshot }
         ]);
     }
@@ -3781,6 +3855,9 @@ class ExperimentStatusResponse$Type extends MessageType<ExperimentStatusResponse
                 case /* string program_filename */ 25:
                     message.programFilename = reader.string();
                     break;
+                case /* enose.experiment.UserActionInfo user_action_info */ 26:
+                    message.userActionInfo = UserActionInfo.internalBinaryRead(reader, reader.uint32(), options, message.userActionInfo);
+                    break;
                 case /* enose.experiment.DataQualitySnapshot quality */ 30:
                     message.quality = DataQualitySnapshot.internalBinaryRead(reader, reader.uint32(), options, message.quality);
                     break;
@@ -3850,6 +3927,9 @@ class ExperimentStatusResponse$Type extends MessageType<ExperimentStatusResponse
         /* string program_filename = 25; */
         if (message.programFilename !== "")
             writer.tag(25, WireType.LengthDelimited).string(message.programFilename);
+        /* enose.experiment.UserActionInfo user_action_info = 26; */
+        if (message.userActionInfo)
+            UserActionInfo.internalBinaryWrite(message.userActionInfo, writer.tag(26, WireType.LengthDelimited).fork(), options).join();
         /* enose.experiment.DataQualitySnapshot quality = 30; */
         if (message.quality)
             DataQualitySnapshot.internalBinaryWrite(message.quality, writer.tag(30, WireType.LengthDelimited).fork(), options).join();
@@ -4205,6 +4285,148 @@ class DataQualityAlert$Type extends MessageType<DataQualityAlert> {
  */
 export const DataQualityAlert = new DataQualityAlert$Type();
 // @generated message type with reflection information, may provide speed optimized methods
+class UserActionInfo$Type extends MessageType<UserActionInfo> {
+    constructor() {
+        super("enose.experiment.UserActionInfo", [
+            { no: 1, name: "action_type", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "message", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "pump_warnings", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => PumpVolumeWarning }
+        ]);
+    }
+    create(value?: PartialMessage<UserActionInfo>): UserActionInfo {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.actionType = "";
+        message.message = "";
+        message.pumpWarnings = [];
+        if (value !== undefined)
+            reflectionMergePartial<UserActionInfo>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: UserActionInfo): UserActionInfo {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string action_type */ 1:
+                    message.actionType = reader.string();
+                    break;
+                case /* string message */ 2:
+                    message.message = reader.string();
+                    break;
+                case /* repeated enose.experiment.PumpVolumeWarning pump_warnings */ 3:
+                    message.pumpWarnings.push(PumpVolumeWarning.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: UserActionInfo, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string action_type = 1; */
+        if (message.actionType !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.actionType);
+        /* string message = 2; */
+        if (message.message !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.message);
+        /* repeated enose.experiment.PumpVolumeWarning pump_warnings = 3; */
+        for (let i = 0; i < message.pumpWarnings.length; i++)
+            PumpVolumeWarning.internalBinaryWrite(message.pumpWarnings[i], writer.tag(3, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.experiment.UserActionInfo
+ */
+export const UserActionInfo = new UserActionInfo$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class PumpVolumeWarning$Type extends MessageType<PumpVolumeWarning> {
+    constructor() {
+        super("enose.experiment.PumpVolumeWarning", [
+            { no: 1, name: "pump_index", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "liquid_name", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "remaining_ml", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 4, name: "required_ml", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 5, name: "is_wash_pump", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
+        ]);
+    }
+    create(value?: PartialMessage<PumpVolumeWarning>): PumpVolumeWarning {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.pumpIndex = 0;
+        message.liquidName = "";
+        message.remainingMl = 0;
+        message.requiredMl = 0;
+        message.isWashPump = false;
+        if (value !== undefined)
+            reflectionMergePartial<PumpVolumeWarning>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: PumpVolumeWarning): PumpVolumeWarning {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 pump_index */ 1:
+                    message.pumpIndex = reader.int32();
+                    break;
+                case /* string liquid_name */ 2:
+                    message.liquidName = reader.string();
+                    break;
+                case /* double remaining_ml */ 3:
+                    message.remainingMl = reader.double();
+                    break;
+                case /* double required_ml */ 4:
+                    message.requiredMl = reader.double();
+                    break;
+                case /* bool is_wash_pump */ 5:
+                    message.isWashPump = reader.bool();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: PumpVolumeWarning, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 pump_index = 1; */
+        if (message.pumpIndex !== 0)
+            writer.tag(1, WireType.Varint).int32(message.pumpIndex);
+        /* string liquid_name = 2; */
+        if (message.liquidName !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.liquidName);
+        /* double remaining_ml = 3; */
+        if (message.remainingMl !== 0)
+            writer.tag(3, WireType.Bit64).double(message.remainingMl);
+        /* double required_ml = 4; */
+        if (message.requiredMl !== 0)
+            writer.tag(4, WireType.Bit64).double(message.requiredMl);
+        /* bool is_wash_pump = 5; */
+        if (message.isWashPump !== false)
+            writer.tag(5, WireType.Varint).bool(message.isWashPump);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message enose.experiment.PumpVolumeWarning
+ */
+export const PumpVolumeWarning = new PumpVolumeWarning$Type();
+// @generated message type with reflection information, may provide speed optimized methods
 class ExperimentEvent$Type extends MessageType<ExperimentEvent> {
     constructor() {
         super("enose.experiment.ExperimentEvent", [
@@ -4317,5 +4539,6 @@ export const ExperimentService = new ServiceType("enose.experiment.ExperimentSer
     { name: "PauseExperiment", options: {}, I: Empty, O: ExperimentStatusResponse },
     { name: "ResumeExperiment", options: {}, I: Empty, O: ExperimentStatusResponse },
     { name: "GetExperimentStatus", options: {}, I: Empty, O: ExperimentStatusResponse },
+    { name: "ConfirmUserAction", options: {}, I: Empty, O: ExperimentStatusResponse },
     { name: "SubscribeExperimentEvents", serverStreaming: true, options: {}, I: Empty, O: ExperimentEvent }
 ]);

@@ -475,9 +475,12 @@ function buildStepTree(steps: CompiledStep[]): TreeNode[] {
       };
       group.steps.push(innerStep);
       
+      // 累加时长：原子步骤和非原子汇总步骤都有正确的 estimatedDurationS
+      group.duration += step.estimatedDurationS;
       if (step.isAtomic) {
-        group.duration += step.estimatedDurationS;
         group.count++;
+      } else if (step.estimatedDurationS > 0) {
+        group.count++; // 非原子汇总步骤也计为1步
       }
       
       // 按顺序添加循环节点（只添加一次）
@@ -537,7 +540,7 @@ function StepTreeNode({ item, index: _index, expandedLoops, toggleLoop, focusNod
         onClick={() => step.nodeId && focusNode(step.nodeId)}
       >
         <span className="flex-1 truncate">{step.name}</span>
-        {step.isAtomic && step.estimatedDurationS > 0 && (
+        {step.estimatedDurationS > 0 && (
           <span className="text-xs text-muted-foreground whitespace-nowrap">
             {formatDuration(step.estimatedDurationS)}
           </span>

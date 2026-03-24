@@ -122,7 +122,7 @@ const DEFAULT_CONFIG: CompilerConfig = {
   bottleCapacityMl: 150,
   maxFillMl: 100,
   expandLoops: true,  // 默认展开循环，显示真实编译产物
-  maxLoopExpansion: 100,
+  maxLoopExpansion: 500,
   heaterCycleDurationS: 0, // 0表示未配置，使用估算值26s
 };
 
@@ -280,8 +280,9 @@ export function compile(
                 };
                 steps.push(expandedStep);
                 
+                // 累加时长（原子步骤和汇总步骤都有正确的 estimatedDurationS）
+                totalDurationS += expandedStep.estimatedDurationS;
                 if (expandedStep.isAtomic) {
-                  totalDurationS += expandedStep.estimatedDurationS;
                   currentLiquidMl += expandedStep.liquidChangeMl;
                   peakLiquidLevelMl = Math.max(peakLiquidLevelMl, currentLiquidMl);
                   if (expandedStep.type === NodeType.INJECT && expandedStep.liquidChangeMl > 0) {
@@ -291,6 +292,12 @@ export function compile(
                     const rc = (expandedStep.params.repeatCount as number) || 2;
                     totalWashVolumeMl += wv * rc;
                   }
+                } else {
+                  // 非原子汇总步骤：从子步骤提取液体消耗
+                  accumulateSummaryLiquid(expandedStep, (inj, wash) => {
+                    totalInjectMl += inj;
+                    totalWashVolumeMl += wash;
+                  });
                 }
               }
               loopExpansionCount++;
@@ -319,11 +326,11 @@ export function compile(
             steps.push(compiledStep);
             totalDurationS += compiledStep.estimatedDurationS;
             
-            const bodyLiquidChange = loopBodySteps.reduce((sum, s) => sum + s.liquidChangeMl, 0);
-            for (let i = 0; i < loopCount; i++) {
-              currentLiquidMl += bodyLiquidChange;
-              peakLiquidLevelMl = Math.max(peakLiquidLevelMl, currentLiquidMl);
-            }
+            // 非展开循环：从循环体子步骤提取液体消耗
+            accumulateSummaryLiquid(compiledStep, (inj, wash) => {
+              totalInjectMl += inj;
+              totalWashVolumeMl += wash;
+            });
           }
         // 处理参数扫描节点（和循环类似，编译期展开）
         } else if (node.type === NodeType.PARAM_SWEEP) {
@@ -345,7 +352,6 @@ export function compile(
           if (sweepValues.length === 0) {
             diagnostics.push({
               level: 'warning',
-              nodeId: node.id,
               message: `参数扫描节点 [${sweepName}] 没有生成扫描值`,
               code: 'W006',
             });
@@ -398,9 +404,9 @@ export function compile(
                 
                 steps.push(expandedStep);
                 
-                // 只累加原子步骤时间
+                // 累加时长（原子步骤和汇总步骤都有正确的 estimatedDurationS）
+                totalDurationS += expandedStep.estimatedDurationS;
                 if (expandedStep.isAtomic) {
-                  totalDurationS += expandedStep.estimatedDurationS;
                   // 更新液位
                   currentLiquidMl += expandedStep.liquidChangeMl;
                   peakLiquidLevelMl = Math.max(peakLiquidLevelMl, currentLiquidMl);
@@ -411,6 +417,12 @@ export function compile(
                     const rc = (expandedStep.params.repeatCount as number) || 2;
                     totalWashVolumeMl += wv * rc;
                   }
+                } else {
+                  // 非原子汇总步骤：从子步骤提取液体消耗
+                  accumulateSummaryLiquid(expandedStep, (inj, wash) => {
+                    totalInjectMl += inj;
+                    totalWashVolumeMl += wash;
+                  });
                 }
               }
               loopExpansionCount++;
@@ -429,6 +441,11 @@ export function compile(
             };
             steps.push(compiledStep);
             totalDurationS += compiledStep.estimatedDurationS;
+            // 非展开扫描：从子步骤提取液体消耗
+            accumulateSummaryLiquid(compiledStep, (inj, wash) => {
+              totalInjectMl += inj;
+              totalWashVolumeMl += wash;
+            });
           }
         } else {
           steps.push(compiledStep);
@@ -493,6 +510,11 @@ export function compile(
   
   // 从编译后的步骤中提取液体和泵用量（包括清洗液）
   for (const step of steps) {
+    // 非原子汇总步骤：从子步骤提取液体消耗明细
+    if (!step.isAtomic) {
+      accumulateSummaryLiquidConsumption(step, cfg, liquidConsumptionMap, pumpConsumptionMap);
+      continue;
+    }
     // 追踪清洗液消耗
     if (step.type === NodeType.WASH && step.isAtomic) {
       const washLiquidId = (step.params.washLiquidId as string) || 'distilled_water';
@@ -1016,20 +1038,29 @@ function compileNode(
     }
     
     case NodeType.DRAIN: {
-      const timeout = (data.timeoutS as number) || 60;
-      baseStep.estimatedDurationS = timeout;
+      // 经验值：气泵排废典型耗时约 20s（含稳定检测窗口）
+      // 之前使用 timeout 上界（60s），严重高估
+      baseStep.estimatedDurationS = 20;
       baseStep.liquidChangeMl = -config.maxFillMl; // 假设排空
       break;
     }
     
     case NodeType.WASH: {
       const repeatCount = (data.repeatCount as number) || 2;
-      const fillTimeoutS = (data.fillTimeoutS as number) || 60;
-      const drainTimeoutS = (data.drainTimeoutS as number) || 60;
+      const washVolumeMl = (data.washVolumeMl as number) || 20;
+      const fillMode = (data.fillMode as string) || 'weight';
       
-      // 后端清洗流程：每次循环 = 排废确认空瓶 + 注入清洗液 + 排废清洗液
-      // 排废和注入都是称重反馈的非确定过程，用 timeout 作为上界估算
-      baseStep.estimatedDurationS = repeatCount * (drainTimeoutS + fillTimeoutS + drainTimeoutS);
+      // 经验值（基于实际运行日志）：
+      // - 定时模式注入: washVolumeMl / 6.0 s（有效流速 ~6 ml/s，含软启动开销）
+      // - 称重模式注入: washVolumeMl / 3.0 s（称重反馈较慢，保守估算）
+      // - 排废: ~20s（含称重稳定检测窗口 2s）
+      // - 初始排废确认: ~5s（已空时快速确认）
+      const fillDurationS = fillMode === 'timed'
+        ? washVolumeMl / 6.0
+        : washVolumeMl / 3.0;
+      const drainDurationS = 20;
+      const initialDrainS = 5;
+      baseStep.estimatedDurationS = initialDrainS + repeatCount * (fillDurationS + drainDurationS);
       // 清洗后液位始终为0（最后一次循环会排废）
       baseStep.liquidChangeMl = -config.maxFillMl;
       break;
@@ -1453,6 +1484,152 @@ function generateSweepValues(data: Record<string, unknown>): number[] {
 }
 
 /**
+ * 从非原子汇总步骤中提取液体消耗明细到 liquidConsumptionMap 和 pumpConsumptionMap
+ * 用于液体消耗明细面板的正确显示
+ */
+function accumulateSummaryLiquidConsumption(
+  step: CompiledStep,
+  cfg: CompilerConfig,
+  liquidConsumptionMap: Map<string, LiquidConsumption>,
+  pumpConsumptionMap: Map<number, { volumeMl: number; runtimeS: number }>
+): void {
+  const subSteps = (step.params.loopSteps || step.params.sweepSteps) as CompiledStep[] | undefined;
+  const iterations = (step.params.iterations || step.params.sweepCount) as number || 1;
+  if (!subSteps || subSteps.length === 0) return;
+
+  for (const sub of subSteps) {
+    if (!sub.isAtomic) {
+      // 递归处理嵌套汇总步骤（乘数在递归内部处理）
+      // 创建一个临时 wrapper 来累加嵌套的迭代次数
+      const nestedSubSteps = (sub.params.loopSteps || sub.params.sweepSteps) as CompiledStep[] | undefined;
+      const nestedIter = (sub.params.iterations || sub.params.sweepCount) as number || 1;
+      if (nestedSubSteps) {
+        const wrappedStep: CompiledStep = {
+          ...sub,
+          params: {
+            ...sub.params,
+            ...(sub.params.loopSteps ? { iterations: nestedIter * iterations } : { sweepCount: nestedIter * iterations }),
+          },
+        };
+        accumulateSummaryLiquidConsumption(wrappedStep, cfg, liquidConsumptionMap, pumpConsumptionMap);
+      }
+      continue;
+    }
+
+    if (sub.type === NodeType.WASH) {
+      const washLiquidId = (sub.params.washLiquidId as string) || 'distilled_water';
+      const washLiquidName = (sub.params.washLiquidName as string) || washLiquidId;
+      const washVolume = (sub.params.washVolumeMl as number) || 20;
+      const repeatCount = (sub.params.repeatCount as number) || 2;
+      const totalWashVol = washVolume * repeatCount * iterations;
+
+      const existing = liquidConsumptionMap.get(washLiquidId);
+      if (existing) {
+        existing.requiredMl += totalWashVol;
+      } else {
+        liquidConsumptionMap.set(washLiquidId, {
+          liquidId: washLiquidId,
+          liquidName: washLiquidName,
+          pumpIndex: -1,
+          requiredMl: totalWashVol,
+          isWashPump: true,
+        });
+      }
+    }
+
+    if (sub.type === NodeType.INJECT) {
+      const components = sub.params.components as Array<{
+        liquidId: string;
+        liquidName: string;
+        pumpIndex?: number;
+        ratio: number;
+      }> | undefined;
+      const flowRateMlS = (sub.params.flowRateMlS as number) || 0.5;
+      const volumeMl = sub.liquidChangeMl;
+
+      if (components) {
+        const totalRatio = components.reduce((sum, c) => sum + (c.ratio ?? 0), 0);
+        const pumpVolumes = components.map(c => volumeMl * ((c.ratio ?? 0) / (totalRatio || 1)));
+        const maxPumpVolume = Math.max(...pumpVolumes, volumeMl);
+        const sharedRuntimeS = flowRateMlS > 0 ? maxPumpVolume / flowRateMlS : 0;
+
+        for (let i = 0; i < components.length; i++) {
+          const comp = components[i];
+          const compVolume = pumpVolumes[i] * iterations;
+
+          let pumpIndex = comp.pumpIndex ?? -1;
+          if (cfg.pumpBindings && cfg.pumpBindings.length > 0) {
+            const binding = cfg.pumpBindings.find(
+              (b: PumpBindingInfo) => String(b.liquidId) === String(comp.liquidId)
+            );
+            if (binding) {
+              pumpIndex = binding.pumpIndex;
+            }
+          }
+
+          const existing = liquidConsumptionMap.get(comp.liquidId);
+          if (existing) {
+            existing.requiredMl += compVolume;
+          } else {
+            liquidConsumptionMap.set(comp.liquidId, {
+              liquidId: comp.liquidId,
+              liquidName: comp.liquidName || comp.liquidId,
+              pumpIndex: pumpIndex,
+              requiredMl: compVolume,
+              isWashPump: false,
+            });
+          }
+
+          if (pumpIndex >= 0) {
+            const pumpData = pumpConsumptionMap.get(pumpIndex);
+            if (pumpData) {
+              pumpData.volumeMl += compVolume;
+              pumpData.runtimeS += sharedRuntimeS * iterations;
+            } else {
+              pumpConsumptionMap.set(pumpIndex, { volumeMl: compVolume, runtimeS: sharedRuntimeS * iterations });
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * 从非原子汇总步骤（未展开的循环/扫描）中提取液体消耗
+ * 汇总步骤的 params 中包含 loopSteps/sweepSteps（单次迭代的子步骤）和 iterations/sweepCount（迭代次数）
+ */
+function accumulateSummaryLiquid(
+  step: CompiledStep,
+  callback: (totalInjectMl: number, totalWashVolumeMl: number) => void
+): void {
+  const subSteps = (step.params.loopSteps || step.params.sweepSteps) as CompiledStep[] | undefined;
+  const iterations = (step.params.iterations || step.params.sweepCount) as number || 1;
+  if (!subSteps || subSteps.length === 0) return;
+
+  let injectMl = 0;
+  let washMl = 0;
+  for (const sub of subSteps) {
+    if (sub.isAtomic) {
+      if (sub.type === NodeType.INJECT && sub.liquidChangeMl > 0) {
+        injectMl += sub.liquidChangeMl;
+      } else if (sub.type === NodeType.WASH) {
+        const wv = (sub.params.washVolumeMl as number) || 20;
+        const rc = (sub.params.repeatCount as number) || 2;
+        washMl += wv * rc;
+      }
+    } else {
+      // 递归处理嵌套的汇总步骤
+      accumulateSummaryLiquid(sub, (nestedInj, nestedWash) => {
+        injectMl += nestedInj;
+        washMl += nestedWash;
+      });
+    }
+  }
+  callback(injectMl * iterations, washMl * iterations);
+}
+
+/**
  * Fisher-Yates 洗牌算法，返回打乱后的索引数组
  */
 function shuffleIndices(length: number): number[] {
@@ -1495,7 +1672,9 @@ function applySweptParameter(
   const boundVariables = step.boundVariables || {};
   const isBound = bindingField && boundVariables[bindingField] === sweepNodeId;
   
-  if (!isBound) return; // 未绑定则跳过
+  // 比例扫描自动应用到扫描体内的所有进样节点（无需手动绑定）
+  // 其他参数类型（volume/duration等）可能有多个同类节点，需要用户选择性绑定
+  if (!isBound && !(paramType === 'ratio' && step.type === NodeType.INJECT)) return;
   
   switch (paramType) {
     case 'volume':

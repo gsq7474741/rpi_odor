@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Play, Square, Pause, RotateCcw, Upload, CheckCircle, AlertCircle, Clock, X, Wifi, WifiOff, FileUp, Edit, MoreHorizontal, Eye, FolderOpen, Loader2, Activity, Zap, ScatterChart } from "lucide-react";
+import { Play, Square, Pause, RotateCcw, Upload, CheckCircle, AlertCircle, Clock, X, Wifi, WifiOff, FileUp, Edit, MoreHorizontal, Eye, FolderOpen, Loader2, Activity, Zap, ScatterChart, AlertTriangle, HandMetal } from "lucide-react";
 
 import Link from "next/link";
 import { ExperimentFlow, ExperimentProgram, parseYamlString, PumpStatusInfo } from "@/components/experiment-flow";
@@ -45,6 +45,7 @@ function mapBackendState(state: number | string): ExperimentStatus {
     7: "error",     // EXP_ERROR
     8: "running",   // EXP_ABORTING (显示为运行中)
     9: "idle",      // EXP_ABORTED (显示为空闲)
+    10: "waiting_user_action", // EXP_WAITING_USER_ACTION
   };
   
   // 字符串枚举映射 (fallback)
@@ -55,6 +56,7 @@ function mapBackendState(state: number | string): ExperimentStatus {
     EXP_PAUSED: "paused",
     EXP_COMPLETED: "completed",
     EXP_ERROR: "error",
+    EXP_WAITING_USER_ACTION: "waiting_user_action",
   };
   
   if (typeof state === 'number') {
@@ -63,7 +65,7 @@ function mapBackendState(state: number | string): ExperimentStatus {
   return stringStateMap[state] || "idle";
 }
 
-type ExperimentStatus = "idle" | "loaded" | "running" | "pausing" | "paused" | "completed" | "error";
+type ExperimentStatus = "idle" | "loaded" | "running" | "pausing" | "paused" | "completed" | "error" | "waiting_user_action";
 
 interface ExperimentState {
   status: ExperimentStatus;
@@ -107,6 +109,7 @@ const statusConfig: Record<ExperimentStatus, { label: string; variant: "default"
   paused: { label: "已暂停", variant: "outline" },
   completed: { label: "已完成", variant: "secondary" },
   error: { label: "错误", variant: "destructive" },
+  waiting_user_action: { label: "等待操作", variant: "destructive" },
 };
 
 // 程序信息接口
@@ -155,6 +158,18 @@ export default function RunPage() {
   const [quality, setQuality] = useState<DataQualitySnapshot | undefined>(undefined);
   const [runId, setRunId] = useState<number | null>(null);
   const [pumpStatus, setPumpStatus] = useState<PumpStatusInfo[]>([]);
+  const [userActionInfo, setUserActionInfo] = useState<{
+    actionType: string;
+    message: string;
+    pumpWarnings: Array<{
+      pumpIndex: number;
+      liquidName: string;
+      remainingMl: number;
+      requiredMl: number;
+      isWashPump: boolean;
+    }>;
+  } | null>(null);
+  const [confirmingAction, setConfirmingAction] = useState(false);
   const fileInputRef = { current: null as HTMLInputElement | null };
   const logContainerRef = useRef<HTMLDivElement>(null);
   const logScrollCooldownRef = useRef<number>(0);  // 手动上翻冷却截止时间戳
@@ -177,7 +192,7 @@ export default function RunPage() {
 
   // 动态计时器 - 每 100ms 更新一次（同时维护实验总时间和步骤时间）
   useEffect(() => {
-    if (experiment.status !== "running" && experiment.status !== "pausing") {
+    if (experiment.status !== "running" && experiment.status !== "pausing" && experiment.status !== "waiting_user_action") {
       // 非运行状态直接显示后端返回的时间
       setDisplayTime(experiment.elapsedTime);
       setStepDisplayTime(0);
@@ -249,7 +264,7 @@ export default function RunPage() {
 
   // 实验运行期间每 5s 刷新泵余量（让已消耗量实时更新）
   useEffect(() => {
-    if (experiment.status !== "running" && experiment.status !== "pausing") return;
+    if (experiment.status !== "running" && experiment.status !== "pausing" && experiment.status !== "waiting_user_action") return;
     const interval = setInterval(fetchPumpStatus, 5000);
     return () => clearInterval(interval);
   }, [experiment.status, fetchPumpStatus]);
@@ -284,8 +299,8 @@ export default function RunPage() {
         if (backendState === "completed" && totalSteps > 0) {
           // 完成时显示完整步骤数
           currentStep = totalSteps;
-        } else if (backendState === "running" || backendState === "paused") {
-          // 运行中/暂停时，后端返回的是 0-indexed，显示时 +1 更直观
+        } else if (backendState === "running" || backendState === "paused" || backendState === "waiting_user_action") {
+          // 运行中/暂停/等待用户操作时，后端返回的是 0-indexed，显示时 +1 更直观
           currentStep = currentStep + 1;
         } else {
           // idle/loaded/error 状态显示 0
@@ -319,7 +334,7 @@ export default function RunPage() {
       
       // 追踪步骤切换，记录已完成步骤的实际耗时
       const curIdx = status.currentStepIndex ?? 0;  // 0-indexed
-      if (backendState === "running" || backendState === "paused") {
+      if (backendState === "running" || backendState === "paused" || backendState === "waiting_user_action") {
         if (prevStepIndexRef.current >= 0 && curIdx > prevStepIndexRef.current) {
           // 步骤前进了，记录上一步的实际耗时
           // lastStepSyncTimeRef 保存的是上一轮同步时的 stepElapsedS（即上一步最后时刻的耗时）
@@ -415,6 +430,24 @@ export default function RunPage() {
             }
           }).catch(() => {});
         }
+      }
+      
+      // 解析用户操作信息
+      if (backendState === "waiting_user_action" && status.userActionInfo) {
+        const info = status.userActionInfo;
+        setUserActionInfo({
+          actionType: info.actionType || info.action_type || "",
+          message: info.message || "",
+          pumpWarnings: (info.pumpWarnings || info.pump_warnings || []).map((w: any) => ({
+            pumpIndex: w.pumpIndex ?? w.pump_index ?? 0,
+            liquidName: w.liquidName ?? w.liquid_name ?? "",
+            remainingMl: w.remainingMl ?? w.remaining_ml ?? 0,
+            requiredMl: w.requiredMl ?? w.required_ml ?? 0,
+            isWashPump: w.isWashPump ?? w.is_wash_pump ?? false,
+          })),
+        });
+      } else if (backendState !== "waiting_user_action") {
+        setUserActionInfo(null);
       }
       
       // 后端返回的实验错误输出到日志
@@ -693,11 +726,30 @@ export default function RunPage() {
     addLog("程序已卸载");
   };
 
+  const handleConfirmUserAction = async () => {
+    setConfirmingAction(true);
+    addLog("确认用户操作，恢复实验...");
+    try {
+      const result = await experimentApi("confirm-user-action");
+      if (result.error) {
+        addLog(`确认失败: ${result.error}`);
+      } else {
+        addLog("✅ 操作已确认，实验恢复执行");
+        setUserActionInfo(null);
+      }
+    } catch (e: any) {
+      addLog(`确认失败: ${e.message}`);
+    } finally {
+      setConfirmingAction(false);
+    }
+  };
+
   const canStart = experiment.status === "loaded";
   const canPause = experiment.status === "running";
   const isPausing = experiment.status === "pausing";
   const canResume = experiment.status === "paused";
-  const canStop = experiment.status === "running" || experiment.status === "pausing" || experiment.status === "paused" || experiment.status === "loaded";
+  const isWaitingUserAction = experiment.status === "waiting_user_action";
+  const canStop = experiment.status === "running" || experiment.status === "pausing" || experiment.status === "paused" || experiment.status === "loaded" || experiment.status === "waiting_user_action";
 
   // 程序列表列定义
   const programColumns: ColumnDef<ProgramInfo>[] = useMemo(() => [
@@ -793,7 +845,7 @@ export default function RunPage() {
   }, [experiment.status, loadedProgram, programs]);
 
   // 运行态判断
-  const isRunning = experiment.status === "running" || experiment.status === "pausing" || experiment.status === "paused";
+  const isRunning = experiment.status === "running" || experiment.status === "pausing" || experiment.status === "paused" || experiment.status === "waiting_user_action";
   const isActive = isRunning || experiment.status === "loaded" || experiment.status === "completed";
 
   // 日志组件（共用）
@@ -898,6 +950,48 @@ export default function RunPage() {
           
           {/* 左列: 程序流程 + 日志 */}
           <div className="flex flex-col min-h-0 gap-3">
+            {/* 用户操作中断提示卡片 */}
+            {isWaitingUserAction && userActionInfo && (
+              <Card className="flex-shrink-0 border-destructive bg-destructive/5">
+                <CardHeader className="py-3 px-4">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2 text-destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    需要用户操作
+                  </CardTitle>
+                  <CardDescription className="text-xs mt-1">
+                    {userActionInfo.message}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="px-4 pb-3 pt-0 space-y-2">
+                  {userActionInfo.pumpWarnings.length > 0 && (
+                    <div className="space-y-1">
+                      {userActionInfo.pumpWarnings.map((w, i) => (
+                        <div key={i} className="flex items-center justify-between text-xs bg-background/80 rounded px-2 py-1.5 border">
+                          <span className="font-medium">
+                            {w.isWashPump ? "清洗泵" : `泵 ${w.pumpIndex}`} · {w.liquidName}
+                          </span>
+                          <span className="text-destructive font-mono">
+                            {Math.round(w.remainingMl)}ml / 需 {Math.round(w.requiredMl)}ml
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <Button
+                    onClick={handleConfirmUserAction}
+                    disabled={confirmingAction}
+                    className="w-full"
+                    size="sm"
+                  >
+                    {confirmingAction ? (
+                      <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />确认中...</>
+                    ) : (
+                      <><CheckCircle className="h-3.5 w-3.5 mr-1.5" />已补充，继续实验</>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
             <Card className="flex flex-col min-h-0" style={{ flex: 2 }}>
               <CardHeader className="flex-shrink-0 py-2.5 px-3">
                 <div className="flex items-center justify-between">
@@ -928,7 +1022,7 @@ export default function RunPage() {
                     currentStep={
                       experiment.status === "completed"
                         ? (loadedProgram.steps.length + 1)
-                        : ["running", "pausing", "paused"].includes(experiment.status)
+                        : ["running", "pausing", "paused", "waiting_user_action"].includes(experiment.status)
                           ? experiment.currentStep
                           : undefined
                     }

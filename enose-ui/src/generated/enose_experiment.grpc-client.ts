@@ -89,6 +89,15 @@ export interface IExperimentServiceClient {
     getExperimentStatus(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: ExperimentStatusResponse) => void): grpc.ClientUnaryCall;
     getExperimentStatus(input: Empty, callback: (err: grpc.ServiceError | null, value?: ExperimentStatusResponse) => void): grpc.ClientUnaryCall;
     /**
+     * 确认用户操作（从 WAITING_USER_ACTION 恢复执行）
+     *
+     * @generated from protobuf rpc: ConfirmUserAction
+     */
+    confirmUserAction(input: Empty, metadata: grpc.Metadata, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: ExperimentStatusResponse) => void): grpc.ClientUnaryCall;
+    confirmUserAction(input: Empty, metadata: grpc.Metadata, callback: (err: grpc.ServiceError | null, value?: ExperimentStatusResponse) => void): grpc.ClientUnaryCall;
+    confirmUserAction(input: Empty, options: grpc.CallOptions, callback: (err: grpc.ServiceError | null, value?: ExperimentStatusResponse) => void): grpc.ClientUnaryCall;
+    confirmUserAction(input: Empty, callback: (err: grpc.ServiceError | null, value?: ExperimentStatusResponse) => void): grpc.ClientUnaryCall;
+    /**
      * 订阅实验事件流
      *
      * @generated from protobuf rpc: SubscribeExperimentEvents
@@ -173,12 +182,21 @@ export class ExperimentServiceClient extends grpc.Client implements IExperimentS
         return this.makeUnaryRequest<Empty, ExperimentStatusResponse>(`/${ExperimentService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): ExperimentStatusResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
     }
     /**
+     * 确认用户操作（从 WAITING_USER_ACTION 恢复执行）
+     *
+     * @generated from protobuf rpc: ConfirmUserAction
+     */
+    confirmUserAction(input: Empty, metadata: grpc.Metadata | grpc.CallOptions | ((err: grpc.ServiceError | null, value?: ExperimentStatusResponse) => void), options?: grpc.CallOptions | ((err: grpc.ServiceError | null, value?: ExperimentStatusResponse) => void), callback?: ((err: grpc.ServiceError | null, value?: ExperimentStatusResponse) => void)): grpc.ClientUnaryCall {
+        const method = ExperimentService.methods[7];
+        return this.makeUnaryRequest<Empty, ExperimentStatusResponse>(`/${ExperimentService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): ExperimentStatusResponse => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), (options as any), (callback as any));
+    }
+    /**
      * 订阅实验事件流
      *
      * @generated from protobuf rpc: SubscribeExperimentEvents
      */
     subscribeExperimentEvents(input: Empty, metadata?: grpc.Metadata | grpc.CallOptions, options?: grpc.CallOptions): grpc.ClientReadableStream<ExperimentEvent> {
-        const method = ExperimentService.methods[7];
+        const method = ExperimentService.methods[8];
         return this.makeServerStreamRequest<Empty, ExperimentEvent>(`/${ExperimentService.typeName}/${method.name}`, (value: Empty): Buffer => Buffer.from(method.I.toBinary(value, this._binaryOptions)), (value: Buffer): ExperimentEvent => method.O.fromBinary(value, this._binaryOptions), input, (metadata as any), options);
     }
 }

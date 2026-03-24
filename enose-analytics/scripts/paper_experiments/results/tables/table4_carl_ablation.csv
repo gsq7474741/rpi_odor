@@ -1,0 +1,4 @@
+variant,knn_combo_accuracy,linear_probe_r2,linear_probe_mae,knn_tea_accuracy
+CARL (full),48.6,0.146,0.171,82.8
+CARL (no SE),40.5,0.177,0.1635,82.8
+CARL (no augment),78.4,0.147,0.1695,87.5

@@ -563,6 +563,9 @@ service ExperimentService {
   // 获取实验状态
   rpc GetExperimentStatus(google.protobuf.Empty) returns (ExperimentStatusResponse);
   
+  // 确认用户操作（从 WAITING_USER_ACTION 恢复执行）
+  rpc ConfirmUserAction(google.protobuf.Empty) returns (ExperimentStatusResponse);
+
   // 订阅实验事件流
   rpc SubscribeExperimentEvents(google.protobuf.Empty) returns (stream ExperimentEvent);
 }
@@ -603,6 +606,7 @@ enum ExperimentState {
   EXP_ERROR = 7;          // 错误
   EXP_ABORTING = 8;       // 正在中止
   EXP_ABORTED = 9;        // 已中止
+  EXP_WAITING_USER_ACTION = 10;  // 等待用户操作（服务端触发的余量断点）
 }
 
 // 实验状态响应
@@ -659,6 +663,9 @@ message ExperimentStatusResponse {
   // 源文件名 (加载时传入的文件名，用于前端恢复匹配)
   string program_filename = 25;
   
+  // 用户操作提示（当 state=EXP_WAITING_USER_ACTION 时有效）
+  UserActionInfo user_action_info = 26;
+
   // 数据质量快照（实时）
   DataQualitySnapshot quality = 30;
 }
@@ -729,6 +736,27 @@ message DataQualityAlert {
   int32 count = 11;               // 出现次数
 }
 
+// 用户操作提示信息（服务端余量断点）
+message UserActionInfo {
+  // 操作类型: "insufficient_liquid", "insufficient_wash_liquid"
+  string action_type = 1;
+
+  // 提示消息（人类可读）
+  string message = 2;
+
+  // 需要补充的泵警告列表
+  repeated PumpVolumeWarning pump_warnings = 3;
+}
+
+// 泵余量警告
+message PumpVolumeWarning {
+  int32 pump_index = 1;
+  string liquid_name = 2;
+  double remaining_ml = 3;   // 当前余量
+  double required_ml = 4;    // 本步骤需要量
+  bool is_wash_pump = 5;     // 是否为清洗泵
+}
+
 // 实验事件
 message ExperimentEvent {
   // 时间戳
@@ -761,5 +789,7 @@ message ExperimentEvent {
     LOOP_ITERATION = 14;
     WEIGHT_READING = 20;
     SENSOR_READING = 21;
+    USER_ACTION_REQUIRED = 22;  // 需要用户操作（余量不足等）
+    USER_ACTION_CONFIRMED = 23; // 用户已确认操作
   }
 }

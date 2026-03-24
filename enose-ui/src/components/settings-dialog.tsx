@@ -37,6 +37,7 @@ import {
   GitBranch,
   Server,
   Cpu,
+  Bell,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useSettings } from "@/hooks/use-settings";
@@ -44,6 +45,7 @@ import { useSystemDefaults } from "@/hooks/use-system-defaults";
 import { useStatusStream } from "@/hooks/use-status-stream";
 import { useLatency } from "@/hooks/use-latency";
 import { toast } from "sonner";
+import { NotificationTab } from "@/components/push-notification-tab";
 
 // ============================================================
 // Shared Components
@@ -574,6 +576,7 @@ const navItems = [
   { key: "loadcell", label: "称重传感器", icon: Scale },
   { key: "defaults", label: "实验默认值", icon: FlaskConical },
   { key: "editor", label: "编辑器", icon: Workflow },
+  { key: "notification", label: "推送通知", icon: Bell },
   { key: "about", label: "关于", icon: Info },
 ] as const;
 
@@ -585,6 +588,7 @@ const panels: Record<NavKey, React.FC> = {
   loadcell: LoadCellTab,
   defaults: ExperimentDefaultsTab,
   editor: EditorTab,
+  notification: NotificationTab,
   about: AboutTab,
 };
 

@@ -203,7 +203,7 @@ export function PropertyPanel() {
       case NodeType.WASH:
         return <WashNodeFields {...externalDataProps} />;
       case NodeType.PARAM_SWEEP:
-        return <ParamSweepFields {...commonProps} nodes={nodes} />;
+        return <ParamSweepFields {...commonProps} nodeId={selectedNode.id} nodes={nodes} edges={edges} />;
       case NodeType.ACQUIRE:
         return <AcquireNodeFields {...commonProps} nodeId={selectedNode.id} nodes={nodes} edges={edges} />;
       case NodeType.WAIT_TIME:

@@ -1,0 +1,11 @@
+model,r2,mae,rmse
+DeepMLP (CARL+combo),0.654,0.1025,0.1451
+DeepMLP (fused+combo),0.589,0.1158,0.1581
+MLP+OH (CARL),0.237,0.1665,0.2155
+"SVR (per-combo, HC)",0.11,0.1939,0.2327
+"GBR (per-combo, HC)",0.002,0.1927,0.2463
+GBR+OH (HC),0.002,0.2065,0.2464
+1D-CNN (end-to-end),-0.279,0.2205,0.2789
+Ridge+OH (HC),-0.329,0.2245,0.2843
+MLP+OH (HC),-1.626,0.2395,0.3996
+"Ridge (per-combo, HC)",-4.185,0.2986,0.5615

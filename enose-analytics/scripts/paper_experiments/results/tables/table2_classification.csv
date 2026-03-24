@@ -1,0 +1,16 @@
+feature,classifier,accuracy
+CARL_embedding,k-NN,91.2
+CARL_embedding,SVM-RBF,90.0
+raw_timeseries,1D-CNN,60.9
+stats,LDA,55.6
+log_norm_stats,GBM,55.3
+norm_stats,LDA,55.0
+norm_stats,RF,55.0
+log_norm_stats,RF,54.7
+norm_stats,GBM,54.1
+log_norm_stats,LDA,53.4
+norm_stats,SVM-RBF,53.1
+stats,GBM,52.2
+stats,RF,51.6
+log_norm_stats,SVM-RBF,51.6
+stats,SVM-RBF,50.9
