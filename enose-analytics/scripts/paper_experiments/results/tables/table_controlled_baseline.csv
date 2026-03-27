@@ -1,0 +1,4 @@
+method,knn_combo_accuracy,linear_probe_r2,linear_probe_mae,knn_tea_accuracy
+CARL (Soft SupCon),48.6,0.146,0.171,82.8
+Composition-MSE,47.3,0.135,0.1646,89.1
+Composition-CE,86.5,-0.05,0.1959,87.5

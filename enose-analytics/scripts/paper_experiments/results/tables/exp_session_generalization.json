@@ -1,0 +1,188 @@
+{
+  "classification": [
+    {
+      "feature": "HC (norm_stats)",
+      "method": "k-NN",
+      "mean_accuracy": 44.4,
+      "std_accuracy": 11.8,
+      "n_folds": 10,
+      "folds": [
+        {
+          "test_run": 99,
+          "n_test": 45,
+          "accuracy": 42.2
+        },
+        {
+          "test_run": 101,
+          "n_test": 49,
+          "accuracy": 46.9
+        },
+        {
+          "test_run": 102,
+          "n_test": 50,
+          "accuracy": 52.0
+        },
+        {
+          "test_run": 103,
+          "n_test": 15,
+          "accuracy": 53.3
+        },
+        {
+          "test_run": 104,
+          "n_test": 15,
+          "accuracy": 60.0
+        },
+        {
+          "test_run": 105,
+          "n_test": 45,
+          "accuracy": 44.4
+        },
+        {
+          "test_run": 106,
+          "n_test": 14,
+          "accuracy": 14.3
+        },
+        {
+          "test_run": 108,
+          "n_test": 25,
+          "accuracy": 36.0
+        },
+        {
+          "test_run": 111,
+          "n_test": 42,
+          "accuracy": 45.2
+        },
+        {
+          "test_run": 112,
+          "n_test": 20,
+          "accuracy": 50.0
+        }
+      ]
+    },
+    {
+      "feature": "CARL embedding",
+      "method": "k-NN",
+      "mean_accuracy": 93.4,
+      "std_accuracy": 5.0,
+      "n_folds": 10,
+      "folds": [
+        {
+          "test_run": 99,
+          "n_test": 45,
+          "accuracy": 91.1
+        },
+        {
+          "test_run": 101,
+          "n_test": 49,
+          "accuracy": 87.8
+        },
+        {
+          "test_run": 102,
+          "n_test": 50,
+          "accuracy": 92.0
+        },
+        {
+          "test_run": 103,
+          "n_test": 15,
+          "accuracy": 100.0
+        },
+        {
+          "test_run": 104,
+          "n_test": 15,
+          "accuracy": 100.0
+        },
+        {
+          "test_run": 105,
+          "n_test": 45,
+          "accuracy": 91.1
+        },
+        {
+          "test_run": 106,
+          "n_test": 14,
+          "accuracy": 85.7
+        },
+        {
+          "test_run": 108,
+          "n_test": 25,
+          "accuracy": 96.0
+        },
+        {
+          "test_run": 111,
+          "n_test": 42,
+          "accuracy": 90.5
+        },
+        {
+          "test_run": 112,
+          "n_test": 20,
+          "accuracy": 100.0
+        }
+      ]
+    }
+  ],
+  "regression": [
+    {
+      "feature": "HC+combo (Ridge)",
+      "mean_r2": -0.923,
+      "mean_mae": 0.2478,
+      "n_folds": 4,
+      "folds": [
+        {
+          "test_run": 105,
+          "n_test": 60,
+          "r2": -2.086,
+          "mae": 0.2945
+        },
+        {
+          "test_run": 108,
+          "n_test": 90,
+          "r2": 0.031,
+          "mae": 0.2145
+        },
+        {
+          "test_run": 111,
+          "n_test": 180,
+          "r2": -1.158,
+          "mae": 0.2598
+        },
+        {
+          "test_run": 112,
+          "n_test": 40,
+          "r2": -0.48,
+          "mae": 0.2226
+        }
+      ]
+    },
+    {
+      "feature": "CARL+combo (Ridge)",
+      "mean_r2": -0.34,
+      "mean_mae": 0.2052,
+      "n_folds": 4,
+      "folds": [
+        {
+          "test_run": 105,
+          "n_test": 60,
+          "r2": -0.864,
+          "mae": 0.2141
+        },
+        {
+          "test_run": 108,
+          "n_test": 90,
+          "r2": -0.492,
+          "mae": 0.2387
+        },
+        {
+          "test_run": 111,
+          "n_test": 180,
+          "r2": 0.069,
+          "mae": 0.1985
+        },
+        {
+          "test_run": 112,
+          "n_test": 40,
+          "r2": -0.073,
+          "mae": 0.1694
+        }
+      ]
+    }
+  ]
+}

@@ -534,10 +534,10 @@ def run(ds: PaperDataset, nldi_results: dict | None = None) -> dict:
 
     init_style()
 
-    fig, ax = plt.subplots(figsize=(5, 3.5))
+    fig, ax = plt.subplots(figsize=(6, 4.5))
     epochs = history["epoch"]
-    ax.plot(epochs, history["train_loss"], "o-", markersize=3, label="Train", color="#0072B2")
-    ax.plot(epochs, history["test_loss"], "s--", markersize=3, label="Test", color="#D55E00")
+    ax.plot(epochs, history["train_loss"], "o-", markersize=5, label="Train", color="#0072B2")
+    ax.plot(epochs, history["test_loss"], "s--", markersize=5, label="Test", color="#D55E00")
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Soft SupCon Loss")
     ax.set_title("CARL Training Convergence")
@@ -684,8 +684,8 @@ def _compute_nldi_correlation(
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
         init_style()
-        fig, ax = plt.subplots(figsize=(4, 3.5))
-        ax.scatter(combo_nldi, combo_emb_dev, s=40, c="#0072B2", edgecolors="white", linewidth=0.5)
+        fig, ax = plt.subplots(figsize=(5, 4.5))
+        ax.scatter(combo_nldi, combo_emb_dev, s=70, c="#0072B2", edgecolors="white", linewidth=0.8)
         ax.set_xlabel("NLDI")
         ax.set_ylabel("Embedding deviation")
         ax.set_title(f"Pearson r={r_pearson:.3f}")

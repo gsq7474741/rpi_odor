@@ -40,6 +40,7 @@ from .viz import (
     init_style, save_fig,
     plot_pca_scatter, plot_radar, plot_confusion_matrix,
 )
+from .baselines import run_all_baselines
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -250,6 +251,7 @@ def run(ds: PaperDataset, carl_embeddings: np.ndarray | None = None) -> dict:
     # ── 4. 多分类器对比 (5-fold CV) ──
     print(f"  分类器对比...")
     classifiers = {
+        "k-NN": KNeighborsClassifier(n_neighbors=5),
         "LDA": LinearDiscriminantAnalysis(),
         "SVM-RBF": SVC(kernel="rbf", C=10.0, gamma="scale", random_state=SEED),
         "RF": RandomForestClassifier(n_estimators=100, random_state=SEED, n_jobs=-1),
@@ -289,7 +291,12 @@ def run(ds: PaperDataset, carl_embeddings: np.ndarray | None = None) -> dict:
     })
     print(f"    {'raw_timeseries':18s} + {'1D-CNN':8s}: {cnn_acc:.1%}")
 
-    # ── 4c. CARL embedding + k-NN / SVM (如果嵌入可用) ──
+    # ── 4c. 自监督/无监督基线 (TS2Vec, AE, Vanilla Contrastive) ──
+    print(f"  自监督基线 (在全部数据上训练, 纯样上评估)...")
+    baseline_results = run_all_baselines(ds.X_value, pure_idx, y, epochs=200)
+    clf_results.extend(baseline_results)
+
+    # ── 4d. CARL embedding + k-NN / SVM (如果嵌入可用) ──
     if carl_embeddings is not None:
         print(f"  CARL 嵌入分类器...")
         X_carl_pure = carl_embeddings[pure_idx]

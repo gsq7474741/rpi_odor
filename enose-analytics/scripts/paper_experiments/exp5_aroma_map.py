@@ -18,7 +18,7 @@ from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.metrics import silhouette_score, davies_bouldin_score
 
 from .config import (
-    SEED, N_SENSORS,
+    SEED, N_SENSORS, FONT_SIZE, SCALE,
     TEA_ORDER, TEA_IDS, TEA_NAME_EN,
     BINARY_COMBO_LABELS,
     TABLES_DIR, FIGURES_DIR, ensure_dirs,
@@ -131,7 +131,7 @@ def _plot_aroma_map(
         ax.scatter(
             X_2d[mask, 0], X_2d[mask, 1],
             c=get_tea_color(tid), marker=get_tea_marker(tid),
-            s=50, alpha=0.8, edgecolors="white", linewidth=0.5,
+            s=70 * SCALE, alpha=0.8, edgecolors="white", linewidth=0.5 * SCALE,
             label=f"{tid} {en_name}",
             zorder=4,
         )
@@ -164,7 +164,7 @@ def _plot_aroma_map(
                       for r in r_sorted]
             ax.scatter(
                 pts_sorted[:, 0], pts_sorted[:, 1],
-                c=colors, marker="o", s=18, edgecolors="none",
+                c=colors, marker="o", s=28, edgecolors="none",
                 zorder=2,
             )
 
@@ -179,7 +179,7 @@ def _plot_aroma_map(
             )
 
         # 添加 Blends 图例项
-        ax.scatter([], [], c="#888888", marker="o", s=18, label="Blends (gradient)")
+        ax.scatter([], [], c="#888888", marker="o", s=28 * SCALE, label="Blends (gradient)")
     elif mix_mask.any():
         ax.scatter(
             X_2d[mix_mask, 0], X_2d[mix_mask, 1],
@@ -187,10 +187,12 @@ def _plot_aroma_map(
             label="Blends", zorder=1,
         )
 
-    ax.set_xlabel("Dim 1")
-    ax.set_ylabel("Dim 2")
-    ax.set_title(title)
-    ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=8)
+    fs = FONT_SIZE + 2  # 并排多图需要更大字号
+    ax.set_xlabel("Dim 1", fontsize=fs)
+    ax.set_ylabel("Dim 2", fontsize=fs)
+    ax.set_title(title, fontsize=fs)
+    ax.tick_params(labelsize=fs - 2)
+    ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=fs - 2)
     fig.tight_layout()
     return fig
 

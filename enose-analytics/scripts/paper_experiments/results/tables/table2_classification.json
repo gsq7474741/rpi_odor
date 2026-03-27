@@ -66,17 +66,22 @@
     {
       "feature": "CARL_embedding",
       "classifier": "k-NN",
-      "accuracy": 91.2
+      "accuracy": 92.2
     },
     {
       "feature": "CARL_embedding",
       "classifier": "SVM-RBF",
-      "accuracy": 90.0
+      "accuracy": 90.6
     },
     {
       "feature": "raw_timeseries",
       "classifier": "1D-CNN",
-      "accuracy": 60.9
+      "accuracy": 62.5
+    },
+    {
+      "feature": "AE_embedding",
+      "classifier": "k-NN",
+      "accuracy": 57.5
     },
     {
       "feature": "stats",
@@ -124,6 +129,11 @@
       "accuracy": 52.2
     },
     {
+      "feature": "VanillaContrastive_embedding",
+      "classifier": "k-NN",
+      "accuracy": 52.2
+    },
+    {
       "feature": "stats",
       "classifier": "RF",
       "accuracy": 51.6
@@ -137,9 +147,29 @@
       "feature": "stats",
       "classifier": "SVM-RBF",
       "accuracy": 50.9
+    },
+    {
+      "feature": "log_norm_stats",
+      "classifier": "k-NN",
+      "accuracy": 48.1
+    },
+    {
+      "feature": "TS2Vec_embedding",
+      "classifier": "k-NN",
+      "accuracy": 47.8
+    },
+    {
+      "feature": "norm_stats",
+      "classifier": "k-NN",
+      "accuracy": 47.5
+    },
+    {
+      "feature": "stats",
+      "classifier": "k-NN",
+      "accuracy": 46.2
     }
   ],
-  "best_accuracy": 91.2,
+  "best_accuracy": 92.2,
   "best_model": "CARL_embedding + k-NN",
   "confusion_matrix": [
     [

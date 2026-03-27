@@ -15,29 +15,29 @@
     ],
     "train_loss": [
       4.0543,
-      3.941,
-      3.8902,
-      3.8242,
-      3.7515,
-      3.7183,
-      3.652,
-      3.6396,
-      3.5941,
-      3.5956,
-      3.5959
+      3.9393,
+      3.9002,
+      3.83,
+      3.7631,
+      3.725,
+      3.6593,
+      3.635,
+      3.6077,
+      3.5969,
+      3.5954
     ],
     "test_loss": [
       3.4812,
-      3.3083,
-      3.3383,
-      3.3435,
-      3.351,
-      3.3517,
-      3.3929,
-      3.3977,
-      3.399,
-      3.424,
-      3.4164
+      3.323,
+      3.3183,
+      3.3802,
+      3.3628,
+      3.3595,
+      3.3579,
+      3.3749,
+      3.3729,
+      3.3795,
+      3.3778
     ]
   },
   "embedding_shape": [
@@ -46,38 +46,38 @@
   ],
   "downstream": {
     "knn_combo_accuracy": 48.6,
-    "linear_probe_r2": 0.146,
-    "linear_probe_mae": 0.171,
+    "linear_probe_r2": 0.186,
+    "linear_probe_mae": 0.1637,
     "knn_tea_accuracy": 82.8
   },
   "ablation": [
     {
       "variant": "CARL (full)",
       "knn_combo_accuracy": 48.6,
-      "linear_probe_r2": 0.146,
-      "linear_probe_mae": 0.171,
+      "linear_probe_r2": 0.186,
+      "linear_probe_mae": 0.1637,
       "knn_tea_accuracy": 82.8
     },
     {
       "variant": "CARL (no SE)",
-      "knn_combo_accuracy": 40.5,
-      "linear_probe_r2": 0.177,
-      "linear_probe_mae": 0.1635,
+      "knn_combo_accuracy": 44.6,
+      "linear_probe_r2": 0.199,
+      "linear_probe_mae": 0.1574,
       "knn_tea_accuracy": 82.8
     },
     {
       "variant": "CARL (no augment)",
       "knn_combo_accuracy": 78.4,
-      "linear_probe_r2": 0.147,
-      "linear_probe_mae": 0.1695,
-      "knn_tea_accuracy": 87.5
+      "linear_probe_r2": 0.151,
+      "linear_probe_mae": 0.169,
+      "knn_tea_accuracy": 85.9
     }
   ],
   "nldi_emb_correlation": {
-    "pearson_r": 0.704,
-    "pearson_p": 0.023,
-    "spearman_r": 0.552,
-    "spearman_p": 0.0984,
+    "pearson_r": 0.726,
+    "pearson_p": 0.0174,
+    "spearman_r": 0.406,
+    "spearman_p": 0.2443,
     "n_combos": 10
   }
 }

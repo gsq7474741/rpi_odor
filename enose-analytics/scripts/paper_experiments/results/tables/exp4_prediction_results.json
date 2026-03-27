@@ -2,21 +2,21 @@
   "model_comparison": [
     {
       "model": "DeepMLP (CARL+combo)",
-      "r2": 0.654,
-      "mae": 0.1025,
-      "rmse": 0.1451
+      "r2": 0.698,
+      "mae": 0.0976,
+      "rmse": 0.1356
     },
     {
       "model": "DeepMLP (fused+combo)",
-      "r2": 0.589,
-      "mae": 0.1158,
-      "rmse": 0.1581
+      "r2": 0.615,
+      "mae": 0.116,
+      "rmse": 0.1529
     },
     {
       "model": "MLP+OH (CARL)",
-      "r2": 0.237,
-      "mae": 0.1665,
-      "rmse": 0.2155
+      "r2": 0.231,
+      "mae": 0.1687,
+      "rmse": 0.2162
     },
     {
       "model": "SVR (per-combo, HC)",
@@ -38,9 +38,9 @@
     },
     {
       "model": "1D-CNN (end-to-end)",
-      "r2": -0.279,
-      "mae": 0.2205,
-      "rmse": 0.2789
+      "r2": -0.311,
+      "mae": 0.2236,
+      "rmse": 0.2823
     },
     {
       "model": "Ridge+OH (HC)",
@@ -62,5 +62,5 @@
     }
   ],
   "best_model": "DeepMLP (CARL+combo)",
-  "best_r2": 0.654
+  "best_r2": 0.698
 }

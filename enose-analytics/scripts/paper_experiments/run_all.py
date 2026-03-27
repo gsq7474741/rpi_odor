@@ -34,7 +34,7 @@ def main():
     if args.exp:
         exp_list = sorted(set(args.exp))
     else:
-        exp_list = [1, 2, 3, 4, 5]
+        exp_list = [1, 2, 3, 4, 5, 6, 7]
 
     print("=" * 70)
     print("  茶叶拼配电子鼻论文 — 实验管线")
@@ -95,6 +95,25 @@ def main():
     if 5 in exp_list:
         from . import exp5_aroma_map
         all_results["exp5"] = exp5_aroma_map.run(ds, carl_embeddings=carl_embeddings)
+
+    # ── 实验 6: NLDI 稳健统计检验 (bootstrap CI + 置换检验) ──
+    if 6 in exp_list:
+        from . import exp2_nldi_robust_stats
+        all_results["exp6_nldi_robust"] = exp2_nldi_robust_stats.run_robust_stats(ds)
+
+    # ── 实验 7: Session-based 泛化评估 ──
+    if 7 in exp_list:
+        from . import exp_session_generalization
+        all_results["exp7_session"] = exp_session_generalization.run(
+            ds, carl_embeddings=carl_embeddings
+        )
+
+    # ── 实验 8: 受控基线 (损失函数对比) ──
+    if 8 in exp_list:
+        from . import exp_controlled_baseline
+        all_results["exp8_baseline"] = exp_controlled_baseline.run(
+            ds, carl_embeddings=carl_embeddings
+        )
 
     # ── 汇总 ──
     elapsed = time.time() - t_start

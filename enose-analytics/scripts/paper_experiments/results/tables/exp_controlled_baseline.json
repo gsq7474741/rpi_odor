@@ -1,0 +1,25 @@
+{
+  "comparison": [
+    {
+      "method": "CARL (Soft SupCon)",
+      "knn_combo_accuracy": 48.6,
+      "linear_probe_r2": 0.146,
+      "linear_probe_mae": 0.171,
+      "knn_tea_accuracy": 82.8
+    },
+    {
+      "method": "Composition-MSE",
+      "knn_combo_accuracy": 47.3,
+      "linear_probe_r2": 0.135,
+      "linear_probe_mae": 0.1646,
+      "knn_tea_accuracy": 89.1
+    },
+    {
+      "method": "Composition-CE",
+      "knn_combo_accuracy": 86.5,
+      "linear_probe_r2": -0.05,
+      "linear_probe_mae": 0.1959,
+      "knn_tea_accuracy": 87.5
+    }
+  ]
+}

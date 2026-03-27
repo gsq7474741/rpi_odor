@@ -259,9 +259,9 @@ def run(ds: PaperDataset) -> dict:
         results["nldi_max_combo"] = valid_combos[int(heatmap_data.mean(axis=1).argmax())]
         results["nldi_min_combo"] = valid_combos[int(heatmap_data.mean(axis=1).argmin())]
 
-    # ── 4. 响应-比例曲线 (选 3-4 组代表性) ──
+    # ── 4. 响应-比例曲线 (全部组合) ──
     print(f"  生成响应-比例曲线...")
-    for clabel in valid_combos[:4]:  # 前 4 组
+    for clabel in valid_combos:  # 所有有效组合
         res = nldi_results[clabel]
         if not res.get("ratios"):
             continue

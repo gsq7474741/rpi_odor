@@ -1,0 +1,5 @@
+task,feature,metric,n_folds
+Pure tea classification,HC (norm_stats),44.4 ± 11.8%,10
+Pure tea classification,CARL embedding,93.4 ± 5.0%,10
+Ratio prediction,HC+combo (Ridge),"R²=-0.923, MAE=0.2478",4
+Ratio prediction,CARL+combo (Ridge),"R²=-0.340, MAE=0.2052",4

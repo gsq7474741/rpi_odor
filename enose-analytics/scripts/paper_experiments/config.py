@@ -122,8 +122,20 @@ RATIO_STEPS = [round(r / 10, 1) for r in range(11)]  # [0.0, 0.1, ..., 1.0]
 
 FIGURE_DPI = 300
 FIGURE_FORMAT = "pdf"       # 论文用 pdf, 预览用 png
-FONT_SIZE = 10
-FONT_FAMILY = "serif"
+
+# ---- Nature / Science 风格图表参数 ----
+# Nature 标准: 单栏 89mm, 双栏 183mm; 字号 7-8pt Helvetica
+# 这里设置的是"PDF 内部字号"(pt), 图片宽度用 inch 定义,
+# 保证 \includegraphics 缩放后字体仍清晰。
+FONT_SIZE = 8               # Nature 标准 7-8pt
+FONT_FAMILY = "sans-serif"  # Helvetica / Arial
+
+# 图片宽度 (英寸) — 对应 LaTeX 中的 \textwidth 缩放
+FIG_WIDTH_SINGLE = 3.5      # 单栏 (~89mm)
+FIG_WIDTH_1_5 = 5.5         # 1.5栏 (~140mm)
+FIG_WIDTH_DOUBLE = 7.2      # 双栏 (~183mm)
+
+SCALE = 1.0                 # 不再额外缩放, 因为图片尺寸已按实际印刷尺寸设计
 
 # 每种茶的颜色 (适合色觉障碍的配色)
 TEA_COLORS: dict[str, str] = {

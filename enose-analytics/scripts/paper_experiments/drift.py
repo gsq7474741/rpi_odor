@@ -24,7 +24,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from .config import (
-    SEED, FIGURES_DIR, TABLES_DIR, ensure_dirs,
+    SEED, FONT_SIZE, FIGURES_DIR, TABLES_DIR, ensure_dirs,
     TEA_ORDER, TEA_IDS, TEA_NAME_EN, TEA_COLORS, TEA_MARKERS,
 )
 from .viz import init_style, save_fig
@@ -267,22 +267,22 @@ def plot_drift_diagnosis(
     for rid in unique_runs:
         mask = run_ids_arr == rid
         ax.scatter(pca_before[mask, 0], pca_before[mask, 1],
-                   c=run_color_map[rid], s=12, alpha=0.6, label=f"Run {rid}")
+                   c=run_color_map[rid], s=20, alpha=0.6, label=f"Run {rid}")
     ax.set_title("(a) Before correction (by run)")
     ax.set_xlabel("PC1")
     ax.set_ylabel("PC2")
-    ax.legend(fontsize=7, ncol=2)
+    ax.legend(fontsize=FONT_SIZE - 4, ncol=2)
 
     # ── (b) 校正后 by run ──
     ax = axes[0, 1]
     for rid in unique_runs:
         mask = run_ids_arr == rid
         ax.scatter(pca_after[mask, 0], pca_after[mask, 1],
-                   c=run_color_map[rid], s=12, alpha=0.6, label=f"Run {rid}")
+                   c=run_color_map[rid], s=20, alpha=0.6, label=f"Run {rid}")
     ax.set_title("(b) After correction (by run)")
     ax.set_xlabel("PC1")
     ax.set_ylabel("PC2")
-    ax.legend(fontsize=7, ncol=2)
+    ax.legend(fontsize=FONT_SIZE - 4, ncol=2)
 
     # ── (c) 校正后 by tea ──
     ax = axes[1, 0]
@@ -295,8 +295,8 @@ def plot_drift_diagnosis(
             raw_name = TEA_ORDER[int(tid[1]) - 1]
             en_name = TEA_NAME_EN.get(raw_name, tid)
             ax.scatter(pca_after[mask, 0], pca_after[mask, 1],
-                       c=color, marker=marker, s=20, alpha=0.7,
-                       label=f"{tid} {en_name}", edgecolors="white", linewidth=0.3)
+                       c=color, marker=marker, s=32, alpha=0.7,
+                       label=f"{tid} {en_name}", edgecolors="white", linewidth=0.5)
     # 混合样用小灰点
     mix_mask_arr = np.array(["-" in t for t in tea_ids_arr])
     if mix_mask_arr.any():
@@ -305,7 +305,7 @@ def plot_drift_diagnosis(
     ax.set_title("(c) After correction (by tea type)")
     ax.set_xlabel("PC1")
     ax.set_ylabel("PC2")
-    ax.legend(fontsize=7, ncol=2)
+    ax.legend(fontsize=FONT_SIZE - 4, ncol=2)
 
     # ── (d) 基线对比箱线图 (归一化到全局中位数) ──
     ax = axes[1, 1]
@@ -334,12 +334,12 @@ def plot_drift_diagnosis(
     bp2 = ax.boxplot(baselines_after, positions=positions + width/2, widths=width,
                       patch_artist=True, boxprops=dict(facecolor="#B3D9FF", alpha=0.7))
     ax.set_xticks(positions)
-    ax.set_xticklabels(run_labels, fontsize=7)
+    ax.set_xticklabels(run_labels, fontsize=FONT_SIZE - 4)
     ax.set_title("(d) Baseline distribution before/after")
     ax.set_ylabel("Mean baseline")
-    ax.legend([bp1["boxes"][0], bp2["boxes"][0]], ["Before", "After"], fontsize=8)
+    ax.legend([bp1["boxes"][0], bp2["boxes"][0]], ["Before", "After"], fontsize=FONT_SIZE - 2)
 
-    fig.suptitle(f"Drift Correction: {method_name}", fontsize=13)
+    fig.suptitle(f"Drift Correction: {method_name}", fontsize=FONT_SIZE + 2)
     fig.tight_layout()
     save_fig(fig, f"drift_correction_{method_name}", subdir=subdir)
 

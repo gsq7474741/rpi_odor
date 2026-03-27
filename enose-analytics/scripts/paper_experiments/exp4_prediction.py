@@ -503,11 +503,11 @@ def run(ds: PaperDataset, carl_embeddings: np.ndarray | None = None) -> dict:
     best_res = all_results[0]
     if "y_true" in best_res:
         init_style()
-        fig, ax = plt.subplots(figsize=(4.5, 4.5))
+        fig, ax = plt.subplots(figsize=(5.5, 5.5))
         yt, yp = best_res["y_true"], best_res["y_pred"]
-        ax.scatter(yt, yp, s=18, alpha=0.6, c="#0072B2", edgecolors="white", linewidth=0.3)
+        ax.scatter(yt, yp, s=30, alpha=0.6, c="#0072B2", edgecolors="white", linewidth=0.5)
         lims = [0, 1]
-        ax.plot(lims, lims, "k--", alpha=0.5, linewidth=1)
+        ax.plot(lims, lims, "k--", alpha=0.5, linewidth=1.6)
         ax.set_xlabel("True ratio")
         ax.set_ylabel("Predicted ratio")
         ax.set_title(f"{best_res['model']}\nR²={best_res['r2']:.3f}, MAE={best_res['mae']:.4f}")
