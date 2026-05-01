@@ -1,0 +1,6 @@
+# 预处理后的数据缓存 (pickle / numpy / PyTorch)
+# 这些文件较大 (~3GB), 不应纳入版本控制.
+# 首次运行时如缓存不存在, 需要 truncation_study + DB 连接从头构建.
+*.pkl
+*.npy
+*.pt

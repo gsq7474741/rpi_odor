@@ -1,0 +1,282 @@
+{
+  "n_pure": 320,
+  "pca_var_pc1": 47.2,
+  "pca_var_pc2": 10.8,
+  "hc_metrics": {
+    "LDA": {
+      "acc": "94.1¡À1.2",
+      "prec": "94.2¡À1.1",
+      "rec": "94.1¡À1.2",
+      "f1": "94.1¡À1.2",
+      "acc_mean": 94.08000000000001
+    },
+    "RF": {
+      "acc": "91.9¡À6.1",
+      "prec": "93.0¡À5.3",
+      "rec": "91.9¡À6.2",
+      "f1": "91.9¡À6.1",
+      "acc_mean": 91.86
+    },
+    "SVM-RBF": {
+      "acc": "90.3¡À6.0",
+      "prec": "91.7¡À4.3",
+      "rec": "90.2¡À6.1",
+      "f1": "90.3¡À5.9",
+      "acc_mean": 90.32000000000001
+    },
+    "k-NN": {
+      "acc": "79.1¡À6.2",
+      "prec": "80.9¡À5.7",
+      "rec": "79.1¡À6.4",
+      "f1": "79.0¡À6.2",
+      "acc_mean": 79.06
+    }
+  },
+  "ss_full": [
+    {
+      "feature": "TS2Vec_embedding",
+      "k-NN": {
+        "acc": "76.5¡À5.5",
+        "prec": "80.2¡À2.8",
+        "rec": "76.6¡À5.5",
+        "f1": "76.5¡À5.8",
+        "acc_mean": 76.53999999999999
+      },
+      "SVM-RBF": {
+        "acc": "82.2¡À5.3",
+        "prec": "83.4¡À5.0",
+        "rec": "82.2¡À5.5",
+        "f1": "82.1¡À5.9",
+        "acc_mean": 82.17999999999999
+      }
+    },
+    {
+      "feature": "Autoencoder_embedding",
+      "k-NN": {
+        "acc": "83.1¡À9.0",
+        "prec": "83.9¡À9.1",
+        "rec": "83.0¡À9.1",
+        "f1": "82.9¡À9.5",
+        "acc_mean": 83.12
+      },
+      "SVM-RBF": {
+        "acc": "92.8¡À4.6",
+        "prec": "93.0¡À4.6",
+        "rec": "92.8¡À4.6",
+        "f1": "92.7¡À4.7",
+        "acc_mean": 92.8
+      }
+    },
+    {
+      "feature": "SimCLR_embedding",
+      "k-NN": {
+        "acc": "67.2¡À4.2",
+        "prec": "68.5¡À4.6",
+        "rec": "67.2¡À4.2",
+        "f1": "66.9¡À4.0",
+        "acc_mean": 67.22
+      },
+      "SVM-RBF": {
+        "acc": "72.8¡À8.5",
+        "prec": "74.6¡À7.0",
+        "rec": "72.8¡À8.4",
+        "f1": "72.8¡À8.3",
+        "acc_mean": 72.82000000000001
+      }
+    }
+  ],
+  "sup_full": [
+    {
+      "feature": "TS2Vec+SoftSupCon",
+      "k-NN": {
+        "acc": "94.1¡À3.6",
+        "prec": "94.5¡À3.5",
+        "rec": "94.0¡À3.7",
+        "f1": "94.0¡À3.7",
+        "acc_mean": 94.06
+      },
+      "SVM-RBF": {
+        "acc": "93.7¡À3.7",
+        "prec": "94.2¡À3.5",
+        "rec": "93.7¡À3.8",
+        "f1": "93.7¡À3.7",
+        "acc_mean": 93.74000000000001
+      }
+    },
+    {
+      "feature": "AE+SoftSupCon",
+      "k-NN": {
+        "acc": "96.3¡À1.6",
+        "prec": "96.6¡À1.3",
+        "rec": "96.2¡À1.7",
+        "f1": "96.2¡À1.6",
+        "acc_mean": 96.25999999999999
+      },
+      "SVM-RBF": {
+        "acc": "96.6¡À1.2",
+        "prec": "96.8¡À1.1",
+        "rec": "96.5¡À1.3",
+        "f1": "96.5¡À1.2",
+        "acc_mean": 96.55999999999999
+      }
+    },
+    {
+      "feature": "SimCLR+SoftSupCon",
+      "k-NN": {
+        "acc": "96.6¡À1.2",
+        "prec": "96.9¡À1.0",
+        "rec": "96.5¡À1.3",
+        "f1": "96.5¡À1.2",
+        "acc_mean": 96.55999999999999
+      },
+      "SVM-RBF": {
+        "acc": "96.6¡À1.2",
+        "prec": "96.9¡À1.0",
+        "rec": "96.5¡À1.3",
+        "f1": "96.5¡À1.2",
+        "acc_mean": 96.55999999999999
+      }
+    }
+  ],
+  "carl_ft_metrics": {
+    "acc": "97.5¡À2.9",
+    "prec": "97.7¡À2.6",
+    "rec": "97.5¡À2.9",
+    "f1": "97.5¡À2.9",
+    "acc_mean": 97.49999999999999
+  },
+  "table2": [
+    {
+      "category": "Handcrafted",
+      "representation": "HC + LDA",
+      "params": "¡ª",
+      "acc": "94.1¡À1.2",
+      "prec": "94.2¡À1.1",
+      "rec": "94.1¡À1.2",
+      "f1": "94.1¡À1.2",
+      "acc_mean": 94.08000000000001
+    },
+    {
+      "category": "Handcrafted",
+      "representation": "HC + RF",
+      "params": "¡ª",
+      "acc": "91.9¡À6.1",
+      "prec": "93.0¡À5.3",
+      "rec": "91.9¡À6.2",
+      "f1": "91.9¡À6.1",
+      "acc_mean": 91.86
+    },
+    {
+      "category": "Handcrafted",
+      "representation": "HC + SVM-RBF",
+      "params": "¡ª",
+      "acc": "90.3¡À6.0",
+      "prec": "91.7¡À4.3",
+      "rec": "90.2¡À6.1",
+      "f1": "90.3¡À5.9",
+      "acc_mean": 90.32000000000001
+    },
+    {
+      "category": "Handcrafted",
+      "representation": "HC + k-NN",
+      "params": "¡ª",
+      "acc": "79.1¡À6.2",
+      "prec": "80.9¡À5.7",
+      "rec": "79.1¡À6.4",
+      "f1": "79.0¡À6.2",
+      "acc_mean": 79.06
+    },
+    {
+      "category": "End-to-end",
+      "representation": "1D-CNN",
+      "params": "45.9K",
+      "acc": "87.8¡À2.3",
+      "prec": "88.5¡À2.5",
+      "rec": "87.7¡À2.3",
+      "f1": "87.7¡À2.4",
+      "acc_mean": 87.82000000000001
+    },
+    {
+      "category": "Self-supervised",
+      "representation": "TS2Vec + SVM-RBF",
+      "params": "58.8K",
+      "acc": "82.2¡À5.3",
+      "prec": "83.4¡À5.0",
+      "rec": "82.2¡À5.5",
+      "f1": "82.1¡À5.9",
+      "acc_mean": 82.17999999999999
+    },
+    {
+      "category": "Self-supervised",
+      "representation": "Autoencoder + SVM-RBF",
+      "params": "53.8K",
+      "acc": "92.8¡À4.6",
+      "prec": "93.0¡À4.6",
+      "rec": "92.8¡À4.6",
+      "f1": "92.7¡À4.7",
+      "acc_mean": 92.8
+    },
+    {
+      "category": "Self-supervised",
+      "representation": "SimCLR + SVM-RBF",
+      "params": "70.3K",
+      "acc": "72.8¡À8.5",
+      "prec": "74.6¡À7.0",
+      "rec": "72.8¡À8.4",
+      "f1": "72.8¡À8.3",
+      "acc_mean": 72.82000000000001
+    },
+    {
+      "category": "Comp-supervised",
+      "representation": "TS2Vec+SoftSupCon + SVM-RBF",
+      "params": "58.8K",
+      "acc": "93.7¡À3.7",
+      "prec": "94.2¡À3.5",
+      "rec": "93.7¡À3.8",
+      "f1": "93.7¡À3.7",
+      "acc_mean": 93.74000000000001
+    },
+    {
+      "category": "Comp-supervised",
+      "representation": "AE+SoftSupCon + SVM-RBF",
+      "params": "53.8K",
+      "acc": "96.6¡À1.2",
+      "prec": "96.8¡À1.1",
+      "rec": "96.5¡À1.3",
+      "f1": "96.5¡À1.2",
+      "acc_mean": 96.55999999999999
+    },
+    {
+      "category": "Comp-supervised",
+      "representation": "SimCLR+SoftSupCon + SVM-RBF",
+      "params": "70.3K",
+      "acc": "96.6¡À1.2",
+      "prec": "96.9¡À1.0",
+      "rec": "96.5¡À1.3",
+      "f1": "96.5¡À1.2",
+      "acc_mean": 96.55999999999999
+    },
+    {
+      "category": "CARL (ours)",
+      "representation": "CARL + SVM-RBF (frozen)",
+      "params": "78.5K",
+      "acc": "95.6¡À2.5",
+      "prec": "95.9¡À2.4",
+      "rec": "95.6¡À2.5",
+      "f1": "95.6¡À2.6",
+      "acc_mean": 95.62
+    },
+    {
+      "category": "CARL (ours)",
+      "representation": "CARL (fine-tuning)",
+      "params": "78.5K",
+      "acc": "97.5¡À2.9",
+      "prec": "97.7¡À2.6",
+      "rec": "97.5¡À2.9",
+      "f1": "97.5¡À2.9",
+      "acc_mean": 97.49999999999999
+    }
+  ],
+  "best_accuracy": 97.49999999999999,
+  "best_method": "CARL (fine-tuning)"
+}

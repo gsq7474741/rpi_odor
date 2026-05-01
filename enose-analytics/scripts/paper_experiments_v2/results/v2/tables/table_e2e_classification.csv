@@ -1,0 +1,4 @@
+backbone,accuracy
+CNN1D,68.8
+LSTM,66.4
+ResNet1D,66.4

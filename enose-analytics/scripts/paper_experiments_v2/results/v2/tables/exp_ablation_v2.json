@@ -1,0 +1,52 @@
+{
+  "table4": [
+    {
+      "variant": "CARL (full)",
+      "cls_ft": 97.8,
+      "cls_svm": 95.0,
+      "reg_r2": 0.696,
+      "reg_mae": 0.1023,
+      "reg_rmse": 0.1361
+    },
+    {
+      "variant": "w/o SE",
+      "cls_ft": 96.6,
+      "cls_svm": 96.6,
+      "reg_r2": 0.671,
+      "reg_mae": 0.1066,
+      "reg_rmse": 0.1415
+    },
+    {
+      "variant": "w/o Aug",
+      "cls_ft": 97.5,
+      "cls_svm": 93.1,
+      "reg_r2": 0.656,
+      "reg_mae": 0.1128,
+      "reg_rmse": 0.1447
+    },
+    {
+      "variant": "w/o SOAP",
+      "cls_ft": 96.9,
+      "cls_svm": 95.3,
+      "reg_r2": 0.663,
+      "reg_mae": 0.1095,
+      "reg_rmse": 0.1432
+    },
+    {
+      "variant": "w/o TTA",
+      "cls_ft": 97.5,
+      "cls_svm": 95.3,
+      "reg_r2": "！",
+      "reg_mae": "！",
+      "reg_rmse": "！"
+    },
+    {
+      "variant": "frozen probe (no FT)",
+      "cls_ft": 95.0,
+      "cls_svm": 95.0,
+      "reg_r2": "！",
+      "reg_mae": "！",
+      "reg_rmse": "！"
+    }
+  ]
+}

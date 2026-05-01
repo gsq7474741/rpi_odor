@@ -1,0 +1,3 @@
+backbone_name: ResNet1D
+lr: 0.001
+n_combos: 6

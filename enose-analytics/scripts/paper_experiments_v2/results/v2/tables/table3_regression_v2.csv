@@ -1,0 +1,13 @@
+category,representation,params,SVR_r2,SVR_mae,SVR_rmse,DeepMLP_r2,DeepMLP_mae,DeepMLP_rmse
+Handcrafted,HC+Ridge,—,0.17,0.1626,0.2246,—,—,—
+Handcrafted,HC,—,0.458,0.1449,0.1816,0.58,0.1217,0.1599
+End-to-end,1D-CNN,45.9K,—,—,—,-0.147,0.2088,0.2641
+End-to-end,LSTM-Attn,137.3K,—,—,—,0.287,0.1683,0.2083
+Self-supervised,TS2Vec,58.8K,0.292,0.1742,0.2075,0.338,0.1554,0.2006
+Self-supervised,Autoencoder,53.8K,0.414,0.1571,0.1888,0.525,0.1308,0.17
+Self-supervised,SimCLR,70.3K,0.015,0.2052,0.2448,-0.119,0.211,0.2609
+Comp-supervised,TS2Vec+SoftSupCon,58.8K,0.714,0.1023,0.1319,0.701,0.1029,0.1348
+Comp-supervised,AE+SoftSupCon,53.8K,0.685,0.1073,0.1385,0.683,0.1054,0.1389
+Comp-supervised,SimCLR+SoftSupCon,70.3K,0.681,0.1078,0.1393,0.668,0.1111,0.1422
+CARL (ours),CARL-GAP,78.5K,0.466,0.148,0.1802,—,—,—
+CARL (ours),CARL-Proj,78.5K,0.686,0.1036,0.1382,0.671,0.1069,0.1414

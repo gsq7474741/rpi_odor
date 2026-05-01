@@ -1,0 +1,138 @@
+{
+  "table3": [
+    {
+      "category": "Handcrafted",
+      "representation": "HC+Ridge",
+      "params": "！",
+      "SVR_r2": 0.17,
+      "SVR_mae": 0.1626,
+      "SVR_rmse": 0.2246,
+      "DeepMLP_r2": "！",
+      "DeepMLP_mae": "！",
+      "DeepMLP_rmse": "！"
+    },
+    {
+      "category": "Handcrafted",
+      "representation": "HC",
+      "params": "！",
+      "SVR_r2": 0.458,
+      "SVR_mae": 0.1449,
+      "SVR_rmse": 0.1816,
+      "DeepMLP_r2": 0.58,
+      "DeepMLP_mae": 0.1217,
+      "DeepMLP_rmse": 0.1599
+    },
+    {
+      "category": "End-to-end",
+      "representation": "1D-CNN",
+      "params": "45.9K",
+      "SVR_r2": "！",
+      "SVR_mae": "！",
+      "SVR_rmse": "！",
+      "DeepMLP_r2": -0.147,
+      "DeepMLP_mae": 0.2088,
+      "DeepMLP_rmse": 0.2641
+    },
+    {
+      "category": "End-to-end",
+      "representation": "LSTM-Attn",
+      "params": "137.3K",
+      "SVR_r2": "！",
+      "SVR_mae": "！",
+      "SVR_rmse": "！",
+      "DeepMLP_r2": 0.287,
+      "DeepMLP_mae": 0.1683,
+      "DeepMLP_rmse": 0.2083
+    },
+    {
+      "category": "Self-supervised",
+      "representation": "TS2Vec",
+      "params": "58.8K",
+      "SVR_r2": 0.292,
+      "SVR_mae": 0.1742,
+      "SVR_rmse": 0.2075,
+      "DeepMLP_r2": 0.338,
+      "DeepMLP_mae": 0.1554,
+      "DeepMLP_rmse": 0.2006
+    },
+    {
+      "category": "Self-supervised",
+      "representation": "Autoencoder",
+      "params": "53.8K",
+      "SVR_r2": 0.414,
+      "SVR_mae": 0.1571,
+      "SVR_rmse": 0.1888,
+      "DeepMLP_r2": 0.525,
+      "DeepMLP_mae": 0.1308,
+      "DeepMLP_rmse": 0.17
+    },
+    {
+      "category": "Self-supervised",
+      "representation": "SimCLR",
+      "params": "70.3K",
+      "SVR_r2": 0.015,
+      "SVR_mae": 0.2052,
+      "SVR_rmse": 0.2448,
+      "DeepMLP_r2": -0.119,
+      "DeepMLP_mae": 0.211,
+      "DeepMLP_rmse": 0.2609
+    },
+    {
+      "category": "Comp-supervised",
+      "representation": "TS2Vec+SoftSupCon",
+      "params": "58.8K",
+      "SVR_r2": 0.714,
+      "SVR_mae": 0.1023,
+      "SVR_rmse": 0.1319,
+      "DeepMLP_r2": 0.701,
+      "DeepMLP_mae": 0.1029,
+      "DeepMLP_rmse": 0.1348
+    },
+    {
+      "category": "Comp-supervised",
+      "representation": "AE+SoftSupCon",
+      "params": "53.8K",
+      "SVR_r2": 0.685,
+      "SVR_mae": 0.1073,
+      "SVR_rmse": 0.1385,
+      "DeepMLP_r2": 0.683,
+      "DeepMLP_mae": 0.1054,
+      "DeepMLP_rmse": 0.1389
+    },
+    {
+      "category": "Comp-supervised",
+      "representation": "SimCLR+SoftSupCon",
+      "params": "70.3K",
+      "SVR_r2": 0.681,
+      "SVR_mae": 0.1078,
+      "SVR_rmse": 0.1393,
+      "DeepMLP_r2": 0.668,
+      "DeepMLP_mae": 0.1111,
+      "DeepMLP_rmse": 0.1422
+    },
+    {
+      "category": "CARL (ours)",
+      "representation": "CARL-GAP",
+      "params": "78.5K",
+      "SVR_r2": 0.466,
+      "SVR_mae": 0.148,
+      "SVR_rmse": 0.1802,
+      "DeepMLP_r2": "！",
+      "DeepMLP_mae": "！",
+      "DeepMLP_rmse": "！"
+    },
+    {
+      "category": "CARL (ours)",
+      "representation": "CARL-Proj",
+      "params": "78.5K",
+      "SVR_r2": 0.686,
+      "SVR_mae": 0.1036,
+      "SVR_rmse": 0.1382,
+      "DeepMLP_r2": 0.671,
+      "DeepMLP_mae": 0.1069,
+      "DeepMLP_rmse": 0.1414
+    }
+  ],
+  "best_model": "TS2Vec+SoftSupCon + SVR",
+  "best_r2": 0.714
+}

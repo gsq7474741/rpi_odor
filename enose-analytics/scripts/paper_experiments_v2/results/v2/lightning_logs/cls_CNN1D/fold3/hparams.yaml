@@ -1,0 +1,3 @@
+backbone_name: CNN1D
+lr: 0.001
+n_classes: 4

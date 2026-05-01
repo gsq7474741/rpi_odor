@@ -1,0 +1,3 @@
+backbone_name: LSTM
+lr: 0.001
+n_combos: 6
