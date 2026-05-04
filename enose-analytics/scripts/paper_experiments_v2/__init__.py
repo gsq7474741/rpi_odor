@@ -5,19 +5,14 @@
 基础层:
   config          - 全局配置 (路径、超参、茶名映射、图表样式)
   data            - 数据加载门面 (复用 truncation_study 的 DB/缓存/对齐)
-  drift           - 漂移检测与校正
   viz             - 共享可视化工具 (matplotlib/seaborn, 出版级图表)
-  baselines       - ML/DL 基线模型 (TS2Vec, Autoencoder, SimCLR 等)
+  baselines       - ML/DL 基线模型 (TS2Vec, AE, SimCLR, 1D-CNN 等)
 
 核心算法模块:
-  nldi             - NLDI 非线性偏差指数计算
-  nldi_robust_stats - Bootstrap CI + Wilcoxon 检验
+  nldi             - NLDI 非线性偏差指数计算 + 稳健统计检验
   carl_training    - CARL 对比表征学习 (模型 + 训练)
   carl_finetune    - CARL 分类微调
-  prediction       - 比例预测模型 (CNN/MLP 回归)
-  discrimination   - 1D-CNN 分类评估
   backbones        - 端到端 DL 骨干网络 (LSTM, ResNet1D 等)
-  aroma_map_utils  - 香气地图可视化辅助
 
 v2 实验 (experiments/ 子包):
   experiments.nldi           - §3.2 NLDI 非线性可加性分析
@@ -26,12 +21,14 @@ v2 实验 (experiments/ 子包):
   experiments.ablation       - §3.5 消融实验
   experiments.aroma_map      - §3.6 茶叶香气地图
 
-图表生成 (figure/ 子包):
+图表生成 (figure/ 子包, 编号与手稿一致):
+  figure._style               - 共享色板/路径/样式/数据加载/保存
+  figure.gen_fig2_platform     - Fig 2: 平台与实验设计
   figure.gen_fig3_carl         - Fig 3: CARL 框架图
   figure.gen_fig4_merged       - Fig 4: 纯茶表征 + 非线性叠加 (5-panel)
-  figure.gen_fig5_comparison   - Fig 5/6: 定量对比
-  figure.gen_nature_figs_v2    - 主文合并图
+  figure.gen_fig5_aroma_map    - Fig 5: 香气图谱 (handcrafted vs CARL)
+  figure.gen_fig6_comparison   - Fig 6: 定量对比 (4-panel)
   figure.gen_sm_figs_v2        - 补充材料图
-  figure.batch_generate        - AI 图片批量生成 + composite 拼装
+  figure.batch_generate        - AI 图片生成 (Fig 1 hero + GA)
   figure.generate_image        - 单图 AI 生成封装
 """

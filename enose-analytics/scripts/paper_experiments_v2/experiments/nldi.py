@@ -22,8 +22,8 @@ from ..config import (
     ensure_dirs,
 )
 from ..data import PaperDataset
-from ..nldi import compute_pure_baselines, compute_nldi_for_combo
-from ..nldi_robust_stats import (
+from ..nldi import (
+    compute_pure_baselines, compute_nldi_for_combo,
     compute_per_replicate_nldi, bootstrap_ci, wilcoxon_test_nldi,
 )
 from ..viz import init_style, save_fig, plot_heatmap, plot_response_ratio_curves

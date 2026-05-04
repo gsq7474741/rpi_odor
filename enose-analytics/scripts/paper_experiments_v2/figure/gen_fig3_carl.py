@@ -25,73 +25,32 @@ from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
 from matplotlib.collections import PatchCollection
 from matplotlib.path import Path as MplPath
 
-from pathlib import Path
-
-from ..config import FONT_FAMILY, FIGURE_DPI, FIG_WIDTH_DOUBLE
+from ._style import (
+    AXIS_GREY, TEAL_DEEP, TEAL_MID, TEAL_LIGHT, TEAL_PALE, TEAL_BG,
+    PINK_ACCENT, PINK_LIGHT, TEA_COLORS,
+    init_nature_style, panel_label, save_figure,
+    V2_FIGURES_DIR, MANUSCRIPT_FIGS_DIR,
+)
+from ..config import FIG_WIDTH_DOUBLE
 
 warnings.filterwarnings("ignore")
-
-# ══════════════════════════════════════════════════════
-# 色板
-# ══════════════════════════════════════════════════════
-
-AXIS_GREY = "#2D2D2D"
-TEAL_DEEP = "#4D9085"
-TEAL_MID = "#5A9E95"
-TEAL_LIGHT = "#7FB7B0"
-TEAL_PALE = "#D4EDEA"
-TEAL_BG = "#F5FBFA"
-PINK_ACCENT = "#E5A1A8"
-PINK_LIGHT = "#F5D5D8"
-
-# 茶色 (与 hero / fig4 一致)
-TEA_COLORS = {
-    "T1": "#E89B3C",
-    "T2": "#A33B2A",
-    "T3": "#6FB58A",
-    "T4": "#3F6FA8",
-    "T5": "#C57BA1",
-}
-
-# ══════════════════════════════════════════════════════
-# 路径
-# ══════════════════════════════════════════════════════
-
-V2_RESULTS_DIR = Path(__file__).resolve().parent.parent / "results" / "v2"
-V2_FIGURES_DIR = V2_RESULTS_DIR / "figures"
-MANUSCRIPT_DIR = Path(r"g:\Downloads\机器嗅觉研究\idea\tea_mix\manuscript")
-MANUSCRIPT_FIGS_DIR = MANUSCRIPT_DIR / "figures_v2"
 
 # ══════════════════════════════════════════════════════
 # 样式
 # ══════════════════════════════════════════════════════
 
 def _init_style():
-    plt.rcParams.update({
-        "font.size": 7,
-        "font.family": FONT_FAMILY,
-        "mathtext.default": "regular",
-        "axes.linewidth": 0.4,
-        "axes.edgecolor": AXIS_GREY,
-        "axes.labelcolor": AXIS_GREY,
-        "axes.spines.top": False,
-        "axes.spines.right": False,
+    init_nature_style({
         "axes.spines.left": False,
         "axes.spines.bottom": False,
         "xtick.major.width": 0,
         "ytick.major.width": 0,
-        "text.color": AXIS_GREY,
-        "figure.dpi": FIGURE_DPI,
-        "savefig.dpi": FIGURE_DPI,
-        "savefig.bbox": "tight",
         "savefig.pad_inches": 0.05,
     })
 
 
 def _panel_label(ax, label: str, x: float = -0.05, y: float = 1.06):
-    ax.text(x, y, label, transform=ax.transAxes,
-            fontsize=11, fontweight="bold", color=AXIS_GREY,
-            va="top", ha="left")
+    panel_label(ax, label, x=x, y=y)
 
 
 # ══════════════════════════════════════════════════════
@@ -927,20 +886,7 @@ def generate_fig3():
     ax_c = fig.add_subplot(gs[1, 1])
     _draw_panel_c(ax_c)
 
-    # ── 保存 ──
-    for d in [V2_FIGURES_DIR, MANUSCRIPT_FIGS_DIR]:
-        d.mkdir(parents=True, exist_ok=True)
-
-    name = "fig3_carl_v2"
-    for fmt in ["pdf", "png", "svg"]:
-        for out_dir in [V2_FIGURES_DIR, MANUSCRIPT_FIGS_DIR]:
-            p = out_dir / f"{name}.{fmt}"
-            fig.savefig(p, format=fmt, dpi=FIGURE_DPI, bbox_inches="tight")
-
-    plt.close(fig)
-    print(f"\n  ✓ 已保存: {name}.pdf/png/svg")
-    print(f"    → {V2_FIGURES_DIR}")
-    print(f"    → {MANUSCRIPT_FIGS_DIR}")
+    save_figure(fig, "fig3_carl_v2")
 
 
 if __name__ == "__main__":

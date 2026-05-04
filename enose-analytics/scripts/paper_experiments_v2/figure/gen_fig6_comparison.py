@@ -1,4 +1,4 @@
-"""生成 Fig 5 — CARL 与四种建模范式的量化比较 (4-panel A–D).
+"""生成 Fig 6 — CARL 与四种建模范式的量化比较 (4-panel A–D).
 
 Panel A: 分类 accuracy 横向 bar (5 paradigm, CARL 高亮)
 Panel B: 回归 R² 横向 bar (CARL 高亮)
@@ -10,7 +10,7 @@ Panel D: 消融 ΔR²
 
 用法:
     cd enose-analytics
-    uv run python -m scripts.paper_experiments_v2.figure.gen_fig5_comparison
+    uv run python -m scripts.paper_experiments_v2.figure.gen_fig6_comparison
 """
 
 from __future__ import annotations
@@ -25,42 +25,14 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
-from pathlib import Path
-
-from ..config import (
-    FONT_FAMILY, FIGURE_DPI, FIG_WIDTH_DOUBLE,
+from ._style import (
+    AXIS_GREY, CAT_COLORS, ABL_TEAL, ABL_LIGHT,
+    init_nature_style, panel_label, save_figure,
+    V2_TABLES_DIR,
 )
+from ..config import FIG_WIDTH_DOUBLE
 
 warnings.filterwarnings("ignore")
-
-# ══════════════════════════════════════════════════════
-# 色板 — hero / Fig 4 同款
-# ══════════════════════════════════════════════════════
-
-AXIS_GREY = "#2D2D2D"
-
-# 按 paradigm 从浅到深, CARL 为青色突出
-CAT_COLORS: dict[str, str] = {
-    "Handcrafted":     "#DDD9D4",   # 暖灰 (cream-grey)
-    "End-to-end":      "#C5C0BB",   # 中灰
-    "Self-supervised":  "#AAA5A0",  # 深灰
-    "Comp-supervised": "#92CFC6",   # 浅青
-    "CARL (ours)":     "#4D9085",   # 深青 (hero teal)
-}
-
-# 消融 bar 颜色
-ABL_TEAL = "#4D9085"
-ABL_LIGHT = "#7FB7B0"
-
-# ══════════════════════════════════════════════════════
-# 路径
-# ══════════════════════════════════════════════════════
-
-V2_RESULTS_DIR = Path(__file__).resolve().parent.parent / "results" / "v2"
-V2_TABLES_DIR = V2_RESULTS_DIR / "tables"
-V2_FIGURES_DIR = V2_RESULTS_DIR / "figures"
-MANUSCRIPT_DIR = Path(r"g:\Downloads\机器嗅觉研究\idea\tea_mix\manuscript")
-MANUSCRIPT_FIGS_DIR = MANUSCRIPT_DIR / "figures_v2"
 
 # ══════════════════════════════════════════════════════
 # 数据加载 & 解析
@@ -118,47 +90,8 @@ def _load_table4() -> pd.DataFrame:
 # 样式
 # ══════════════════════════════════════════════════════
 
-def _init_style():
-    plt.rcParams.update({
-        "font.size": 7,
-        "font.family": FONT_FAMILY,
-        "mathtext.default": "regular",
-        "axes.labelsize": 7,
-        "axes.titlesize": 7,
-        "axes.titleweight": "normal",
-        "axes.linewidth": 0.4,
-        "axes.edgecolor": AXIS_GREY,
-        "axes.labelcolor": AXIS_GREY,
-        "axes.spines.top": False,
-        "axes.spines.right": False,
-        "axes.grid": False,
-        "axes.labelpad": 2,
-        "axes.titlepad": 3,
-        "xtick.labelsize": 6,
-        "ytick.labelsize": 6,
-        "xtick.color": AXIS_GREY,
-        "ytick.color": AXIS_GREY,
-        "xtick.major.width": 0.3,
-        "ytick.major.width": 0.3,
-        "xtick.major.size": 2.0,
-        "ytick.major.size": 2.0,
-        "xtick.direction": "out",
-        "ytick.direction": "out",
-        "legend.fontsize": 5.5,
-        "legend.frameon": False,
-        "lines.linewidth": 0.6,
-        "text.color": AXIS_GREY,
-        "figure.dpi": FIGURE_DPI,
-        "savefig.dpi": FIGURE_DPI,
-        "savefig.bbox": "tight",
-        "savefig.pad_inches": 0.03,
-    })
-
-
 def _panel_label(ax, label: str, x: float = -0.10, y: float = 1.08):
-    ax.text(x, y, label, transform=ax.transAxes,
-            fontsize=11, fontweight="bold", color=AXIS_GREY,
-            va="top", ha="left")
+    panel_label(ax, label, x=x, y=y)
 
 
 # ══════════════════════════════════════════════════════
@@ -305,12 +238,12 @@ def _draw_panel_d(ax, df: pd.DataFrame):
 # 主函数
 # ══════════════════════════════════════════════════════
 
-def generate_fig5():
+def generate_fig6():
     print("\n" + "=" * 60)
-    print("  Fig 5: CARL vs. baselines — quantitative comparison")
+    print("  Fig 6: CARL vs. baselines — quantitative comparison")
     print("=" * 60)
 
-    _init_style()
+    init_nature_style()
 
     t2 = _load_table2()
     t3 = _load_table3()
@@ -333,21 +266,8 @@ def generate_fig5():
     ax_d = fig.add_subplot(gs[1, 1])
     _draw_panel_d(ax_d, t4)
 
-    # ── 保存 ──
-    for d in [V2_FIGURES_DIR, MANUSCRIPT_FIGS_DIR]:
-        d.mkdir(parents=True, exist_ok=True)
-
-    name = "fig5_comparison_v2"
-    for fmt in ["pdf", "png", "svg"]:
-        for out_dir in [V2_FIGURES_DIR, MANUSCRIPT_FIGS_DIR]:
-            p = out_dir / f"{name}.{fmt}"
-            fig.savefig(p, format=fmt, dpi=FIGURE_DPI, bbox_inches="tight")
-
-    plt.close(fig)
-    print(f"\n  ✓ 已保存: {name}.pdf/png/svg")
-    print(f"    → {V2_FIGURES_DIR}")
-    print(f"    → {MANUSCRIPT_FIGS_DIR}")
+    save_figure(fig, "fig6_comparison_v2")
 
 
 if __name__ == "__main__":
-    generate_fig5()
+    generate_fig6()

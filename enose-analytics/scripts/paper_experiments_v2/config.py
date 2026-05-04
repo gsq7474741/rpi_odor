@@ -209,7 +209,7 @@ RATIO_STEPS = [round(r / 10, 1) for r in range(11)]  # [0.0, 0.1, ..., 1.0]
 # 图表样式
 # ═══════════════════════════════════════════════════════════════
 
-FIGURE_DPI = 300
+FIGURE_DPI = 600
 FIGURE_FORMAT = "pdf"       # 论文用 pdf, 预览用 png
 
 # ---- Nature / Science 风格图表参数 ----
@@ -218,6 +218,7 @@ FIGURE_FORMAT = "pdf"       # 论文用 pdf, 预览用 png
 # 保证 \includegraphics 缩放后字体仍清晰。
 FONT_SIZE = 8               # Nature 标准 7-8pt
 FONT_FAMILY = "sans-serif"  # Helvetica / Arial
+FONT_SANS_SERIF = ["Arial", "Helvetica", "DejaVu Sans"]  # Elsevier 推荐字体优先级
 
 # 图片宽度 (英寸) — 对应 LaTeX 中的 \textwidth 缩放
 FIG_WIDTH_SINGLE = 3.5      # 单栏 (~89mm)

@@ -1083,3 +1083,117 @@ def run_supervised_baselines_v2(
         results.append({"feature": name, **accs})
         print(f"      {name}: k-NN={accs['k-NN']['acc']}, SVM-RBF={accs['SVM-RBF']['acc']}")
     return results
+
+
+# ═══════════════════════════════════════════════════════════════
+# 1D-CNN 分类器 (原 discrimination.py)
+# ═══════════════════════════════════════════════════════════════
+
+class _CNN1DClassifier(nn.Module):
+    """轻量 1D-CNN 分类器, 结构与 CARL encoder 对齐便于公平对比。"""
+
+    def __init__(self, in_channels: int = 8, n_classes: int = 5):
+        super().__init__()
+        self.conv_blocks = nn.Sequential(
+            nn.Conv1d(in_channels, 32, kernel_size=7, padding=3),
+            nn.BatchNorm1d(32), nn.ReLU(inplace=True), nn.MaxPool1d(2),
+            nn.Conv1d(32, 64, kernel_size=5, padding=2),
+            nn.BatchNorm1d(64), nn.ReLU(inplace=True), nn.MaxPool1d(2),
+            nn.Conv1d(64, 128, kernel_size=3, padding=1),
+            nn.BatchNorm1d(128), nn.ReLU(inplace=True),
+        )
+        self.gap = nn.AdaptiveAvgPool1d(1)
+        self.classifier = nn.Sequential(
+            nn.Linear(128, 64),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.3),
+            nn.Linear(64, n_classes),
+        )
+
+    def forward(self, x):
+        """x: (B, C, T) → logits: (B, n_classes)"""
+        h = self.conv_blocks(x)
+        h = self.gap(h).squeeze(-1)
+        return self.classifier(h)
+
+
+def _train_cnn_fold(
+    X_train: np.ndarray, y_train: np.ndarray,
+    X_test: np.ndarray, y_test: np.ndarray,
+    n_classes: int, epochs: int = 150, lr: float = 1e-3,
+) -> np.ndarray:
+    """训练 1D-CNN 分类器 (单个 fold)。
+
+    Args:
+        X_train/X_test: (N, T, 8) 原始时序
+        y_train/y_test: (N,) 整数标签
+    Returns:
+        y_pred: (N_test,) 预测标签
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    T = X_train.shape[1]
+    bl = max(1, T // 10)
+    base_tr = X_train[:, :bl, :].mean(axis=1, keepdims=True)
+    X_tr_delta = (X_train - base_tr).astype(np.float32)
+    scaler = StandardScaler()
+    X_tr_norm = scaler.fit_transform(X_tr_delta.reshape(len(X_train), -1)).reshape(X_tr_delta.shape)
+
+    base_te = X_test[:, :bl, :].mean(axis=1, keepdims=True)
+    X_te_delta = (X_test - base_te).astype(np.float32)
+    X_te_norm = scaler.transform(X_te_delta.reshape(len(X_test), -1)).reshape(X_te_delta.shape)
+
+    X_tr_t = torch.tensor(X_tr_norm, dtype=torch.float32).permute(0, 2, 1).to(device)
+    y_tr_t = torch.tensor(y_train, dtype=torch.long).to(device)
+    X_te_t = torch.tensor(X_te_norm, dtype=torch.float32).permute(0, 2, 1).to(device)
+
+    model = _CNN1DClassifier(in_channels=8, n_classes=n_classes).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+
+    train_ds = TensorDataset(X_tr_t, y_tr_t)
+    train_loader = DataLoader(train_ds, batch_size=32, shuffle=True, drop_last=False)
+
+    model.train()
+    for _ in range(epochs):
+        for xb, yb in train_loader:
+            logits = model(xb)
+            loss = F.cross_entropy(logits, yb)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+        scheduler.step()
+
+    model.eval()
+    with torch.no_grad():
+        logits = model(X_te_t)
+        y_pred = logits.argmax(dim=1).cpu().numpy()
+    return y_pred
+
+
+def _eval_cnn_cv(
+    X_raw: np.ndarray, y: np.ndarray,
+    n_classes: int, n_folds: int = N_CV_FOLDS,
+) -> tuple[float, np.ndarray, list[dict[str, float]]]:
+    """1D-CNN 分类器 Stratified K-Fold CV。
+
+    Args:
+        X_raw: (N, T, 8) 原始时序
+        y: (N,) 整数标签
+    Returns:
+        (overall_accuracy, y_pred_all, per_fold_metrics)
+    """
+    skf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=SEED)
+    y_pred_all = np.empty_like(y)
+    fold_metrics: list[dict[str, float]] = []
+
+    for fold, (train_idx, test_idx) in enumerate(skf.split(X_raw, y)):
+        y_pred = _train_cnn_fold(
+            X_raw[train_idx], y[train_idx],
+            X_raw[test_idx], y[test_idx],
+            n_classes=n_classes,
+        )
+        y_pred_all[test_idx] = y_pred
+        fold_metrics.append(_cls_metrics(y[test_idx], y_pred))
+
+    return accuracy_score(y, y_pred_all), y_pred_all, fold_metrics

@@ -46,8 +46,7 @@ from ..config import (
 )
 from ..data import PaperDataset
 from ..viz import init_style, save_fig, plot_pca_scatter, plot_radar, plot_confusion_matrix
-from ..baselines import run_all_baselines_v2, run_supervised_baselines_v2, _cls_metrics, _summarize_cv_metrics
-from ..discrimination import _eval_cnn_cv
+from ..baselines import run_all_baselines_v2, run_supervised_baselines_v2, _cls_metrics, _summarize_cv_metrics, _eval_cnn_cv
 
 import torch
 
@@ -173,7 +172,7 @@ def run(
     print("  1D-CNN (end-to-end)...")
     cnn_acc, cnn_preds, cnn_fold_ms = _eval_cnn_cv(X_value_pure, y, n_classes)
     cnn_m = _summarize_cv_metrics(cnn_fold_ms)
-    from ..discrimination import _CNN1DClassifier
+    from ..baselines import _CNN1DClassifier
     _dummy = _CNN1DClassifier(in_channels=8, n_classes=n_classes)
     cnn_params = sum(p.numel() for p in _dummy.parameters()) / 1000
     print(f"    1D-CNN: acc={cnn_m['acc']}, f1={cnn_m['f1']} ({cnn_params:.1f}K params)")

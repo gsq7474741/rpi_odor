@@ -1028,10 +1028,11 @@ COMPOSITES: dict[str, CompositeSpec] = {
             ),
         ],
     ),
-    # ── Fig 1: 实拍 + CAD + CFD + workflow ──────────
+    # ── MS Fig 2 (legacy composite): 实拍 + CAD + CFD + workflow ──
+    # → 已由 gen_fig2_platform.py 替代, 保留供参考
     "fig1": CompositeSpec(
         name="fig1",
-        description="Fig 1: real platform photo (A) + CAD (B) + CFD (C) + workflow (D)",
+        description="MS Fig 2: platform photo (A) + CAD (B) + CFD (C) + workflow (D)",
         output_filename="composite_fig1_v1.png",
         canvas_size=(1920, 1280),
         slots=[
@@ -1041,10 +1042,11 @@ COMPOSITES: dict[str, CompositeSpec] = {
             PanelSlot(source="fig1_workflow",        bbox=(960,  832,  960,  448),  label="D"),
         ],
     ),
-    # ── Fig 2: 编码器 (A) + 增强 (B) + 损失 (C) ─────
+    # ── MS Fig 3 (legacy composite): 编码器 + 增强 + 损失 ──
+    # → 已由 gen_fig3_carl.py 替代, 保留供参考
     "fig2": CompositeSpec(
         name="fig2",
-        description="Fig 2: encoder visual flow (A, top) + augmentation cards (B) + loss simplex (C)",
+        description="MS Fig 3: encoder visual flow (A) + augmentation cards (B) + loss simplex (C)",
         output_filename="composite_fig2_v1.png",
         canvas_size=(1920, 1280),
         slots=[

@@ -39,12 +39,199 @@ import torch.nn.functional as F
 from ..config import SEED, N_CV_FOLDS
 from ..data import PaperDataset
 from ..viz import init_style
-from ..prediction import (
-    _eval_combo_conditioned_cv,
-    _eval_cnn_regressor_cv,
-)
 
 np.random.seed(SEED)
+
+
+# ═══════════════════════════════════════════════════════════════
+# 回归评估辅助 (原 prediction.py)
+# ═══════════════════════════════════════════════════════════════
+
+def _eval_regression_cv(
+    X: np.ndarray,
+    y: np.ndarray,
+    y_combo: np.ndarray,
+    model_name: str,
+    model,
+    n_folds: int = N_CV_FOLDS,
+) -> dict:
+    """Stratified K-Fold 回归评估 (按组合分层)。"""
+    le = LabelEncoder()
+    y_strat = le.fit_transform(y_combo)
+
+    counts = Counter(y_strat)
+    min_count = min(counts.values())
+    actual_folds = min(n_folds, min_count)
+    if actual_folds < 2:
+        return {"model": model_name, "r2": float("nan"), "mae": float("nan"), "rmse": float("nan")}
+
+    skf = StratifiedKFold(n_splits=actual_folds, shuffle=True, random_state=SEED)
+
+    y_true_all = []
+    y_pred_all = []
+
+    for train_idx, test_idx in skf.split(X, y_strat):
+        X_tr, X_te = X[train_idx], X[test_idx]
+        y_tr, y_te = y[train_idx], y[test_idx]
+
+        pipe = Pipeline([("scaler", StandardScaler()), ("model", model)])
+        try:
+            pipe.fit(X_tr, y_tr)
+            y_pred = pipe.predict(X_te)
+        except Exception:
+            y_pred = np.full(len(y_te), y_tr.mean())
+
+        y_true_all.extend(y_te.tolist())
+        y_pred_all.extend(y_pred.tolist())
+
+    y_true_all = np.array(y_true_all)
+    y_pred_all = np.array(y_pred_all)
+
+    return {
+        "model": model_name,
+        "r2": round(r2_score(y_true_all, y_pred_all), 3),
+        "mae": round(mean_absolute_error(y_true_all, y_pred_all), 4),
+        "rmse": round(np.sqrt(mean_squared_error(y_true_all, y_pred_all)), 4),
+        "y_true": y_true_all,
+        "y_pred": y_pred_all,
+    }
+
+
+def _eval_combo_conditioned_cv(
+    X: np.ndarray,
+    y_ratio: np.ndarray,
+    y_combo: np.ndarray,
+    model_name: str,
+    model,
+    n_folds: int = N_CV_FOLDS,
+) -> dict:
+    """将 combo one-hot 拼接到特征, 做全局回归。"""
+    le = LabelEncoder()
+    combo_enc = le.fit_transform(y_combo)
+    ohe = OneHotEncoder(sparse_output=False)
+    combo_onehot = ohe.fit_transform(combo_enc.reshape(-1, 1))
+    X_cond = np.hstack([X, combo_onehot])
+
+    return _eval_regression_cv(X_cond, y_ratio, y_combo, model_name, model, n_folds)
+
+
+class _CNN1DRegressor(nn.Module):
+    """端到端 1D-CNN 比例回归器, 结构与 CARL encoder 对齐。"""
+
+    def __init__(self, in_channels: int = 8, n_combo_classes: int = 10):
+        super().__init__()
+        self.conv_blocks = nn.Sequential(
+            nn.Conv1d(in_channels, 32, kernel_size=7, padding=3),
+            nn.BatchNorm1d(32), nn.ReLU(inplace=True), nn.MaxPool1d(2),
+            nn.Conv1d(32, 64, kernel_size=5, padding=2),
+            nn.BatchNorm1d(64), nn.ReLU(inplace=True), nn.MaxPool1d(2),
+            nn.Conv1d(64, 128, kernel_size=3, padding=1),
+            nn.BatchNorm1d(128), nn.ReLU(inplace=True),
+        )
+        self.gap = nn.AdaptiveAvgPool1d(1)
+        self.regressor = nn.Sequential(
+            nn.Linear(128 + n_combo_classes, 64),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.2),
+            nn.Linear(64, 32),
+            nn.ReLU(inplace=True),
+            nn.Linear(32, 1),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x, combo_oh):
+        """x: (B, C, T), combo_oh: (B, n_combos) → ratio: (B,)"""
+        h = self.conv_blocks(x)
+        h = self.gap(h).squeeze(-1)  # (B, 128)
+        h = torch.cat([h, combo_oh], dim=1)  # (B, 128+n_combos)
+        return self.regressor(h).squeeze(-1)
+
+
+def _train_cnn_regressor_fold(
+    X_train: np.ndarray, y_train: np.ndarray, combo_oh_train: np.ndarray,
+    X_test: np.ndarray, y_test: np.ndarray, combo_oh_test: np.ndarray,
+    n_combo_classes: int, epochs: int = 200, lr: float = 1e-3,
+) -> tuple[np.ndarray, np.ndarray]:
+    """训练端到端 1D-CNN 回归器 (单个 fold)。"""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    T = X_train.shape[1]
+    bl = max(1, T // 10)
+    base_tr = X_train[:, :bl, :].mean(axis=1, keepdims=True)
+    X_tr_delta = (X_train - base_tr).astype(np.float32)
+    from sklearn.preprocessing import StandardScaler as _SS
+    _scaler = _SS()
+    X_tr_n = _scaler.fit_transform(X_tr_delta.reshape(len(X_train), -1)).reshape(X_tr_delta.shape)
+
+    base_te = X_test[:, :bl, :].mean(axis=1, keepdims=True)
+    X_te_delta = (X_test - base_te).astype(np.float32)
+    X_te_n = _scaler.transform(X_te_delta.reshape(len(X_test), -1)).reshape(X_te_delta.shape)
+
+    X_tr_t = torch.tensor(X_tr_n).permute(0, 2, 1).to(device)
+    X_te_t = torch.tensor(X_te_n).permute(0, 2, 1).to(device)
+    y_tr_t = torch.tensor(y_train, dtype=torch.float32).to(device)
+    oh_tr = torch.tensor(combo_oh_train, dtype=torch.float32).to(device)
+    oh_te = torch.tensor(combo_oh_test, dtype=torch.float32).to(device)
+
+    model = _CNN1DRegressor(in_channels=8, n_combo_classes=n_combo_classes).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+
+    model.train()
+    for _ in range(epochs):
+        pred = model(X_tr_t, oh_tr)
+        loss = nn.functional.mse_loss(pred, y_tr_t)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+    model.eval()
+    with torch.no_grad():
+        y_pred = model(X_te_t, oh_te).cpu().numpy()
+    return y_test, y_pred
+
+
+def _eval_cnn_regressor_cv(
+    X_raw: np.ndarray,
+    y_ratio: np.ndarray,
+    y_combo: np.ndarray,
+    model_name: str,
+    n_folds: int = N_CV_FOLDS,
+) -> dict:
+    """端到端 1D-CNN 回归器 Stratified K-Fold CV。"""
+    le = LabelEncoder()
+    y_strat = le.fit_transform(y_combo)
+    counts = Counter(y_strat)
+    actual_folds = min(n_folds, min(counts.values()))
+    if actual_folds < 2:
+        return {"model": model_name, "r2": float("nan"), "mae": float("nan"), "rmse": float("nan")}
+
+    ohe = OneHotEncoder(sparse_output=False)
+    combo_oh = ohe.fit_transform(y_strat.reshape(-1, 1))
+    n_combo_classes = combo_oh.shape[1]
+
+    skf = StratifiedKFold(n_splits=actual_folds, shuffle=True, random_state=SEED)
+    y_true_all, y_pred_all = [], []
+    for tr, te in skf.split(X_raw, y_strat):
+        yt, yp = _train_cnn_regressor_fold(
+            X_raw[tr], y_ratio[tr], combo_oh[tr],
+            X_raw[te], y_ratio[te], combo_oh[te],
+            n_combo_classes=n_combo_classes,
+        )
+        y_true_all.extend(yt.tolist())
+        y_pred_all.extend(yp.tolist())
+
+    y_true_all = np.array(y_true_all)
+    y_pred_all = np.array(y_pred_all)
+    return {
+        "model": model_name,
+        "r2": round(r2_score(y_true_all, y_pred_all), 3),
+        "mae": round(mean_absolute_error(y_true_all, y_pred_all), 4),
+        "rmse": round(np.sqrt(mean_squared_error(y_true_all, y_pred_all)), 4),
+        "y_true": y_true_all,
+        "y_pred": y_pred_all,
+    }
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -493,7 +680,7 @@ def run(
     res_cnn = _eval_cnn_regressor_cv(X_raw, y_ratio, y_combo, "1D-CNN")
     cnn_m = {k: res_cnn[k] for k in ("r2", "mae", "rmse")}
     print(f"    1D-CNN: R²={cnn_m['r2']:.3f}")
-    from ..discrimination import _CNN1DClassifier
+    from ..baselines import _CNN1DClassifier
     _d = _CNN1DClassifier(in_channels=8, n_classes=5)
     cnn_p = f"{sum(p.numel() for p in _d.parameters())/1000:.1f}K"
     table_rows.append({

@@ -30,14 +30,17 @@ import seaborn as sns
 
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-from pathlib import Path
 
+from ._style import (
+    AXIS_GREY, TEA_COLORS, TEA_MARKERS_MAP,
+    CURVE_TEAL, CURVE_BAND, PRED_GREY, FOREST_TEAL,
+    soft_teal_cmap,
+    init_nature_style, panel_label, save_figure,
+    load_dataset, load_json,
+    V2_TABLES_DIR,
+)
 from ..config import (
-    SEED, N_SENSORS, FONT_SIZE, FONT_FAMILY,
-    FIG_WIDTH_DOUBLE, FIGURE_DPI,
-    TEA_ORDER, TEA_IDS, TEA_NAME_EN, TEA_MARKERS,
-    BINARY_COMBOS, BINARY_COMBO_LABELS,
-    CACHE_DIR,
+    SEED, N_SENSORS, TEA_ORDER, TEA_NAME_EN, FIG_WIDTH_DOUBLE,
 )
 from ..data import PaperDataset
 from ..nldi import compute_pure_baselines, compute_nldi_for_combo
@@ -45,56 +48,10 @@ from ..nldi import compute_pure_baselines, compute_nldi_for_combo
 np.random.seed(SEED)
 warnings.filterwarnings("ignore")
 
-# ══════════════════════════════════════════════════════
-# 与 fig1_hero_v3 一致的 AI 色板
-# ══════════════════════════════════════════════════════
-
-FIG4_TEA_COLORS: dict[str, str] = {
-    "T1": "#E89B3C",  # amber-orange (Oolong)
-    "T2": "#A33B2A",  # wine-red (Black)
-    "T3": "#6FB58A",  # tea-green (Jasmine)
-    "T4": "#3F6FA8",  # deep-blue (XQG Pu-erh)
-    "T5": "#C57BA1",  # purple-pink (Dark)
-}
-
-FIG4_TEA_MARKERS: dict[str, str] = {
-    "T1": "o",
-    "T2": "s",
-    "T3": "^",
-    "T4": "D",
-    "T5": "v",
-}
-
-# 辅助色 — 与 hero 图一致的低饱和调性
-SCHEMATIC_TEAL = "#7FB7B0"
-SCHEMATIC_DARK = "#2D2D2D"
-CURVE_TEAL = "#5A9E95"       # hero 图 CARL Encoder 青色
-CURVE_BAND = "#7FB7B0"       # 置信带 (浅青)
-PRED_GREY = "#B0B0B0"        # 线性预测虚线
-FOREST_TEAL = "#4D9085"      # forest plot 点 (深青)
-AXIS_GREY = "#2D2D2D"        # 坐标轴颜色
 
 # ══════════════════════════════════════════════════════
-# 路径
+# 数据 (Fig 4 特有的加载逻辑, 通用部分已移入 _style)
 # ══════════════════════════════════════════════════════
-
-V2_RESULTS_DIR = Path(__file__).resolve().parent.parent / "results" / "v2"
-V2_TABLES_DIR = V2_RESULTS_DIR / "tables"
-V2_FIGURES_DIR = V2_RESULTS_DIR / "figures"
-MANUSCRIPT_DIR = Path(r"g:\Downloads\机器嗅觉研究\idea\tea_mix\manuscript")
-MANUSCRIPT_FIGS_DIR = MANUSCRIPT_DIR / "figures_v2"
-
-
-# ══════════════════════════════════════════════════════
-# 数据
-# ══════════════════════════════════════════════════════
-
-def _load_dataset() -> PaperDataset:
-    pkl_files = list(CACHE_DIR.glob("paper_dataset_*.pkl"))
-    assert pkl_files, f"No cached dataset found in {CACHE_DIR}"
-    with open(pkl_files[0], "rb") as f:
-        return pickle.load(f)
-
 
 def _load_nldi_table() -> pd.DataFrame:
     p = V2_TABLES_DIR / "table1_nldi_v2.csv"
@@ -105,74 +62,6 @@ def _load_nldi_json() -> dict:
     p = V2_TABLES_DIR / "exp_nldi_v2.json"
     with open(p, encoding="latin-1") as f:
         return json.load(f)
-
-
-# ══════════════════════════════════════════════════════
-# 样式初始化 (Nature / pom2-pom3 风格)
-# ══════════════════════════════════════════════════════
-
-def _init_style():
-    """fig1_hero_v3 对标极简风格: 极细线、regular weight、大量留白."""
-    plt.rcParams.update({
-        "font.size": 7,
-        "font.family": FONT_FAMILY,
-        "mathtext.default": "regular",
-        # 轴
-        "axes.labelsize": 7,
-        "axes.titlesize": 7,
-        "axes.titleweight": "normal",      # hero 图无 bold 标题
-        "axes.linewidth": 0.4,              # 极细轴线
-        "axes.edgecolor": AXIS_GREY,
-        "axes.labelcolor": AXIS_GREY,
-        "axes.spines.top": False,
-        "axes.spines.right": False,
-        "axes.grid": False,
-        "axes.labelpad": 2,
-        "axes.titlepad": 3,
-        # 刻度
-        "xtick.labelsize": 6,
-        "ytick.labelsize": 6,
-        "xtick.color": AXIS_GREY,
-        "ytick.color": AXIS_GREY,
-        "xtick.major.width": 0.3,
-        "ytick.major.width": 0.3,
-        "xtick.major.size": 2.0,
-        "ytick.major.size": 2.0,
-        "xtick.major.pad": 1.5,
-        "ytick.major.pad": 1.5,
-        "xtick.direction": "out",
-        "ytick.direction": "out",
-        # 图例
-        "legend.fontsize": 5.5,
-        "legend.frameon": False,
-        "legend.handlelength": 1.0,
-        "legend.handletextpad": 0.3,
-        "legend.columnspacing": 0.6,
-        "legend.labelspacing": 0.2,
-        # 线条
-        "lines.linewidth": 0.6,
-        "lines.markersize": 2,
-        # 文字
-        "text.color": AXIS_GREY,
-        # 保存
-        "figure.dpi": FIGURE_DPI,
-        "savefig.dpi": FIGURE_DPI,
-        "savefig.bbox": "tight",
-        "savefig.pad_inches": 0.03,
-        "figure.constrained_layout.use": False,
-    })
-
-
-def _panel_label(ax, label: str, x: float = -0.10, y: float = 1.08):
-    """Large bold panel label (A–E), matching pom2 style."""
-    ax.text(
-        x, y, label,
-        transform=ax.transAxes,
-        fontsize=11,
-        fontweight="bold",
-        color=AXIS_GREY,
-        va="top", ha="left",
-    )
 
 
 # ══════════════════════════════════════════════════════
@@ -206,8 +95,8 @@ def _draw_panel_a(ax, ds: PaperDataset):
         en = TEA_NAME_EN.get(raw_name, tid)
         ax.scatter(
             X_pca[mask, 0], X_pca[mask, 1],
-            c=FIG4_TEA_COLORS[tid],
-            marker=FIG4_TEA_MARKERS[tid],
+            c=TEA_COLORS[tid],
+            marker=TEA_MARKERS_MAP[tid],
             s=10, alpha=0.7, edgecolors="none",
             label=f"{tid} {en}",
         )
@@ -216,7 +105,7 @@ def _draw_panel_a(ax, ds: PaperDataset):
     ax.set_ylabel(f"PC2 ({var2:.1f}%)", fontsize=6.5)
     ax.legend(markerscale=1.0, handletextpad=0.2, loc="upper left",
               fontsize=5.5, borderpad=0.3)
-    _panel_label(ax, "A")
+    panel_label(ax, "A")
 
 
 # ══════════════════════════════════════════════════════
@@ -256,9 +145,9 @@ def _draw_panel_b(ax, ds: PaperDataset):
         raw_name = TEA_ORDER[int(tid[1]) - 1]
         en = TEA_NAME_EN.get(raw_name, tid)
         v = list(vals) + [vals[0]]
-        ax.plot(angles, v, color=FIG4_TEA_COLORS[tid], linewidth=0.6,
+        ax.plot(angles, v, color=TEA_COLORS[tid], linewidth=0.6,
                 label=f"{tid} {en}")
-        ax.fill(angles, v, color=FIG4_TEA_COLORS[tid], alpha=0.05)
+        ax.fill(angles, v, color=TEA_COLORS[tid], alpha=0.05)
 
     ax.set_ylim(r_min, r_max)
     yticks = np.linspace(r_min, r_max, 3)
@@ -270,7 +159,7 @@ def _draw_panel_b(ax, ds: PaperDataset):
     ax.tick_params(axis="both", width=0.3)
     ax.legend(loc="upper right", bbox_to_anchor=(1.32, 1.08),
               fontsize=5, borderpad=0.2)
-    _panel_label(ax, "B", x=-0.18, y=1.12)
+    panel_label(ax, "B", x=-0.18, y=1.12)
 
 
 # ══════════════════════════════════════════════════════
@@ -330,7 +219,7 @@ def _draw_panel_c(axes_flat, ds: PaperDataset, nldi_json: dict,
     axes_flat[n_cols * (n_rows - 1) + n_cols // 2].set_xlabel(
         "Blend ratio", fontsize=6)
 
-    _panel_label(axes_flat[0], "C", x=-0.35, y=1.30)
+    panel_label(axes_flat[0], "C", x=-0.35, y=1.30)
 
 
 # ══════════════════════════════════════════════════════
@@ -360,13 +249,8 @@ def _draw_panel_d(ax, nldi_json: dict):
             if j < i:
                 mask[i, j] = True
 
-    # 青色系色阶 — 与 hero 图一致
-    from matplotlib.colors import LinearSegmentedColormap
-    soft_cmap = LinearSegmentedColormap.from_list(
-        "soft_teal", ["#F5FBFA", "#D4EDEA", "#7FB7B0", "#4D9085", "#2D5F58"])
-
     sns.heatmap(
-        matrix, annot=True, fmt=".2f", cmap=soft_cmap,
+        matrix, annot=True, fmt=".2f", cmap=soft_teal_cmap(),
         xticklabels=tea_ids, yticklabels=tea_ids,
         ax=ax, mask=mask,
         linewidths=0.5, linecolor="white",
@@ -375,7 +259,7 @@ def _draw_panel_d(ax, nldi_json: dict):
         vmin=0, square=True,
     )
     ax.tick_params(labelsize=6.5, length=0)
-    _panel_label(ax, "D", x=-0.15, y=1.06)
+    panel_label(ax, "D", x=-0.15, y=1.06)
 
 
 # ══════════════════════════════════════════════════════
@@ -411,7 +295,7 @@ def _draw_panel_e(ax, nldi_json: dict):
     ax.axvline(0, color="#CCCCCC", linestyle="--", linewidth=0.4)
     ax.set_xlabel("NLDI (95% Bootstrap CI)", fontsize=6.5)
     ax.invert_yaxis()
-    _panel_label(ax, "E", x=-0.30, y=1.06)
+    panel_label(ax, "E", x=-0.30, y=1.06)
 
 
 # ══════════════════════════════════════════════════════
@@ -424,9 +308,9 @@ def generate_fig4():
     print("  Fig 4: Pure-tea characterisation + Non-linear blend")
     print("=" * 60)
 
-    _init_style()
+    init_nature_style()
 
-    ds = _load_dataset()
+    ds = load_dataset()
     nldi_json = _load_nldi_json()
 
     # ── 布局: 3 行 ──
@@ -465,20 +349,7 @@ def generate_fig4():
     ax_e = fig.add_subplot(gs[2, 1])
     _draw_panel_e(ax_e, nldi_json)
 
-    # ── 保存 ──
-    for d in [V2_FIGURES_DIR, MANUSCRIPT_FIGS_DIR]:
-        d.mkdir(parents=True, exist_ok=True)
-
-    name = "fig4_merged_v2"
-    for fmt in ["pdf", "png", "svg"]:
-        for out_dir in [V2_FIGURES_DIR, MANUSCRIPT_FIGS_DIR]:
-            p = out_dir / f"{name}.{fmt}"
-            fig.savefig(p, format=fmt, dpi=FIGURE_DPI, bbox_inches="tight")
-
-    plt.close(fig)
-    print(f"\n  ✓ 已保存: {name}.pdf/png/svg")
-    print(f"    → {V2_FIGURES_DIR}")
-    print(f"    → {MANUSCRIPT_FIGS_DIR}")
+    save_figure(fig, "fig4_merged_v2")
 
 
 # ══════════════════════════════════════════════════════

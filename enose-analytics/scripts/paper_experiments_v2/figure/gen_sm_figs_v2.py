@@ -26,9 +26,8 @@
 from __future__ import annotations
 
 import json
-import pickle
-import shutil
 import warnings
+import pickle
 import numpy as np
 import pandas as pd
 
@@ -40,174 +39,37 @@ import seaborn as sns
 
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-from pathlib import Path
 
-from ..config import (
-    SEED, N_SENSORS, FONT_FAMILY,
-    FIG_WIDTH_SINGLE, FIG_WIDTH_1_5, FIG_WIDTH_DOUBLE,
-    FIGURE_DPI, CACHE_DIR,
-    TEA_ORDER, TEA_IDS, TEA_NAME_EN,
-    BINARY_COMBOS, BINARY_COMBO_LABELS,
-    EXCLUDED_TEAS,
+from ._style import (
+    AXIS_GREY, TEA_COLORS, TEA_MARKERS_MAP,
+    CURVE_TEAL, CURVE_BAND, PRED_GREY, FOREST_TEAL,
+    HIST_TEAL, THRESHOLD_WINE, CHANNEL_COLORS, COMBO_PALETTE,
+    soft_teal_cmap,
+    init_nature_style, panel_label, save_figure,
+    load_dataset, load_embeddings, load_json,
+    V2_TABLES_DIR, V2_FIGURES_DIR, MANUSCRIPT_FIGS_DIR,
 )
-# NOTE: viz.py helpers replaced by local Fig4-consistent style below
+from ..config import (
+    SEED, N_SENSORS, CACHE_DIR,
+    FIG_WIDTH_SINGLE, FIG_WIDTH_1_5, FIG_WIDTH_DOUBLE,
+    TEA_ORDER, TEA_NAME_EN,
+    BINARY_COMBOS, BINARY_COMBO_LABELS,
+)
 from ..data import PaperDataset
 from ..nldi import compute_pure_baselines, compute_nldi_for_combo
 
 np.random.seed(SEED)
 warnings.filterwarnings("ignore")
 
-# ═══════════════════════════════════════════════════════════════
-# 与正文 Fig 4 一致的 AI 色板与极简样式
-# (参见 FIGURE_PLAN.md §2 色板与风格规则)
-# ═══════════════════════════════════════════════════════════════
 
-SM_TEA_COLORS: dict[str, str] = {
-    "T1": "#E89B3C",  # amber-orange (Oolong)
-    "T2": "#A33B2A",  # wine-red (Black)
-    "T3": "#6FB58A",  # tea-green (Jasmine)
-    "T4": "#3F6FA8",  # deep-blue (XQG Pu-erh)
-    "T5": "#C57BA1",  # purple-pink (Dark)
-}
-
-SM_TEA_MARKERS: dict[str, str] = {
-    "T1": "o", "T2": "s", "T3": "^", "T4": "D", "T5": "v",
-}
-
-# 辅助色 — 与 hero 图一致的低饱和调性
-AXIS_GREY      = "#2D2D2D"
-CURVE_TEAL     = "#5A9E95"
-CURVE_BAND     = "#7FB7B0"
-PRED_GREY      = "#B0B0B0"
-FOREST_TEAL    = "#4D9085"
-HIST_TEAL      = "#5A9E95"
-THRESHOLD_WINE = "#A33B2A"
-
-# 8-channel 颜色 (4 温度组 × 2 传感器, hero 色板派生)
-CHANNEL_COLORS = [
-    "#E89B3C", "#A33B2A", "#3F6FA8", "#6FB58A",
-    "#F0B86E", "#C96B5A", "#6F9DC8", "#9DD3B0",
-]
-
-# 10 组合颜色 (scatter / residual, 与 hero 色板协调)
-COMBO_PALETTE = [
-    "#E89B3C", "#A33B2A", "#6FB58A", "#3F6FA8", "#C57BA1",
-    "#7FB7B0", "#D4756A", "#8BA8D4", "#B5D49A", "#9E7EB9",
-]
-
-
-def _soft_teal_cmap():
-    """与正文 Fig 4D 一致的青色系 colormap."""
-    from matplotlib.colors import LinearSegmentedColormap
-    return LinearSegmentedColormap.from_list(
-        "soft_teal", ["#F5FBFA", "#D4EDEA", "#7FB7B0", "#4D9085", "#2D5F58"])
-
-
-def _init_sm_style():
-    """与正文 Fig 4 一致的极简样式: 极细线、regular weight、大量留白."""
-    plt.rcParams.update({
-        "font.size": 7,
-        "font.family": FONT_FAMILY,
-        "mathtext.default": "regular",
-        "axes.labelsize": 7,
-        "axes.titlesize": 7,
-        "axes.titleweight": "normal",
-        "axes.linewidth": 0.4,
-        "axes.edgecolor": AXIS_GREY,
-        "axes.labelcolor": AXIS_GREY,
-        "axes.spines.top": False,
-        "axes.spines.right": False,
-        "axes.grid": False,
-        "axes.labelpad": 2,
-        "axes.titlepad": 3,
-        "xtick.labelsize": 6,
-        "ytick.labelsize": 6,
-        "xtick.color": AXIS_GREY,
-        "ytick.color": AXIS_GREY,
-        "xtick.major.width": 0.3,
-        "ytick.major.width": 0.3,
-        "xtick.major.size": 2.0,
-        "ytick.major.size": 2.0,
-        "xtick.major.pad": 1.5,
-        "ytick.major.pad": 1.5,
-        "xtick.direction": "out",
-        "ytick.direction": "out",
-        "legend.fontsize": 5.5,
-        "legend.frameon": False,
-        "legend.handlelength": 1.0,
-        "legend.handletextpad": 0.3,
-        "legend.columnspacing": 0.6,
-        "legend.labelspacing": 0.2,
-        "lines.linewidth": 0.6,
-        "lines.markersize": 2,
-        "text.color": AXIS_GREY,
-        "figure.dpi": FIGURE_DPI,
-        "savefig.dpi": FIGURE_DPI,
-        "savefig.bbox": "tight",
-        "savefig.pad_inches": 0.03,
-        "figure.constrained_layout.use": False,
-    })
-
-
-def _sm_panel_label(ax, label: str, x: float = -0.10, y: float = 1.08):
-    """与正文 Fig 4 一致的粗体 panel label."""
-    ax.text(
-        x, y, label,
-        transform=ax.transAxes,
-        fontsize=11, fontweight="bold",
-        color=AXIS_GREY,
-        va="top", ha="left",
-    )
-
-
-# ═══════════════════════════════════════════════════════════════
-# 路径
-# ═══════════════════════════════════════════════════════════════
-
-V2_RESULTS_DIR = Path(__file__).resolve().parent.parent / "results" / "v2"
-V2_TABLES_DIR = V2_RESULTS_DIR / "tables"
-V2_FIGURES_DIR = V2_RESULTS_DIR / "figures"
-
-MANUSCRIPT_DIR = Path(r"g:\Downloads\机器嗅觉研究\idea\tea_mix\manuscript")
-MANUSCRIPT_FIGS_DIR = MANUSCRIPT_DIR / "figures_v2"
-
-
-# ═══════════════════════════════════════════════════════════════
-# 数据加载
-# ═══════════════════════════════════════════════════════════════
-
-def _load_dataset() -> PaperDataset:
-    pkl_files = list(CACHE_DIR.glob("paper_dataset_*.pkl"))
-    assert pkl_files, f"No cached dataset found in {CACHE_DIR}"
-    with open(pkl_files[0], "rb") as f:
+def _load_v1_raw_dataset() -> PaperDataset:
+    """加载 v1 原始电阻数据集（未归一化），用于 z-score 异常值检测和原始曲线绘图。"""
+    v1_path = CACHE_DIR / "paper_dataset_v1_raw.pkl"
+    assert v1_path.exists(), (
+        f"v1 原始数据集不存在: {v1_path}\n"
+        f"请从 scripts/cache/paper/ 复制 paper_dataset_runs99_*_cut80s.pkl")
+    with open(v1_path, "rb") as f:
         return pickle.load(f)
-
-
-def _load_embeddings() -> np.ndarray:
-    excl_suffix = f"_excl_{'_'.join(sorted(EXCLUDED_TEAS))}" if EXCLUDED_TEAS else ""
-    path = CACHE_DIR / f"carl_embeddings_v2{excl_suffix}.npy"
-    if not path.exists():
-        path = CACHE_DIR / "carl_embeddings_v2.npy"
-    assert path.exists(), f"CARL embeddings not found: {path}"
-    return np.load(path)
-
-
-def _load_json(name: str) -> dict:
-    path = V2_TABLES_DIR / name
-    with open(path, encoding="latin-1") as f:
-        return json.load(f)
-
-
-def _save_sm(fig, name: str):
-    V2_FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-    MANUSCRIPT_FIGS_DIR.mkdir(parents=True, exist_ok=True)
-    for fmt in ["pdf", "png"]:
-        src = V2_FIGURES_DIR / f"{name}.{fmt}"
-        fig.savefig(src, dpi=FIGURE_DPI, bbox_inches="tight")
-        dst = MANUSCRIPT_FIGS_DIR / f"{name}.{fmt}"
-        shutil.copy2(src, dst)
-    plt.close(fig)
-    print(f"    → {name}")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -217,14 +79,14 @@ def _save_sm(fig, name: str):
 def gen_s3_all_ratio_curves(ds: PaperDataset):
     """2×5 面板: 全部 10 组 ratio curves, 按 NLDI 降序排列。"""
     print("  Figure S3: All ratio curves...")
-    _init_sm_style()
+    init_nature_style()
 
     baselines = compute_pure_baselines(ds)
-    nldi_json = _load_json("exp_nldi_v2.json")
+    nldi_json = load_json("exp_nldi_v2.json")
     table1 = nldi_json["table1"]
     combo_order = [row["combo"] for row in table1 if row["combo"] != "Overall"]
 
-    fig, axes = plt.subplots(2, 5, figsize=(FIG_WIDTH_DOUBLE * 1.6, FIG_WIDTH_DOUBLE * 0.55),
+    fig, axes = plt.subplots(2, 5, figsize=(FIG_WIDTH_DOUBLE, FIG_WIDTH_DOUBLE * 0.55),
                              sharex=True, sharey=False)
     axes_flat = axes.flatten()
 
@@ -259,7 +121,7 @@ def gen_s3_all_ratio_curves(ds: PaperDataset):
     fig.supxlabel("Blend ratio (fraction of Tea A)", fontsize=6.5, y=-0.02)
     fig.supylabel("Mean normalised sensor response", fontsize=6.5, x=0.01)
     fig.tight_layout()
-    _save_sm(fig, "fig_sm_s3_all_ratio_curves_v2")
+    save_figure(fig, "fig_sm_s3_all_ratio_curves_v2")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -269,10 +131,10 @@ def gen_s3_all_ratio_curves(ds: PaperDataset):
 def gen_s4_nldi_per_channel(ds: PaperDataset):
     """10×8 per-channel NLDI 热力图。"""
     print("  Figure S4: Per-channel NLDI...")
-    _init_sm_style()
+    init_nature_style()
 
     baselines = compute_pure_baselines(ds)
-    nldi_json = _load_json("exp_nldi_v2.json")
+    nldi_json = load_json("exp_nldi_v2.json")
     table1 = nldi_json["table1"]
     combo_order = [row["combo"] for row in table1 if row["combo"] != "Overall"]
 
@@ -292,7 +154,7 @@ def gen_s4_nldi_per_channel(ds: PaperDataset):
 
     sns.heatmap(
         per_ch_matrix, annot=True, fmt=".2f",
-        cmap=_soft_teal_cmap(),
+        cmap=soft_teal_cmap(),
         xticklabels=[f"CH{c}" for c in range(N_SENSORS)],
         yticklabels=combo_order,
         ax=ax, linewidths=0.5, linecolor="white",
@@ -304,7 +166,7 @@ def gen_s4_nldi_per_channel(ds: PaperDataset):
     ax.set_ylabel("Binary combination", fontsize=6.5)
     ax.tick_params(labelsize=6, length=0)
     fig.tight_layout()
-    _save_sm(fig, "fig_sm_s4_nldi_per_channel_v2")
+    save_figure(fig, "fig_sm_s4_nldi_per_channel_v2")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -314,14 +176,14 @@ def gen_s4_nldi_per_channel(ds: PaperDataset):
 def gen_s8a_pred_scatter(ds: PaperDataset, carl_embeddings: np.ndarray):
     """按组合着色的预测散点图。"""
     print("  Figure S8a: Prediction scatter (by combo)...")
-    _init_sm_style()
+    init_nature_style()
 
     from sklearn.svm import SVR
     from sklearn.preprocessing import LabelEncoder, OneHotEncoder
     from sklearn.pipeline import Pipeline
     from sklearn.model_selection import StratifiedKFold, cross_val_predict
     from sklearn.metrics import r2_score, mean_absolute_error
-    from .config import N_CV_FOLDS
+    from ..config import N_CV_FOLDS
 
     y_ratio = np.array(ds.ratios)[ds.mix_mask]
     y_combo = np.array(ds.combo_ids)[ds.mix_mask]
@@ -360,7 +222,7 @@ def gen_s8a_pred_scatter(ds: PaperDataset, carl_embeddings: np.ndarray):
     ax.set_aspect("equal")
     ax.legend(fontsize=4.5, ncol=2, loc="lower right", framealpha=0.8)
     fig.tight_layout()
-    _save_sm(fig, "fig_sm_s8a_pred_scatter_v2")
+    save_figure(fig, "fig_sm_s8a_pred_scatter_v2")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -370,13 +232,13 @@ def gen_s8a_pred_scatter(ds: PaperDataset, carl_embeddings: np.ndarray):
 def gen_s8b_residual(ds: PaperDataset, carl_embeddings: np.ndarray):
     """残差 (predicted - actual) vs actual ratio 散点图。"""
     print("  Figure S8b: Residual plot...")
-    _init_sm_style()
+    init_nature_style()
 
     from sklearn.svm import SVR
     from sklearn.preprocessing import LabelEncoder, OneHotEncoder
     from sklearn.pipeline import Pipeline
     from sklearn.model_selection import StratifiedKFold, cross_val_predict
-    from .config import N_CV_FOLDS
+    from ..config import N_CV_FOLDS
 
     y_ratio = np.array(ds.ratios)[ds.mix_mask]
     y_combo = np.array(ds.combo_ids)[ds.mix_mask]
@@ -413,7 +275,7 @@ def gen_s8b_residual(ds: PaperDataset, carl_embeddings: np.ndarray):
     ax.set_xlim(-0.05, 1.05)
     ax.legend(fontsize=4.5, ncol=2, loc="upper right", framealpha=0.8)
     fig.tight_layout()
-    _save_sm(fig, "fig_sm_s8b_residual_v2")
+    save_figure(fig, "fig_sm_s8b_residual_v2")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -423,7 +285,7 @@ def gen_s8b_residual(ds: PaperDataset, carl_embeddings: np.ndarray):
 def gen_s9_tsne_umap(ds: PaperDataset, carl_embeddings: np.ndarray):
     """四面板: (a) t-SNE CARL, (b) UMAP CARL, (c) t-SNE HC, (d) UMAP HC。"""
     print("  Figure S9a-d: t-SNE / UMAP...")
-    _init_sm_style()
+    init_nature_style()
 
     from sklearn.manifold import TSNE
 
@@ -462,11 +324,11 @@ def gen_s9_tsne_umap(ds: PaperDataset, carl_embeddings: np.ndarray):
             raw_name = TEA_ORDER[int(tid[1]) - 1] if tid.startswith("T") and tid[1].isdigit() else ""
             en_name = TEA_NAME_EN.get(raw_name, tid)
             ax.scatter(emb[mask, 0], emb[mask, 1],
-                      c=SM_TEA_COLORS.get(tid, "#999999"), marker=SM_TEA_MARKERS.get(tid, "o"),
+                      c=TEA_COLORS.get(tid, "#999999"), marker=TEA_MARKERS_MAP.get(tid, "o"),
                       s=15, alpha=0.8, edgecolors="white", linewidth=0.3,
                       label=f"{tid} {en_name}", zorder=3)
         ax.set_title(title)
-        _sm_panel_label(ax, chr(97 + ax_idx))
+        panel_label(ax, chr(97 + ax_idx))
 
     handles, labels = axes[0, 0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="lower center", ncol=5,
@@ -474,7 +336,7 @@ def gen_s9_tsne_umap(ds: PaperDataset, carl_embeddings: np.ndarray):
                markerscale=1.3, handletextpad=0.3, columnspacing=0.8)
 
     fig.tight_layout()
-    _save_sm(fig, "fig_sm_s9_tsne_umap_v2")
+    save_figure(fig, "fig_sm_s9_tsne_umap_v2")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -484,7 +346,7 @@ def gen_s9_tsne_umap(ds: PaperDataset, carl_embeddings: np.ndarray):
 def gen_s9f_blend_trajectories(ds: PaperDataset, carl_embeddings: np.ndarray):
     """全部 10 条混合轨迹叠加在 CARL PCA 上, 线宽正比于 NLDI。"""
     print("  Figure S9f: Blend trajectories...")
-    _init_sm_style()
+    init_nature_style()
 
     pca = PCA(n_components=2, random_state=SEED)
     pc = pca.fit_transform(carl_embeddings)
@@ -495,7 +357,7 @@ def gen_s9f_blend_trajectories(ds: PaperDataset, carl_embeddings: np.ndarray):
     ratios_arr = np.array(ds.ratios)
 
     baselines = compute_pure_baselines(ds)
-    nldi_json = _load_json("exp_nldi_v2.json")
+    nldi_json = load_json("exp_nldi_v2.json")
     nldi_lookup = {row["combo"]: row["nldi_mean"] for row in nldi_json["table1"]}
 
     fig, ax = plt.subplots(figsize=(FIG_WIDTH_1_5, FIG_WIDTH_1_5))
@@ -506,7 +368,7 @@ def gen_s9f_blend_trajectories(ds: PaperDataset, carl_embeddings: np.ndarray):
         raw_name = TEA_ORDER[int(tid[1]) - 1] if tid.startswith("T") and tid[1].isdigit() else ""
         en_name = TEA_NAME_EN.get(raw_name, tid)
         ax.scatter(pc[mask, 0], pc[mask, 1],
-                  c=SM_TEA_COLORS.get(tid, "#999999"), marker=SM_TEA_MARKERS.get(tid, "o"),
+                  c=TEA_COLORS.get(tid, "#999999"), marker=TEA_MARKERS_MAP.get(tid, "o"),
                   s=25, alpha=0.8, edgecolors="white", linewidth=0.3,
                   label=f"{tid} {en_name}", zorder=3)
 
@@ -546,7 +408,7 @@ def gen_s9f_blend_trajectories(ds: PaperDataset, carl_embeddings: np.ndarray):
     ax.set_title("Blend trajectories (line width ∘ NLDI)", fontsize=6.5)
     ax.legend(fontsize=5, loc="best", framealpha=0.8)
     fig.tight_layout()
-    _save_sm(fig, "fig_sm_s9f_blend_traj_v2")
+    save_figure(fig, "fig_sm_s9f_blend_traj_v2")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -554,21 +416,25 @@ def gen_s9f_blend_trajectories(ds: PaperDataset, carl_embeddings: np.ndarray):
 # ═══════════════════════════════════════════════════════════════
 
 def gen_s2a_raw_curves(ds: PaperDataset):
-    """五种纯茶的原始八通道归一化电阻时间序列 (每种 3 个代表性重复)。"""
+    """五种纯茶的原始八通道电阻时间序列 (每种 3 个代表性重复)。
+
+    使用 v1 原始电阻数据（归一化前），与文稿 S1 描述一致。
+    """
     print("  Figure S2a: Raw response curves...")
-    _init_sm_style()
+    init_nature_style()
 
-    tea_ids_arr = np.array(ds.tea_ids)
-    X = ds.X_aligned  # (690, 100, 32) — first 8 cols = resistance channels
+    ds_raw = _load_v1_raw_dataset()
+    tea_ids_arr = np.array(ds_raw.tea_ids)
+    X = ds_raw.X_aligned  # (690, 100, 32) — v1 原始电阻值
 
-    fig, axes = plt.subplots(1, 5, figsize=(FIG_WIDTH_DOUBLE * 1.5, FIG_WIDTH_SINGLE * 0.8),
+    fig, axes = plt.subplots(1, 5, figsize=(FIG_WIDTH_DOUBLE, FIG_WIDTH_SINGLE * 0.8),
                              sharey=True)
     n_reps = 3  # 每种茶展示的代表性重复数
     time_steps = np.arange(X.shape[1])
 
     for ax_idx, tid in enumerate(["T1", "T2", "T3", "T4", "T5"]):
         ax = axes[ax_idx]
-        pure_idx = np.where(ds.pure_mask & (tea_ids_arr == tid))[0]
+        pure_idx = np.where(ds_raw.pure_mask & (tea_ids_arr == tid))[0]
         # 均匀采样 n_reps 个
         sel = pure_idx[np.linspace(0, len(pure_idx) - 1, n_reps, dtype=int)]
         for rep_i, si in enumerate(sel):
@@ -582,14 +448,14 @@ def gen_s2a_raw_curves(ds: PaperDataset):
         ax.set_xlabel("Time step")
         if ax_idx == 0:
             ax.set_ylabel("Resistance (raw)")
-        _sm_panel_label(ax, chr(97 + ax_idx))
+        panel_label(ax, chr(97 + ax_idx))
 
     handles, labels = axes[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="lower center", ncol=N_SENSORS,
                bbox_to_anchor=(0.5, -0.08), frameon=False,
                handletextpad=0.3, columnspacing=0.8, fontsize=5.5)
     fig.tight_layout()
-    _save_sm(fig, "fig_sm_s2a_raw_curves_v2")
+    save_figure(fig, "fig_sm_s2a_raw_curves_v2")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -597,13 +463,18 @@ def gen_s2a_raw_curves(ds: PaperDataset):
 # ═══════════════════════════════════════════════════════════════
 
 def gen_s2c_zscore_histogram(ds: PaperDataset):
-    """多变量 z-score 范数直方图，标注 3σ 阈值。"""
-    print("  Figure S2c: Z-score histogram...")
-    _init_sm_style()
+    """多变量 z-score 范数直方图，标注 3σ 阈值。
 
-    X = ds.X_aligned[:, :, :N_SENSORS]  # resistance only
+    使用 v1 原始电阻数据（漂移校正后、归一化前）计算全局 z-score，
+    与文稿描述一致：在归一化前检测异常值。
+    """
+    print("  Figure S2c: Z-score histogram...")
+    init_nature_style()
+
+    ds_raw = _load_v1_raw_dataset()
+    X = ds_raw.X_aligned[:, :, :N_SENSORS]  # 原始电阻值
     n_samples = X.shape[0]
-    X_flat = X.reshape(n_samples, -1)  # (690, 800)
+    X_flat = X.reshape(n_samples, -1)
 
     mean = X_flat.mean(axis=0)
     std = X_flat.std(axis=0) + 1e-12
@@ -624,7 +495,8 @@ def gen_s2c_zscore_histogram(ds: PaperDataset):
     ax.set_ylabel("Count", fontsize=6.5)
     ax.legend(fontsize=5.5)
     fig.tight_layout()
-    _save_sm(fig, "fig_sm_s2c_zscore_hist_v2")
+    save_figure(fig, "fig_sm_s2c_zscore_hist_v2")
+    print(f"    → {n_outliers} outliers detected ({pct:.1f}%)")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -638,13 +510,13 @@ def gen_s7a_confusion(ds: PaperDataset, carl_embeddings: np.ndarray):
     CARL-FT 需要微调 → 用冻结编码器 + SVM-RBF 近似。
     """
     print("  Figure S7a: Confusion matrices...")
-    _init_sm_style()
+    init_nature_style()
 
     from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
     from sklearn.svm import SVC
     from sklearn.model_selection import StratifiedKFold, cross_val_predict
     from sklearn.metrics import confusion_matrix, accuracy_score
-    from .config import N_CV_FOLDS
+    from ..config import N_CV_FOLDS
 
     tea_ids_arr = np.array(ds.tea_ids)
     pure_mask = ds.pure_mask
@@ -687,7 +559,7 @@ def gen_s7a_confusion(ds: PaperDataset, carl_embeddings: np.ndarray):
     labels_5 = ["T1", "T2", "T3", "T4", "T5"]
 
     for ax, cm, title in zip(axes, cms, titles):
-        sns.heatmap(cm, annot=True, fmt="d", cmap=_soft_teal_cmap(),
+        sns.heatmap(cm, annot=True, fmt="d", cmap=soft_teal_cmap(),
                    xticklabels=labels_5, yticklabels=labels_5,
                    ax=ax, linewidths=0.5, linecolor="white",
                    annot_kws={"size": 6.5, "color": AXIS_GREY},
@@ -698,7 +570,7 @@ def gen_s7a_confusion(ds: PaperDataset, carl_embeddings: np.ndarray):
         ax.tick_params(labelsize=6, length=0)
 
     fig.tight_layout()
-    _save_sm(fig, "fig_sm_s7a_confusion_v2")
+    save_figure(fig, "fig_sm_s7a_confusion_v2")
 
     # 同时导出逐类指标 JSON (用于填充表 S7a)
     from sklearn.metrics import classification_report
@@ -730,10 +602,10 @@ def gen_s7a_confusion(ds: PaperDataset, carl_embeddings: np.ndarray):
 def gen_s7b_cv_boxplot(ds: PaperDataset, carl_embeddings: np.ndarray):
     """五折 CV 准确率柱状图 + 误差线: 从已保存的 table2 CSV 读取, 不重新实验。"""
     print("  Figure S7b: CV accuracy bar chart...")
-    _init_sm_style()
+    init_nature_style()
 
     import csv
-    csv_path = V2_FIGURES_DIR.parent / "tables" / "table2_classification_v2.csv"
+    csv_path = V2_TABLES_DIR / "table2_classification_v2.csv"
     if not csv_path.exists():
         print(f"    ⚠ {csv_path} 不存在, 跳过")
         return
@@ -773,7 +645,7 @@ def gen_s7b_cv_boxplot(ds: PaperDataset, carl_embeddings: np.ndarray):
     fig, ax = plt.subplots(figsize=(FIG_WIDTH_1_5, FIG_WIDTH_SINGLE))
     x = np.arange(n)
     bar_colors = ["#8CBEB2", "#5B9279", "#7A98BF",
-                  "#B8A9C9", SM_TEA_COLORS["T1"], SM_TEA_COLORS["T2"]][:n]
+                  "#B8A9C9", TEA_COLORS["T1"], TEA_COLORS["T2"]][:n]
     edge_colors = ["#5A8F82", "#3D6B55", "#556B8A",
                    "#8A7BA0", "#C07A28", "#7A2A1C"][:n]
 
@@ -793,7 +665,7 @@ def gen_s7b_cv_boxplot(ds: PaperDataset, carl_embeddings: np.ndarray):
     ax.set_ylim(60, 105)
     ax.axhline(y=100, color=PRED_GREY, linewidth=0.3, linestyle="--", zorder=1)
     fig.tight_layout()
-    _save_sm(fig, "fig_sm_s7b_cv_boxplot_v2")
+    save_figure(fig, "fig_sm_s7b_cv_boxplot_v2")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -803,7 +675,7 @@ def gen_s7b_cv_boxplot(ds: PaperDataset, carl_embeddings: np.ndarray):
 def gen_s9e_3d_pca(ds: PaperDataset, carl_embeddings: np.ndarray):
     """CARL 嵌入的 PC1–PC2–PC3 三维投影。"""
     print("  Figure S9e: 3D PCA...")
-    _init_sm_style()
+    init_nature_style()
 
     pca = PCA(n_components=3, random_state=SEED)
     pc = pca.fit_transform(carl_embeddings)
@@ -826,7 +698,7 @@ def gen_s9e_3d_pca(ds: PaperDataset, carl_embeddings: np.ndarray):
         raw_name = TEA_ORDER[int(tid[1]) - 1] if tid.startswith("T") and tid[1].isdigit() else ""
         en_name = TEA_NAME_EN.get(raw_name, tid)
         ax.scatter(pc[mask, 0], pc[mask, 1], pc[mask, 2],
-                  c=SM_TEA_COLORS.get(tid, "#999999"), marker=SM_TEA_MARKERS.get(tid, "o"),
+                  c=TEA_COLORS.get(tid, "#999999"), marker=TEA_MARKERS_MAP.get(tid, "o"),
                   s=18, alpha=0.85, edgecolors="white", linewidth=0.2,
                   label=f"{tid} {en_name}")
 
@@ -837,7 +709,7 @@ def gen_s9e_3d_pca(ds: PaperDataset, carl_embeddings: np.ndarray):
     ax.legend(fontsize=5, loc="upper left", framealpha=0.8)
     ax.view_init(elev=25, azim=135)
     fig.tight_layout()
-    _save_sm(fig, "fig_sm_s9e_3d_pca_v2")
+    save_figure(fig, "fig_sm_s9e_3d_pca_v2")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -849,7 +721,7 @@ def gen_table_s4_per_channel_nldi(ds: PaperDataset):
     print("  Table S4: Per-channel NLDI data...")
 
     baselines = compute_pure_baselines(ds)
-    nldi_json = _load_json("exp_nldi_v2.json")
+    nldi_json = load_json("exp_nldi_v2.json")
     table1 = nldi_json["table1"]
     combo_order = [row["combo"] for row in table1 if row["combo"] != "Overall"]
 
@@ -880,7 +752,7 @@ def gen_table_s8a_per_combo_regression(ds: PaperDataset, carl_embeddings: np.nda
     from sklearn.pipeline import Pipeline
     from sklearn.model_selection import StratifiedKFold, cross_val_predict
     from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
-    from .config import N_CV_FOLDS
+    from ..config import N_CV_FOLDS
 
     y_ratio = np.array(ds.ratios)[ds.mix_mask]
     y_combo = np.array(ds.combo_ids)[ds.mix_mask]
@@ -933,7 +805,7 @@ def gen_table_s8a_per_combo_regression(ds: PaperDataset, carl_embeddings: np.nda
 def main():
     V2_FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     MANUSCRIPT_FIGS_DIR.mkdir(parents=True, exist_ok=True)
-    _init_sm_style()
+    init_nature_style()
 
     print("=" * 60)
     print("  v2 Supplementary Material 图表生成器")
@@ -941,8 +813,8 @@ def main():
     print(f"  复制: {MANUSCRIPT_FIGS_DIR}")
     print("=" * 60)
 
-    ds = _load_dataset()
-    carl_embeddings = _load_embeddings()
+    ds = load_dataset()
+    carl_embeddings = load_embeddings()
 
     # ── 新增: S2 数据预处理可视化 ──
     gen_s2a_raw_curves(ds)
