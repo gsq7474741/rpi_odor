@@ -36,7 +36,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ..config import SEED, N_CV_FOLDS
+from ..config import SEED, N_CV_FOLDS, CARL_EPOCHS
 from ..data import PaperDataset
 from ..viz import init_style
 
@@ -631,10 +631,26 @@ def run(
     ds: PaperDataset,
     tables_dir: Path,
     figures_dir: Path,
+    only_models: list[str] | None = None,
+    carl_epochs: int | None = None,
+    carl_temp: float | None = None,
+    carl_sigma: float | None = None,
+    carl_lr: float | None = None,
 ) -> dict:
-    """Run §3.4: 叉乘回归对比 (Representation × {SVR, DeepMLP})."""
+    """Run §3.4: 叉乘回归对比 (Representation × {SVR, DeepMLP}).
+
+    only_models: 过滤器, 可选值: hc, e2e, ssl, comp, carl
+    carl_epochs: 覆盖 CARL 训练 epochs
+    carl_temp/carl_sigma: 覆盖 SoftSupConLoss 参数
+    carl_lr: 覆盖学习率
+    """
+    ALL_MODEL_GROUPS = {"hc", "e2e", "ssl", "comp", "carl"}
+    run_groups = set(only_models) if only_models else ALL_MODEL_GROUPS
+
     print("\n" + "=" * 70)
     print("  §3.4 Blend Ratio Prediction (v2 — cross-product)")
+    if only_models:
+        print(f"  [过滤] 只运行: {sorted(run_groups)}")
     print("=" * 70)
 
     results = {}
@@ -659,175 +675,209 @@ def run(
     # ───────────────────────────────────────────────────
     # HC × {Ridge, SVR, DeepMLP}
     # ───────────────────────────────────────────────────
-    print("  HC × {Ridge, SVR, DeepMLP}...")
-    from sklearn.linear_model import Ridge
-    hc_ridge = _eval_combo_conditioned_cv(X_feat, y_ratio, y_combo, "HC+Ridge", Ridge(alpha=1.0))
-    hc_ridge_m = {k: hc_ridge[k] for k in ("r2", "mae", "rmse")}
-    hc_svr = _eval_svr_combo_cv(X_feat, y_ratio, y_combo)
-    hc_mlp = _eval_mlp_combo_cv(X_feat, y_ratio, y_combo)
-    print(f"    HC+Ridge: R²={hc_ridge_m['r2']:.3f}  HC+SVR: R²={hc_svr['r2']:.3f}  HC+MLP: R²={hc_mlp['r2']:.3f}")
-    table_rows.append({
-        "category": "Handcrafted", "representation": "HC+Ridge", "params": "—",
-        "SVR_r2": hc_ridge_m["r2"], "SVR_mae": hc_ridge_m["mae"], "SVR_rmse": hc_ridge_m["rmse"],
-        "DeepMLP_r2": "—", "DeepMLP_mae": "—", "DeepMLP_rmse": "—",
-    })
-    table_rows.append(_row("Handcrafted", "HC", "—", hc_svr, hc_mlp))
+    if "hc" in run_groups:
+        print("  HC × {Ridge, SVR, DeepMLP}...")
+        from sklearn.linear_model import Ridge
+        hc_ridge = _eval_combo_conditioned_cv(X_feat, y_ratio, y_combo, "HC+Ridge", Ridge(alpha=1.0))
+        hc_ridge_m = {k: hc_ridge[k] for k in ("r2", "mae", "rmse")}
+        hc_svr = _eval_svr_combo_cv(X_feat, y_ratio, y_combo)
+        hc_mlp = _eval_mlp_combo_cv(X_feat, y_ratio, y_combo)
+        print(f"    HC+Ridge: R²={hc_ridge_m['r2']:.3f}  HC+SVR: R²={hc_svr['r2']:.3f}  HC+MLP: R²={hc_mlp['r2']:.3f}")
+        table_rows.append({
+            "category": "Handcrafted", "representation": "HC+Ridge", "params": "—",
+            "SVR_r2": hc_ridge_m["r2"], "SVR_mae": hc_ridge_m["mae"], "SVR_rmse": hc_ridge_m["rmse"],
+            "DeepMLP_r2": "—", "DeepMLP_mae": "—", "DeepMLP_rmse": "—",
+        })
+        table_rows.append(_row("Handcrafted", "HC", "—", hc_svr, hc_mlp))
 
     # ───────────────────────────────────────────────────
     # 1D-CNN + LSTM-Attn (end-to-end)
     # ───────────────────────────────────────────────────
-    print("  1D-CNN (end-to-end)...")
-    res_cnn = _eval_cnn_regressor_cv(X_raw, y_ratio, y_combo, "1D-CNN")
-    cnn_m = {k: res_cnn[k] for k in ("r2", "mae", "rmse")}
-    print(f"    1D-CNN: R²={cnn_m['r2']:.3f}")
-    from ..baselines import _CNN1DClassifier
-    _d = _CNN1DClassifier(in_channels=8, n_classes=5)
-    cnn_p = f"{sum(p.numel() for p in _d.parameters())/1000:.1f}K"
-    table_rows.append({
-        "category": "End-to-end", "representation": "1D-CNN", "params": cnn_p,
-        "SVR_r2": "—", "SVR_mae": "—", "SVR_rmse": "—",
-        "DeepMLP_r2": cnn_m["r2"], "DeepMLP_mae": cnn_m["mae"], "DeepMLP_rmse": cnn_m["rmse"],
-    })
+    if "e2e" in run_groups:
+        print("  1D-CNN (end-to-end)...")
+        res_cnn = _eval_cnn_regressor_cv(X_raw, y_ratio, y_combo, "1D-CNN")
+        cnn_m = {k: res_cnn[k] for k in ("r2", "mae", "rmse")}
+        print(f"    1D-CNN: R²={cnn_m['r2']:.3f}")
+        from ..baselines import _CNN1DClassifier
+        _d = _CNN1DClassifier(in_channels=8, n_classes=5)
+        cnn_p = f"{sum(p.numel() for p in _d.parameters())/1000:.1f}K"
+        table_rows.append({
+            "category": "End-to-end", "representation": "1D-CNN", "params": cnn_p,
+            "SVR_r2": "—", "SVR_mae": "—", "SVR_rmse": "—",
+            "DeepMLP_r2": cnn_m["r2"], "DeepMLP_mae": cnn_m["mae"], "DeepMLP_rmse": cnn_m["rmse"],
+        })
 
-    print("  LSTM-Attn (end-to-end)...")
-    res_lstm = _eval_lstm_regressor_cv(X_raw, y_ratio, y_combo)
-    lstm_m = {k: res_lstm[k] for k in ("r2", "mae", "rmse")}
-    print(f"    LSTM-Attn: R²={lstm_m['r2']:.3f}")
-    from ..backbones import LSTMBackbone
-    _d_lstm = LSTMBackbone(in_channels=8)
-    lstm_p = f"{sum(p.numel() for p in _d_lstm.parameters())/1000:.1f}K"
-    table_rows.append({
-        "category": "End-to-end", "representation": "LSTM-Attn", "params": lstm_p,
-        "SVR_r2": "—", "SVR_mae": "—", "SVR_rmse": "—",
-        "DeepMLP_r2": lstm_m["r2"], "DeepMLP_mae": lstm_m["mae"], "DeepMLP_rmse": lstm_m["rmse"],
-    })
+        print("  LSTM-Attn (end-to-end)...")
+        res_lstm = _eval_lstm_regressor_cv(X_raw, y_ratio, y_combo)
+        lstm_m = {k: res_lstm[k] for k in ("r2", "mae", "rmse")}
+        print(f"    LSTM-Attn: R²={lstm_m['r2']:.3f}")
+        from ..backbones import LSTMBackbone
+        _d_lstm = LSTMBackbone(in_channels=8)
+        lstm_p = f"{sum(p.numel() for p in _d_lstm.parameters())/1000:.1f}K"
+        table_rows.append({
+            "category": "End-to-end", "representation": "LSTM-Attn", "params": lstm_p,
+            "SVR_r2": "—", "SVR_mae": "—", "SVR_rmse": "—",
+            "DeepMLP_r2": lstm_m["r2"], "DeepMLP_mae": lstm_m["mae"], "DeepMLP_rmse": lstm_m["rmse"],
+        })
 
     # ───────────────────────────────────────────────────
     # Self-supervised × {SVR, DeepMLP}
     # ───────────────────────────────────────────────────
-    print("  Self-supervised × {SVR, DeepMLP}...")
-    from ..baselines import train_ts2vec, train_autoencoder, train_vanilla_contrastive
+    if "ssl" in run_groups:
+        print("  Self-supervised × {SVR, DeepMLP}...")
+        from ..baselines import train_ts2vec, train_autoencoder, train_vanilla_contrastive
 
-    ss_items = [
-        ("TS2Vec", train_ts2vec),
-        ("Autoencoder", train_autoencoder),
-        ("SimCLR", train_vanilla_contrastive),
-    ]
-    from ..baselines import TS2VecEncoder, _AEEncoder, _VanillaEncoder, EMBED_DIM
-    ss_param_map = {
-        "TS2Vec": f"{sum(p.numel() for p in TS2VecEncoder(8, embed_dim=EMBED_DIM).parameters())/1000:.1f}K",
-        "Autoencoder": f"{sum(p.numel() for p in _AEEncoder(8, embed_dim=EMBED_DIM).parameters())/1000:.1f}K",
-        "SimCLR": f"{sum(p.numel() for p in _VanillaEncoder(8, embed_dim=EMBED_DIM).parameters())/1000:.1f}K",
-    }
+        ss_items = [
+            ("TS2Vec", train_ts2vec),
+            ("Autoencoder", train_autoencoder),
+            ("SimCLR", train_vanilla_contrastive),
+        ]
+        from ..baselines import TS2VecEncoder, _AEEncoder, _VanillaEncoder, EMBED_DIM
+        ss_param_map = {
+            "TS2Vec": f"{sum(p.numel() for p in TS2VecEncoder(8, embed_dim=EMBED_DIM).parameters())/1000:.1f}K",
+            "Autoencoder": f"{sum(p.numel() for p in _AEEncoder(8, embed_dim=EMBED_DIM).parameters())/1000:.1f}K",
+            "SimCLR": f"{sum(p.numel() for p in _VanillaEncoder(8, embed_dim=EMBED_DIM).parameters())/1000:.1f}K",
+        }
 
-    for name, train_fn in ss_items:
-        print(f"    训练 {name} (200 epochs)...")
-        emb = train_fn(ds.X_value, epochs=200)
-        emb_mix = emb[mix_idx]
-        svr_r = _eval_svr_combo_cv(emb_mix, y_ratio, y_combo)
-        mlp_r = _eval_mlp_combo_cv(emb_mix, y_ratio, y_combo)
-        print(f"      {name}: SVR R²={svr_r['r2']:.3f}, MLP R²={mlp_r['r2']:.3f}")
-        table_rows.append(_row("Self-supervised", name, ss_param_map[name], svr_r, mlp_r))
+        for name, train_fn in ss_items:
+            print(f"    训练 {name} (200 epochs)...")
+            emb = train_fn(ds.X_value, epochs=200)
+            emb_mix = emb[mix_idx]
+            svr_r = _eval_svr_combo_cv(emb_mix, y_ratio, y_combo)
+            mlp_r = _eval_mlp_combo_cv(emb_mix, y_ratio, y_combo)
+            print(f"      {name}: SVR R²={svr_r['r2']:.3f}, MLP R²={mlp_r['r2']:.3f}")
+            table_rows.append(_row("Self-supervised", name, ss_param_map[name], svr_r, mlp_r))
 
     # ───────────────────────────────────────────────────
     # Composition-supervised × {SVR, DeepMLP} (nested CV)
     # ───────────────────────────────────────────────────
-    print("  Composition-supervised × {SVR, DeepMLP} (nested CV)...")
-    sup_items = [
-        ("TS2Vec+SoftSupCon", "ts2vec"),
-        ("AE+SoftSupCon", "ae"),
-        ("SimCLR+SoftSupCon", "vanilla"),
-    ]
-    sup_param_map = {
-        "TS2Vec+SoftSupCon": ss_param_map["TS2Vec"],
-        "AE+SoftSupCon": ss_param_map["Autoencoder"],
-        "SimCLR+SoftSupCon": ss_param_map["SimCLR"],
-    }
-    for name, arch in sup_items:
-        print(f"    {name} ({N_CV_FOLDS}-fold nested CV)...")
-        res = _nested_cv_reg_supervised(arch, ds, mix_idx, y_ratio, y_combo)
-        print(f"      SVR R²={res['SVR']['r2']:.3f}, MLP R²={res['DeepMLP']['r2']:.3f}")
-        table_rows.append(_row("Comp-supervised", name, sup_param_map[name],
-                               res["SVR"], res["DeepMLP"]))
+    if "comp" in run_groups:
+        print("  Composition-supervised × {SVR, DeepMLP} (nested CV)...")
+        from ..baselines import TS2VecEncoder, _AEEncoder, _VanillaEncoder, EMBED_DIM
+        sup_items = [
+            ("TS2Vec+SoftSupCon", "ts2vec"),
+            ("AE+SoftSupCon", "ae"),
+            ("SimCLR+SoftSupCon", "vanilla"),
+        ]
+        sup_param_map = {
+            "TS2Vec+SoftSupCon": f"{sum(p.numel() for p in TS2VecEncoder(8, embed_dim=EMBED_DIM).parameters())/1000:.1f}K",
+            "AE+SoftSupCon": f"{sum(p.numel() for p in _AEEncoder(8, embed_dim=EMBED_DIM).parameters())/1000:.1f}K",
+            "SimCLR+SoftSupCon": f"{sum(p.numel() for p in _VanillaEncoder(8, embed_dim=EMBED_DIM).parameters())/1000:.1f}K",
+        }
+        for name, arch in sup_items:
+            print(f"    {name} ({N_CV_FOLDS}-fold nested CV)...")
+            res = _nested_cv_reg_supervised(arch, ds, mix_idx, y_ratio, y_combo)
+            print(f"      SVR R²={res['SVR']['r2']:.3f}, MLP R²={res['DeepMLP']['r2']:.3f}")
+            table_rows.append(_row("Comp-supervised", name, sup_param_map[name],
+                                   res["SVR"], res["DeepMLP"]))
 
     # ───────────────────────────────────────────────────
     # CARL × {SVR, DeepMLP} (nested CV) — Proj + GAP
     # ───────────────────────────────────────────────────
-    print("  CARL × {SVR, DeepMLP} (nested CV) — Proj + GAP...")
-    from ..carl_training import (
-        CARLEncoder, train_carl_on_subset,
-        extract_embeddings_with_scaler, extract_gap_features_with_scaler,
-    )
+    if "carl" in run_groups:
+        print("  CARL × {SVR, DeepMLP} (nested CV) — Proj + GAP...")
+        from ..carl_training import (
+            CARLEncoder, train_carl_on_subset,
+            extract_embeddings_with_scaler, extract_gap_features_with_scaler,
+        )
+        _carl_ep = carl_epochs if carl_epochs else CARL_EPOCHS
+        _carl_temp = carl_temp if carl_temp else 0.5
+        _carl_sigma = carl_sigma if carl_sigma else 0.5
+        _carl_lr = carl_lr if carl_lr else 1e-3
+        print(f"    CARL epochs: {_carl_ep}, temp: {_carl_temp}, sigma: {_carl_sigma}, lr: {_carl_lr}")
 
-    le_strat = LabelEncoder()
-    y_strat = le_strat.fit_transform(y_combo)
-    skf_carl = StratifiedKFold(n_splits=N_CV_FOLDS, shuffle=True, random_state=SEED)
+        le_strat = LabelEncoder()
+        y_strat = le_strat.fit_transform(y_combo)
+        skf_carl = StratifiedKFold(n_splits=N_CV_FOLDS, shuffle=True, random_state=SEED)
 
-    y_pred_svr = np.zeros_like(y_ratio, dtype=np.float32)
-    y_pred_mlp = np.zeros_like(y_ratio, dtype=np.float32)
-    y_pred_gap_svr = np.zeros_like(y_ratio, dtype=np.float32)
+        y_pred_svr = np.zeros_like(y_ratio, dtype=np.float32)
+        y_pred_mlp = np.zeros_like(y_ratio, dtype=np.float32)
+        y_pred_gap_svr = np.zeros_like(y_ratio, dtype=np.float32)
 
-    for fold, (tr_idx, te_idx) in enumerate(skf_carl.split(X_feat, y_strat)):
-        global_test = mix_idx[te_idx]
-        carl_mask = np.ones(ds.n_total, dtype=bool)
-        carl_mask[global_test] = False
+        for fold, (tr_idx, te_idx) in enumerate(skf_carl.split(X_feat, y_strat)):
+            global_test = mix_idx[te_idx]
+            carl_mask = np.ones(ds.n_total, dtype=bool)
+            carl_mask[global_test] = False
 
-        encoder, sc = train_carl_on_subset(ds, carl_mask, verbose=(fold == 0))
+            encoder, sc = train_carl_on_subset(
+                ds, carl_mask, epochs=_carl_ep, lr=_carl_lr,
+                temperature=_carl_temp, sigma=_carl_sigma,
+                verbose=(fold == 0))
 
-        # Proj features (post-projector, L2-normalized)
-        emb = extract_embeddings_with_scaler(encoder, ds, sc)
-        # GAP features (pre-projector, 128D)
-        gap = extract_gap_features_with_scaler(encoder, ds, sc)
+            # Proj features (post-projector, L2-normalized)
+            emb = extract_embeddings_with_scaler(encoder, ds, sc)
+            # GAP features (pre-projector, 128D)
+            gap = extract_gap_features_with_scaler(encoder, ds, sc)
 
-        le_c = LabelEncoder()
-        ohe = OneHotEncoder(sparse_output=False)
-        oh_tr = ohe.fit_transform(le_c.fit_transform(y_combo[tr_idx]).reshape(-1, 1))
-        oh_te = ohe.transform(le_c.transform(y_combo[te_idx]).reshape(-1, 1))
+            le_c = LabelEncoder()
+            ohe = OneHotEncoder(sparse_output=False)
+            oh_tr = ohe.fit_transform(le_c.fit_transform(y_combo[tr_idx]).reshape(-1, 1))
+            oh_te = ohe.transform(le_c.transform(y_combo[te_idx]).reshape(-1, 1))
 
-        # CARL-Proj + SVR
-        Xr_tr = np.hstack([emb[mix_idx[tr_idx]], oh_tr])
-        Xr_te = np.hstack([emb[mix_idx[te_idx]], oh_te])
-        svr_pipe = Pipeline([("sc", StandardScaler()), ("svr", SVR(kernel="rbf", C=10.0))])
-        svr_pipe.fit(Xr_tr, y_ratio[tr_idx])
-        y_pred_svr[te_idx] = svr_pipe.predict(Xr_te)
+            # CARL-Proj + SVR (fixed C=10)
+            Xr_tr = np.hstack([emb[mix_idx[tr_idx]], oh_tr])
+            Xr_te = np.hstack([emb[mix_idx[te_idx]], oh_te])
+            svr_pipe = Pipeline([("sc", StandardScaler()), ("svr", SVR(kernel="rbf", C=10.0))])
+            svr_pipe.fit(Xr_tr, y_ratio[tr_idx])
+            y_pred_svr[te_idx] = svr_pipe.predict(Xr_te)
 
-        # CARL-Proj + DeepMLP
-        _, preds_mlp = _train_deep_mlp_fold(
-            Xr_tr, y_ratio[tr_idx], Xr_te, y_ratio[te_idx])
-        y_pred_mlp[te_idx] = preds_mlp
+            # CARL-Proj + DeepMLP
+            _, preds_mlp = _train_deep_mlp_fold(
+                Xr_tr, y_ratio[tr_idx], Xr_te, y_ratio[te_idx])
+            y_pred_mlp[te_idx] = preds_mlp
 
-        # CARL-GAP + SVR
-        Xg_tr = np.hstack([gap[mix_idx[tr_idx]], oh_tr])
-        Xg_te = np.hstack([gap[mix_idx[te_idx]], oh_te])
-        gap_svr_pipe = Pipeline([("sc", StandardScaler()), ("svr", SVR(kernel="rbf", C=10.0))])
-        gap_svr_pipe.fit(Xg_tr, y_ratio[tr_idx])
-        y_pred_gap_svr[te_idx] = gap_svr_pipe.predict(Xg_te)
+            # CARL-GAP + SVR (fixed C=10)
+            Xg_tr = np.hstack([gap[mix_idx[tr_idx]], oh_tr])
+            Xg_te = np.hstack([gap[mix_idx[te_idx]], oh_te])
+            gap_svr_pipe = Pipeline([("sc", StandardScaler()), ("svr", SVR(kernel="rbf", C=10.0))])
+            gap_svr_pipe.fit(Xg_tr, y_ratio[tr_idx])
+            y_pred_gap_svr[te_idx] = gap_svr_pipe.predict(Xg_te)
 
-        del encoder
-        torch.cuda.empty_cache()
-        print(f"    fold {fold+1}/{N_CV_FOLDS} done")
+            del encoder
+            torch.cuda.empty_cache()
+            print(f"    fold {fold+1}/{N_CV_FOLDS} done")
 
-    carl_svr_m = _metrics(y_ratio, y_pred_svr)
-    carl_mlp_m = _metrics(y_ratio, y_pred_mlp)
-    carl_gap_svr_m = _metrics(y_ratio, y_pred_gap_svr)
-    print(f"    CARL-Proj: SVR R²={carl_svr_m['r2']:.3f}, MLP R²={carl_mlp_m['r2']:.3f}")
-    print(f"    CARL-GAP:  SVR R²={carl_gap_svr_m['r2']:.3f}")
+        carl_svr_m = _metrics(y_ratio, y_pred_svr)
+        carl_mlp_m = _metrics(y_ratio, y_pred_mlp)
+        carl_gap_svr_m = _metrics(y_ratio, y_pred_gap_svr)
+        print(f"    CARL-Proj:   SVR R²={carl_svr_m['r2']:.3f}, MLP R²={carl_mlp_m['r2']:.3f}")
+        print(f"    CARL-GAP:    SVR R²={carl_gap_svr_m['r2']:.3f}")
 
-    _dummy_carl = CARLEncoder(in_channels=8)
-    carl_p = f"{sum(p.numel() for p in _dummy_carl.parameters())/1000:.1f}K"
-    table_rows.append({
-        "category": "CARL (ours)", "representation": "CARL-GAP", "params": carl_p,
-        "SVR_r2": carl_gap_svr_m["r2"], "SVR_mae": carl_gap_svr_m["mae"],
-        "SVR_rmse": carl_gap_svr_m["rmse"],
-        "DeepMLP_r2": "—", "DeepMLP_mae": "—", "DeepMLP_rmse": "—",
-    })
-    table_rows.append(_row("CARL (ours)", "CARL-Proj", carl_p, carl_svr_m, carl_mlp_m))
+        _dummy_carl = CARLEncoder(in_channels=8)
+        carl_p = f"{sum(p.numel() for p in _dummy_carl.parameters())/1000:.1f}K"
+        table_rows.append({
+            "category": "CARL (ours)", "representation": "CARL-GAP", "params": carl_p,
+            "SVR_r2": carl_gap_svr_m["r2"], "SVR_mae": carl_gap_svr_m["mae"],
+            "SVR_rmse": carl_gap_svr_m["rmse"],
+            "DeepMLP_r2": "—", "DeepMLP_mae": "—", "DeepMLP_rmse": "—",
+        })
+        table_rows.append(_row("CARL (ours)", "CARL-Proj", carl_p, carl_svr_m, carl_mlp_m))
+
+        # ── Scatter plot (CARL best regressor) ──
+        carl_best_pred = y_pred_svr if carl_svr_m["r2"] >= carl_mlp_m["r2"] else y_pred_mlp
+        carl_best_m = carl_svr_m if carl_svr_m["r2"] >= carl_mlp_m["r2"] else carl_mlp_m
+        carl_best_head = "SVR" if carl_svr_m["r2"] >= carl_mlp_m["r2"] else "DeepMLP"
+        _plot_scatter({"model": f"CARL + {carl_best_head}", **carl_best_m,
+                       "y_true": y_ratio, "y_pred": carl_best_pred}, figures_dir)
+
+        # ── 保存 per-sample 预测 (SM 使用) ──
+        npz_path = tables_dir / "reg_predictions_v2.npz"
+        np.savez(
+            npz_path,
+            y_ratio=y_ratio,               # (n_mix,) float — true blend ratios
+            y_combo=y_combo,               # (n_mix,) str   — combo IDs e.g. "T1-T2"
+            y_pred_svr=y_pred_svr,         # (n_mix,) float — CARL-Proj+SVR nested CV
+            y_pred_mlp=y_pred_mlp,         # (n_mix,) float — CARL-Proj+DeepMLP nested CV
+            y_pred_gap_svr=y_pred_gap_svr, # (n_mix,) float — CARL-GAP+SVR nested CV
+        )
+        print(f"  Per-sample predictions -> {npz_path.name}")
 
     # ── 保存 Table 3 (wide format) ──
-    df = pd.DataFrame(table_rows)
-    csv_path = tables_dir / "table3_regression_v2.csv"
-    df.to_csv(csv_path, index=False)
-    print(f"  Table 3 -> {csv_path.name}")
+    if table_rows:
+        df = pd.DataFrame(table_rows)
+        csv_path = tables_dir / "table3_regression_v2.csv"
+        df.to_csv(csv_path, index=False)
+        print(f"  Table 3 -> {csv_path.name}")
 
     results["table3"] = table_rows
 
@@ -841,13 +891,6 @@ def run(
                 best_label = f"{row['representation']} + {head}"
     results["best_model"] = best_label
     results["best_r2"] = best_r2
-
-    # ── Scatter plot (CARL best regressor) ──
-    carl_best_pred = y_pred_svr if carl_svr_m["r2"] >= carl_mlp_m["r2"] else y_pred_mlp
-    carl_best_m = carl_svr_m if carl_svr_m["r2"] >= carl_mlp_m["r2"] else carl_mlp_m
-    carl_best_head = "SVR" if carl_svr_m["r2"] >= carl_mlp_m["r2"] else "DeepMLP"
-    _plot_scatter({"model": f"CARL + {carl_best_head}", **carl_best_m,
-                   "y_true": y_ratio, "y_pred": carl_best_pred}, figures_dir)
 
     # ── Save JSON ──
     _save_json(results, tables_dir / "exp_regression_v2.json")

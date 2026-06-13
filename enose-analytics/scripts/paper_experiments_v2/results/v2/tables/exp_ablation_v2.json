@@ -2,51 +2,43 @@
   "table4": [
     {
       "variant": "CARL (full)",
-      "cls_ft": 97.8,
-      "cls_svm": 95.0,
-      "reg_r2": 0.696,
-      "reg_mae": 0.1023,
-      "reg_rmse": 0.1361
+      "cls_ft": 96.9,
+      "cls_svm": 95.9,
+      "reg_r2": 0.703,
+      "reg_mae": 0.1001,
+      "reg_rmse": 0.1344
     },
     {
       "variant": "w/o SE",
-      "cls_ft": 96.6,
-      "cls_svm": 96.6,
-      "reg_r2": 0.671,
-      "reg_mae": 0.1066,
-      "reg_rmse": 0.1415
+      "cls_ft": 97.5,
+      "cls_svm": 95.6,
+      "reg_r2": 0.689,
+      "reg_mae": 0.1025,
+      "reg_rmse": 0.1374
     },
     {
       "variant": "w/o Aug",
-      "cls_ft": 97.5,
-      "cls_svm": 93.1,
-      "reg_r2": 0.656,
-      "reg_mae": 0.1128,
-      "reg_rmse": 0.1447
+      "cls_ft": 97.8,
+      "cls_svm": 94.1,
+      "reg_r2": 0.669,
+      "reg_mae": 0.1114,
+      "reg_rmse": 0.1419
     },
     {
       "variant": "w/o SOAP",
-      "cls_ft": 96.9,
-      "cls_svm": 95.3,
-      "reg_r2": 0.663,
-      "reg_mae": 0.1095,
-      "reg_rmse": 0.1432
-    },
-    {
-      "variant": "w/o TTA",
       "cls_ft": 97.5,
-      "cls_svm": 95.3,
-      "reg_r2": "！",
-      "reg_mae": "！",
-      "reg_rmse": "！"
+      "cls_svm": 95.0,
+      "reg_r2": 0.656,
+      "reg_mae": 0.1094,
+      "reg_rmse": 0.1447
     },
     {
-      "variant": "frozen probe (no FT)",
-      "cls_ft": 95.0,
-      "cls_svm": 95.0,
-      "reg_r2": "！",
-      "reg_mae": "！",
-      "reg_rmse": "！"
+      "variant": "CARL-GAP (pre-projector)",
+      "cls_ft": "！",
+      "cls_svm": "！",
+      "reg_r2": 0.454,
+      "reg_mae": 0.1486,
+      "reg_rmse": 0.1822
     }
   ]
 }

@@ -36,7 +36,7 @@ from ._style import (
     CURVE_TEAL, CURVE_BAND, PRED_GREY, FOREST_TEAL,
     soft_teal_cmap,
     init_nature_style, panel_label, save_figure,
-    load_dataset, load_json,
+    load_dataset_raw, load_json,
     V2_TABLES_DIR,
 )
 from ..config import (
@@ -65,6 +65,23 @@ def _load_nldi_json() -> dict:
 
 
 # ══════════════════════════════════════════════════════
+# 3σ outlier removal (same method as Fig S2)
+# ══════════════════════════════════════════════════════
+
+def _compute_outlier_mask(X_3d: np.ndarray, threshold: float = 3.0) -> np.ndarray:
+    """Return boolean keep-mask (True = inlier). Same as gen_sm_figs_v2.
+    X_3d: (N, T, C) — flatten → per-feature z-score → L2 norm / sqrt(d).
+    """
+    n = X_3d.shape[0]
+    X_flat = X_3d.reshape(n, -1)
+    mean = X_flat.mean(axis=0)
+    std = X_flat.std(axis=0) + 1e-12
+    z = (X_flat - mean) / std
+    z_norms = np.linalg.norm(z, axis=1) / np.sqrt(z.shape[1])
+    return z_norms <= threshold
+
+
+# ══════════════════════════════════════════════════════
 # Panel A — PCA scatter
 # ══════════════════════════════════════════════════════
 
@@ -79,8 +96,15 @@ def _draw_panel_a(ax, ds: PaperDataset):
     baseline = X_pure[:, :bl, :].mean(axis=1, keepdims=True)
     baseline = np.where(baseline == 0, 1.0, baseline)
     X_norm = X_pure / baseline
-    half = T // 2
-    X_feat = X_norm[:, half:, :].mean(axis=1)
+
+    # 3σ outlier removal
+    keep = _compute_outlier_mask(X_norm)
+    X_norm = X_norm[keep]
+    tea_ids_pure = tea_ids_pure[keep]
+
+    # flatten full time series: (N, T, 8) → (N, T*8)
+    N_samples = X_norm.shape[0]
+    X_feat = X_norm.reshape(N_samples, -1)
 
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X_feat)
@@ -123,12 +147,16 @@ def _draw_panel_b(ax, ds: PaperDataset):
     baseline = X_pure[:, :bl, :].mean(axis=1, keepdims=True)
     baseline = np.where(baseline == 0, 1.0, baseline)
     X_norm = X_pure / baseline
-    half = T // 2
+
+    # 3σ outlier removal
+    keep = _compute_outlier_mask(X_norm)
+    X_norm = X_norm[keep]
+    tea_ids_pure = tea_ids_pure[keep]
 
     radar_means: dict[str, np.ndarray] = {}
     for tid in sorted(set(tea_ids_pure)):
         mask = tea_ids_pure == tid
-        radar_means[tid] = X_norm[mask][:, half:, :].mean(axis=(0, 1))
+        radar_means[tid] = X_norm[mask].mean(axis=(0, 1))
 
     ch_labels = [f"CH{i}" for i in range(N_SENSORS)]
     n_ch = len(ch_labels)
@@ -193,17 +221,17 @@ def _draw_panel_c(axes_flat, ds: PaperDataset, nldi_json: dict,
             std_meas = measured.std(axis=1)
 
             ax.fill_between(ratio_steps, mean_meas - std_meas,
-                            mean_meas + std_meas, color=CURVE_BAND, alpha=0.13)
+                            mean_meas + std_meas, color=CURVE_BAND, alpha=0.13,
+                            label="±1 SD")
             ax.plot(ratio_steps, mean_pred, "--", color=PRED_GREY,
-                    linewidth=0.4)
+                    linewidth=0.4, label="Linear")
             ax.plot(ratio_steps, mean_meas, "-", color=CURVE_TEAL,
-                    markersize=0, linewidth=0.5)
+                    markersize=0, linewidth=0.5, label="Measured")
             ax.set_title(f"{combo_id}  {nldi_val:.3f}",
                          fontsize=5.5, pad=2)
             ax.set_xlim(-0.02, 1.02)
             if idx == 0:
-                ax.legend(["Linear", "Measured"], loc="lower left",
-                          fontsize=4.5, handlelength=0.8)
+                ax.legend(loc="lower left", fontsize=4.5, handlelength=0.8)
         else:
             ax.set_title(combo_id, fontsize=5.5)
 
@@ -310,7 +338,7 @@ def generate_fig4():
 
     init_nature_style()
 
-    ds = load_dataset()
+    ds = load_dataset_raw()
     nldi_json = _load_nldi_json()
 
     # ── 布局: 3 行 ──
@@ -318,13 +346,13 @@ def generate_fig4():
     # Row 2: C (full width, 2×5 内嵌)
     # Row 3: D (left) + E (right)
     # 宽度 = 双栏, 高度留足呼吸空间
-    fig = plt.figure(figsize=(FIG_WIDTH_DOUBLE, FIG_WIDTH_DOUBLE * 1.55))
+    fig = plt.figure(figsize=(FIG_WIDTH_DOUBLE, FIG_WIDTH_DOUBLE * 1.35))
     gs = gridspec.GridSpec(
         3, 2,
         figure=fig,
         height_ratios=[1.0, 0.75, 1.0],
         width_ratios=[1, 1],
-        hspace=0.55,
+        hspace=0.30,
         wspace=0.40,
     )
 
@@ -337,7 +365,7 @@ def generate_fig4():
     _draw_panel_b(ax_b, ds)
 
     # Panel C — 2×5 ratio curves (row 1, full width), shared axes
-    gs_c = gs[1, :].subgridspec(2, 5, hspace=0.35, wspace=0.12)
+    gs_c = gs[1, :].subgridspec(2, 5, hspace=0.20, wspace=0.12)
     axes_c = [fig.add_subplot(gs_c[r, c]) for r in range(2) for c in range(5)]
     _draw_panel_c(axes_c, ds, nldi_json)
 
@@ -348,6 +376,26 @@ def generate_fig4():
     # Panel E — Forest plot (row 2, col 1)
     ax_e = fig.add_subplot(gs[2, 1])
     _draw_panel_e(ax_e, nldi_json)
+
+    # ── 对齐 D / E panel label 到同一水平线 ──
+    # 取两个子图顶部在 figure 坐标中的 y，取较大值统一
+    fig.canvas.draw()  # 必须先 draw 才能获得准确坐标
+    d_top = ax_d.get_position().y1
+    e_top = ax_e.get_position().y1
+    label_y = max(d_top, e_top) + 0.02  # 略高于子图顶部
+    d_left = ax_d.get_position().x0
+    e_left = ax_e.get_position().x0
+    # 移除 _draw_panel_d/e 中的 panel_label，改用 fig.text
+    # 先删除已有的 D/E 标签
+    for txt in list(ax_d.texts) + list(ax_e.texts):
+        if txt.get_text() in ("D", "E"):
+            txt.remove()
+    fig.text(d_left - 0.02, label_y, "D",
+             fontsize=11, fontweight="bold", color=AXIS_GREY,
+             ha="right", va="bottom")
+    fig.text(e_left - 0.02, label_y, "E",
+             fontsize=11, fontweight="bold", color=AXIS_GREY,
+             ha="right", va="bottom")
 
     save_figure(fig, "fig4_merged_v2")
 

@@ -108,12 +108,12 @@ def _draw_panel_d(ax: plt.Axes):
     # ── 左: Tea Samples 框 ──
     ts_x, ts_y, ts_w, ts_h = 0.0, 0.3, 1.8, 3.6
     _rounded_box(ax, ts_x, ts_y, ts_w, ts_h, "#F9F7F4", "#E0DBD3", radius=0.1)
-    ax.text(ts_x + ts_w / 2, ts_y + ts_h - 0.35, "Tea Samples", ha="center", va="center",
+    ax.text(ts_x + ts_w / 2, ts_y + ts_h - 0.45, "Tea Samples", ha="center", va="center",
             fontsize=4.5, fontweight="bold", color=AXIS_GREY)
 
     for i, (tid, c) in enumerate(zip(tea_ids, tea_colors)):
         cy = ts_y + ts_h - 1.0 - i * 0.55
-        ax.plot(ts_x + 0.55, cy, "o", color=c, markersize=5,
+        ax.plot(ts_x + 0.65, cy, "o", color=c, markersize=5,
                 markeredgecolor="white", markeredgewidth=0.3, zorder=5)
         ax.text(ts_x + 0.95, cy, tid, ha="left", va="center",
                 fontsize=4, color=AXIS_GREY)
@@ -126,9 +126,9 @@ def _draw_panel_d(ax: plt.Axes):
             fontsize=5, fontweight="bold", color=TEAL_DEEP, ha="center", va="top")
     # 图标行: 5 色圆 + "× 64"
     for i, c in enumerate(tea_colors):
-        ax.plot(p1_x + 0.3 + i * 0.35, p1_y + p1_h * 0.5, "o", color=c,
+        ax.plot(p1_x + 0.75 + i * 0.35, p1_y + p1_h * 0.5, "o", color=c,
                 markersize=3.5, markeredgecolor="white", markeredgewidth=0.2, zorder=5)
-    ax.text(p1_x + 2.1, p1_y + p1_h * 0.5, "× 64",
+    ax.text(p1_x + 2.4, p1_y + p1_h * 0.5, "× 64",
             fontsize=4, color=AXIS_GREY, va="center")
     # n 值行
     ax.text(p1_x + p1_w / 2, p1_y + 0.25, "n = 320",
@@ -144,11 +144,11 @@ def _draw_panel_d(ax: plt.Axes):
 
     # 行2: 两圆 + "10 pairs"
     row2_y = p2_y + p2_h * 0.62
-    ax.plot(p2_x + 0.4, row2_y, "o", color=tea_colors[0],
+    ax.plot(p2_x + 1.4, row2_y, "o", color=tea_colors[0],
             markersize=3.5, markeredgecolor="white", markeredgewidth=0.2, zorder=5)
-    ax.plot(p2_x + 0.7, row2_y, "o", color=tea_colors[1],
+    ax.plot(p2_x + 1.7, row2_y, "o", color=tea_colors[1],
             markersize=3.5, markeredgecolor="white", markeredgewidth=0.2, zorder=5)
-    ax.text(p2_x + 1.0, row2_y, "10 pairs",
+    ax.text(p2_x + 2.0, row2_y, "10 pairs",
             fontsize=3.5, color=AXIS_GREY, va="center")
 
     # 行3: 9-step 渐变条
@@ -164,7 +164,7 @@ def _draw_panel_d(ax: plt.Axes):
         _rounded_box(ax, bar_x0 + j * bar_w, row3_y - 0.14, bar_w - 0.03, 0.28,
                       f"#{r:02X}{g:02X}{b:02X}", "none", radius=0.02)
     ax.text(p2_x + p2_w / 2, row3_y - 0.3, "9 ratio steps",
-            fontsize=3, color="#888888", ha="center")
+            fontsize=3, color="#666666", ha="center")
 
     # 行4: n 值
     ax.text(p2_x + p2_w / 2, p2_y + 0.2, "n = 370",
@@ -173,13 +173,13 @@ def _draw_panel_d(ax: plt.Axes):
     # ── 右: Combined Dataset 框 ──
     cd_x, cd_y, cd_w, cd_h = 6.9, 0.7, 3.2, 2.8
     _rounded_box(ax, cd_x, cd_y, cd_w, cd_h, "#F9F7F4", "#E0DBD3", radius=0.1)
-    ax.text(cd_x + cd_w / 2, cd_y + cd_h - 0.35, "Combined Dataset",
-            fontsize=4.5, fontweight="bold", color=AXIS_GREY, ha="center", va="top")
+    ax.text(cd_x + cd_w / 2, cd_y + cd_h - 0.45, "Combined Dataset",
+            fontsize=5, fontweight="bold", color=AXIS_GREY, ha="center", va="top")
     ax.text(cd_x + cd_w / 2, cd_y + cd_h / 2, "n = 690",
             fontsize=9, fontweight="bold", color=AXIS_GREY, ha="center", va="center")
-    ax.text(cd_x + cd_w / 2, cd_y + 0.5,
+    ax.text(cd_x + cd_w / 2, cd_y + 0.6,
             "multi-session\nrandomised order",
-            fontsize=3, color="#888888", ha="center", va="center", linespacing=1.4)
+            fontsize=4, color="#666666", ha="center", va="center", linespacing=1.4)
 
     # ── 连接箭头 ──
     _arrow(ax, ts_x + ts_w + 0.08, 3.0, p1_x - 0.08, p1_y + p1_h / 2)

@@ -1,13 +1,11 @@
-"""§3.5 Ablation Study (v2) — 论文 Table 4 格式。
+"""§3.6 Ablation Study (v2) — 论文 Table 4 格式。
 
-Ablation variants aligned with manuscript Table 4:
+Ablation variants aligned with manuscript Table 4 (design layers only):
   1. CARL (task-best)                     — cls: fine-tuning, reg: Proj+SVR
   2. w/o SE attention                     — encoder ablation
   3. w/o Aroma-Aware augmentation         — augmentation ablation
   4. w/o SOAP (use Adam)                  — optimiser ablation
-  5. w/o fine-tuning (frozen SVM probe)   — adaptation ablation (cls only)
-  6. w/ fine-tuning (replaces SVR)        — adaptation ablation (reg only)
-  7. w/o TTA                              — adaptation ablation (cls only)
+  5. CARL-GAP + SVR (pre-projector)       — feature location ablation (reg only)
 
 Classification "task-best" = CARL + fine-tuning (oversampling+Mixup+TTA).
 Regression "task-best"     = CARL-Proj + SVR (frozen encoder).
@@ -96,8 +94,8 @@ def _nested_cv_cls_ft(ds, carl_kwargs, tta_augments=20, label=""):
     return {"ft_acc": ft_acc, "svm_acc": svm_acc}
 
 
-def _nested_cv_reg_proj(ds, carl_kwargs, label=""):
-    """Nested 5-fold CV regression: CARL-Proj + SVR (frozen encoder)."""
+def _nested_cv_reg_proj(ds, carl_kwargs, use_gap=False, label=""):
+    """Nested 5-fold CV regression: CARL-Proj/GAP + SVR (frozen encoder)."""
     mix_idx = ds.mix_indices
     y_ratio = np.array([ds.ratios[i] for i in mix_idx])
     y_combo = np.array([ds.combo_ids[i] for i in mix_idx])
@@ -115,7 +113,10 @@ def _nested_cv_reg_proj(ds, carl_kwargs, label=""):
         mask[global_test] = False
 
         encoder, scaler = train_carl_on_subset(ds, mask, verbose=True, **carl_kwargs)
-        emb = extract_embeddings_with_scaler(encoder, ds, scaler)
+        if use_gap:
+            emb = extract_gap_features_with_scaler(encoder, ds, scaler)
+        else:
+            emb = extract_embeddings_with_scaler(encoder, ds, scaler)
 
         le_c = LabelEncoder()
         ohe = OneHotEncoder(sparse_output=False)
@@ -145,9 +146,9 @@ def run(
     tables_dir: Path,
     figures_dir: Path,
 ) -> dict:
-    """Run §3.5: CARL ablation (Table 4 format)."""
+    """Run §3.6: CARL ablation (Table 4 format)."""
     print("\n" + "=" * 70)
-    print("  §3.5 Ablation Study (v2 — Table 4)")
+    print("  §3.6 Ablation Study (v2 — Table 4)")
     print("=" * 70)
 
     rows = []
@@ -173,24 +174,16 @@ def run(
             "reg_rmse": reg["rmse"],
         })
 
-    # ── 2. TTA ablation (cls only): re-run full CARL with tta=0 ──
-    print(f"\n  CARL (w/o TTA)...")
+    # ── 2. GAP feature location ablation (reg only) ──
+    print(f"\n  CARL-GAP (pre-projector)...")
     full_kwargs = {"use_se": True, "use_augment": True, "use_soap": True}
-    cls_no_tta = _nested_cv_cls_ft(ds, full_kwargs, tta_augments=0, label="w/o TTA")
+    reg_gap = _nested_cv_reg_proj(ds, full_kwargs, use_gap=True, label="CARL-GAP")
     rows.append({
-        "variant": "w/o TTA",
-        "cls_ft": cls_no_tta["ft_acc"],
-        "cls_svm": cls_no_tta["svm_acc"],
-        "reg_r2": "—", "reg_mae": "—", "reg_rmse": "—",
-    })
-
-    # ── 3. Frozen-probe row (cls SVM from full variant) ──
-    full_row = rows[0]
-    rows.append({
-        "variant": "frozen probe (no FT)",
-        "cls_ft": full_row["cls_svm"],  # SVM acc = frozen probe
-        "cls_svm": full_row["cls_svm"],
-        "reg_r2": "—", "reg_mae": "—", "reg_rmse": "—",
+        "variant": "CARL-GAP (pre-projector)",
+        "cls_ft": "—", "cls_svm": "—",
+        "reg_r2": reg_gap["r2"],
+        "reg_mae": reg_gap["mae"],
+        "reg_rmse": reg_gap["rmse"],
     })
 
     # ── 保存 Table 4 ──
@@ -204,7 +197,7 @@ def run(
 
     # 摘要
     full = rows[0]
-    print(f"\n  === §3.5 结果摘要 ===")
+    print(f"\n  === §3.6 结果摘要 ===")
     print(f"  Full CARL: FT={full['cls_ft']}%, SVM={full['cls_svm']}%, "
           f"SVR R²={full['reg_r2']}, MAE={full['reg_mae']}")
     for r in rows[1:]:

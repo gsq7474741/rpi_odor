@@ -466,6 +466,8 @@ def train_carl_on_subset(
     use_se: bool = True,
     use_augment: bool = True,
     use_soap: bool = True,
+    temperature: float = 0.5,
+    sigma: float = 0.5,
     verbose: bool = False,
 ) -> tuple[CARLEncoder, object]:
     """Train CARL using only samples where *train_mask[i]=True*.
@@ -510,9 +512,11 @@ def train_carl_on_subset(
     if not use_se:
         encoder.se = nn.Identity()
 
-    criterion = SoftSupConLoss(temperature=0.5, sigma=0.5)
+    criterion = SoftSupConLoss(temperature=temperature, sigma=sigma)
     optimizer = _make_contrastive_optimizer(encoder.parameters(), lr=lr, weight_decay=1e-4, use_soap=use_soap)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+    # WarmRestarts: T_0=200 → 4 restarts in 800ep, prevents premature LR decay
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+        optimizer, T_0=200, T_mult=1, eta_min=1e-6)
 
     for epoch in range(epochs):
         encoder.train()

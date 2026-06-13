@@ -22,17 +22,27 @@ import time
 import argparse
 import warnings
 import numpy as np
+from datetime import datetime
 from pathlib import Path
 
 warnings.filterwarnings("ignore")
 
-# v2 结果目录
-V2_RESULTS_DIR = Path(__file__).resolve().parent / "results" / "v2"
+# v2 结果目录 (默认; 可被 --tag 覆盖)
+_RESULTS_BASE = Path(__file__).resolve().parent / "results"
+V2_RESULTS_DIR = _RESULTS_BASE / "v2"
 V2_TABLES_DIR = V2_RESULTS_DIR / "tables"
 V2_FIGURES_DIR = V2_RESULTS_DIR / "figures"
 
 
-def ensure_v2_dirs():
+def _init_output_dirs(tag: str | None = None):
+    """设置输出目录。tag 非空时创建独立子目录，不覆盖旧结果。"""
+    global V2_RESULTS_DIR, V2_TABLES_DIR, V2_FIGURES_DIR
+    if tag:
+        V2_RESULTS_DIR = _RESULTS_BASE / f"v2_{tag}"
+    else:
+        V2_RESULTS_DIR = _RESULTS_BASE / "v2"
+    V2_TABLES_DIR = V2_RESULTS_DIR / "tables"
+    V2_FIGURES_DIR = V2_RESULTS_DIR / "figures"
     for d in [V2_RESULTS_DIR, V2_TABLES_DIR, V2_FIGURES_DIR]:
         d.mkdir(parents=True, exist_ok=True)
 
@@ -43,12 +53,30 @@ def main():
                         help="要运行的实验: nldi cls reg abl map (不指定则全部)")
     parser.add_argument("--cutoff", type=float, default=80.0,
                         help="截断秒数 (默认 80)")
+    parser.add_argument("--tag", type=str, default=None,
+                        help="结果目录后缀 (如 '20260504'); 不指定则自动加时间戳")
+    parser.add_argument("--overwrite", action="store_true",
+                        help="写入默认 results/v2 而非新建时间戳目录")
+    parser.add_argument("--model", nargs="*", type=str, default=None,
+                        help="只跑指定模型: hc e2e ssl comp carl (不指定则全部)")
+    parser.add_argument("--carl-epochs", type=int, default=None,
+                        help="覆盖 CARL 训练 epochs (默认 config.CARL_EPOCHS=300)")
+    parser.add_argument("--carl-temp", type=float, default=None,
+                        help="覆盖 SoftSupConLoss temperature (默认 0.5)")
+    parser.add_argument("--carl-sigma", type=float, default=None,
+                        help="覆盖 SoftSupConLoss sigma (默认 0.5)")
+    parser.add_argument("--carl-lr", type=float, default=None,
+                        help="覆盖 CARL 学习率 (默认 1e-3)")
     args = parser.parse_args()
 
     ALL_EXPS = ["nldi", "cls", "reg", "abl", "map"]
     exp_list = args.exp if args.exp else ALL_EXPS
 
-    ensure_v2_dirs()
+    if args.overwrite:
+        _init_output_dirs(tag=None)
+    else:
+        tag = args.tag or datetime.now().strftime("%Y%m%d_%H%M%S")
+        _init_output_dirs(tag=tag)
 
     print("=" * 70)
     print("  茶叶拼配电子鼻论文 — v2 实验管线")
@@ -98,13 +126,17 @@ def main():
     if "cls" in exp_list:
         from .experiments import classification as exp_cls
         all_results["cls"] = exp_cls.run(
-            ds, V2_TABLES_DIR, V2_FIGURES_DIR)
+            ds, V2_TABLES_DIR, V2_FIGURES_DIR,
+            only_models=args.model, carl_epochs=args.carl_epochs)
 
     # ── §3.4 比例回归 (CARL nested CV inside) ──
     if "reg" in exp_list:
         from .experiments import regression as exp_reg
         all_results["reg"] = exp_reg.run(
-            ds, V2_TABLES_DIR, V2_FIGURES_DIR)
+            ds, V2_TABLES_DIR, V2_FIGURES_DIR,
+            only_models=args.model, carl_epochs=args.carl_epochs,
+            carl_temp=args.carl_temp, carl_sigma=args.carl_sigma,
+            carl_lr=args.carl_lr)
 
     # ── §3.5 消融实验 (CARL nested CV inside) ──
     if "abl" in exp_list:

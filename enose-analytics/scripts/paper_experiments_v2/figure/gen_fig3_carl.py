@@ -311,7 +311,7 @@ def _draw_panel_a(ax):
         emb_w, emb_h, fill=False,
         edgecolor=TEAL_DEEP, linewidth=0.4, zorder=5))
     ax.text(emb_cx, emb_cy - emb_h / 2 - 0.006,
-            "output embedding (128-d, L₂-normalized)",
+            r"output embedding (128-d, $L_2$-normalized)",
             ha="center", va="top", fontsize=3.8,
             color=AXIS_GREY, style="italic")
 
@@ -428,7 +428,7 @@ def _draw_panel_a(ax):
                         facecolor="white", edgecolor=AXIS_GREY,
                         linewidth=0.4, zorder=5)
     ax.add_patch(mul_c)
-    ax.text(mul_x, y2, "⊗", ha="center", va="center",
+    ax.text(mul_x, y2, r"$\otimes$", ha="center", va="center",
             fontsize=6.2, color=AXIS_GREY, zorder=6)
     ax.text(mul_x, y2 - 0.03, "scale", ha="center", va="top",
             fontsize=3.3, color=AXIS_GREY, style="italic")
@@ -519,7 +519,7 @@ def _draw_panel_a(ax):
                        facecolor=TEAL_DEEP, edgecolor="white",
                        linewidth=0.4, zorder=5)
     ax.add_patch(l2_c)
-    ax.text(l2_x, y2, "ℓ₂", ha="center", va="center",
+    ax.text(l2_x, y2, r"$\ell_2$", ha="center", va="center",
             fontsize=4.5, color="white", zorder=6)
 
     _draw_arrow(ax, l2_x + 0.019, y2, l2_x + 0.047, y2)

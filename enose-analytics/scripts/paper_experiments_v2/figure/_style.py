@@ -190,10 +190,20 @@ def panel_label(ax, label: str, x: float = -0.10, y: float = 1.08):
 # ═══════════════════════════════════════════════════════════════
 
 def load_dataset() -> PaperDataset:
-    """从 pickle 缓存加载 PaperDataset。"""
-    pkl_files = list(CACHE_DIR.glob("paper_dataset_*.pkl"))
-    assert pkl_files, f"No cached dataset found in {CACHE_DIR}"
-    with open(pkl_files[0], "rb") as f:
+    """加载 v2 boost 数据集 (用于分类/回归等需要 boost 特征的图)。"""
+    chosen = CACHE_DIR / "paper_dataset_v2_runs99_101_102_103_104_105_106_108_111_112_cut80s_boost0.10gms0.22j0.30m4g1v0.30_mixA.pkl"
+    assert chosen.exists(), f"Dataset not found: {chosen}"
+    print(f"  加载数据集: {chosen.name}")
+    with open(chosen, "rb") as f:
+        return pickle.load(f)
+
+
+def load_dataset_raw() -> PaperDataset:
+    """加载 v1 raw 数据集 (用于 Fig 4 等纯描述性图)。"""
+    chosen = CACHE_DIR / "paper_dataset_v1_raw.pkl"
+    assert chosen.exists(), f"Dataset not found: {chosen}"
+    print(f"  加载数据集: {chosen.name}")
+    with open(chosen, "rb") as f:
         return pickle.load(f)
 
 

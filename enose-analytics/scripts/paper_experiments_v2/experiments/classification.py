@@ -105,6 +105,8 @@ def run(
     ds: PaperDataset,
     tables_dir: Path,
     figures_dir: Path,
+    only_models: list[str] | None = None,
+    carl_epochs: int | None = None,
 ) -> dict:
     """运行 §3.3: 叉乘分类对比 (Representation × {k-NN, SVM-RBF})."""
     print("\n" + "=" * 70)
@@ -148,13 +150,17 @@ def run(
         "k-NN": lambda: KNeighborsClassifier(n_neighbors=5),
     }
     hc_metrics: dict[str, dict[str, str | float]] = {}
+    hc_preds: dict[str, np.ndarray] = {}  # per-sample predictions for SM
     for cname, clf_factory in hc_clf_factories.items():
+        y_pred_hc = np.zeros_like(y, dtype=int)
         fold_ms: list[dict[str, float]] = []
         for tr_idx, te_idx in skf.split(X_feat, y):
             pipe = Pipeline([("scaler", StandardScaler()), ("clf", clf_factory())])
             pipe.fit(X_feat[tr_idx], y[tr_idx])
             yp = pipe.predict(X_feat[te_idx])
+            y_pred_hc[te_idx] = yp
             fold_ms.append(_cls_metrics(y[te_idx], yp))
+        hc_preds[cname] = y_pred_hc
         m = _summarize_cv_metrics(fold_ms)
         hc_metrics[cname] = m
         print(f"    HC + {cname}: acc={m['acc']}, f1={m['f1']}")
@@ -323,6 +329,19 @@ def run(
         title=f"Confusion (CARL + SVM-RBF, {carl_svm_m['acc']})",
     )
     _save(fig_cm, "fig_confusion_v2", figures_dir)
+
+    # ── 保存 per-sample 预测 (SM 使用) ──
+    npz_path = tables_dir / "cls_predictions_v2.npz"
+    npz_data = {
+        "y_true": y,                        # (n_pure,) int — encoded labels
+        "labels": le.classes_,               # ['T1','T2',...]
+        "y_pred_carl_svm": y_pred_svm,      # (n_pure,) int — nested CV
+        "y_pred_carl_ft": y_pred_ft,        # (n_pure,) int — nested CV
+    }
+    for cname, preds in hc_preds.items():
+        npz_data[f"y_pred_hc_{cname.lower().replace('-', '_')}"] = preds
+    np.savez(npz_path, **npz_data)
+    print(f"  Per-sample predictions -> {npz_path.name}")
 
     # ── 保存 JSON ──
     _save_json(results, tables_dir / "exp_classification_v2.json")

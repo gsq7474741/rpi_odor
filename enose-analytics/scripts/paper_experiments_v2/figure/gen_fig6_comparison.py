@@ -159,6 +159,8 @@ def _draw_panel_b(ax, df: pd.DataFrame):
 
 def _draw_panel_c(ax, df: pd.DataFrame):
     """ConvNeXt roadmap style: absolute acc bars with CARL (full) as reference."""
+    # 排除 CARL-GAP 行 (已在回归主表中讨论, 不属于组件消融)
+    df = df[~df["variant"].str.contains("GAP", case=False)].reset_index(drop=True)
     full_row = df[df["variant"] == "CARL (full)"].iloc[0]
     base_acc = float(full_row["cls_ft"])
 
@@ -201,6 +203,8 @@ def _draw_panel_c(ax, df: pd.DataFrame):
 
 def _draw_panel_d(ax, df: pd.DataFrame):
     """ConvNeXt roadmap style: absolute R² bars with CARL (full) as reference."""
+    # 排除 CARL-GAP 行 (已在回归主表中讨论, 不属于组件消融)
+    df = df[~df["variant"].str.contains("GAP", case=False)].reset_index(drop=True)
     full_row = df[df["variant"] == "CARL (full)"].iloc[0]
     base_r2 = float(full_row["reg_r2"])
 
@@ -221,12 +225,12 @@ def _draw_panel_d(ax, df: pd.DataFrame):
     ax.set_yticks(y)
     ax.set_yticklabels(labels, fontsize=5.5)
     ax.set_xlabel("R²", fontsize=6.5)
-    ax.set_xlim(0.60, 0.72)
+    ax.set_xlim(0.40, 0.75)
     ax.invert_yaxis()
 
     for i, v in enumerate(values):
         is_full = labels[i] == "CARL (full)"
-        ax.text(v - 0.003, i, f'{v:.3f}',
+        ax.text(v - 0.005, i, f'{v:.3f}',
                 va="center", ha="right", fontsize=5.5,
                 color="white" if is_full else AXIS_GREY,
                 fontweight="bold" if is_full else "normal")
@@ -252,7 +256,7 @@ def generate_fig6():
     fig = plt.figure(figsize=(FIG_WIDTH_DOUBLE, FIG_WIDTH_DOUBLE * 0.75))
     gs = gridspec.GridSpec(2, 2, figure=fig,
                            height_ratios=[1, 0.55],
-                           hspace=0.55, wspace=0.50)
+                           hspace=0.35, wspace=0.50)
 
     ax_a = fig.add_subplot(gs[0, 0])
     _draw_panel_a(ax_a, t2)

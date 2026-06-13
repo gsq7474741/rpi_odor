@@ -6,33 +6,33 @@
     "support": 64
   },
   "T2": {
-    "precision": 100.0,
-    "recall": 100.0,
-    "f1": 100.0,
+    "precision": 98.4,
+    "recall": 95.3,
+    "f1": 96.8,
     "support": 64
   },
   "T3": {
-    "precision": 98.4,
-    "recall": 95.2,
-    "f1": 96.8,
+    "precision": 96.9,
+    "recall": 98.4,
+    "f1": 97.6,
     "support": 63
   },
   "T4": {
-    "precision": 98.5,
+    "precision": 97.0,
     "recall": 100.0,
-    "f1": 99.2,
+    "f1": 98.5,
     "support": 65
   },
   "T5": {
-    "precision": 96.9,
-    "recall": 98.4,
-    "f1": 97.7,
+    "precision": 96.8,
+    "recall": 95.3,
+    "f1": 96.1,
     "support": 64
   },
   "macro_avg": {
-    "precision": 98.1,
-    "recall": 98.1,
-    "f1": 98.1,
+    "precision": 97.2,
+    "recall": 97.2,
+    "f1": 97.2,
     "support": 320
   }
 }

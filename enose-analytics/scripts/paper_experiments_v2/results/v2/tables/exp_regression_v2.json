@@ -3,136 +3,136 @@
     {
       "category": "Handcrafted",
       "representation": "HC+Ridge",
-      "params": "¡ª",
+      "params": "â€”",
       "SVR_r2": 0.17,
       "SVR_mae": 0.1626,
       "SVR_rmse": 0.2246,
-      "DeepMLP_r2": "¡ª",
-      "DeepMLP_mae": "¡ª",
-      "DeepMLP_rmse": "¡ª"
+      "DeepMLP_r2": "â€”",
+      "DeepMLP_mae": "â€”",
+      "DeepMLP_rmse": "â€”"
     },
     {
       "category": "Handcrafted",
       "representation": "HC",
-      "params": "¡ª",
+      "params": "â€”",
       "SVR_r2": 0.458,
       "SVR_mae": 0.1449,
       "SVR_rmse": 0.1816,
-      "DeepMLP_r2": 0.58,
-      "DeepMLP_mae": 0.1217,
-      "DeepMLP_rmse": 0.1599
+      "DeepMLP_r2": 0.566,
+      "DeepMLP_mae": 0.1238,
+      "DeepMLP_rmse": 0.1624
     },
     {
       "category": "End-to-end",
       "representation": "1D-CNN",
       "params": "45.9K",
-      "SVR_r2": "¡ª",
-      "SVR_mae": "¡ª",
-      "SVR_rmse": "¡ª",
-      "DeepMLP_r2": -0.147,
-      "DeepMLP_mae": 0.2088,
-      "DeepMLP_rmse": 0.2641
+      "SVR_r2": "â€”",
+      "SVR_mae": "â€”",
+      "SVR_rmse": "â€”",
+      "DeepMLP_r2": -0.157,
+      "DeepMLP_mae": 0.2076,
+      "DeepMLP_rmse": 0.2652
     },
     {
       "category": "End-to-end",
       "representation": "LSTM-Attn",
       "params": "137.3K",
-      "SVR_r2": "¡ª",
-      "SVR_mae": "¡ª",
-      "SVR_rmse": "¡ª",
-      "DeepMLP_r2": 0.287,
-      "DeepMLP_mae": 0.1683,
-      "DeepMLP_rmse": 0.2083
+      "SVR_r2": "â€”",
+      "SVR_mae": "â€”",
+      "SVR_rmse": "â€”",
+      "DeepMLP_r2": 0.269,
+      "DeepMLP_mae": 0.1664,
+      "DeepMLP_rmse": 0.2109
     },
     {
       "category": "Self-supervised",
       "representation": "TS2Vec",
       "params": "58.8K",
-      "SVR_r2": 0.292,
-      "SVR_mae": 0.1742,
-      "SVR_rmse": 0.2075,
-      "DeepMLP_r2": 0.338,
-      "DeepMLP_mae": 0.1554,
-      "DeepMLP_rmse": 0.2006
+      "SVR_r2": 0.299,
+      "SVR_mae": 0.1739,
+      "SVR_rmse": 0.2064,
+      "DeepMLP_r2": 0.314,
+      "DeepMLP_mae": 0.1593,
+      "DeepMLP_rmse": 0.2043
     },
     {
       "category": "Self-supervised",
       "representation": "Autoencoder",
       "params": "53.8K",
-      "SVR_r2": 0.414,
-      "SVR_mae": 0.1571,
-      "SVR_rmse": 0.1888,
-      "DeepMLP_r2": 0.525,
-      "DeepMLP_mae": 0.1308,
-      "DeepMLP_rmse": 0.17
+      "SVR_r2": 0.412,
+      "SVR_mae": 0.1575,
+      "SVR_rmse": 0.1891,
+      "DeepMLP_r2": 0.493,
+      "DeepMLP_mae": 0.1351,
+      "DeepMLP_rmse": 0.1755
     },
     {
       "category": "Self-supervised",
       "representation": "SimCLR",
       "params": "70.3K",
-      "SVR_r2": 0.015,
-      "SVR_mae": 0.2052,
-      "SVR_rmse": 0.2448,
-      "DeepMLP_r2": -0.119,
-      "DeepMLP_mae": 0.211,
-      "DeepMLP_rmse": 0.2609
+      "SVR_r2": 0.021,
+      "SVR_mae": 0.2059,
+      "SVR_rmse": 0.244,
+      "DeepMLP_r2": -0.175,
+      "DeepMLP_mae": 0.217,
+      "DeepMLP_rmse": 0.2673
     },
     {
       "category": "Comp-supervised",
       "representation": "TS2Vec+SoftSupCon",
       "params": "58.8K",
-      "SVR_r2": 0.714,
-      "SVR_mae": 0.1023,
-      "SVR_rmse": 0.1319,
-      "DeepMLP_r2": 0.701,
-      "DeepMLP_mae": 0.1029,
-      "DeepMLP_rmse": 0.1348
+      "SVR_r2": 0.707,
+      "SVR_mae": 0.1042,
+      "SVR_rmse": 0.1335,
+      "DeepMLP_r2": 0.692,
+      "DeepMLP_mae": 0.1048,
+      "DeepMLP_rmse": 0.137
     },
     {
       "category": "Comp-supervised",
       "representation": "AE+SoftSupCon",
       "params": "53.8K",
-      "SVR_r2": 0.685,
-      "SVR_mae": 0.1073,
-      "SVR_rmse": 0.1385,
-      "DeepMLP_r2": 0.683,
-      "DeepMLP_mae": 0.1054,
-      "DeepMLP_rmse": 0.1389
+      "SVR_r2": 0.69,
+      "SVR_mae": 0.1049,
+      "SVR_rmse": 0.1374,
+      "DeepMLP_r2": 0.693,
+      "DeepMLP_mae": 0.1029,
+      "DeepMLP_rmse": 0.1367
     },
     {
       "category": "Comp-supervised",
       "representation": "SimCLR+SoftSupCon",
       "params": "70.3K",
-      "SVR_r2": 0.681,
-      "SVR_mae": 0.1078,
-      "SVR_rmse": 0.1393,
-      "DeepMLP_r2": 0.668,
-      "DeepMLP_mae": 0.1111,
-      "DeepMLP_rmse": 0.1422
+      "SVR_r2": 0.679,
+      "SVR_mae": 0.1088,
+      "SVR_rmse": 0.1398,
+      "DeepMLP_r2": 0.652,
+      "DeepMLP_mae": 0.1121,
+      "DeepMLP_rmse": 0.1456
     },
     {
       "category": "CARL (ours)",
       "representation": "CARL-GAP",
       "params": "78.5K",
-      "SVR_r2": 0.466,
-      "SVR_mae": 0.148,
-      "SVR_rmse": 0.1802,
-      "DeepMLP_r2": "¡ª",
-      "DeepMLP_mae": "¡ª",
-      "DeepMLP_rmse": "¡ª"
+      "SVR_r2": 0.457,
+      "SVR_mae": 0.1493,
+      "SVR_rmse": 0.1817,
+      "DeepMLP_r2": "â€”",
+      "DeepMLP_mae": "â€”",
+      "DeepMLP_rmse": "â€”"
     },
     {
       "category": "CARL (ours)",
       "representation": "CARL-Proj",
       "params": "78.5K",
-      "SVR_r2": 0.686,
-      "SVR_mae": 0.1036,
-      "SVR_rmse": 0.1382,
-      "DeepMLP_r2": 0.671,
-      "DeepMLP_mae": 0.1069,
-      "DeepMLP_rmse": 0.1414
+      "SVR_r2": 0.719,
+      "SVR_mae": 0.0988,
+      "SVR_rmse": 0.1308,
+      "DeepMLP_r2": 0.672,
+      "DeepMLP_mae": 0.1062,
+      "DeepMLP_rmse": 0.1412
     }
   ],
-  "best_model": "TS2Vec+SoftSupCon + SVR",
-  "best_r2": 0.714
+  "best_model": "CARL-Proj + SVR",
+  "best_r2": 0.719
 }

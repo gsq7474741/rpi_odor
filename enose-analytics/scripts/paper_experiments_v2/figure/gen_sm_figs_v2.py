@@ -173,34 +173,33 @@ def gen_s4_nldi_per_channel(ds: PaperDataset):
 # Figure S8a: Predicted vs actual scatter (colour by combo)
 # ═══════════════════════════════════════════════════════════════
 
+def _load_reg_predictions() -> dict | None:
+    """加载回归实验的 per-sample 预测。"""
+    npz_path = V2_TABLES_DIR / "reg_predictions_v2.npz"
+    if not npz_path.exists():
+        print(f"    ⚠ {npz_path} 不存在, 跳过 (需先运行 run_all --exp reg)")
+        return None
+    data = np.load(npz_path, allow_pickle=True)
+    return {
+        "y_ratio": data["y_ratio"],
+        "y_combo": data["y_combo"],
+        "y_pred_svr": data["y_pred_svr"],
+    }
+
+
 def gen_s8a_pred_scatter(ds: PaperDataset, carl_embeddings: np.ndarray):
-    """按组合着色的预测散点图。"""
+    """按组合着色的预测散点图 — 从实验 npz 读取 nested CV 预测。"""
     print("  Figure S8a: Prediction scatter (by combo)...")
     init_nature_style()
 
-    from sklearn.svm import SVR
-    from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-    from sklearn.pipeline import Pipeline
-    from sklearn.model_selection import StratifiedKFold, cross_val_predict
     from sklearn.metrics import r2_score, mean_absolute_error
-    from ..config import N_CV_FOLDS
 
-    y_ratio = np.array(ds.ratios)[ds.mix_mask]
-    y_combo = np.array(ds.combo_ids)[ds.mix_mask]
-
-    X_emb = carl_embeddings[ds.mix_mask]
-    le = LabelEncoder()
-    combo_enc = le.fit_transform(y_combo)
-    ohe = OneHotEncoder(sparse_output=False)
-    combo_oh = ohe.fit_transform(combo_enc.reshape(-1, 1))
-    X_cond = np.hstack([X_emb, combo_oh])
-
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X_cond)
-
-    pipe = Pipeline([("svr", SVR(kernel="rbf", C=10.0, gamma="scale"))])
-    skf = StratifiedKFold(n_splits=N_CV_FOLDS, shuffle=True, random_state=SEED)
-    y_pred = cross_val_predict(pipe, X_scaled, y_ratio, cv=skf.split(X_scaled, y_combo))
+    reg_data = _load_reg_predictions()
+    if reg_data is None:
+        return
+    y_ratio = reg_data["y_ratio"]
+    y_combo = reg_data["y_combo"]
+    y_pred = reg_data["y_pred_svr"]
 
     fig, ax = plt.subplots(figsize=(FIG_WIDTH_1_5, FIG_WIDTH_1_5))
 
@@ -230,32 +229,16 @@ def gen_s8a_pred_scatter(ds: PaperDataset, carl_embeddings: np.ndarray):
 # ═══════════════════════════════════════════════════════════════
 
 def gen_s8b_residual(ds: PaperDataset, carl_embeddings: np.ndarray):
-    """残差 (predicted - actual) vs actual ratio 散点图。"""
+    """残差 (predicted - actual) vs actual ratio 散点图 — 从 npz 读取。"""
     print("  Figure S8b: Residual plot...")
     init_nature_style()
 
-    from sklearn.svm import SVR
-    from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-    from sklearn.pipeline import Pipeline
-    from sklearn.model_selection import StratifiedKFold, cross_val_predict
-    from ..config import N_CV_FOLDS
-
-    y_ratio = np.array(ds.ratios)[ds.mix_mask]
-    y_combo = np.array(ds.combo_ids)[ds.mix_mask]
-
-    X_emb = carl_embeddings[ds.mix_mask]
-    le = LabelEncoder()
-    combo_enc = le.fit_transform(y_combo)
-    ohe = OneHotEncoder(sparse_output=False)
-    combo_oh = ohe.fit_transform(combo_enc.reshape(-1, 1))
-    X_cond = np.hstack([X_emb, combo_oh])
-
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X_cond)
-
-    pipe = Pipeline([("svr", SVR(kernel="rbf", C=10.0, gamma="scale"))])
-    skf = StratifiedKFold(n_splits=N_CV_FOLDS, shuffle=True, random_state=SEED)
-    y_pred = cross_val_predict(pipe, X_scaled, y_ratio, cv=skf.split(X_scaled, y_combo))
+    reg_data = _load_reg_predictions()
+    if reg_data is None:
+        return
+    y_ratio = reg_data["y_ratio"]
+    y_combo = reg_data["y_combo"]
+    y_pred = reg_data["y_pred_svr"]
 
     residual = y_pred - y_ratio
 
@@ -504,59 +487,51 @@ def gen_s2c_zscore_histogram(ds: PaperDataset):
 # ═══════════════════════════════════════════════════════════════
 
 def gen_s7a_confusion(ds: PaperDataset, carl_embeddings: np.ndarray):
-    """三面板混淆矩阵: (a) HC+LDA, (b) 1D-CNN (if available), (c) CARL+FT。
+    """三面板混淆矩阵: (a) HC+LDA, (b) CARL frozen SVM, (c) CARL fine-tuning.
     
-    1D-CNN 需要重新训练 → 如果不可用则用 CARL-frozen 替代。
-    CARL-FT 需要微调 → 用冻结编码器 + SVM-RBF 近似。
+    从实验保存的 cls_predictions_v2.npz 读取 per-sample 预测,
+    保证与 Table 2 完全一致 (nested CV, 无数据泄漏)。
     """
     print("  Figure S7a: Confusion matrices...")
     init_nature_style()
 
-    from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-    from sklearn.svm import SVC
-    from sklearn.model_selection import StratifiedKFold, cross_val_predict
-    from sklearn.metrics import confusion_matrix, accuracy_score
-    from ..config import N_CV_FOLDS
+    from sklearn.metrics import confusion_matrix, accuracy_score, classification_report
 
-    tea_ids_arr = np.array(ds.tea_ids)
-    pure_mask = ds.pure_mask
-    y = tea_ids_arr[pure_mask]  # T1..T5
+    npz_path = V2_TABLES_DIR / "cls_predictions_v2.npz"
+    if not npz_path.exists():
+        print(f"    ⚠ {npz_path} 不存在, 跳过 (需先运行 run_all --exp cls)")
+        return
 
-    # HC features
-    feat_name = "norm_stats" if "norm_stats" in ds.features else list(ds.features.keys())[0]
-    X_hc = StandardScaler().fit_transform(ds.features[feat_name][0][pure_mask])
+    data = np.load(npz_path, allow_pickle=True)
+    y_true = data["y_true"]           # int-encoded
+    labels = data["labels"]           # ['T1','T2','T3','T4','T5']
+    y_pred_lda = data["y_pred_hc_lda"]
+    y_pred_svm = data["y_pred_carl_svm"]
+    y_pred_ft = data["y_pred_carl_ft"]
 
-    # CARL embeddings
-    X_carl = carl_embeddings[pure_mask]
+    # 转回 str 标签
+    y_str = labels[y_true]
+    y_lda_str = labels[y_pred_lda]
+    y_svm_str = labels[y_pred_svm]
+    y_ft_str = labels[y_pred_ft]
 
-    skf = StratifiedKFold(n_splits=N_CV_FOLDS, shuffle=True, random_state=SEED)
+    labels_5 = list(labels)
 
-    # (a) HC + LDA
-    lda = LinearDiscriminantAnalysis()
-    y_pred_lda = cross_val_predict(lda, X_hc, y, cv=skf)
-    cm_lda = confusion_matrix(y, y_pred_lda, labels=["T1", "T2", "T3", "T4", "T5"])
-    acc_lda = accuracy_score(y, y_pred_lda) * 100
+    cm_lda = confusion_matrix(y_str, y_lda_str, labels=labels_5)
+    acc_lda = accuracy_score(y_str, y_lda_str) * 100
 
-    # (b) CARL-frozen + SVM-RBF (近似 1D-CNN 位置, 实际为冻结探针)
-    svm = SVC(kernel="rbf", C=10.0, gamma="scale")
-    y_pred_svm = cross_val_predict(svm, X_carl, y, cv=skf)
-    cm_svm = confusion_matrix(y, y_pred_svm, labels=["T1", "T2", "T3", "T4", "T5"])
-    acc_svm = accuracy_score(y, y_pred_svm) * 100
+    cm_svm = confusion_matrix(y_str, y_svm_str, labels=labels_5)
+    acc_svm = accuracy_score(y_str, y_svm_str) * 100
 
-    # (c) CARL-frozen + SVM (same, representing best — 真正的 CARL-FT 需要重新微调)
-    # 使用 scale+rbf 配置获取最佳冻结结果
-    svm2 = SVC(kernel="rbf", C=50.0, gamma="scale")
-    y_pred_carl = cross_val_predict(svm2, X_carl, y, cv=skf)
-    cm_carl = confusion_matrix(y, y_pred_carl, labels=["T1", "T2", "T3", "T4", "T5"])
-    acc_carl = accuracy_score(y, y_pred_carl) * 100
+    cm_ft = confusion_matrix(y_str, y_ft_str, labels=labels_5)
+    acc_ft = accuracy_score(y_str, y_ft_str) * 100
 
     # 绘图
     fig, axes = plt.subplots(1, 3, figsize=(FIG_WIDTH_DOUBLE * 1.3, FIG_WIDTH_SINGLE * 1.1))
-    cms = [cm_lda, cm_svm, cm_carl]
+    cms = [cm_lda, cm_svm, cm_ft]
     titles = [f"(a) HC + LDA ({acc_lda:.1f}%)",
               f"(b) CARL + SVM-RBF ({acc_svm:.1f}%)",
-              f"(c) CARL + SVM-RBF tuned ({acc_carl:.1f}%)"]
-    labels_5 = ["T1", "T2", "T3", "T4", "T5"]
+              f"(c) CARL fine-tuning ({acc_ft:.1f}%)"]
 
     for ax, cm, title in zip(axes, cms, titles):
         sns.heatmap(cm, annot=True, fmt="d", cmap=soft_teal_cmap(),
@@ -572,9 +547,8 @@ def gen_s7a_confusion(ds: PaperDataset, carl_embeddings: np.ndarray):
     fig.tight_layout()
     save_figure(fig, "fig_sm_s7a_confusion_v2")
 
-    # 同时导出逐类指标 JSON (用于填充表 S7a)
-    from sklearn.metrics import classification_report
-    report = classification_report(y, y_pred_carl, output_dict=True, target_names=labels_5)
+    # 同时导出逐类指标 JSON — 基于 CARL fine-tuning (task-best)
+    report = classification_report(y_str, y_ft_str, output_dict=True, target_names=labels_5)
     s7a_data = {}
     for t in labels_5:
         s7a_data[t] = {
@@ -744,32 +718,17 @@ def gen_table_s4_per_channel_nldi(ds: PaperDataset):
 
 
 def gen_table_s8a_per_combo_regression(ds: PaperDataset, carl_embeddings: np.ndarray):
-    """导出表S8a逐组合回归性能到JSON。"""
+    """导出表S8a逐组合回归性能到JSON — 从 npz 读取 nested CV 预测。"""
     print("  Table S8a: Per-combo regression data...")
 
-    from sklearn.svm import SVR
-    from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-    from sklearn.pipeline import Pipeline
-    from sklearn.model_selection import StratifiedKFold, cross_val_predict
     from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
-    from ..config import N_CV_FOLDS
 
-    y_ratio = np.array(ds.ratios)[ds.mix_mask]
-    y_combo = np.array(ds.combo_ids)[ds.mix_mask]
-
-    X_emb = carl_embeddings[ds.mix_mask]
-    le = LabelEncoder()
-    combo_enc = le.fit_transform(y_combo)
-    ohe = OneHotEncoder(sparse_output=False)
-    combo_oh = ohe.fit_transform(combo_enc.reshape(-1, 1))
-    X_cond = np.hstack([X_emb, combo_oh])
-
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X_cond)
-
-    pipe = Pipeline([("svr", SVR(kernel="rbf", C=10.0, gamma="scale"))])
-    skf = StratifiedKFold(n_splits=N_CV_FOLDS, shuffle=True, random_state=SEED)
-    y_pred = cross_val_predict(pipe, X_scaled, y_ratio, cv=skf.split(X_scaled, y_combo))
+    reg_data = _load_reg_predictions()
+    if reg_data is None:
+        return {}
+    y_ratio = reg_data["y_ratio"]
+    y_combo = reg_data["y_combo"]
+    y_pred = reg_data["y_pred_svr"]
 
     result = {}
     for combo_id in sorted(set(y_combo)):
